@@ -1,10 +1,6 @@
 #pragma once
 
-#ifdef D_PLATFORM_ORBIS
-#include <x86intrin.h>
-#else
 #include <intrin.h>
-#endif
 
 #include "VecTools.h"
 
