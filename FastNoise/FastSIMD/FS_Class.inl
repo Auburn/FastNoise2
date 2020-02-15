@@ -17,10 +17,9 @@ class CLASS
 class CLASS : public virtual CHILD
 
 #define FASTSIMD_CLASS_SETUP( ... )\
-public: virtual FastSIMD::ELevel GetSIMDLevel() = 0;\
+public: virtual FastSIMD::eLevel GetSIMDLevel() = 0;\
 static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = ( __VA_ARGS__ );\
-static_assert( (Supported_SIMD_Levels & FastSIMD::FASTSIMD_FALLBACK_SIMD_LEVEL) != 0, "FASTSIMD_FALLBACK_SIMD_LEVEL must be supported" );
-
+static_assert( (Supported_SIMD_Levels & FastSIMD::SIMDClassList::MinimumCompiled::SIMD_Level) != 0, "FASTSIMD_FALLBACK_SIMD_LEVEL must be supported" );
 
 #define FASTSIMD_DEFINE_DOWNCAST_FUNC( CLASS ) \
 public: virtual void* GetPtrSIMD_ ## CLASS() = 0
@@ -40,10 +39,10 @@ public: virtual void* GetPtrSIMD_ ## CLASS() = 0
 #undef FASTSIMD_INCLUDE_CHECK
 
 #define FASTSIMD_CLASS_DECLARATION( CLASS ) \
-template<typename T_FS, FastSIMD::ELevel = T_FS::SIMD_Level> class FS_CLASS( CLASS ) : public virtual CLASS
+template<typename T_FS, FastSIMD::eLevel = T_FS::SIMD_Level> class FS_CLASS( CLASS ) : public virtual CLASS
 
 #define FASTSIMD_CLASS_DECLARATION_CHILD( CLASS, CHILD ) \
-template<typename T_FS, FastSIMD::ELevel = T_FS::SIMD_Level> class FS_CLASS( CLASS ) : public virtual CLASS, public FS_CLASS( CHILD )<T_FS> 
+template<typename T_FS, FastSIMD::eLevel = T_FS::SIMD_Level> class FS_CLASS( CLASS ) : public virtual CLASS, public FS_CLASS( CHILD )<T_FS> 
 
 #define FASTSIMD_CLASS_SETUP( ... ) \
 private:\
@@ -51,7 +50,7 @@ typedef typename T_FS FS;\
 typedef typename FS::float32v float32v;\
 typedef typename FS::int32v int32v;\
 typedef typename FS::mask32v mask32v;\
-public: FastSIMD::ELevel GetSIMDLevel() override { return FS::SIMD_Level; }
+public: FastSIMD::eLevel GetSIMDLevel() override { return FS::SIMD_Level; }
 
 #define FASTSIMD_DEFINE_DOWNCAST_FUNC( CLASS ) \
 public: void* GetPtrSIMD_ ## CLASS() final { return (FS_CLASS( CLASS )<FS>*)this; } \

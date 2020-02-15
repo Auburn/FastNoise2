@@ -1,12 +1,12 @@
 #pragma once
 
-#include "FastSIMD.h"
+#include "../FastSIMD.h"
 #include <type_traits>
 
-template<FastSIMD::ELevel L>
+template<FastSIMD::eLevel L>
 struct DummySIMDClass
 {
-    static const FastSIMD::ELevel SIMD_Level = L;
+    static const FastSIMD::eLevel SIMD_Level = L;
 };
 
 #if FASTSIMD_COMPILE_SCALAR
@@ -14,7 +14,7 @@ struct DummySIMDClass
 #else
 namespace FastSIMD
 {
-    typedef DummySIMDClass<Level_Scalar> Scalar
+    typedef DummySIMDClass<Level_Scalar> Scalar;
 }
 #endif
 
@@ -81,7 +81,7 @@ namespace FastSIMD
     {
         using MinimumCompiled = void;
 
-        template<ELevel L>
+        template<eLevel L>
         using GetByLevel = void;
 
         template<typename CLASS>
@@ -93,7 +93,7 @@ namespace FastSIMD
     {
         using MinimumCompiled = typename std::conditional<(HEAD::SIMD_Level & COMPILED_SIMD_LEVELS) != 0, HEAD, typename SIMDClassContainer<TAIL...>::MinimumCompiled>::type;
 
-        template<ELevel L>
+        template<eLevel L>
         using GetByLevel = typename std::conditional< L == HEAD::SIMD_Level, HEAD, typename SIMDClassContainer<TAIL...>::template GetByLevel<L> >::type;
 
         template<typename CLASS>
@@ -114,6 +114,4 @@ namespace FastSIMD
         NEON
     >
         SIMDClassList;
-
-    static_assert(SIMDClassList::MinimumCompiled::SIMD_Level == FASTSIMD_FALLBACK_SIMD_LEVEL, "FASTSIMD_FALLBACK_SIMD_LEVEL is not the lowest compiled SIMD level");
 }

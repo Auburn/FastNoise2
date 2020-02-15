@@ -1,11 +1,11 @@
 #include <memory>
 #include "Generator.h"
 
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #ifdef FASTSIMD_INCLUDE_CHECK
 #include __FILE__
 #endif
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #pragma once
 
 namespace FastNoise

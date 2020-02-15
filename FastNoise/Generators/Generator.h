@@ -1,8 +1,8 @@
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #ifdef FASTSIMD_INCLUDE_CHECK
 #include __FILE__
 #endif
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #pragma once
 
 #ifdef FS_SIMD_CLASS
@@ -17,7 +17,7 @@ namespace FastNoise
 
         FASTSIMD_DEFINE_DOWNCAST_FUNC( Generator );
 
-        FS_INTERNAL( template<typename F, FastSIMD::ELevel S> friend class FS_CLASS( Generator ) );
+        FS_INTERNAL( template<typename F, FastSIMD::eLevel S> friend class FS_CLASS( Generator ) );
 
     public:
         FS_EXTERNAL( virtual ~Generator() {} );
@@ -25,7 +25,7 @@ namespace FastNoise
         FS_EXTERNAL_FUNC( void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) );
         FS_EXTERNAL_FUNC( void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) );
 
-        FS_EXTERNAL_FUNC( void GenPositionArray3D( float* noiseOut, float* xPosArray, float* yPosArray, float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) );
+        FS_EXTERNAL_FUNC( void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) );
 
         FS_INTERNAL( virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) = 0 );
         FS_INTERNAL( virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v ) { return Gen( seed, x, y ); } );
@@ -49,11 +49,11 @@ namespace FastNoise
 
     public:
         FS_EXTERNAL_FUNC( void SetSource( const std::shared_ptr<Generator>& gen ) );
-        FS_INTERNAL( FS_CLASS( Generator )* GetSourceSIMD() { return mSource; } );
+        FS_INTERNAL( FS_CLASS( Generator )<T_FS>* GetSourceSIMD() { return mSource; } );
 
     protected:
         FS_EXTERNAL( std::shared_ptr<Generator> mSourceBase );
-        FS_INTERNAL( FS_CLASS( Generator )* mSource );
+        FS_INTERNAL( FS_CLASS( Generator )<T_FS>* mSource );
     };
 
     FS_INTERNAL(

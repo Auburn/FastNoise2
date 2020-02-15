@@ -1,7 +1,7 @@
 #define FASTSIMD_INTELLISENSE
 #include "Perlin.h"
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Perlin )<F, S>::float32v
 FS_CLASS( FastNoise::Perlin )<F, S>::Gen( int32v seed, float32v x, float32v y )
 {
@@ -18,15 +18,15 @@ FS_CLASS( FastNoise::Perlin )<F, S>::Gen( int32v seed, float32v x, float32v y )
     float32v xf1 = xf0 - float32v( 1 );
     float32v yf1 = yf0 - float32v( 1 );
 
-    xs = InterpQuintic( xs );
-    ys = InterpQuintic( ys );
+    xs = this->InterpQuintic( xs );
+    ys = this->InterpQuintic( ys );
 
-    return Lerp(
-           Lerp( GetGradientDot( HashPrimes( seed, x0, y0 ), xf0, yf0 ), GetGradientDot( HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs),
-           Lerp( GetGradientDot( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDot( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs), ys);
+    return this->Lerp(
+           this->Lerp( this->GetGradientDot( this->HashPrimes( seed, x0, y0 ), xf0, yf0 ), this->GetGradientDot( this->HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs),
+           this->Lerp( this->GetGradientDot( this->HashPrimes( seed, x0, y1 ), xf0, yf1 ), this->GetGradientDot( this->HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs), ys);
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Perlin )<F, S>::float32v
 FS_CLASS( FastNoise::Perlin )<F, S>::Gen( int32v seed, float32v x, float32v y, float32v z )
 {
@@ -48,14 +48,14 @@ FS_CLASS( FastNoise::Perlin )<F, S>::Gen( int32v seed, float32v x, float32v y, f
     float32v yf1 = yf0 - float32v( 1 );
     float32v zf1 = zf0 - float32v( 1 );
 
-    xs = InterpQuintic( xs );
-    ys = InterpQuintic( ys );
-    zs = InterpQuintic( zs );
+    xs = this->InterpQuintic( xs );
+    ys = this->InterpQuintic( ys );
+    zs = this->InterpQuintic( zs );
 
-    return Lerp( Lerp(
-           Lerp( GetGradientDot( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDot( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs),
-           Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDot( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs), ys),
-           Lerp(
-           Lerp( GetGradientDot( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDot( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs),
-           Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDot( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs), ys), zs);
+    return this->Lerp( this->Lerp(
+           this->Lerp( this->GetGradientDot( this->HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), this->GetGradientDot( this->HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs),
+           this->Lerp( this->GetGradientDot( this->HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), this->GetGradientDot( this->HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs), ys),
+           this->Lerp(
+           this->Lerp( this->GetGradientDot( this->HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), this->GetGradientDot( this->HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs),
+           this->Lerp( this->GetGradientDot( this->HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), this->GetGradientDot( this->HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs), ys), zs);
 }

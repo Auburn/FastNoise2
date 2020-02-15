@@ -168,11 +168,11 @@ struct NEON_i32x4
 
 FASTSIMD_INTERNAL_OPERATORS_INT( NEON_i32x4, int32_t )
 
-template<FastSIMD::ELevel LEVEL_T>
+template<FastSIMD::eeLevel LEVEL_T>
 class FastSIMD_NEON_T
 {
 public:
-    static const FastSIMD::ELevel SIMD_Level = LEVEL_T;
+    static const FastSIMD::eLevel SIMD_Level = LEVEL_T;
     static const size_t VectorSize = 128 / 8;
 
     typedef NEON_f32x4 float32v;
@@ -385,8 +385,8 @@ public:
         return vaddq_f32( fval, BitwiseAnd_f32( vcltq_f32( a, fval ), f1 ) );
     }
 
-    template<FastSIMD::ELevel L = LEVEL_T>
-    FS_INLINE static FS_ENABLE_IF( L < FastSIMD::Level_SSE41, float32v ) Round_f32( float32v a )
+    template<FastSIMD::eeLevel L = LEVEL_T>
+    FS_INLINE static FS_ENABLE_IF( L < FastSIMD::ELevel_SSE41, float32v ) Round_f32( float32v a )
     {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
         const __m128 nearest2 = _mm_castsi128_ps( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 2 ) );
@@ -400,8 +400,8 @@ public:
         return _mm_add_ps( aTrunc, rmd2Trunc );
     }
 
-    template<FastSIMD::ELevel L = LEVEL_T>
-    FS_INLINE static FS_ENABLE_IF( L >= FastSIMD::Level_SSE41, float32v ) Round_f32( float32v a )
+    template<FastSIMD::eeLevel L = LEVEL_T>
+    FS_INLINE static FS_ENABLE_IF( L >= FastSIMD::ELevel_SSE41, float32v ) Round_f32( float32v a )
     {
         return vrndnq_f32( a );
     }
@@ -420,5 +420,5 @@ public:
 };
 
 #if FASTSIMD_COMPILE_NEON
-typedef FastSIMD_SSE_T<FastSIMD::Level_NEON> FastSIMD_NEON;
+typedef FastSIMD_SSE_T<FastSIMD::ELevel_NEON> FastSIMD_NEON;
 #endif

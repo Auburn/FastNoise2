@@ -1,7 +1,7 @@
 #define FASTSIMD_INTELLISENSE
 #include "Simplex.h"
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Simplex )<F, S>::float32v
 FS_CLASS( FastNoise::Simplex )<F, S>::Gen( int32v seed, float32v x, float32v y )
 {
@@ -40,14 +40,14 @@ FS_CLASS( FastNoise::Simplex )<F, S>::Gen( int32v seed, float32v x, float32v y )
     t1 *= t1;
     t2 *= t2;
 
-    float32v n0 = t0 * t0 * GetGradientDot( HashPrimes( seed, i, j ), x0, y0 );
-    float32v n1 = t1 * t1 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32(i, int32v( Primes::X ), i1), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
-    float32v n2 = t2 * t2 * GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
+    float32v n0 = t0 * t0 * this->GetGradientDot( this->HashPrimes( seed, i, j ), x0, y0 );
+    float32v n1 = t1 * t1 * this->GetGradientDot( this->HashPrimes( seed, FS_MaskedAdd_i32(i, int32v( Primes::X ), i1), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
+    float32v n2 = t2 * t2 * this->GetGradientDot( this->HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
 
     return float32v( 70 ) * ( n0 + n1 + n2 );
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Simplex )<F, S>::float32v
 FS_CLASS( FastNoise::Simplex )<F, S>::Gen( int32v seed, float32v x, float32v y, float32v z )
 {
@@ -105,10 +105,10 @@ FS_CLASS( FastNoise::Simplex )<F, S>::Gen( int32v seed, float32v x, float32v y, 
     t2 *= t2;
     t3 *= t3;
 
-    float32v n0 = t0 * t0 * GetGradientDot( HashPrimes( seed, i, j, k ), x0, y0, z0 );
-    float32v n1 = t1 * t1 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32(i, int32v( Primes::X ), i1), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j1 ), FS_MaskedAdd_i32( k, int32v( Primes::Z ), k1 ) ), x1, y1, z1 );
-    float32v n2 = t2 * t2 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32(i, int32v( Primes::X ), i2), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( Primes::Z ), k2 ) ), x2, y2, z2 );
-    float32v n3 = t3 * t3 * GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
+    float32v n0 = t0 * t0 * this->GetGradientDot( this->HashPrimes( seed, i, j, k ), x0, y0, z0 );
+    float32v n1 = t1 * t1 * this->GetGradientDot( this->HashPrimes( seed, FS_MaskedAdd_i32(i, int32v( Primes::X ), i1), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j1 ), FS_MaskedAdd_i32( k, int32v( Primes::Z ), k1 ) ), x1, y1, z1 );
+    float32v n2 = t2 * t2 * this->GetGradientDot( this->HashPrimes( seed, FS_MaskedAdd_i32(i, int32v( Primes::X ), i2), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( Primes::Z ), k2 ) ), x2, y2, z2 );
+    float32v n3 = t3 * t3 * this->GetGradientDot( this->HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
 
     return float32v( 32 ) * ( n0 + n1 + n2 + n3 );
 }

@@ -1,7 +1,7 @@
 #define FASTSIMD_INTELLISENSE
 #include "Value.h"
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Value )<F, S>::float32v
 FS_CLASS( FastNoise::Value )<F, S>::Gen( int32v seed, float32v x, float32v y )
 {
@@ -13,15 +13,15 @@ FS_CLASS( FastNoise::Value )<F, S>::Gen( int32v seed, float32v x, float32v y )
     int32v x1 = x0 + int32v( Primes::X );
     int32v y1 = y0 + int32v( Primes::Y );
 
-    xs = InterpQuintic( x - xs );
-    ys = InterpQuintic( y - ys );
+    xs = this->InterpQuintic( x - xs );
+    ys = this->InterpQuintic( y - ys );
 
-    return Lerp(
-           Lerp( GetValueCoord( seed, x0, y0 ), GetValueCoord( seed, x1, y0 ), xs),
-           Lerp( GetValueCoord( seed, x0, y1 ), GetValueCoord( seed, x1, y1 ), xs), ys);
+    return this->Lerp(
+           this->Lerp( this->GetValueCoord( seed, x0, y0 ), this->GetValueCoord( seed, x1, y0 ), xs),
+           this->Lerp( this->GetValueCoord( seed, x0, y1 ), this->GetValueCoord( seed, x1, y1 ), xs), ys);
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Value )<F, S>::float32v
 FS_CLASS( FastNoise::Value )<F, S>::Gen( int32v seed, float32v x, float32v y, float32v z )
 {
@@ -36,14 +36,14 @@ FS_CLASS( FastNoise::Value )<F, S>::Gen( int32v seed, float32v x, float32v y, fl
     int32v y1 = y0 + int32v( Primes::Y );
     int32v z1 = z0 + int32v( Primes::Z );
 
-    xs = InterpQuintic( x - xs );
-    ys = InterpQuintic( y - ys );
-    zs = InterpQuintic( z - zs );
+    xs = this->InterpQuintic( x - xs );
+    ys = this->InterpQuintic( y - ys );
+    zs = this->InterpQuintic( z - zs );
 
-    return Lerp( Lerp(
-           Lerp( GetValueCoord( seed, x0, y0, z0 ), GetValueCoord( seed, x1, y0, z0 ), xs),
-           Lerp( GetValueCoord( seed, x0, y1, z0 ), GetValueCoord( seed, x1, y1, z0 ), xs), ys),
-           Lerp(
-           Lerp( GetValueCoord( seed, x0, y0, z1 ), GetValueCoord( seed, x1, y0, z1 ), xs),
-           Lerp( GetValueCoord( seed, x0, y1, z1 ), GetValueCoord( seed, x1, y1, z1 ), xs), ys), zs);
+    return this->Lerp( this->Lerp(
+           this->Lerp( this->GetValueCoord( seed, x0, y0, z0 ), this->GetValueCoord( seed, x1, y0, z0 ), xs),
+           this->Lerp( this->GetValueCoord( seed, x0, y1, z0 ), this->GetValueCoord( seed, x1, y1, z0 ), xs), ys),
+           this->Lerp( 
+           this->Lerp( this->GetValueCoord( seed, x0, y0, z1 ), this->GetValueCoord( seed, x1, y0, z1 ), xs),
+           this->Lerp( this->GetValueCoord( seed, x0, y1, z1 ), this->GetValueCoord( seed, x1, y1, z1 ), xs), ys), zs);
 }

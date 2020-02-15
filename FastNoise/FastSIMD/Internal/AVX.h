@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef D_PLATFORM_ORBIS
+#include <x86intrin.h>
+#else
 #include <intrin.h>
+#endif
 
 #include "VecTools.h"
 
@@ -169,13 +173,13 @@ namespace FastSIMD
 
     FASTSIMD_INTERNAL_OPERATORS_INT( AVX2_i32x8, int32_t )
 
-    template<ELevel LEVEL_T>
+    template<eLevel LEVEL_T>
     class AVX_T
     {
     public:
         static_assert(LEVEL_T >= Level_AVX && LEVEL_T <= Level_AVX2, "Cannot create template with unsupported SIMD level");
 
-        static const ELevel SIMD_Level = LEVEL_T;
+        static const eLevel SIMD_Level = LEVEL_T;
         static const size_t VectorSize = 256 / 8;
 
         typedef AVX_f32x8  float32v;

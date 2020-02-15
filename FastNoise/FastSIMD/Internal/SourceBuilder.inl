@@ -1,5 +1,5 @@
 #pragma once
-#include "FastSIMD.h"
+#include "../FastSIMD.h"
 #include "TypeList.h"
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
@@ -19,6 +19,6 @@ static CLASS* Get()\
 return new FS_CLASS(CLASS)<SIMD_T>; \
 }\
 };\
-template FastSIMD::ClassFactory<CLASS, FS_SIMD_CLASS>;
+template struct FastSIMD::ClassFactory<CLASS, FS_SIMD_CLASS>;
 
-#include "FastSIMD_BuildList.inl"
+#include "../FastSIMD_BuildList.inl"

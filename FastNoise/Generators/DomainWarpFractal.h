@@ -1,10 +1,10 @@
 #include "DomainWarp.h"
 
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #ifdef FASTSIMD_INCLUDE_CHECK
 #include __FILE__
 #endif
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #pragma once
 
 namespace FastNoise
@@ -22,7 +22,7 @@ namespace FastNoise
 
     protected:
         FS_EXTERNAL( std::shared_ptr<DomainWarp> mWarpBase );
-        FS_INTERNAL( FS_CLASS( DomainWarp ) < FS > * mWarp );
+        FS_INTERNAL( FS_CLASS( DomainWarp )<FS>* mWarp );
 
         FS_EXTERNAL( float mLacunarity = 2.0f );
         FS_EXTERNAL( float mGain = 0.5f );

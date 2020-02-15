@@ -1,10 +1,10 @@
 #include "Generator.h"
 
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #ifdef FASTSIMD_INCLUDE_CHECK
 #include __FILE__
 #endif
-#include "FS_Class.inl"
+#include "../FastSIMD/FS_Class.inl"
 #pragma once
 
 namespace FastNoise
@@ -33,8 +33,8 @@ namespace FastNoise
         FS_EXTERNAL( float mJitterModifier = 1.0f );
         FS_EXTERNAL( DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared );
 
-        FS_INTERNAL( const float kJitter2D = 0.5f );
-        FS_INTERNAL( const float kJitter3D = 0.45f );
+        FS_EXTERNAL( const float kJitter2D = 0.5f );
+        FS_EXTERNAL( const float kJitter3D = 0.45f );
     };
 
     FASTSIMD_CLASS_DECLARATION_CHILD( CellularValue, Cellular )
@@ -79,6 +79,6 @@ namespace FastNoise
         FS_EXTERNAL( float mLookupFreqW = 0.1f );
 
         FS_EXTERNAL( std::shared_ptr<Generator> lookupBase );
-        FS_INTERNAL( FS_CLASS( Generator )* lookup );
+        FS_INTERNAL( FS_CLASS( Generator )<T_FS>* lookup );
     };
 }

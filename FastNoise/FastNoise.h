@@ -8,15 +8,16 @@
 #include "Generators/Fractal.h"
 #include "Generators/DomainWarp.h"
 #include "Generators/DomainWarpFractal.h"
+#include "Generators/Modifiers.h"
 
 namespace FastNoise
 {
-    /*const FastSIMD::Level_BitFlags SUPPORTED_SIMD_LEVELS =
-        FastSIMD::Level_Scalar |
-        FastSIMD::Level_SSE2   |
-        FastSIMD::Level_SSE41  |
-        FastSIMD::Level_AVX2   |
-        FastSIMD::Level_AVX512;  */
+    /*const FastSIMD::ELevel_BitFlags SUPPORTED_SIMD_LEVELS =
+        FastSIMD::ELevel_Scalar |
+        FastSIMD::ELevel_SSE2   |
+        FastSIMD::ELevel_SSE41  |
+        FastSIMD::ELevel_AVX2   |
+        FastSIMD::ELevel_AVX512;  */
 
 
 }

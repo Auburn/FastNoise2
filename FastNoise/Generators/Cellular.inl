@@ -1,7 +1,7 @@
 #define FASTSIMD_INTELLISENSE
 #include "Cellular.h"
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 template<typename... P>
 typename FS_CLASS( FastNoise::Cellular )<F, S>::float32v
 FS_CLASS( FastNoise::Cellular )<F, S>::GetDistance( float32v dX, P... d )
@@ -36,7 +36,7 @@ FS_CLASS( FastNoise::Cellular )<F, S>::GetDistance( float32v dX, P... d )
     }
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::CellularValue )<F, S>::float32v
 FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float32v y )
 {
@@ -59,7 +59,7 @@ FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float3
         int32v yc = ycBase;
         for ( int yi = 0; yi < 3; yi++ )
         {
-            int32v hash = HashPrimesHB( seed, xc, yc );
+            int32v hash = this->HashPrimesHB( seed, xc, yc );
             float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
             float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -68,7 +68,7 @@ FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float3
             yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
             float32v newCellValue = float32v( 1.0f / INT_MAX ) * FS_Converti32_f32( hash );
-            float32v newDistance = GetDistance( xd, yd );
+            float32v newDistance = this->GetDistance( xd, yd );
 
             mask32v closer = FS_LessThan_f32( newDistance, distance );
 
@@ -85,7 +85,7 @@ FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float3
     return cellValue;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::CellularValue )<F, S>::float32v
 FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float32v y, float32v z )
 {
@@ -115,7 +115,7 @@ FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float3
             int32v zc = zcBase;
             for ( int zi = 0; zi < 3; zi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc, zc );
+                int32v hash = this->HashPrimesHB( seed, xc, yc, zc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 float32v yd = FS_Converti32_f32( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 float32v zd = FS_Converti32_f32( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -126,7 +126,7 @@ FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float3
                 zd = FS_FMulAdd_f32( zd, invMag, zcf );
                 
                 float32v newCellValue = float32v( 1.0f / INT_MAX ) * FS_Converti32_f32( hash );
-                float32v newDistance = GetDistance( xd, yd, zd );
+                float32v newDistance = this->GetDistance( xd, yd, zd );
 				
 				mask32v closer = FS_LessThan_f32( newDistance, distance );
 				
@@ -146,7 +146,7 @@ FS_CLASS( FastNoise::CellularValue )<F, S>::Gen( int32v seed, float32v x, float3
     return cellValue;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::CellularDistance )<F, S>::float32v
 FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, float32v y )
 {
@@ -168,7 +168,7 @@ FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, flo
         int32v yc = ycBase;
         for ( int yi = 0; yi < 3; yi++ )
         {
-            int32v hash = HashPrimesHB( seed, xc, yc );
+            int32v hash = this->HashPrimesHB( seed, xc, yc );
             float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
             float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -176,7 +176,7 @@ FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, flo
             xd = FS_FMulAdd_f32( xd, invMag, xcf );
             yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-            float32v newDistance = GetDistance( xd, yd );
+            float32v newDistance = this->GetDistance( xd, yd );
 
             distance = FS_Min_f32( newDistance, distance );
 
@@ -195,7 +195,7 @@ FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, flo
     return distance;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::CellularDistance )<F, S>::float32v
 FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, float32v y, float32v z )
 {
@@ -224,7 +224,7 @@ FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, flo
             int32v zc = zcBase;
             for ( int zi = 0; zi < 3; zi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc, zc );
+                int32v hash = this->HashPrimesHB( seed, xc, yc, zc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 float32v yd = FS_Converti32_f32( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 float32v zd = FS_Converti32_f32( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -234,7 +234,7 @@ FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, flo
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
                 zd = FS_FMulAdd_f32( zd, invMag, zcf );
 
-                float32v newDistance = GetDistance( xd, yd, zd );
+                float32v newDistance = this->GetDistance( xd, yd, zd );
 
                 distance = FS_Min_f32( newDistance, distance );
 
@@ -256,10 +256,10 @@ FS_CLASS( FastNoise::CellularDistance )<F, S>::Gen( int32v seed, float32v x, flo
     return distance;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 void FS_CLASS( FastNoise::CellularLookup )<F, S>::SetLookup( const std::shared_ptr<FastNoise::Generator>& gen )
 {
-    lookup = GetSIMD_Generator( gen.get() );
+    lookup = this->GetSIMD_Generator( gen.get() );
 
     if ( lookup )
     {
@@ -267,7 +267,7 @@ void FS_CLASS( FastNoise::CellularLookup )<F, S>::SetLookup( const std::shared_p
     }
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::CellularLookup )<F, S>::float32v
 FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float32v y )
 {
@@ -290,7 +290,7 @@ FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float
         int32v yc = ycBase;
         for ( int yi = 0; yi < 3; yi++ )
         {
-            int32v hash = HashPrimesHB( seed, xc, yc );
+            int32v hash = this->HashPrimesHB( seed, xc, yc );
             float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
             float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -298,7 +298,7 @@ FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float
             xd = FS_FMulAdd_f32( xd, invMag, xcf );
             yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-            float32v newDistance = GetDistance( xd, yd );
+            float32v newDistance = this->GetDistance( xd, yd );
 
             mask32v closer = FS_LessThan_f32( newDistance, distance );
             distance = FS_Min_f32( newDistance, distance );
@@ -316,7 +316,7 @@ FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float
     return lookup->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ) );
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::CellularLookup )<F, S>::float32v
 FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float32v y, float32v z )
 {
@@ -346,7 +346,7 @@ FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float
             int32v zc = zcBase;
             for ( int zi = 0; zi < 3; zi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc, zc );
+                int32v hash = this->HashPrimesHB( seed, xc, yc, zc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 float32v yd = FS_Converti32_f32( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 float32v zd = FS_Converti32_f32( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -356,7 +356,7 @@ FS_CLASS( FastNoise::CellularLookup )<F, S>::Gen( int32v seed, float32v x, float
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
                 zd = FS_FMulAdd_f32( zd, invMag, zcf );
 
-                float32v newDistance = GetDistance( xd, yd, zd );
+                float32v newDistance = this->GetDistance( xd, yd, zd );
 
                 mask32v closer = FS_LessThan_f32( newDistance, distance );
                 distance = FS_Min_f32( newDistance, distance );

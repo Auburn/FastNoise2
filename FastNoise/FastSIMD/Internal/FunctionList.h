@@ -3,16 +3,15 @@
 #include <type_traits>
 #include <memory>
 
-#include "FastSIMD.h"
+#include "../FastSIMD.h"
 
 #ifdef _MSC_VER
 #define FS_VECTORCALL __vectorcall
 #define FS_INLINE __forceinline
 #else
 #define FS_VECTORCALL 
-#define FS_INLINE inline
+#define FS_INLINE __attribute__((always_inline))
 #endif
-
 
 #define FS_CLASS( CLASS ) CLASS ## _SIMD
 
@@ -533,7 +532,7 @@ namespace FastSIMD
     template<typename FS>
     FS_INLINE FS_ENABLE_IF( !(std::is_same<typename FS::int32v, typename FS::mask32v>::value), typename FS::int32v ) MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
-        return MaskedSub_i32<FS>( a, FS::int32v( -1 ), m );
+        return MaskedSub_i32<FS>( a, typename FS::int32v( -1 ), m );
     }
 
     template<typename FS>
@@ -545,25 +544,25 @@ namespace FastSIMD
     template<typename FS>
     FS_INLINE FS_ENABLE_IF( !(std::is_same<typename FS::int32v, typename FS::mask32v>::value), typename FS::int32v ) MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
-        return MaskedAdd_i32<FS>( a, FS::int32v( -1 ), m );
+        return MaskedAdd_i32<FS>( a, typename FS::int32v( -1 ), m );
     }
 
 
-    template<ELevel FS, ELevel First, ELevel... Lvls>
+    template<FastSIMD::eLevel FS, FastSIMD::eLevel First, FastSIMD::eLevel... Lvls>
     struct MultiSpecialisation
     {
-        static const ELevel Level = MultiSpecialisation<Lvls...>::Level;
+        static const FastSIMD::eLevel Level = MultiSpecialisation<Lvls...>::Level;
     };
 
-    template<ELevel FS, ELevel... Types>
+    template<FastSIMD::eLevel FS, FastSIMD::eLevel... Types>
     struct MultiSpecialisation<FS, FS, Types...>
     {
-        static const ELevel Level = FS;
+        static const FastSIMD::eLevel Level = FS;
     };
 
-    template<ELevel FS, ELevel First>
+    template<FastSIMD::eLevel FS, FastSIMD::eLevel First>
     struct MultiSpecialisation<FS, First>
     {
-        static const ELevel Level = First;
+        static const FastSIMD::eLevel Level = First;
     };
 }

@@ -5,10 +5,9 @@
 #include <intrin.h>
 #include <stdexcept>
 
-static FastSIMD::ELevel simdLevel = FastSIMD::Level_Null;
+static FastSIMD::eLevel simdLevel = FastSIMD::Level_Null;
 
-static_assert( std::is_same<FastSIMD::ELevel, decltype( FastSIMD::FASTSIMD_FALLBACK_SIMD_LEVEL )>::value, "FASTSIMD_FALLBACK_SIMD_LEVEL not set to a valid SIMD Level, check FastSIMD_Config.h" );
-static_assert( FastSIMD::FASTSIMD_FALLBACK_SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS, "FASTSIMD_FALLBACK_SIMD_LEVEL is not a compiled SIMD level, check FastSIMD_Config.h" );
+static_assert(FastSIMD::SIMDClassList::MinimumCompiled::SIMD_Level & FastSIMD::COMPILED_SIMD_LEVELS, "FASTSIMD_FALLBACK_SIMD_LEVEL is not a compiled SIMD level, check FastSIMD_Config.h");
 
 #if FASTSIMD_x86
 // Define interface to cpuid instruction.
@@ -56,8 +55,8 @@ static int64_t xgetbv( int ctr )
 #elif defined( __GNUC__ )                                    // use inline assembly, Gnu/AT&T syntax
 
     uint32_t a, d;
-    __asm( "xgetbv" : "=a"(a), "=d"(d) : "c"(ctr) : );
-    return a | (uint64_t(d) << 32);
+    __asm("xgetbv" : "=a"(a), "=d"(d) : "c"(ctr) : );
+    return a | (uint64_t( d ) << 32);
 
 #else  // #elif defined (_WIN32)                           // other compiler. try inline assembly with masm/intel/MS syntax
 
@@ -70,14 +69,14 @@ static int64_t xgetbv( int ctr )
         mov a, eax
             mov d, edx
     }
-    return a | (uint64_t(d) << 32);
+    return a | (uint64_t( d ) << 32);
 
 #endif
 }
 #endif
 
 
-FastSIMD::ELevel FastSIMD::CPUMaxSIMDLevel()
+FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 {
     if ( simdLevel > Level_Null )
     {
@@ -86,7 +85,7 @@ FastSIMD::ELevel FastSIMD::CPUMaxSIMDLevel()
 
 #if FASTSIMD_x86
     simdLevel = Level_Scalar; // default value
-    int abcd[4] = {0,0,0,0}; // cpuid results
+    int abcd[4] = { 0,0,0,0 }; // cpuid results
 
     cpuid( abcd, 0 ); // call cpuid function 0
     if ( abcd[0] == 0 )
@@ -174,11 +173,17 @@ FastSIMD::ELevel FastSIMD::CPUMaxSIMDLevel()
     return simdLevel;
 }
 
+
 template<typename CLASS_T, typename SIMD_T>
-FS_INLINE FS_ENABLE_IF( (CLASS_T::Supported_SIMD_Levels & SIMD_T::SIMD_Level & FastSIMD::COMPILED_SIMD_LEVELS) != 0, CLASS_T*) 
-ClassLevelFinder( FastSIMD::ELevel maxSIMDLevel )
+FS_ENABLE_IF( (std::is_same<SIMD_T, void>::value), CLASS_T* ) ClassBuilder( FastSIMD::eLevel )
 {
-    CLASS_T* newClass = ClassLevelFinder<CLASS_T, FastSIMD::SIMDClassList::GetNextCompiledAfter<SIMD_T> >( maxSIMDLevel );
+    return nullptr;
+}
+
+template<typename CLASS_T, typename SIMD_T>
+FS_ENABLE_IF( (!std::is_same<SIMD_T, void>::value), CLASS_T* ) ClassBuilder( FastSIMD::eLevel maxSIMDLevel )
+{
+    CLASS_T* newClass = ClassBuilder<CLASS_T, FastSIMD::SIMDClassList::GetNextCompiledAfter<SIMD_T> >( maxSIMDLevel );
 
     if ( !newClass && SIMD_T::SIMD_Level <= maxSIMDLevel )
     {
@@ -188,30 +193,16 @@ ClassLevelFinder( FastSIMD::ELevel maxSIMDLevel )
     return newClass;
 }
 
-template<typename CLASS_T, typename SIMD_T>
-FS_INLINE FS_ENABLE_IF( (CLASS_T::Supported_SIMD_Levels & SIMD_T::SIMD_Level & FastSIMD::COMPILED_SIMD_LEVELS) == 0, CLASS_T* ) 
-ClassLevelFinder( FastSIMD::ELevel maxSIMDLevel )
+template<typename CLASS_T>
+CLASS_T* FastSIMD::NewSIMDClass( eLevel maxSIMDLevel )
 {
-    return ClassLevelFinder<CLASS_T, FastSIMD::SIMDClassList::GetNextCompiledAfter<SIMD_T> >( maxSIMDLevel );
-}
-
-template<typename CLASS_T, typename SIMD_T>
-FS_INLINE FS_ENABLE_IF( (std::is_same<SIMD_T, void>::value), CLASS_T* ) 
-ClassLevelFinder( FastSIMD::ELevel )
-{
-    return nullptr;
-}
-
-template<typename CLASS_T>                                                                                              
-CLASS_T* FastSIMD::NewSIMDClass( ELevel maxSIMDLevel )
-{                                                                                                       
-    return ClassLevelFinder<CLASS_T, SIMDClassList::MinimumCompiled>( maxSIMDLevel );     
+    return ClassBuilder<CLASS_T, SIMDClassList::MinimumCompiled>( maxSIMDLevel );
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template CLASS* FastSIMD::NewSIMDClass( FastSIMD::ELevel );
+template CLASS* FastSIMD::NewSIMDClass( FastSIMD::eLevel );
 
 #define FS_SIMD_CLASS void
 #define FASTSIMD_INCLUDE_HEADER_ONLY
 
-#include "FastSIMD_BuildList.h"
+#include "FastSIMD_BuildList.inl"

@@ -1,7 +1,7 @@
 #define FASTSIMD_INTELLISENSE
 #include "Generator.h"
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 void FS_CLASS( FastNoise::Generator )<F, S>::GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed )
 {
     int32v xIdx = int32v::FS_Zero();
@@ -27,7 +27,7 @@ void FS_CLASS( FastNoise::Generator )<F, S>::GenUniformGrid2D( float* noiseOut, 
         FS_Store_f32( &noiseOut[index], Gen( int32v( seed ), xPos, yPos ) );
         index += float32v::FS_Size();
 
-        yIdx += int32v( int32v::FS_Size() ); 
+        yIdx += int32v( int32v::FS_Size() );
 
         mask32v yReset = FS_GreaterThan_i32( yIdx, yMax );
         xIdx = FS_MaskedIncrement_i32( xIdx, yReset );
@@ -52,7 +52,7 @@ void FS_CLASS( FastNoise::Generator )<F, S>::GenUniformGrid2D( float* noiseOut, 
     }
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 void FS_CLASS( FastNoise::Generator )<F, S>::GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed )
 {
     int32v xIdx = int32v::FS_Zero();
@@ -114,8 +114,8 @@ void FS_CLASS( FastNoise::Generator )<F, S>::GenUniformGrid3D( float* noiseOut, 
     }
 }
 
-template<typename F, FastSIMD::ELevel S>
-void FS_CLASS( FastNoise::Generator )<F, S>::GenPositionArray3D( float* noiseOut, float* xPosArray, float* yPosArray, float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed )
+template<typename F, FastSIMD::eLevel S>
+void FS_CLASS( FastNoise::Generator )<F, S>::GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed )
 {
     int32_t index = 0;
     while( index < int64_t(count) - float32v::FS_Size() )
@@ -147,7 +147,7 @@ void FS_CLASS( FastNoise::Generator )<F, S>::GenPositionArray3D( float* noiseOut
     }
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Generator )<F, S>::float32v
 FS_CLASS( FastNoise::Generator )<F, S>::GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
@@ -170,7 +170,7 @@ FS_CLASS( FastNoise::Generator )<F, S>::GetGradientDot( int32v hash, float32v fX
     return fX + fY;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Generator )<F, S>::float32v
 FS_CLASS( FastNoise::Generator )<F, S>::GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
 {
@@ -197,7 +197,12 @@ template<typename F>
 class FS_CLASS( FastNoise::Generator )<F, FastSIMD::Level_AVX2> : public FS_CLASS( FastNoise::Generator )<F, FastSIMD::Level_Null>
 {    
 public:
-    using FS_CLASS( FastNoise::Generator )<F, FastSIMD::Level_Null>::GetGradientDot;
+    typedef F FS; 
+    typedef typename F::float32v float32v; 
+    typedef typename F::int32v int32v; 
+    typedef typename F::mask32v mask32v;
+
+    using FS_CLASS( FastNoise::Generator ) < F, FastSIMD::Level_Null > ::GetGradientDot;
 
     float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     {
@@ -215,6 +220,10 @@ template<typename F>
 class FS_CLASS( FastNoise::Generator )<F, FastSIMD::Level_AVX512> : public FS_CLASS( FastNoise::Generator )<F, FastSIMD::Level_Null>
 {    
 public:
+    typedef F FS;
+    typedef typename F::float32v float32v;
+    typedef typename F::int32v int32v;
+    typedef typename F::mask32v mask32v;
 
     float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     {
@@ -237,7 +246,7 @@ public:
     }
 };
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 template<typename... P>
 typename FS_CLASS( FastNoise::Generator )<F, S>::int32v
 FS_CLASS( FastNoise::Generator )<F, S>::HashPrimes( int32v seed, P... primedPos )
@@ -249,7 +258,7 @@ FS_CLASS( FastNoise::Generator )<F, S>::HashPrimes( int32v seed, P... primedPos 
     return (hash >> 13) ^ hash;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 template<typename... P>
 typename FS_CLASS( FastNoise::Generator )<F, S>::int32v
 FS_CLASS( FastNoise::Generator )<F, S>::HashPrimesHB( int32v seed, P... primedPos )
@@ -261,7 +270,7 @@ FS_CLASS( FastNoise::Generator )<F, S>::HashPrimesHB( int32v seed, P... primedPo
     return hash;
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 template<typename... P>
 typename FS_CLASS( FastNoise::Generator )<F, S>::float32v
 FS_CLASS( FastNoise::Generator )<F, S>::GetValueCoord( int32v seed, P... primedPos )
@@ -273,24 +282,24 @@ FS_CLASS( FastNoise::Generator )<F, S>::GetValueCoord( int32v seed, P... primedP
     return FS_Converti32_f32( hash ) * float32v( 1.f / INT_MAX );
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Generator )<F, S>::float32v
 FS_CLASS( FastNoise::Generator )<F, S>::InterpQuintic( float32v t )
 {
     return t * t * t * FS_FMulAdd_f32(t, FS_FMulAdd_f32(t, float32v( 6 ), float32v( -15 )), float32v( 10 ));
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 typename FS_CLASS( FastNoise::Generator )<F, S>::float32v
 FS_CLASS( FastNoise::Generator )<F, S>::Lerp( float32v a, float32v b, float32v t )
 {
     return FS_FMulAdd_f32(t, b - a, a);
 }
 
-template<typename F, FastSIMD::ELevel S>
+template<typename F, FastSIMD::eLevel S>
 void FS_CLASS( FastNoise::Modifier )<F, S>::SetSource( const std::shared_ptr<FastNoise::Generator>& gen )
 {
-    mSource = GetSIMD_Generator( gen.get() );
+    mSource = this->GetSIMD_Generator( gen.get() );
 
     if ( mSource )
     {

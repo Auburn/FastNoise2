@@ -137,7 +137,7 @@ namespace FastSIMD
     class Scalar
     {
     public:
-        static const ELevel SIMD_Level = Level_Scalar;
+        static const FastSIMD::eLevel SIMD_Level = FastSIMD::Level_Scalar;
 
         typedef Scalar_Float float32v;
         typedef Scalar_Int   int32v;
@@ -377,22 +377,22 @@ namespace FastSIMD
 
         FS_INLINE static int32v Mask_i32( int32v a, mask32v m )
         {
-            return m ? a : 0;
+            return m ? a : int32v(0);
         }
 
         FS_INLINE static float32v Mask_f32( float32v a, mask32v m )
         {
-            return m ? a : 0;
+            return m ? a : float32v(0);
         }
 
         FS_INLINE static int32v NMask_i32( int32v a, mask32v m )
         {
-            return m ? 0 : a;
+            return m ? int32v(0) : a;
         }
 
         FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
         {
-            return m ? 0 : a;
+            return m ? float32v(0) : a;
         }
     };
 

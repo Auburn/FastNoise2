@@ -8,7 +8,7 @@ namespace FastSIMD
 {
     typedef uint32_t Level_BitFlags;
 
-    enum ELevel : Level_BitFlags
+       enum eLevel : Level_BitFlags
     {
         Level_Null   = 0,       // Uninitilised
         Level_Scalar = 1 <<  0, // 80386 instruction set (Not SIMD)
@@ -37,25 +37,15 @@ namespace FastSIMD
         (FASTSIMD_COMPILE_AVX2       ? Level_AVX2   : 0) |
         (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : 0) |
         (FASTSIMD_COMPILE_NEON       ? Level_NEON   : 0) ;
+															  
 
-    ELevel CPUMaxSIMDLevel();
+    eLevel CPUMaxSIMDLevel();
 
     template<typename T>
-    T* NewSIMDClass( ELevel maxSIMDLevel );
+    T* NewSIMDClass( eLevel maxSIMDLevel );
 
     template<typename T>
     T* NewSIMDClass()
-    {
-        return NewSIMDClass<T>( CPUMaxSIMDLevel() );
-    }
-    template<typename T>
-    std::shared_ptr<T>* NewSIMDClassSmart( ELevel maxSIMDLevel )
-    {
-        return NewSIMDClass<T>( maxSIMDLevel );
-    }
-
-    template<typename T>
-    std::shared_ptr<T>* NewSIMDClassSmart()
     {
         return NewSIMDClass<T>( CPUMaxSIMDLevel() );
     }

@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef D_PLATFORM_ORBIS
+#include <x86intrin.h>
+#else
 #include <intrin.h>
+#endif
 
 #include "VecTools.h"
 
@@ -64,7 +68,7 @@ namespace FastSIMD
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128i minInt = _mm_slli_epi32( _mm_cmpeq_epi32( _mm_undefined_si128(), _mm_setzero_si128() ), 31 );
 #else
-            const __m128i minInt = _mm_set1_epi32( -1 << 31 );
+            const __m128i minInt = _mm_set1_epi32( 0x80000000 );
 #endif
             return _mm_xor_ps( *this, _mm_castsi128_ps( minInt ) );
         }
@@ -73,7 +77,7 @@ namespace FastSIMD
     FASTSIMD_INTERNAL_OPERATORS_FLOAT( SSE_f32x4 )
 
 
-    template<ELevel LEVEL_T>
+        template<eLevel LEVEL_T>
     struct SSE_i32x4
     {
         FASTSIMD_INTERNAL_TYPE_SET( SSE_i32x4, __m128i );
@@ -115,7 +119,7 @@ namespace FastSIMD
             return *this;
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE FS_ENABLE_IF( L < Level_SSE41, SSE_i32x4<L>& ) operator*=( const SSE_i32x4<L>& rhs )
         {
             __m128i tmp1 = _mm_mul_epu32( *this, rhs ); /* mul 2,0*/
@@ -124,7 +128,7 @@ namespace FastSIMD
             return *this;
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE FS_ENABLE_IF( L >= Level_SSE41, SSE_i32x4<L>& ) operator*=( const SSE_i32x4<L>& rhs )
         {
             *this = _mm_mullo_epi32( *this, rhs );
@@ -179,13 +183,13 @@ namespace FastSIMD
 
     FASTSIMD_INTERNAL_OPERATORS_INT_TEMPLATED( SSE_i32x4, int32_t )
 
-    template<ELevel LEVEL_T>
+        template<eLevel LEVEL_T>
     class SSE_T
     {
     public:
         static_assert(LEVEL_T >= Level_SSE && LEVEL_T <= Level_SSE42, "Cannot create template with unsupported SIMD level");
 
-        static const ELevel SIMD_Level = LEVEL_T;
+        static const eLevel SIMD_Level = LEVEL_T;
         static const size_t VectorSize = 128 / 8;
 
         typedef SSE_f32x4          float32v;
@@ -284,7 +288,7 @@ namespace FastSIMD
 
         // Select
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Select_f32( mask32v m, float32v a, float32v b )
         {
             __m128 mf = _mm_castsi128_ps( m );
@@ -292,19 +296,19 @@ namespace FastSIMD
             return  _mm_or_ps( _mm_and_ps( mf, a ), _mm_andnot_ps( mf, b ) );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Select_f32( mask32v m, float32v a, float32v b )
         {
             return  _mm_blendv_ps( b, a, _mm_castsi128_ps( m ) );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, int32v ) Select_i32( mask32v m, int32v a, int32v b )
         {
             return  _mm_or_si128( _mm_and_si128( m, a ), _mm_andnot_si128( m, b ) );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, int32v ) Select_i32( mask32v m, int32v a, int32v b )
         {
             return _mm_castps_si128( _mm_blendv_ps( _mm_castsi128_ps( b ), _mm_castsi128_ps( a ), _mm_castsi128_ps( m ) ) );
@@ -322,25 +326,25 @@ namespace FastSIMD
             return _mm_max_ps( a, b );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, int32v ) Min_i32( int32v a, int32v b )
         {
             return Select_i32( LessThan_i32( a, b ), a, b );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, int32v ) Min_i32( int32v a, int32v b )
         {
             return _mm_min_epi32( a, b );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, int32v ) Max_i32( int32v a, int32v b )
         {
             return Select_i32( GreaterThan_i32( a, b ), a, b );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, int32v ) Max_i32( int32v a, int32v b )
         {
             return _mm_max_epi32( a, b );
@@ -395,14 +399,14 @@ namespace FastSIMD
             return _mm_and_ps( a, _mm_castsi128_ps( intMax ) );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSSE3, int32v ) Abs_i32( int32v a )
         {
             __m128i signMask = _mm_srai_epi32( a, 31 );
             return _mm_sub_epi32( _mm_xor_si128( a, signMask ), signMask );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSSE3, int32v ) Abs_i32( int32v a )
         {
             return _mm_abs_epi32( a );
@@ -427,7 +431,7 @@ namespace FastSIMD
 
         // Floor, Ceil, Round: http://dss.stephanierct.com/DevBlog/?p=8
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Floor_f32( float32v a )
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
@@ -440,13 +444,13 @@ namespace FastSIMD
             return _mm_sub_ps( fval, _mm_and_ps( _mm_cmplt_ps( a, fval ), f1 ) );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Floor_f32( float32v a )
         {
             return _mm_floor_ps( a );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Ceil_f32( float32v a )
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
@@ -459,13 +463,13 @@ namespace FastSIMD
             return _mm_add_ps( fval, _mm_and_ps( cmp, f1 ) );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Ceil_f32( float32v a )
         {
             return _mm_ceil_ps( a );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Round_f32( float32v a )
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
@@ -480,7 +484,7 @@ namespace FastSIMD
             return _mm_add_ps( aTrunc, rmd2Trunc );
         }
 
-        template<ELevel L = LEVEL_T>
+        template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Round_f32( float32v a )
         {
             return _mm_round_ps( a, _MM_FROUND_NINT );
