@@ -59,7 +59,7 @@ set(FastNoise_inline
     FastNoise/Generators/White.inl
 )
 
-add_library(FastNoise SHARED
+add_library(FastNoise
     ${FastNoise_sources}
     ${FastNoise_headers}
     ${FastNoise_inline}
