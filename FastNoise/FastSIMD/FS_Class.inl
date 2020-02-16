@@ -18,8 +18,7 @@ class CLASS : public virtual CHILD
 
 #define FASTSIMD_CLASS_SETUP( ... )\
 public: virtual FastSIMD::eLevel GetSIMDLevel() = 0;\
-static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = ( __VA_ARGS__ );\
-static_assert( (Supported_SIMD_Levels & FastSIMD::SIMDClassList::MinimumCompiled::SIMD_Level) != 0, "FASTSIMD_FALLBACK_SIMD_LEVEL must be supported" );
+static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = ( __VA_ARGS__ );
 
 #define FASTSIMD_DEFINE_DOWNCAST_FUNC( CLASS ) \
 public: virtual void* GetPtrSIMD_ ## CLASS() = 0

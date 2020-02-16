@@ -73,7 +73,7 @@ namespace FastSIMD
     FASTSIMD_INTERNAL_OPERATORS_FLOAT( SSE_f32x4 )
 
 
-        template<eLevel LEVEL_T>
+    template<eLevel LEVEL_T>
     struct SSE_i32x4
     {
         FASTSIMD_INTERNAL_TYPE_SET( SSE_i32x4, __m128i );
@@ -179,7 +179,7 @@ namespace FastSIMD
 
     FASTSIMD_INTERNAL_OPERATORS_INT_TEMPLATED( SSE_i32x4, int32_t )
 
-        template<eLevel LEVEL_T>
+     template<eLevel LEVEL_T>
     class SSE_T
     {
     public:

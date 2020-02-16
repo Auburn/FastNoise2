@@ -196,6 +196,7 @@ FS_ENABLE_IF( (!std::is_same<SIMD_T, void>::value), CLASS_T* ) ClassBuilder( Fas
 template<typename CLASS_T>
 CLASS_T* FastSIMD::NewSIMDClass( eLevel maxSIMDLevel )
 {
+    static_assert( (CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDClassList::MinimumCompiled::SIMD_Level) != 0, "MinimumCompiled SIMD Level must be supported by this class" );
     return ClassBuilder<CLASS_T, SIMDClassList::MinimumCompiled>( maxSIMDLevel );
 }
 
