@@ -19,7 +19,6 @@
 
 #define FS_MULTI_SPECIALISATION( ... ) FastSIMD::MultiSpecialisation<FS_SIMD_CLASS::SIMD_Level, __VA_ARGS__ >::Level
 
-//#define FS_MULTI_TEMPLATE(...) FastSIMD::MultiTemplate<__VAS__>::type
 
 // Vector builders
 

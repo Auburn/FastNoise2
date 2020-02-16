@@ -173,9 +173,9 @@ namespace FastSIMD
     class AVX512_T
     {
     public:
-        static_assert(LEVEL_T >= Level_AVX512 && LEVEL_T <= Level_AVX512BWDQ, "Cannot create template with unsupported SIMD level");
+        static_assert(LEVEL_T == Level_AVX512, "Cannot create template with unsupported SIMD level");
 
-        static const Level SIMD_Level = LEVEL_T;
+        static const eLevel SIMD_Level = LEVEL_T;
         static const size_t VectorSize = 512 / 8;
 
         typedef AVX512_f32x16  float32v;
@@ -373,17 +373,17 @@ namespace FastSIMD
 
         FS_INLINE static float32v Floor_f32( float32v a )
         {
-            return _mm512_roundscale_ps( a, _MM_FROUND_TO_NEG_INF );
+            return _mm512_roundscale_ps( a, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC );
         }
 
         FS_INLINE static float32v Ceil_f32( float32v a )
         {
-            return _mm512_ceil_ps( a );
+            return _mm512_roundscale_ps( a, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC );
         }
 
         FS_INLINE static float32v Round_f32( float32v a )
         {
-            return _mm512_roundscale_ps( a, _MM_FROUND_TO_NEAREST_INT );
+            return _mm512_roundscale_ps( a, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC );
         }
 
         //Mask

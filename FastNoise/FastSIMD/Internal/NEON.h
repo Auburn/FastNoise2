@@ -168,7 +168,7 @@ struct NEON_i32x4
 
 FASTSIMD_INTERNAL_OPERATORS_INT( NEON_i32x4, int32_t )
 
-template<FastSIMD::eeLevel LEVEL_T>
+template<FastSIMD::eLevel LEVEL_T>
 class FastSIMD_NEON_T
 {
 public:
@@ -385,7 +385,7 @@ public:
         return vaddq_f32( fval, BitwiseAnd_f32( vcltq_f32( a, fval ), f1 ) );
     }
 
-    template<FastSIMD::eeLevel L = LEVEL_T>
+    template<FastSIMD::eLevel L = LEVEL_T>
     FS_INLINE static FS_ENABLE_IF( L < FastSIMD::ELevel_SSE41, float32v ) Round_f32( float32v a )
     {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
@@ -400,7 +400,7 @@ public:
         return _mm_add_ps( aTrunc, rmd2Trunc );
     }
 
-    template<FastSIMD::eeLevel L = LEVEL_T>
+    template<FastSIMD::eLevel L = LEVEL_T>
     FS_INLINE static FS_ENABLE_IF( L >= FastSIMD::ELevel_SSE41, float32v ) Round_f32( float32v a )
     {
         return vrndnq_f32( a );

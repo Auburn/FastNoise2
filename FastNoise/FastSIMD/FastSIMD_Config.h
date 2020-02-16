@@ -9,7 +9,7 @@
 
 #endif
 
-#define FASTSIMD_COMPILE_SCALAR     1
+#define FASTSIMD_COMPILE_SCALAR (!FASTSIMD_x86 | (INTPTR_MAX != INT64_MAX)) // Don't compile for x86 64bit since CPU is guaranteed SSE2 support 
 
 #define FASTSIMD_COMPILE_SSE    (FASTSIMD_x86 & 000) // Not supported
 #define FASTSIMD_COMPILE_SSE2   (FASTSIMD_x86 &  1 )
@@ -19,7 +19,7 @@
 #define FASTSIMD_COMPILE_SSE42  (FASTSIMD_x86 &  1 )
 #define FASTSIMD_COMPILE_AVX    (FASTSIMD_x86 & 000) // Not supported
 #define FASTSIMD_COMPILE_AVX2   (FASTSIMD_x86 &  1 )
-#define FASTSIMD_COMPILE_AVX512 (FASTSIMD_x86 & 000)
+#define FASTSIMD_COMPILE_AVX512 (FASTSIMD_x86 &  1 )
 
 #define FASTSIMD_COMPILE_NEON   (FASTSIMD_ARM &  1 )
 
