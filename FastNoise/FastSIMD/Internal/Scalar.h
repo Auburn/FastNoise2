@@ -263,12 +263,12 @@ namespace FastSIMD
 
         FS_INLINE static float32v Min_f32( float32v a, float32v b )
         {
-            return std::min( a, b );
+            return fminf( a, b );
         }
 
         FS_INLINE static float32v Max_f32( float32v a, float32v b )
         {
-            return std::max( a, b );
+            return fmaxf( a, b );
         }
 
         FS_INLINE static int32v Min_i32( int32v a, int32v b )
@@ -317,7 +317,7 @@ namespace FastSIMD
 
         FS_INLINE static float32v Abs_f32( float32v a )
         {
-            return abs( a );
+            return fabsf( a );
         }
 
         FS_INLINE static int32v Abs_i32( int32v a )
@@ -329,48 +329,39 @@ namespace FastSIMD
 
         FS_INLINE static float32v Sqrt_f32( float32v a )
         {
-            return sqrt( a );
+            return sqrtf( a );
         }
 
         FS_INLINE static float32v InvSqrt_f32( float32v a )
         {
             float xhalf = 0.5f * a;
-            int32_t i = Castf32_i32( a );
-            i = 0x5f3759df - (i >> 1);
-            a = Casti32_f32( i );
+            a = Casti32_f32( 0x5f3759df - (Castf32_i32( a ) >> 1) );
             a = a * (1.5f - xhalf * a * a);
             return a;
         }
 
         FS_INLINE static float32v Reciprocal_f32( float32v a )
         {
-            union
-            {
-                float dbl;
-                unsigned uint;
-            } u;
-            u.dbl = a;
-            u.uint = (0xbe6eb3beU - u.uint) >> (unsigned char)1;
-            // pow( x, -0.5 )
-            u.dbl *= u.dbl;                 // pow( pow(x,-0.5), 2 ) = pow( x, -1 ) = 1.0 / x
-            return u.dbl;
+            // pow( pow(x,-0.5), 2 ) = pow( x, -1 ) = 1.0 / x
+            a = Casti32_f32( (0xbe6eb3beU - Castf32_i32( a )) >> 1 );
+            return a * a;
         }
 
         // Floor, Ceil, Round
 
         FS_INLINE static float32v Floor_f32( float32v a )
         {
-            return floor( a );
+            return floorf( a );
         }
 
         FS_INLINE static float32v Ceil_f32( float32v a )
         {
-            return ceil( a );
+            return ceilf( a );
         }
 
         FS_INLINE static float32v Round_f32( float32v a )
         {
-            return round( a );
+            return roundf( a );
         }
 
         // Mask
