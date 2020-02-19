@@ -9,7 +9,7 @@
 
 #endif
 
-#define FASTSIMD_COMPILE_SCALAR (!FASTSIMD_x86 | (INTPTR_MAX != INT64_MAX)) // Don't compile for x86 64bit since CPU is guaranteed SSE2 support 
+#define FASTSIMD_COMPILE_SCALAR ((!FASTSIMD_x86) || (INTPTR_MAX != INT64_MAX)) // Don't compile for x86 64bit since CPU is guaranteed SSE2 support 
 
 #define FASTSIMD_COMPILE_SSE    (FASTSIMD_x86 & 000) // Not supported
 #define FASTSIMD_COMPILE_SSE2   (FASTSIMD_x86 &  1 )

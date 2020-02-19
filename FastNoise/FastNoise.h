@@ -1,14 +1,14 @@
 #pragma once
 
-#include "Generators/White.h"
-#include "Generators/Value.h"
-#include "Generators/Perlin.h"
+//#include "Generators/White.h"
+//#include "Generators/Value.h"
+//#include "Generators/Perlin.h"
 #include "Generators/Simplex.h"
-#include "Generators/Cellular.h"
-#include "Generators/Fractal.h"
-#include "Generators/DomainWarp.h"
-#include "Generators/DomainWarpFractal.h"
-#include "Generators/Modifiers.h"
+//#include "Generators/Cellular.h"
+//#include "Generators/Fractal.h"
+//#include "Generators/DomainWarp.h"
+//#include "Generators/DomainWarpFractal.h"
+//#include "Generators/Modifiers.h"
 
 namespace FastNoise
 {

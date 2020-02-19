@@ -13,7 +13,7 @@
 #define FS_INLINE __attribute__((always_inline))
 #endif
 
-#define FS_CLASS( CLASS ) CLASS ## _SIMD
+#define FS_CLASS( CLASS ) CLASS ## _FS
 
 #define FS_ENABLE_IF( CONDITION, TYPE ) typename std::enable_if<(CONDITION), TYPE >::type 
 
