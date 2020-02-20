@@ -65,7 +65,7 @@ namespace FastSIMD
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m512i minInt = _mm512_slli_epi32( _mm512_cmpeq_epi32( _mm512_setzero_si512(), _mm512_setzero_si512() ), 31 );
 #else
-            const __m512i minInt = _mm512_set1_epi32( -1 << 31 );
+            const __m512i minInt = _mm512_set1_epi32( 0x80000000 );
 #endif
             return _mm512_xor_ps( *this, _mm512_castsi512_ps( minInt ) );
         }

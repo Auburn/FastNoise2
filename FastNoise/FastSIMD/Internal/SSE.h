@@ -443,7 +443,7 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Floor_f32( float32v a )
         {
-            return _mm_floor_ps( a );
+            return _mm_round_ps( a, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC );
         }
 
         template<eLevel L = LEVEL_T>
@@ -462,12 +462,13 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Ceil_f32( float32v a )
         {
-            return _mm_ceil_ps( a );
+            return _mm_round_ps( a, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC );
         }
 
         template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Round_f32( float32v a )
         {
+#if 0
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128 nearest2 = _mm_castsi128_ps( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 2 ) );
 #else
@@ -478,12 +479,15 @@ namespace FastSIMD
             __m128 rmd2 = _mm_mul_ps( rmd, nearest2 );                      // mul remainder by near 2 will yield the needed offset
             __m128 rmd2Trunc = _mm_cvtepi32_ps( _mm_cvttps_epi32( rmd2 ) ); // after being truncated of course
             return _mm_add_ps( aTrunc, rmd2Trunc );
+#else
+            return _mm_cvtepi32_ps( _mm_cvttps_epi32( a ) );
+#endif
         }
 
         template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Round_f32( float32v a )
         {
-            return _mm_round_ps( a, _MM_FROUND_NINT );
+            return _mm_round_ps( a, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC );
         }
 
         // Mask

@@ -6,7 +6,6 @@
 
 namespace FastSIMD
 {
-
     struct AVX_f32x8
     {
         FASTSIMD_INTERNAL_TYPE_SET( AVX_f32x8, __m256 );
@@ -65,7 +64,7 @@ namespace FastSIMD
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m256i minInt = _mm256_slli_epi32( _mm256_cmpeq_epi32( _mm256_setzero_si256(), _mm256_setzero_si256() ), 31 );
 #else
-            const __m256i minInt = _mm256_set1_epi32( -1 << 31 );
+            const __m256i minInt = _mm256_set1_epi32( 0x80000000 );
 #endif
             return _mm256_xor_ps( *this, _mm256_castsi256_ps( minInt ) );
         }
@@ -381,17 +380,17 @@ namespace FastSIMD
 
         FS_INLINE static float32v Floor_f32( float32v a )
         {
-            return _mm256_floor_ps( a );
+            return _mm256_round_ps( a, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC );
         }
 
         FS_INLINE static float32v Ceil_f32( float32v a )
         {
-            return _mm256_ceil_ps( a );
+            return _mm256_round_ps( a, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC );
         }
 
         FS_INLINE static float32v Round_f32( float32v a )
         {
-            return _mm256_round_ps( a, _MM_FROUND_NINT );
+            return _mm256_round_ps( a, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC );
         }
 
         //Mask
