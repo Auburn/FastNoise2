@@ -1,5 +1,8 @@
 ﻿# CMakeList.txt : CMake project for FastNoise
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.1)
+
+project(FastNoise)
+set(CMAKE_CXX_STANDARD 17)
 
 set(FastNoise_sources
     FastNoise/FastSIMD/FastSIMD.cpp
@@ -64,8 +67,16 @@ add_library(FastNoise
     ${FastNoise_headers}
     ${FastNoise_inline}
 )
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    target_compile_options(FastNoise PRIVATE /GL-)
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX512")
 
-target_compile_options(FastNoise PRIVATE "/arch:AVX2")
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "-mavx2")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512dq")
+endif()
+
 
 add_executable (NoiseTool "NoiseTool/main.cpp")
 
