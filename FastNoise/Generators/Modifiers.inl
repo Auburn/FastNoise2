@@ -19,7 +19,7 @@ namespace FastNoise
         template<typename... P> 
         float32v FS_INLINE GenT( int32v seed, P... pos )
         {
-            return mSource[0]->Gen( seed, (pos * float32v( mScale ))... );
+            return this->mSource[0]->Gen( seed, (pos * float32v( mScale ))... );
         }
     };
 

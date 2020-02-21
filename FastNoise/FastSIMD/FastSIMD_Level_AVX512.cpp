@@ -1,14 +1,17 @@
-#define FS_SIMD_CLASS FastSIMD::AVX512
-
 #include "FastSIMD.h"
 
-// To compile AVX2 support enable AVX(2) code generation compiler flags for this file
-#if FASTSIMD_COMPILE_AVX512 && !defined(__AVX__)
-#ifdef __GNUC__
-#error To compile AVX512 add build command "-march=core-avx" on FastSIMD_Level_AVX512.cpp, or change "#define FASTSIMD_COMPILE_AVX512" in FastSIMD_Config.h
+#if FASTSIMD_COMPILE_AVX512 
+
+// To compile AVX512 support enable AVX512 code generation compiler flags for this file
+#ifndef __AVX512F__ 
+#ifdef _MSC_VER
+#error To compile AVX512 set C++ code generation to use /arch:AVX512 on FastSIMD_Level_AVX512.cpp, or change "#define FASTSIMD_COMPILE_AVX512" in FastSIMD_Config.h
 #else
-#error To compile AVX512 set C++ code generation to use /arch:AVX on FastSIMD_Level_AVX512.cpp, or change "#define FASTSIMD_COMPILE_AVX512" in FastSIMD_Config.h
+#error To compile AVX512 add build command "-mavx512f -mavx512dq" on FastSIMD_Level_AVX512.cpp, or change "#define FASTSIMD_COMPILE_AVX512" in FastSIMD_Config.h
 #endif
 #endif
 
+#include "Internal/AVX512.h"
+#define FS_SIMD_CLASS FastSIMD::AVX512
 #include "Internal/SourceBuilder.inl"
+#endif

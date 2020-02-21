@@ -37,7 +37,7 @@ set(FastNoise_headers
     FastNoise/FastSIMD/Internal/Scalar.h
     FastNoise/Generators/Simplex.h
     FastNoise/FastSIMD/Internal/SSE.h
-    FastNoise/FastSIMD/Internal/TypeList.h
+    FastNoise/FastSIMD/TypeList.h
     FastNoise/Generators/Value.h
     FastNoise/VecN.h
     FastNoise/FastSIMD/Internal/VecTools.h
@@ -68,17 +68,21 @@ add_library(FastNoise
     ${FastNoise_inline}
 )
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_options(FastNoise PRIVATE /GL-)
+    target_compile_options(FastNoise PRIVATE "/GL-")
     set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX2")
     set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX512")
 
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
-    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "-mavx2")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_SSE3.cpp PROPERTIES COMPILE_FLAGS "-msse3")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_SSSE3.cpp PROPERTIES COMPILE_FLAGS "-mssse3")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_SSE41.cpp PROPERTIES COMPILE_FLAGS "-msse4.1")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_SSE42.cpp PROPERTIES COMPILE_FLAGS "-msse4.2")
+    set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
     set_source_files_properties(FastNoise/FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512dq")
 endif()
 
 
 add_executable (NoiseTool "NoiseTool/main.cpp")
-
+ 
 target_link_libraries(NoiseTool FastNoise)
 add_dependencies(NoiseTool FastNoise)

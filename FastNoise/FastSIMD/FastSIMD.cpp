@@ -1,5 +1,5 @@
 #include "FastSIMD.h"
-#include "Internal/TypeList.h"
+#include "TypeList.h"
 
 #include <inttypes.h>
 #include <intrin.h>
@@ -7,7 +7,7 @@
 
 static FastSIMD::eLevel simdLevel = FastSIMD::Level_Null;
 
-static_assert(FastSIMD::SIMDClassList::MinimumCompiled::SIMD_Level & FastSIMD::COMPILED_SIMD_LEVELS, "FASTSIMD_FALLBACK_SIMD_LEVEL is not a compiled SIMD level, check FastSIMD_Config.h");
+static_assert(FastSIMD::SIMDTypeList::MinimumCompiled & FastSIMD::COMPILED_SIMD_LEVELS, "FASTSIMD_FALLBACK_SIMD_LEVEL is not a compiled SIMD level, check FastSIMD_Config.h");
 
 #if FASTSIMD_x86
 // Define interface to cpuid instruction.
@@ -174,20 +174,20 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 }
 
 
-template<typename CLASS_T, typename SIMD_T>
-FS_ENABLE_IF( (std::is_same<SIMD_T, void>::value), CLASS_T* ) ClassBuilder( FastSIMD::eLevel )
+template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL>
+typename std::enable_if_t<( SIMD_LEVEL == FastSIMD::Level_Null ), CLASS_T*> ClassBuilder( FastSIMD::eLevel )
 {
     return nullptr;
 }
 
-template<typename CLASS_T, typename SIMD_T>
-FS_ENABLE_IF( (!std::is_same<SIMD_T, void>::value), CLASS_T* ) ClassBuilder( FastSIMD::eLevel maxSIMDLevel )
+template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL>
+typename std::enable_if_t<(SIMD_LEVEL != FastSIMD::Level_Null), CLASS_T*> ClassBuilder( FastSIMD::eLevel maxSIMDLevel )
 {
-    CLASS_T* newClass = ClassBuilder<CLASS_T, FastSIMD::SIMDClassList::GetNextCompiledAfter<SIMD_T> >( maxSIMDLevel );
+    CLASS_T* newClass = ClassBuilder<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL> >( maxSIMDLevel );
 
-    if ( !newClass && SIMD_T::SIMD_Level <= maxSIMDLevel )
+    if ( !newClass && SIMD_LEVEL <= maxSIMDLevel )
     {
-        return FastSIMD::ClassFactory<CLASS_T, SIMD_T>::Get();
+        return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>::Get();
     }
 
     return newClass;
@@ -196,8 +196,8 @@ FS_ENABLE_IF( (!std::is_same<SIMD_T, void>::value), CLASS_T* ) ClassBuilder( Fas
 template<typename CLASS_T>
 CLASS_T* FastSIMD::NewSIMDClass( eLevel maxSIMDLevel )
 {
-    static_assert( (CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDClassList::MinimumCompiled::SIMD_Level) != 0, "MinimumCompiled SIMD Level must be supported by this class" );
-    return ClassBuilder<CLASS_T, SIMDClassList::MinimumCompiled>( maxSIMDLevel );
+    static_assert( (CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled) != 0, "MinimumCompiled SIMD Level must be supported by this class" );
+    return ClassBuilder<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel );
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \

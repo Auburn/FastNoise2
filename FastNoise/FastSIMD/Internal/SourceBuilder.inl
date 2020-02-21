@@ -1,24 +1,24 @@
 #pragma once
 #include "../FastSIMD.h"
-#include "TypeList.h"
+#include "../TypeList.h"
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template<typename SIMD_T>\
-struct FastSIMD::ClassFactory<FS_ENABLE_IF( (CLASS::Supported_SIMD_Levels & SIMD_T::SIMD_Level & FastSIMD::COMPILED_SIMD_LEVELS) == 0, CLASS ), SIMD_T>\
+template<FastSIMD::eLevel SIMD_LEVEL>\
+struct FastSIMD::ClassFactory<FS_ENABLE_IF( (CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS) == 0, CLASS ), SIMD_LEVEL>\
 {\
 static CLASS* Get()\
 {\
 return nullptr; \
 }\
 };\
-template<typename SIMD_T>\
-struct FastSIMD::ClassFactory<FS_ENABLE_IF( (CLASS::Supported_SIMD_Levels & SIMD_T::SIMD_Level & FastSIMD::COMPILED_SIMD_LEVELS) != 0, CLASS ), SIMD_T>\
+template<FastSIMD::eLevel SIMD_LEVEL>\
+struct FastSIMD::ClassFactory<FS_ENABLE_IF( (CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS) != 0, CLASS ), SIMD_LEVEL>\
 {\
 static CLASS* Get()\
 {\
-return new FS_CLASS(CLASS)<SIMD_T>; \
+return new FS_CLASS( CLASS )<FS_SIMD_CLASS>; \
 }\
 };\
-template struct FastSIMD::ClassFactory<CLASS, FS_SIMD_CLASS>;
+template struct FastSIMD::ClassFactory<CLASS, FS_SIMD_CLASS::SIMD_Level>;
 
 #include "../FastSIMD_BuildList.inl"

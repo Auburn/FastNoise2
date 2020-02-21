@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include "FastSIMD_Config.h"
 
 namespace FastSIMD
@@ -20,7 +19,7 @@ namespace FastSIMD
         Level_SSE42  = 1 <<  6, // SSE4.2
         Level_AVX    = 1 <<  7, // AVX supported by CPU and operating system
         Level_AVX2   = 1 <<  8, // AVX2
-        Level_AVX512 = 1 <<  9, // AVX512, AVX512VL
+        Level_AVX512 = 1 <<  9, // AVX512, AVX512DQ
 
         Level_NEON   = 1 << 16, // ARM NEON
     };
@@ -50,11 +49,11 @@ namespace FastSIMD
         return NewSIMDClass<T>( CPUMaxSIMDLevel() );
     }
 
-    template<typename CLASS_T, typename SIMD_T>
+    template<typename CLASS_T, eLevel SIMD_LEVEL>
     struct ClassFactory
     {
-        static_assert( SIMD_T::SIMD_Level & COMPILED_SIMD_LEVELS, "SIMD level is not being compiled, check FastSIMD_Config.h for FASTSIMD_COMPILED_SIMD_LEVELS" );
-        static_assert( SIMD_T::SIMD_Level & CLASS_T::Supported_SIMD_Levels, "Class doesn't support this SIMD level, check class header for FASTSIMD_SET_SUPPORTED_SIMD_LEVELS" );
+        static_assert( SIMD_LEVEL & COMPILED_SIMD_LEVELS, "SIMD level is not being compiled, check FastSIMD_Config.h for FASTSIMD_COMPILED_SIMD_LEVELS" );
+        static_assert( SIMD_LEVEL & CLASS_T::Supported_SIMD_Levels, "Class doesn't support this SIMD level, check class header for FASTSIMD_SET_SUPPORTED_SIMD_LEVELS" );
 
         static CLASS_T* Get();
     };

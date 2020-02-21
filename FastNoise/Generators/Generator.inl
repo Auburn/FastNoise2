@@ -268,8 +268,8 @@ namespace FastNoise
 
             if ( index < SOURCE_COUNT )
             {
-                mSourceBase[index] = gen;
-                mSource[index] = dynamic_cast<Generator_FS<FS>*>( gen.get() );
+                this->mSourceBase[index] = gen;
+                this->mSource[index] = dynamic_cast<Generator_FS<FS>*>( gen.get() );
             }
         }
 
