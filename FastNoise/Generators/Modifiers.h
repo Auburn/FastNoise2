@@ -1,34 +1,20 @@
-#include <memory>
-#include "Generator.h"
-
-#include "../FastSIMD/FS_Class.inl"
-#ifdef FASTSIMD_INCLUDE_CHECK
-#include __FILE__
-#endif
-#include "../FastSIMD/FS_Class.inl"
 #pragma once
+#include "Generator.h"
 
 namespace FastNoise
 {
-    FASTSIMD_CLASS_DECLARATION_CHILD( DomainScale, Modifier )
+    class DomainScale : public virtual Modifier<1>
     {
-        FASTSIMD_CLASS_SETUP( FastSIMD::COMPILED_SIMD_LEVELS );
-
     public:
-        FS_EXTERNAL( void SetScale( float value ) { mScale = value; } );
+        static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = FastSIMD::COMPILED_SIMD_LEVELS;
 
-        FS_INTERNAL( float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) override { return GenT( seed, x, y ); } );
-        FS_INTERNAL( float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) override { return GenT( seed, x, y, z ); } );
+        void SetScale( float value ) { mScale = value; };
 
     protected:
-        FS_EXTERNAL( float mScale = 1.0f );
-
-    private:
-        FS_INTERNAL( template<typename... P> float32v FS_INLINE GenT( int32v seed, P... pos ); )
-
+        float mScale = 1.0f;
     };
 
-    FASTSIMD_CLASS_DECLARATION_CHILD( Remap, Modifier )
+   /* FASTSIMD_CLASS_DECLARATION_CHILD( Remap, Modifier )
     {
         FASTSIMD_CLASS_SETUP( FastSIMD::COMPILED_SIMD_LEVELS );
 
@@ -47,5 +33,5 @@ namespace FastNoise
     private:
         FS_INTERNAL( template<typename... P> float32v FS_INLINE GenT( int32v seed, P... pos ); )
 
-    };
+    };*/
 }

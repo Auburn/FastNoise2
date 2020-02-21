@@ -1,71 +1,35 @@
-//#include "../FastSIMD/FS_Class.inl"
-//#ifdef FASTSIMD_INCLUDE_CHECK
-//#include __FILE__
-//#endif
-//#include "../FastSIMD/FS_Class.inl"
 #pragma once
+
+#include <array>
+#include <memory>
+
+#include "../FastSIMD/FastSIMD.h"
 
 #ifdef FS_SIMD_CLASS
 #pragma warning( disable:4250 )
 #endif
 
-#include "../FastSIMD/FastSIMD.h"
-
 namespace FastNoise
 {
     class Generator
     {
-        //FASTSIMD_CLASS_SETUP( FastSIMD::COMPILED_SIMD_LEVELS );
-
-        //FASTSIMD_DEFINE_DOWNCAST_FUNC( Generator );
-
-        //FS_INTERNAL( template<typename F, FastSIMD::eLevel S> friend class FS_CLASS( Generator ) );
-
     public:
         virtual ~Generator() {}
 
-        //void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed );
+        virtual void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) = 0;
         virtual void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) = 0;
 
-        //void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) );
-
-        //FS_INTERNAL( virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) = 0 );
-        //virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v ) { return Gen( seed, x, y ); } );
-
-    /*protected:
-        FS_INTERNAL( FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY ) );
-        FS_INTERNAL( FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ ) );
-        FS_INTERNAL( template<typename... P> FS_INLINE int32v HashPrimes( int32v seed, P... primedPos ) );
-        FS_INTERNAL( template<typename... P> FS_INLINE int32v HashPrimesHB( int32v seed, P... primedPos ) );
-        FS_INTERNAL( template<typename... P> FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos ) );
-
-        FS_INTERNAL( FS_INLINE float32v Lerp( float32v a, float32v b, float32v t ) );
-        FS_INTERNAL( FS_INLINE float32v InterpQuintic( float32v x ) );*/
-
+        virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) = 0;        
     };
 
-
-    /*FASTSIMD_CLASS_DECLARATION_CHILD( Modifier, Generator )
+    template<size_t SOURCE_COUNT>
+    class Modifier : public virtual Generator
     {
-        FASTSIMD_CLASS_SETUP( FastSIMD::COMPILED_SIMD_LEVELS );
-
     public:
-        FS_EXTERNAL_FUNC( void SetSource( const std::shared_ptr<Generator>& gen ) );
-        FS_INTERNAL( FS_CLASS( Generator )<T_FS>* GetSourceSIMD() { return mSource; } );
+        virtual void SetSource( const std::shared_ptr<Generator>& gen, size_t index = 0 ) = 0;
 
     protected:
-        FS_EXTERNAL( std::shared_ptr<Generator> mSourceBase );
-        FS_INTERNAL( FS_CLASS( Generator )<T_FS>* mSource );
+        std::array<std::shared_ptr<Generator>, SOURCE_COUNT> mSourceBase;
     };
 
-    FS_INTERNAL(
-        namespace Primes
-    {
-        static const int32_t X = 1619;
-        static const int32_t Y = 31337;
-        static const int32_t Z = 6971;
-        static const int32_t W = 1013;
-
-        static const int32_t Lookup[] = { X,Y,Z,W };
-    } )*/
 }
