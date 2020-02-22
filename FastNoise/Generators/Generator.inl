@@ -1,5 +1,5 @@
 #include "Generator.h"
-#include "../FastSIMD/Internal/FunctionList.h"
+#include "FastSIMD/FunctionList.h"
 
 #include <cassert>
 
@@ -18,13 +18,20 @@ namespace FastNoise
     template<typename FS>
     class Generator_FS : public virtual Generator
     {
-    public:
-        typedef typename FS::float32v float32v;
-        typedef typename FS::int32v int32v;
-        typedef typename FS::mask32v mask32v;
+        FASTSIMD_TYPEDEF;
 
+    public:
         virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) = 0;
         virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) = 0;
+
+#define FASTNOISE_IMPL_GEN_T\
+        virtual float32v FS_VECTORCALL Gen(int32v seed, float32v x, float32v y) override { return GenT(seed, x, y); }\
+        virtual float32v FS_VECTORCALL Gen(int32v seed, float32v x, float32v y, float32v z) override { return GenT(seed, x, y, z); }
+
+        virtual FastSIMD::eLevel GetSIMDLevel() final
+        {
+            return FS::SIMD_Level;
+        }
 
         void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) final
         {
@@ -169,8 +176,8 @@ namespace FastNoise
             }
         }
 
-        template<typename FS = FS>
-        FS_INLINE typename std::enable_if_t<( FS::VectorSize < 32 ), float32v> GetGradientDot( int32v hash, float32v fX, float32v fY )
+        template<typename FS = FS, std::enable_if_t<( FS::SIMD_Level != FastSIMD::Level_AVX2 && FS::SIMD_Level != FastSIMD::Level_AVX512 ), int> = 0>
+        FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
         {
             // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
             // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
@@ -191,8 +198,8 @@ namespace FastNoise
             return fX + fY;
         }
 
-        template<typename FS = FS>
-        FS_INLINE typename std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX2 ), float32v> GetGradientDot( int32v hash, float32v fX, float32v fY )
+        template<typename FS = FS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX2 ), int> = 0>
+        FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
         {
             // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
             // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
@@ -203,8 +210,8 @@ namespace FastNoise
             return FS_FMulAdd_f32( gX, fX, fY * gY );
         }
 
-        template<typename FS = FS>
-        FS_INLINE typename std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), float32v> GetGradientDot( int32v hash, float32v fX, float32v fY )
+        template<typename FS = FS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), int> = 0>
+        FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
         {
             // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
             // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
@@ -215,8 +222,8 @@ namespace FastNoise
             return FS_FMulAdd_f32( gX, fX, fY * gY );
         }
 
-        template<typename FS = FS>
-        FS_INLINE typename std::enable_if_t<( FS::VectorSize < 64 ), float32v> GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ  )
+        template<typename FS = FS, std::enable_if_t<( FS::SIMD_Level != FastSIMD::Level_AVX512 ), int> = 0>
+        FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ  )
         {
             int32v hasha13 = hash & int32v( 13 );
 
@@ -237,8 +244,8 @@ namespace FastNoise
             return FS_BitwiseXor_f32( u, h1 ) + FS_BitwiseXor_f32( v, h2 );
         }
 
-        template<typename FS = FS>
-        FS_INLINE typename std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), float32v> GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
+        template<typename FS = FS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), int> = 0>
+        FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
         {
             float32v gX = _mm512_permutexvar_ps( hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
             float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
@@ -259,7 +266,7 @@ namespace FastNoise
     };
 
     template<typename FS, size_t SOURCE_COUNT>
-    class Modifier_FS : private virtual Modifier<SOURCE_COUNT>, public Generator_FS<FS>
+    class Modifier_FS : public virtual Modifier<SOURCE_COUNT>, public Generator_FS<FS>
     {
     public:
         void SetSource( const std::shared_ptr<Generator>& gen, size_t index ) final

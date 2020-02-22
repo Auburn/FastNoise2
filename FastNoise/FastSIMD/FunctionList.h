@@ -19,6 +19,10 @@
 
 #define FS_MULTI_SPECIALISATION( ... ) FastSIMD::MultiSpecialisation<FS_SIMD_CLASS::SIMD_Level, __VA_ARGS__ >::Level
 
+#define FASTSIMD_TYPEDEF \
+typedef typename FS::float32v float32v;\
+typedef typename FS::int32v int32v;\
+typedef typename FS::mask32v mask32v
 
 // Vector builders
 
@@ -523,25 +527,25 @@ namespace FastSIMD
     }
 
     template<typename FS>
-    FS_INLINE FS_ENABLE_IF( (std::is_same<typename FS::int32v, typename FS::mask32v>::value), typename FS::int32v ) MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    FS_INLINE std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return a - m;
     }
 
     template<typename FS>
-    FS_INLINE FS_ENABLE_IF( !(std::is_same<typename FS::int32v, typename FS::mask32v>::value), typename FS::int32v ) MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    FS_INLINE std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return MaskedSub_i32<FS>( a, typename FS::int32v( -1 ), m );
     }
 
     template<typename FS>
-    FS_INLINE FS_ENABLE_IF( (std::is_same<typename FS::int32v, typename FS::mask32v>::value), typename FS::int32v ) MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    FS_INLINE std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return a + m;
     }
 
     template<typename FS>
-    FS_INLINE FS_ENABLE_IF( !(std::is_same<typename FS::int32v, typename FS::mask32v>::value), typename FS::int32v ) MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    FS_INLINE std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return MaskedAdd_i32<FS>( a, typename FS::int32v( -1 ), m );
     }

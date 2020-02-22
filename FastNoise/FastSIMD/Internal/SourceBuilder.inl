@@ -4,7 +4,7 @@
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
 template<FastSIMD::eLevel SIMD_LEVEL>\
-struct FastSIMD::ClassFactory<FS_ENABLE_IF( (CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS) == 0, CLASS ), SIMD_LEVEL>\
+struct FastSIMD::ClassFactory<std::enable_if_t<( CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS ) == 0, CLASS>, SIMD_LEVEL>\
 {\
 static CLASS* Get()\
 {\
@@ -12,7 +12,7 @@ return nullptr; \
 }\
 };\
 template<FastSIMD::eLevel SIMD_LEVEL>\
-struct FastSIMD::ClassFactory<FS_ENABLE_IF( (CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS) != 0, CLASS ), SIMD_LEVEL>\
+struct FastSIMD::ClassFactory<std::enable_if_t<( CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS ) != 0, CLASS>, SIMD_LEVEL>\
 {\
 static CLASS* Get()\
 {\

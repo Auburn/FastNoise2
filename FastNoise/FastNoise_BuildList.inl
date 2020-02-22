@@ -45,15 +45,15 @@ FASTSIMD_BUILD_CLASS( FastNoise::Simplex )
 //FASTSIMD_BUILD_CLASS( FastNoise::CellularDistance )
 //FASTSIMD_BUILD_CLASS( FastNoise::CellularLookup )
 //
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Fractal.h"
-//#else
-//#include "Generators/Fractal.inl"
-//#endif
-//FASTSIMD_BUILD_CLASS( FastNoise::FractalFBm )
-//FASTSIMD_BUILD_CLASS( FastNoise::FractalBillow )
-//FASTSIMD_BUILD_CLASS( FastNoise::FractalRidged )
-//FASTSIMD_BUILD_CLASS( FastNoise::FractalRidgedMulti )
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Fractal.h"
+#else
+#include "Generators/Fractal.inl"
+#endif
+FASTSIMD_BUILD_CLASS( FastNoise::FractalFBm )
+FASTSIMD_BUILD_CLASS( FastNoise::FractalBillow )
+FASTSIMD_BUILD_CLASS( FastNoise::FractalRidged )
+FASTSIMD_BUILD_CLASS( FastNoise::FractalRidgedMulti )
 //
 //#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 //#include "Generators/DomainWarp.h"
@@ -77,5 +77,5 @@ FASTSIMD_BUILD_CLASS( FastNoise::Simplex )
 #include "Generators/Modifiers.inl"
 #endif
 FASTSIMD_BUILD_CLASS( FastNoise::DomainScale )
-//FASTSIMD_BUILD_CLASS( FastNoise::Remap )
+FASTSIMD_BUILD_CLASS( FastNoise::Remap )
 

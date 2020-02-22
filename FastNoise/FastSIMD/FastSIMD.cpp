@@ -175,13 +175,13 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 
 
 template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL>
-typename std::enable_if_t<( SIMD_LEVEL == FastSIMD::Level_Null ), CLASS_T*> ClassBuilder( FastSIMD::eLevel )
+typename std::enable_if_t<!( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ), CLASS_T*> ClassBuilder( FastSIMD::eLevel )
 {
     return nullptr;
 }
 
 template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL>
-typename std::enable_if_t<(SIMD_LEVEL != FastSIMD::Level_Null), CLASS_T*> ClassBuilder( FastSIMD::eLevel maxSIMDLevel )
+typename std::enable_if_t<( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ), CLASS_T*> ClassBuilder( FastSIMD::eLevel maxSIMDLevel )
 {
     CLASS_T* newClass = ClassBuilder<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL> >( maxSIMDLevel );
 
@@ -196,7 +196,7 @@ typename std::enable_if_t<(SIMD_LEVEL != FastSIMD::Level_Null), CLASS_T*> ClassB
 template<typename CLASS_T>
 CLASS_T* FastSIMD::NewSIMDClass( eLevel maxSIMDLevel )
 {
-    static_assert( (CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled) != 0, "MinimumCompiled SIMD Level must be supported by this class" );
+    static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );
     return ClassBuilder<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel );
 }
 

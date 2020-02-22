@@ -25,11 +25,12 @@ set(FastNoise_headers
     FastNoise/Generators/DomainWarpFractal.h
     FastNoise/FastSIMD/Example/Example.h
     FastNoise/FastNoise.h
+    FastNoise/FastNoise_Config.h
     FastNoise/FastSIMD/FastSIMD.h
     FastNoise/FastSIMD/FastSIMD_Config.h
     FastNoise/Generators/Fractal.h
     FastNoise/FastSIMD/FS_IntelliSenseHelper.h
-    FastNoise/FastSIMD/Internal/FunctionList.h
+    FastNoise/FastSIMD/FunctionList.h
     FastNoise/Generators/Generator.h
     FastNoise/Generators/Modifiers.h
     FastNoise/FastSIMD/Internal/NEON.h

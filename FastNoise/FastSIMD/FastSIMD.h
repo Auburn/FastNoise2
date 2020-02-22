@@ -57,4 +57,7 @@ namespace FastSIMD
 
         static CLASS_T* Get();
     };
+
+#define FASTSIMD_LEVEL_SUPPORT( ... ) \
+    static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = __VA_ARGS__
 };

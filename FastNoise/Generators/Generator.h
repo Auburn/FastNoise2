@@ -3,7 +3,7 @@
 #include <array>
 #include <memory>
 
-#include "../FastSIMD/FastSIMD.h"
+#include "FastNoise_Config.h"
 
 #ifdef FS_SIMD_CLASS
 #pragma warning( disable:4250 )
@@ -15,6 +15,8 @@ namespace FastNoise
     {
     public:
         virtual ~Generator() {}
+
+        virtual FastSIMD::eLevel GetSIMDLevel() = 0;
 
         virtual void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) = 0;
         virtual void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) = 0;
