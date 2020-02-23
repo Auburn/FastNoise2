@@ -7,4 +7,4 @@
 //#include "Example/Example.inl"
 //FASTSIMD_BUILD_CLASS( Example )
 
-#include "../FastNoise_BuildList.inl"
+#include "FastNoise/FastNoise_BuildList.inl"

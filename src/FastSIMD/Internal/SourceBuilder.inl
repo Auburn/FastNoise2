@@ -1,6 +1,6 @@
 #pragma once
-#include "../FastSIMD.h"
-#include "../TypeList.h"
+#include "FastSIMD/FastSIMD.h"
+#include "FastSIMD/TypeList.h"
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
 template<FastSIMD::eLevel SIMD_LEVEL>\

@@ -1,4 +1,3 @@
-#define FASTSIMD_INTELLISENSE
 #include "Fractal.h"
 
 #include "FastSIMD/FunctionList.h"

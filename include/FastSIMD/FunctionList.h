@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <memory>
 
-#include "../FastSIMD.h"
+#include "FastSIMD/FastSIMD.h"
 
 #ifdef _MSC_VER
 #define FS_VECTORCALL __vectorcall

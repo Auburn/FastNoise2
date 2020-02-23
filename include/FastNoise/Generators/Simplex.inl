@@ -1,4 +1,3 @@
-#define FASTSIMD_INTELLISENSE
 #include "Simplex.h"
 
 #include "FastSIMD/FunctionList.h"

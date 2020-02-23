@@ -2,8 +2,8 @@
 
 #include <inttypes.h>
 
-#include "../FastSIMD.h"
-#include "FunctionList.h"
+#include "FastSIMD/FastSIMD.h"
+#include "FastSIMD/FunctionList.h"
 
 #define FASTSIMD_INTERNAL_TYPE_SET( CLASS, TYPE )                           \
 TYPE vector;									                            \

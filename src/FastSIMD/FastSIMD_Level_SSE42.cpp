@@ -1,4 +1,4 @@
-#include "FastSIMD.h"
+#include "FastSIMD/FastSIMD.h"
 
 #if FASTSIMD_COMPILE_SSE42
 #include "Internal/SSE.h"

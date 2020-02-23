@@ -1,4 +1,4 @@
-#include "../FastNoise/FastNoise.h"
+#include "FastNoise/FastNoise.h"
 #include <iostream>
 
 int main()
