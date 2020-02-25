@@ -178,6 +178,18 @@ public:
         }
     }
 
+    FS_T<T, FS>* GetSourceSIMD( size_t index = 0 )
+    {
+        assert( index < SOURCE_COUNT );
+
+        if ( index < SOURCE_COUNT )
+        {
+            return mSource[index];
+        }
+
+        return nullptr;
+    }
+
 protected:
     std::array<FS_T<T, FS>*, SOURCE_COUNT> mSource;
 };

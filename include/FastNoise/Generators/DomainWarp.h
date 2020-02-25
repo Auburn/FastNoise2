@@ -10,6 +10,8 @@ namespace FastNoise
         
         void SetWarpFrequency( float value ) { mWarpFrequency = value; }
         void SetWarpAmplitude( float value ) { mWarpAmplitude = value; } 
+        float GetWarpFrequency() { return mWarpFrequency; }
+        float GetWarpAmplitude() { return mWarpAmplitude; } 
 
     protected:
         float mWarpFrequency = 0.5f;

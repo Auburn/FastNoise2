@@ -1,64 +1,66 @@
-#define FASTSIMD_INTELLISENSE
-#include "DomainWarpFractal.h"
-
+#include "FastSIMD/InlInclude.h"
 #include <tuple>
 
-template<typename F, FastSIMD::eLevel S>
-void FS_CLASS( FastNoise::DomainWarpFractal )<F, S>::SetDomainWarpSource( const std::shared_ptr<FastNoise::DomainWarp>& domainWarp )
-{
-    mWarp = FS_CLASS( DomainWarp )<FS>::GetSIMD_DomainWarp( domainWarp.get() );
+#include "DomainWarpFractal.h"
 
-    if ( mWarp )
+template<typename FS>
+class FS_T<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoise::DomainWarpFractalProgressive, public FS_T<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    float32v GenT(int32v seed, P... pos)
     {
-        mWarpBase = domainWarp;
+        float32v amp = float32v( this->mSource[0]->GetWarpAmplitude() * mFractalBounding );
+        float32v freq = float32v( this->mSource[0]->GetWarpFrequency() );
+        int32v seedInc = seed;
+
+        this->mSource[0]->Warp( seedInc, amp, (pos * freq)..., pos... );
+
+        for (int i = 1; i < mOctaves; i++)
+        {
+            seedInc -= int32v( -1 );
+            freq *= float32v( mLacunarity );
+            amp *= float32v( mGain );
+            this->mSource[0]->Warp( seedInc, amp, (pos * freq)..., pos... );
+        }
+
+        return this->mSource[0]->GetSourceSIMD()->Gen( seed, pos... );
     }
-}
+};
 
-template<typename F, FastSIMD::eLevel S>
-template<typename... P>
-typename FS_CLASS( FastNoise::DomainWarpFractalProgressive )<F, S>::float32v
-FS_CLASS( FastNoise::DomainWarpFractalProgressive )<F, S>::GenT( int32v seed, P... pos )
+template<typename FS>
+class FS_T<FastNoise::DomainWarpFractalIndependant, FS> : public virtual FastNoise::DomainWarpFractalIndependant, public FS_T<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
 {
-    float32v amp = float32v( this->mWarp->GetWarpAmplitude() * mFractalBounding );
-    float32v freq = float32v( this->mWarp->GetWarpFrequency() );
-    int32v seedInc = seed;
+public:
+    FASTNOISE_IMPL_GEN_T;
 
-    this->mWarp->Warp( seedInc, amp, (pos * freq)..., pos... );
+    template<typename... P>
+    float32v GenT( int32v seed, P... pos )
+    {
+        auto f = [&,noisePos = std::make_tuple(pos...)] (auto&... warpPos) -> decltype(auto)
+        {
+            float32v amp = float32v(this->mSource[0]->GetWarpAmplitude() * mFractalBounding);
+            float32v freq = float32v(this->mSource[0]->GetWarpFrequency());
+            int32v seedInc = seed;
+        
+            this->mSource[0]->Warp(seedInc, amp, (noisePos * freq)..., warpPos...);
     
-    for ( int i = 1; i < mOctaves; i++ )
-    {
-        seedInc -= int32v( -1 );
-        freq *= float32v( mLacunarity );
-        amp *= float32v( mGain );
-        this->mWarp->Warp( seedInc, amp, (pos * freq)..., pos... );
-    }
-
-    return this->mWarp->GetSourceSIMD()->Gen( seed, pos... );
-}
-
-template<typename F, FastSIMD::eLevel S>
-template<typename... P, std::size_t... I>
-typename FS_CLASS( FastNoise::DomainWarpFractalIndependant )<F, S>::float32v
-FS_CLASS( FastNoise::DomainWarpFractalIndependant )<F, S>::GenT( int32v seed, std::index_sequence<I...>, P... pos )
-{
-    float32v amp = float32v( this->mWarp->GetWarpAmplitude() * mFractalBounding );
-    float32v freq = float32v( this->mWarp->GetWarpFrequency() );
-    int32v seedInc = seed;
-
-    auto warpPos = std::make_tuple( pos... );
-
-    this->mWarp->Warp( seedInc, amp, (pos * freq)..., std::get<I>( warpPos )... );
+            for (int i = 1; i < mOctaves; i++)
+            {
+                seedInc -= int32v( -1 );
+                freq *= float32v( mLacunarity );
+                amp *= float32v( mGain );
+                this->mSource[0]->Warp(seedInc, amp, (noisePos * freq)..., warpPos...);
+            }
     
-    for ( int i = 1; i < mOctaves; i++ )
-    {
-        seedInc -= int32v( -1 );
-        freq *= float32v( mLacunarity );
-        amp *= float32v( mGain );
-        this->mWarp->Warp( seedInc, amp, (pos * freq)..., std::get<I>( warpPos )... );
-    }
+            return this->mSource[0]->GetSourceSIMD()->Gen( seed, warpPos... );
+        };
 
-    return this->mWarp->GetSourceSIMD()->Gen( seed, std::get<I>( warpPos )... );
-}
+        return f(pos... );
+    }
+};
 
 //template<typename T>
 //typename FS_CLASS( FastNoise::DomainWarpFractalIndependant )<T>::float32v
