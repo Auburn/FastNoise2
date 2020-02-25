@@ -8,5 +8,5 @@ namespace FastNoise
         FastSIMD::Level_SSE2   |
         FastSIMD::Level_SSE41  |
         FastSIMD::Level_AVX2   |
-        FastSIMD::Level_AVX512; 
+        FastSIMD::Level_AVX512 ; 
 }

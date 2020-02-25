@@ -3,7 +3,8 @@
 
 namespace FastNoise
 {
-    class Fractal : public virtual Modifier<1>
+    template<typename T = Generator>
+    class Fractal : public virtual Modifier<1, T>
     {
     public:
         void SetLacunarity( float value ) { mLacunarity = value; } 
@@ -30,28 +31,28 @@ namespace FastNoise
         }
     };
 
-    class FractalFBm : public virtual Fractal
+    class FractalFBm : public virtual Fractal<>
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         
     };
 
-    class FractalBillow : public virtual Fractal
+    class FractalBillow : public virtual Fractal<>
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         
     };
 
-    class FractalRidged : public virtual Fractal
+    class FractalRidged : public virtual Fractal<>
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         
     };
 
-    class FractalRidgedMulti : public virtual Fractal
+    class FractalRidgedMulti : public virtual Fractal<>
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );

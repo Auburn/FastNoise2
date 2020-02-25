@@ -13,16 +13,9 @@
 #define FS_INLINE __attribute__((always_inline))
 #endif
 
-#define FS_CLASS( CLASS ) CLASS ## _FS
-
 #define FS_ENABLE_IF( CONDITION, TYPE ) typename std::enable_if<(CONDITION), TYPE >::type 
 
 #define FS_MULTI_SPECIALISATION( ... ) FastSIMD::MultiSpecialisation<FS_SIMD_CLASS::SIMD_Level, __VA_ARGS__ >::Level
-
-#define FASTSIMD_TYPEDEF \
-typedef typename FS::float32v float32v;\
-typedef typename FS::int32v int32v;\
-typedef typename FS::mask32v mask32v
 
 // Vector builders
 

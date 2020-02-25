@@ -50,14 +50,9 @@ namespace FastSIMD
     }
 
     template<typename CLASS_T, eLevel SIMD_LEVEL>
-    struct ClassFactory
-    {
-        static_assert( SIMD_LEVEL & COMPILED_SIMD_LEVELS, "SIMD level is not being compiled, check FastSIMD_Config.h for FASTSIMD_COMPILED_SIMD_LEVELS" );
-        static_assert( SIMD_LEVEL & CLASS_T::Supported_SIMD_Levels, "Class doesn't support this SIMD level, check class header for FASTSIMD_SET_SUPPORTED_SIMD_LEVELS" );
-
-        static CLASS_T* Get();
-    };
+    CLASS_T* ClassFactory();
 
 #define FASTSIMD_LEVEL_SUPPORT( ... ) \
     static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = __VA_ARGS__
+
 };

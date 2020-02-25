@@ -1,127 +1,115 @@
+#include "FastSIMD/InlInclude.h"
+
 #include "Fractal.h"
 
-#include "FastSIMD/FunctionList.h"
-
-namespace FastNoise
+template<typename FS, typename T>
+class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FS_T<FastNoise::Modifier<1, T>, FS>
 {
-    template<typename FS>
-    class Fractal_FS : public virtual Fractal, public Modifier_FS<FS, 1>
+
+};
+
+template<typename FS>
+class FS_T<FastNoise::FractalFBm, FS> : public virtual FastNoise::FractalFBm, public FS_T<FastNoise::Fractal<>, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        FASTSIMD_TYPEDEF;
+        float32v sum = this->mSource[0]->Gen( seed, pos... );
+        float32v amp = float32v( 1 );
 
-    };
-
-    template<typename FS>
-    class FractalFBm_FS : public virtual FractalFBm, public Fractal_FS<FS>
-    {
-        FASTSIMD_TYPEDEF;
-
-    public:
-        FASTNOISE_IMPL_GEN_T;
-
-        template<typename... P>
-        FS_INLINE float32v GenT( int32v seed, P... pos )
+        for( int i = 1; i < mOctaves; i++ )
         {
-            float32v sum = this->mSource[0]->Gen( seed, pos... );
-            float32v amp = float32v( 1 );
-
-            for( int i = 1; i < mOctaves; i++ )
-            {
-                seed -= int32v( -1 );
-                amp *= float32v( mGain );
-                sum += this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) * amp;
-            }
-
-            return sum * float32v( mFractalBounding );
+            seed -= int32v( -1 );
+            amp *= float32v( mGain );
+            sum += this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) * amp;
         }
-    };
 
-    template<typename FS>
-    class FractalBillow_FS : public virtual FractalBillow, public Fractal_FS<FS>
+        return sum * float32v( mFractalBounding );
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::FractalBillow, FS> : public virtual FastNoise::FractalBillow, public FS_T<FastNoise::Fractal<>, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        FASTSIMD_TYPEDEF;
+        float32v sum = FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) ) * float32v( 2 ) - float32v( 1 );
+        float32v amp = float32v( 1 );
 
-    public:
-        FASTNOISE_IMPL_GEN_T;
-
-        template<typename... P>
-        FS_INLINE float32v GenT( int32v seed, P... pos )
+        for( int i = 1; i < mOctaves; i++ )
         {
-            float32v sum = FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) ) * float32v( 2 ) - float32v( 1 );
-            float32v amp = float32v( 1 );
-
-            for( int i = 1; i < mOctaves; i++ )
-            {
-                seed -= int32v( -1 );
-                amp *= float32v( mGain );
-                sum += (FS_Abs_f32(this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) ) * float32v( 2 ) - float32v( 1 )) * amp;
-            }
-
-            return sum * float32v( mFractalBounding );
+            seed -= int32v( -1 );
+            amp *= float32v( mGain );
+            sum += (FS_Abs_f32(this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) ) * float32v( 2 ) - float32v( 1 )) * amp;
         }
-    };
 
-    template<typename FS>
-    class FractalRidged_FS : public virtual FractalRidged, public Fractal_FS<FS>
+        return sum * float32v( mFractalBounding );
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::FractalRidged, FS> : public virtual FastNoise::FractalRidged, public FS_T<FastNoise::Fractal<>, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT(int32v seed, P... pos)
     {
-        FASTSIMD_TYPEDEF;
+        float32v sum = float32v( 1 ) - FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) );
+        float32v amp = float32v( 1 );
 
-    public:
-        FASTNOISE_IMPL_GEN_T;
-
-        template<typename... P>
-        FS_INLINE float32v GenT(int32v seed, P... pos)
+        for( int i = 1; i < mOctaves; i++ )
         {
-            float32v sum = float32v( 1 ) - FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) );
-            float32v amp = float32v( 1 );
-
-            for( int i = 1; i < mOctaves; i++ )
-            {
-                seed -= int32v( -1 );
-                amp *= float32v( mGain );
-                sum -= (float32v( 1 ) - FS_Abs_f32( this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) )) * amp;
-            }
-
-            return sum;
+            seed -= int32v( -1 );
+            amp *= float32v( mGain );
+            sum -= (float32v( 1 ) - FS_Abs_f32( this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) )) * amp;
         }
-    };
 
-    template<typename FS>
-    class FractalRidgedMulti_FS : public virtual FractalRidgedMulti, public Fractal_FS<FS>
+        return sum;
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::FractalRidgedMulti, FS> : public virtual FastNoise::FractalRidgedMulti, public FS_T<FastNoise::Fractal<>, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        FASTSIMD_TYPEDEF;
+        float32v offset = float32v( 1 );
+        float32v sum = offset - FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) );
+        //sum *= sum;
+        float32v amp = sum;
 
-    public:
-        FASTNOISE_IMPL_GEN_T;
+        float weight = mWeightAmp;
+        float totalWeight = 1.0f;
 
-        template<typename... P>
-        FS_INLINE float32v GenT( int32v seed, P... pos )
+        for( int i = 1; i < mOctaves; i++ )
         {
-            float32v offset = float32v( 1 );
-            float32v sum = offset - FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) );
-            //sum *= sum;
-            float32v amp = sum;
+            amp *= float32v( mGain * 6 );
+            amp = FS_Min_f32( FS_Max_f32( amp, float32v( 0 ) ), float32v( 1 ) );
 
-            float weight = mWeightAmp;
-            float totalWeight = 1.0f;
+            seed -= int32v( -1 );
+            float32v value = offset - FS_Abs_f32( this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ) )... ));
 
-            for( int i = 1; i < mOctaves; i++ )
-            {
-                amp *= float32v( mGain * 6 );
-                amp = FS_Min_f32( FS_Max_f32( amp, float32v( 0 ) ), float32v( 1 ) );
+            value *= amp;
+            amp = value;
+            sum += value * FS_Reciprocal_f32( float32v( weight ) );
 
-                seed -= int32v( -1 );
-                float32v value = offset - FS_Abs_f32( this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ) )... ));
-
-                value *= amp;
-                amp = value;
-                sum += value * FS_Reciprocal_f32( float32v( weight ) );
-
-                totalWeight += 1.0f / weight;
-                weight *= mWeightAmp;
-            }
-
-            return sum * float32v( mWeightBounding ) - offset;
+            totalWeight += 1.0f / weight;
+            weight *= mWeightAmp;
         }
-    };
-}
+
+        return sum * float32v( mWeightBounding ) - offset;
+    }
+};

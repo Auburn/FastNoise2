@@ -2,23 +2,21 @@
 #include "FastSIMD/FastSIMD.h"
 #include "FastSIMD/TypeList.h"
 
+template<typename CLASS, typename FS>
+class FS_T;
+
+template<typename CLASS, FastSIMD::eLevel LEVEL>
+CLASS* FastSIMD::ClassFactory() 
+{
+    if constexpr( ( CLASS::Supported_SIMD_Levels & LEVEL & FastSIMD::COMPILED_SIMD_LEVELS ) != 0 )
+    {
+        static_assert( std::is_base_of_v<CLASS, FS_T<CLASS, FS_SIMD_CLASS>> );
+        return new FS_T<CLASS, FS_SIMD_CLASS>; 
+    }
+    return nullptr; 
+}
+
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template<FastSIMD::eLevel SIMD_LEVEL>\
-struct FastSIMD::ClassFactory<std::enable_if_t<( CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS ) == 0, CLASS>, SIMD_LEVEL>\
-{\
-static CLASS* Get()\
-{\
-return nullptr; \
-}\
-};\
-template<FastSIMD::eLevel SIMD_LEVEL>\
-struct FastSIMD::ClassFactory<std::enable_if_t<( CLASS::Supported_SIMD_Levels & SIMD_LEVEL & FastSIMD::COMPILED_SIMD_LEVELS ) != 0, CLASS>, SIMD_LEVEL>\
-{\
-static CLASS* Get()\
-{\
-return new FS_CLASS( CLASS )<FS_SIMD_CLASS>; \
-}\
-};\
-template struct FastSIMD::ClassFactory<CLASS, FS_SIMD_CLASS::SIMD_Level>;
+template CLASS* FastSIMD::ClassFactory<CLASS, FS_SIMD_CLASS::SIMD_Level>();
 
 #include "../FastSIMD_BuildList.inl"

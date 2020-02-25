@@ -174,8 +174,8 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 }
 
 
-template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<!(CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL), int> = 0>
-CLASS_T* SIMDLevelSelector(FastSIMD::eLevel maxSIMDLevel)
+template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<!( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ), int> = 0>
+CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
 {
     if constexpr( SIMD_LEVEL == FastSIMD::Level_Null )
     {
@@ -185,14 +185,14 @@ CLASS_T* SIMDLevelSelector(FastSIMD::eLevel maxSIMDLevel)
     return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL> >( maxSIMDLevel );
 }
 
-template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<(CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL), int> = 0>
+template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ), int> = 0>
 CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
 {
     CLASS_T* newClass = SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL> >( maxSIMDLevel );
 
     if ( !newClass && SIMD_LEVEL <= maxSIMDLevel )
     {
-        return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>::Get();
+        return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>();
     }
 
     return newClass;
@@ -208,7 +208,5 @@ CLASS_T* FastSIMD::NewSIMDClass( eLevel maxSIMDLevel )
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
 template CLASS* FastSIMD::NewSIMDClass( FastSIMD::eLevel );
 
-#define FS_SIMD_CLASS void
 #define FASTSIMD_INCLUDE_HEADER_ONLY
-
 #include "FastSIMD_BuildList.inl"
