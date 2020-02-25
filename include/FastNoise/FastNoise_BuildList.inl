@@ -61,15 +61,15 @@ FASTSIMD_BUILD_CLASS( FastNoise::FractalRidgedMulti )
 #include "Generators/DomainWarp.inl"
 #endif
 FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpGradient )
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/DomainWarpFractal.h"
-//#else
-//#include "Generators/DomainWarpFractal.inl"
-//#endif
-//FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalProgressive )
-//FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalIndependant )
-//
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/DomainWarpFractal.h"
+#else
+#include "Generators/DomainWarpFractal.inl"
+#endif
+FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalProgressive )
+FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalIndependant )
+
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Modifiers.h"
 #else

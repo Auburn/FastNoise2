@@ -12,7 +12,7 @@
 //#include "Generators/Cellular.h"
 #include "Generators/Fractal.h"
 #include "Generators/DomainWarp.h"
-//#include "Generators/DomainWarpFractal.h"
+#include "Generators/DomainWarpFractal.h"
 #include "Generators/Modifiers.h"
 
 namespace FastNoise

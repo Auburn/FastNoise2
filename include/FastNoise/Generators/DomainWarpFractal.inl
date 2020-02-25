@@ -37,9 +37,9 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    float32v GenT( int32v seed, P... pos )
+    float32v GenT( int32v seed, P... noisePos )
     {
-        auto f = [&,noisePos = std::make_tuple(pos...)] (auto&... warpPos) -> decltype(auto)
+        auto f = [=] ( auto&... warpPos )
         {
             float32v amp = float32v(this->mSource[0]->GetWarpAmplitude() * mFractalBounding);
             float32v freq = float32v(this->mSource[0]->GetWarpFrequency());
@@ -58,7 +58,7 @@ public:
             return this->mSource[0]->GetSourceSIMD()->Gen( seed, warpPos... );
         };
 
-        return f(pos... );
+        return f( noisePos... );
     }
 };
 
