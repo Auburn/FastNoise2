@@ -8,26 +8,26 @@
 #include "Generators/Generator.inl"
 #endif
 
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/White.h"
-//#else
-//#include "Generators/White.inl"
-//#endif
-//FASTSIMD_BUILD_CLASS( FastNoise::White )
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Value.h"
-//#else
-//#include "Generators/Value.inl"
-//#endif
-//FASTSIMD_BUILD_CLASS( FastNoise::Value )
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Perlin.h"
-//#else
-//#include "Generators/Perlin.inl"
-//#endif
-//FASTSIMD_BUILD_CLASS( FastNoise::Perlin )
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/White.h"
+#else
+#include "Generators/White.inl"
+#endif
+FASTSIMD_BUILD_CLASS( FastNoise::White )
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Value.h"
+#else
+#include "Generators/Value.inl"
+#endif
+FASTSIMD_BUILD_CLASS( FastNoise::Value )
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Perlin.h"
+#else
+#include "Generators/Perlin.inl"
+#endif
+FASTSIMD_BUILD_CLASS( FastNoise::Perlin )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Simplex.h"
@@ -36,15 +36,15 @@
 #endif
 FASTSIMD_BUILD_CLASS( FastNoise::Simplex )
 
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Cellular.h"
-//#else
-//#include "Generators/Cellular.inl"
-//#endif
-//FASTSIMD_BUILD_CLASS( FastNoise::CellularValue )
-//FASTSIMD_BUILD_CLASS( FastNoise::CellularDistance )
-//FASTSIMD_BUILD_CLASS( FastNoise::CellularLookup )
-//
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Cellular.h"
+#else
+#include "Generators/Cellular.inl"
+#endif
+FASTSIMD_BUILD_CLASS( FastNoise::CellularValue )
+FASTSIMD_BUILD_CLASS( FastNoise::CellularDistance )
+FASTSIMD_BUILD_CLASS( FastNoise::CellularLookup )
+
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Fractal.h"
 #else

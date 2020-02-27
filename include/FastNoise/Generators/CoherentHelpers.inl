@@ -100,7 +100,7 @@ FS_INLINE int32v HashPrimes( int32v seed, P... primedPos )
 }
 
 template<typename FS = FS_SIMD_CLASS, typename... P>
-int32v HashPrimesHB( int32v seed, P... primedPos )
+FS_INLINE int32v HashPrimesHB( int32v seed, P... primedPos )
 {
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
@@ -110,7 +110,7 @@ int32v HashPrimesHB( int32v seed, P... primedPos )
 };    
 
 template<typename FS = FS_SIMD_CLASS, typename... P>
-int32v GetValueCoord( int32v seed, P... primedPos )
+FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos )
 {
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
@@ -120,13 +120,13 @@ int32v GetValueCoord( int32v seed, P... primedPos )
 };
 
 template<typename FS = FS_SIMD_CLASS>
-float32v Lerp( float32v a, float32v b, float32v t )
+FS_INLINE float32v Lerp( float32v a, float32v b, float32v t )
 {
     return FS_FMulAdd_f32( t, b - a, a );
 };
 
 template<typename FS = FS_SIMD_CLASS>
-float32v InterpQuintic( float32v t )
+FS_INLINE float32v InterpQuintic( float32v t )
 {
     return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ));
 };
