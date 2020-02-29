@@ -14,6 +14,12 @@ protected:
         {
         default:
         case DistanceFunction::Euclidean:
+        {
+            float32v distSqr = dX * dX;
+            (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
+
+            return FS_InvSqrt_f32( distSqr ) * distSqr;
+        }
         case DistanceFunction::EuclideanSquared:
         {
             float32v distSqr = dX * dX;

@@ -1,5 +1,4 @@
 #include "FastSIMD/InlInclude.h"
-#include <tuple>
 
 #include "DomainWarpFractal.h"
 
