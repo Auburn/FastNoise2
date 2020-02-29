@@ -12,7 +12,7 @@ add_executable(NoiseTool
  
 target_include_directories(FastNoise PUBLIC include)
 
-target_link_libraries(NoiseTool PRIVATE
+target_link_libraries(NoiseTool PUBLIC
     FastNoise
     Magnum::Application
     Magnum::GL
