@@ -12,17 +12,4 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(src)
 
-hunter_add_package(magnum)
-find_package(Magnum CONFIG REQUIRED
-    GL
-    MeshTools
-    Primitives
-    Shaders
-    Sdl2Application)
-
-add_executable(NoiseTool "NoiseTool/main.cpp")
- 
-target_include_directories(FastNoise PUBLIC include)
- 
-target_link_libraries(NoiseTool FastNoise)
-add_dependencies(NoiseTool FastNoise)
+add_subdirectory(NoiseTool)
