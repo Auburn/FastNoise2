@@ -10,6 +10,7 @@
 #include <Magnum/Primitives/Cube.h>
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/Trade/MeshData3D.h>
+#include "Magnum/ImGuiIntegration/Context.hpp"
 
 namespace Magnum
 {
@@ -20,9 +21,15 @@ namespace Magnum
 
     private:
         void drawEvent() override;
+        void viewportEvent(ViewportEvent& event) override;
+
+        void keyPressEvent(KeyEvent& event) override;
+        void keyReleaseEvent(KeyEvent& event) override;
         void mousePressEvent(MouseEvent& event) override;
         void mouseReleaseEvent(MouseEvent& event) override;
         void mouseMoveEvent(MouseMoveEvent& event) override;
+        void mouseScrollEvent(MouseScrollEvent& event) override;
+        void textInputEvent(TextInputEvent& event) override;
 
         GL::Buffer _indexBuffer, _vertexBuffer;
         GL::Mesh _mesh;
@@ -31,5 +38,9 @@ namespace Magnum
         Matrix4 _transformation, _projection;
         Vector2i _previousMousePosition;
         Color3 _color;
+
+        ImGuiIntegration::Context _imgui{ NoCreate }; 
+        Color4 _clearColor = Color4( 0x72909aff );
+        Float _floatValue = 0.0f;
     };
 }
