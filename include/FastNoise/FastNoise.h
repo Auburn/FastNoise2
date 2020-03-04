@@ -24,4 +24,12 @@ namespace FastNoise
 
         return std::shared_ptr<T>( FastSIMD::NewSIMDClass<T>() );
     }
+
+    template<typename T>
+    inline std::shared_ptr<T> New( FastSIMD::eLevel maxLevel )
+    {
+        static_assert( std::is_base_of_v<Generator, T>, "Use FastSIMD::NewSIMDClass() to create non FastNoise classes" );
+
+        return std::shared_ptr<T>( FastSIMD::NewSIMDClass<T>( maxLevel ) );
+    }
 }

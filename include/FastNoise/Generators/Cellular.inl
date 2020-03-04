@@ -275,8 +275,13 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
 public:
     virtual void SetLookup( const std::shared_ptr<FastNoise::Generator>& gen ) final
     {
-        this->mLookupBase = gen;
-        this->mLookup = dynamic_cast<FS_T<FastNoise::Generator, FS>*>( gen.get() );
+        assert( gen->GetSIMDLevel() == GetSIMDLevel() );
+
+        if ( gen->GetSIMDLevel() == GetSIMDLevel() )
+        {
+            this->mLookupBase = gen;
+            this->mLookup = dynamic_cast<FS_T<FastNoise::Generator, FS>*>( gen.get() );
+        }
     }
 
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
