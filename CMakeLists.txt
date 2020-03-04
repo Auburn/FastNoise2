@@ -1,8 +1,6 @@
 # CMakeList.txt : CMake project for FastNoise
 cmake_minimum_required (VERSION 3.7.1)
 
-cmake_policy(SET CMP0074 NEW)
-
 include("cmake/Hunter/HunterGate.cmake")
 HunterGate(
     URL "https://github.com/ruslo/hunter/archive/v0.23.181.tar.gz"

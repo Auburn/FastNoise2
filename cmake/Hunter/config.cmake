@@ -1,3 +1,7 @@
+hunter_config(SDL2 VERSION ${HUNTER_SDL2_VERSION}
+    CMAKE_ARGS 
+		BUILD_SHARED_LIBS=OFF
+)
 hunter_config(magnum VERSION ${HUNTER_magnum_VERSION}
     CMAKE_ARGS 
 	    BUILD_STATIC=ON

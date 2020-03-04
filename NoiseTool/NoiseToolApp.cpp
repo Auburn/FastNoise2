@@ -1,10 +1,22 @@
 #include "NoiseToolApp.h"
 #include <imgui.h>
+#include <Magnum/ImGuiIntegration/Context.hpp>
+#include <Magnum/ImGuiIntegration/Widgets.h>
+#include <Magnum/PixelFormat.h>
+#include <Magnum/Math/Matrix4.h>
+#include <Magnum/ImageView.h>
+
+#include "FastNoise/FastNoise.h"
 
 using namespace Magnum;
 
 NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
-    Platform::Application{ arguments, Configuration{}.setTitle("FastNoise Tool") }
+    Platform::Application{ arguments, Configuration{}
+    .setTitle("FastNoise Tool")
+    .setSize( Vector2i( 1920, 1080 ) )
+    .setWindowFlags( Sdl2Application::Configuration::WindowFlag::Resizable )
+    },
+    mNoiseImage(PixelFormat::R32F)
 {
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
@@ -28,11 +40,13 @@ NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
 
     _transformation =
         Matrix4::rotationX(Deg( 30.0f ))*Matrix4::rotationY(Deg( 40.0f ));
+    
     _projection =
         Matrix4::perspectiveProjection(
-            Deg( 35.0f ), Vector2{ windowSize() }.aspectRatio(), 0.01f, 100.0f)*
+            Deg(35.0f), Vector2{ windowSize() }.aspectRatio(), 0.01f, 100.0f)*
         Matrix4::translation(Vector3::zAxis(-10.0f));
-    _color = Color3::fromHsv(Deg(35.0f), 1.0f, 1.0f);
+
+    _color = Color3::fromHsv( Math::ColorHsv( Deg(35.0f), 1.0f, 1.0f ));
 
     _imgui = ImGuiIntegration::Context(Vector2{ windowSize() } / dpiScaling(),
         windowSize(), framebufferSize());
@@ -44,6 +58,48 @@ NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
         GL::Renderer::BlendEquation::Add);
     GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
         GL::Renderer::BlendFunction::OneMinusSourceAlpha);
+
+
+    // FastNoise
+    auto generator = FastNoise::New<FastNoise::FractalFBm>();
+   
+    generator->SetSource( FastNoise::New<FastNoise::CellularDistance>() );
+    
+    //std::cout << "SIMD Level:  " << generator->GetSIMDLevel() << "\n";
+    
+    Containers::Array<char> data(512 * 512 * sizeof(float));
+
+    Containers::Array<float> x(512 * 512);
+    Containers::Array<float> y(512 * 512);
+    Containers::Array<float> z(512 * 512);
+
+    for (int i = 0; i < 512 * 512; i++)
+    {
+        x[i] = 0;
+    }
+    for (int i = 0; i < 512 * 512; i++)
+    {
+        y[i] = (i % 512) * 0.01f;
+    }
+    for (int i = 0; i < 512 * 512; i++)
+    {
+        z[i] = (i / 512) * 0.01f;
+    }
+
+    //generator->GenPositionArray3D((float*)data.data(), x, y, z, 512 * 512, 0, 0, 0, 1337);
+
+    generator->GenUniformGrid2D((float*)data.data(), 0, 0, 512, 512, 0.01f, 0.01f, 1337 );
+
+    mNoiseImage = Image2D( PixelFormat::R32F, { 512, 512 }, std::move(data) );
+    
+    mNoiseTexture.setMagnificationFilter(GL::SamplerFilter::Linear)
+        .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+        .setWrapping(GL::SamplerWrapping::ClampToEdge)
+        .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+        .setStorage(Math::log2(512) + 1, GL::TextureFormat::R32F, { 512, 512 })
+        .setSubImage(0, {}, mNoiseImage)
+        .generateMipmap();
+
 }
 
 void NoiseToolApp::drawEvent() {
@@ -53,7 +109,7 @@ void NoiseToolApp::drawEvent() {
     _shader.setLightPosition({ 7.0f, 5.0f, 2.5f })
         .setLightColor(Color3{ 1.0f })
         .setDiffuseColor(_color)
-        .setAmbientColor(Color3::fromHsv(_color.hue(), 1.0f, 0.3f))
+        .setAmbientColor(Color3::fromHsv(Math::ColorHsv(_color.hue(), 1.0f, 0.3f)))
         .setTransformationMatrix(_transformation)
         .setNormalMatrix(_transformation.rotationScaling())
         .setProjectionMatrix(_projection);
@@ -83,6 +139,9 @@ void NoiseToolApp::drawEvent() {
         }
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double(ImGui::GetIO().Framerate), Double(ImGui::GetIO().Framerate));
+
+        ImGuiIntegration::image(mNoiseTexture, {512,512});
+
     }
 
     /* Set appropriate states. If you only draw ImGui, it is sufficient to
@@ -108,6 +167,11 @@ void NoiseToolApp::drawEvent() {
 void NoiseToolApp::viewportEvent(ViewportEvent& event) {
     GL::defaultFramebuffer.setViewport({ {}, event.framebufferSize() });
 
+    _projection =
+        Matrix4::perspectiveProjection(
+            Deg(35.0f), Vector2{ windowSize() }.aspectRatio(), 0.01f, 100.0f)*
+        Matrix4::translation(Vector3::zAxis(-10.0f));
+
     _imgui.relayout(Vector2{ event.windowSize() } / event.dpiScaling(),
         event.windowSize(), event.framebufferSize());
 }
@@ -130,7 +194,7 @@ void NoiseToolApp::mousePressEvent(MouseEvent& event) {
 
 void NoiseToolApp::mouseReleaseEvent(MouseEvent& event) {
     if (_imgui.handleMouseReleaseEvent(event)) return;
-    _color = Color3::fromHsv(_color.hue() + Deg( 50.0f ), 1.0f, 1.0f);
+    _color = Color3::fromHsv(Math::ColorHsv((Deg)(_color.hue() + Deg( 50.0f )), 1.0f, 1.0f));
 
     event.setAccepted();
     redraw();
@@ -165,3 +229,5 @@ void NoiseToolApp::mouseMoveEvent(MouseMoveEvent& event) {
 void NoiseToolApp::textInputEvent(TextInputEvent& event) {
     if(_imgui.handleTextInputEvent(event)) return;
 }
+
+MAGNUM_APPLICATION_MAIN( NoiseToolApp )

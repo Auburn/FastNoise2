@@ -4,13 +4,18 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/GL/Renderer.h>
+#include <Magnum/GL/TextureFormat.h>
+#include <Magnum/Math/Matrix4.h>
+#include <Magnum/Math/Color.h>
 #include <Magnum/MeshTools/Interleave.h>
 #include <Magnum/MeshTools/CompressIndices.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/Primitives/Cube.h>
 #include <Magnum/Shaders/Phong.h>
 #include <Magnum/Trade/MeshData3D.h>
-#include "Magnum/ImGuiIntegration/Context.hpp"
+#include <Magnum/Image.h>
+#include <Corrade/Containers/StaticArray.h>
+#include <Magnum/ImGuiIntegration/Context.h>
 
 namespace Magnum
 {
@@ -40,7 +45,10 @@ namespace Magnum
         Color3 _color;
 
         ImGuiIntegration::Context _imgui{ NoCreate }; 
-        Color4 _clearColor = Color4( 0x72909aff );
+        Color4 _clearColor = Color4( 0x72, 0x90, 0x9a );
         Float _floatValue = 0.0f;
+
+        GL::Texture2D mNoiseTexture;
+        Image2D mNoiseImage;
     };
 }
