@@ -2,7 +2,7 @@
 
 WIP successor to FastNoiseSIMD
 
-Modular node based approach to noise generation
+Modular node based approach to noise generation using modern C++17 features and templates
 
 Uses FastSIMD to compile classes with multiple SIMD types
 
