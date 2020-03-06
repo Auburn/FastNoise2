@@ -93,9 +93,9 @@ namespace FastSIMD
             return _mm512_set_epi32( 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 );
         }
 
-        FS_INLINE explicit AVX512_i32x16( int32_t f )
+        FS_INLINE explicit AVX512_i32x16( int32_t i )
         {
-            *this = _mm512_set1_epi32( f );
+            *this = _mm512_set1_epi32( i );
         }
 
         FS_INLINE explicit AVX512_i32x16( int32_t i0, int32_t i1, int32_t i2, int32_t i3, int32_t i4, int32_t i5, int32_t i6, int32_t i7, int32_t i8, int32_t i9, int32_t i10, int32_t i11, int32_t i12, int32_t i13, int32_t i14, int32_t i15 )
@@ -269,7 +269,7 @@ namespace FastSIMD
 
         FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
         {
-            return _mm512_cmpgt_epi32_mask( b, a );
+            return _mm512_cmplt_epi32_mask( b, a );
         }
 
         // Select

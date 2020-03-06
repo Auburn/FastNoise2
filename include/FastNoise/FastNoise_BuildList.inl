@@ -77,4 +77,5 @@ FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalIndependant )
 #endif
 FASTSIMD_BUILD_CLASS( FastNoise::DomainScale )
 FASTSIMD_BUILD_CLASS( FastNoise::Remap )
+FASTSIMD_BUILD_CLASS( FastNoise::ConvertRGBA8 )
 

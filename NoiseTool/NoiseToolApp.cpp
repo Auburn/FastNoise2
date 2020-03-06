@@ -61,9 +61,11 @@ NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
 
 
     // FastNoise
-    auto generator = FastNoise::New<FastNoise::FractalFBm>();
-   
-    generator->SetSource( FastNoise::New<FastNoise::CellularDistance>() );
+    auto fractal = FastNoise::New<FastNoise::FractalFBm>();
+    fractal->SetSource( FastNoise::New<FastNoise::Simplex>() );
+
+    auto generator = FastNoise::New<FastNoise::ConvertRGBA8>();
+    generator->SetSource( fractal );
     
     //std::cout << "SIMD Level:  " << generator->GetSIMDLevel() << "\n";
     
@@ -90,13 +92,13 @@ NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
 
     generator->GenUniformGrid2D((float*)data.data(), 0, 0, 512, 512, 0.01f, 0.01f, 1337 );
 
-    mNoiseImage = Image2D( PixelFormat::R32F, { 512, 512 }, std::move(data) );
+    mNoiseImage = Image2D( PixelFormat::RGBA8Unorm, { 512, 512 }, std::move(data) );
     
     mNoiseTexture.setMagnificationFilter(GL::SamplerFilter::Linear)
         .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
         .setWrapping(GL::SamplerWrapping::ClampToEdge)
         .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-        .setStorage(Math::log2(512) + 1, GL::TextureFormat::R32F, { 512, 512 })
+        .setStorage(Math::log2(512) + 1, GL::TextureFormat::RGBA8, { 512, 512 })
         .setSubImage(0, {}, mNoiseImage)
         .generateMipmap();
 
