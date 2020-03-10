@@ -2,6 +2,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/modules/" ${CMAKE_MODULE_PATH
 
 cmake_policy(SET CMP0074 NEW)
 
+set(HUNTER_ENABLED ON CACHE BOOL "" FORCE)
+
 hunter_add_package(SDL2)
 find_package(SDL2 CONFIG REQUIRED)
 

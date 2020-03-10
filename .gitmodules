@@ -1,0 +1,12 @@
+[submodule "NoiseTool/ThirdParty/corrade"]
+	path = NoiseTool/ThirdParty/corrade
+	url = https://github.com/mosra/corrade.git
+[submodule "NoiseTool/ThirdParty/magnum"]
+	path = NoiseTool/ThirdParty/magnum
+	url = https://github.com/mosra/magnum.git
+[submodule "NoiseTool/ThirdParty/imgui"]
+	path = NoiseTool/ThirdParty/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "NoiseTool/ThirdParty/magnum-integration"]
+	path = NoiseTool/ThirdParty/magnum-integration
+	url = https://github.com/mosra/magnum-integration.git
