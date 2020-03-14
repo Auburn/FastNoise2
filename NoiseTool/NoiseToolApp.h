@@ -17,6 +17,8 @@
 #include <Corrade/Containers/StaticArray.h>
 #include <Magnum/ImGuiIntegration/Context.h>
 
+#include "FastNoiseNodeEditor.h"
+
 namespace Magnum
 {
     class NoiseToolApp : public Platform::Application
@@ -50,5 +52,7 @@ namespace Magnum
 
         GL::Texture2D mNoiseTexture;
         Image2D mNoiseImage;
+
+        FastNoiseNodeEditor mNodeEditor;
     };
 }

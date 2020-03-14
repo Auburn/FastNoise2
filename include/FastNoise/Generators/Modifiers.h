@@ -12,6 +12,14 @@ namespace FastNoise
 
     protected:
         float mScale = 1.0f;
+
+        FASTNOISE_METADATA( Modifier<1> )
+        {
+            Metadata( const char* className ) : Modifier<1>::Metadata( className )
+            {
+
+            }
+        };    
     };
 
     class Remap : public virtual Modifier<1>
@@ -26,6 +34,14 @@ namespace FastNoise
         float mFromMax = 1.0f;
         float mToMin = 0.0f;
         float mToMax = 1.0f;
+
+        FASTNOISE_METADATA( Modifier<1> )
+        {
+            Metadata( const char* className ) : Modifier<1>::Metadata( className )
+            {
+
+            }
+        };    
     };
 
     class ConvertRGBA8 : public virtual Modifier<1>
@@ -38,5 +54,13 @@ namespace FastNoise
     protected:
         float mMin = -1.0f;
         float mMax = 1.0f;
+
+        FASTNOISE_METADATA( Modifier<1> )
+        {
+            Metadata( const char* className ) : Modifier<1>::Metadata( className )
+            {
+
+            }
+        };    
     };
 }

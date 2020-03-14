@@ -22,15 +22,17 @@ set(WITH_SDL2APPLICATION ON CACHE BOOL "" FORCE)
 add_subdirectory(ThirdParty/magnum EXCLUDE_FROM_ALL)
     
 find_package(Magnum REQUIRED GL Sdl2Application)
-	
+    
 set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/imgui/")
 set(WITH_IMGUI ON CACHE BOOL "" FORCE)
 add_subdirectory(ThirdParty/magnum-integration EXCLUDE_FROM_ALL)
 
 find_package(MagnumIntegration REQUIRED ImGui)
-	
+    
 add_executable(NoiseTool 
-    "NoiseToolApp.cpp")
+    "NoiseToolApp.cpp"
+    "FastNoiseNodeEditor.cpp"
+    "imnodes.cpp")
  
 target_include_directories(FastNoise PUBLIC include)
 

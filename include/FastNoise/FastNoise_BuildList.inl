@@ -4,78 +4,82 @@
 #error Do not include this file
 #endif
 
+namespace FastNoise {}
+using namespace FastNoise;
+
 #ifndef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Generator.inl"
 #endif
+
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/White.h"
 #else
 #include "Generators/White.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::White )
+FASTSIMD_BUILD_CLASS( White )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Value.h"
 #else
 #include "Generators/Value.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::Value )
+FASTSIMD_BUILD_CLASS( Value )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Perlin.h"
 #else
 #include "Generators/Perlin.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::Perlin )
+FASTSIMD_BUILD_CLASS( Perlin )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Simplex.h"
 #else
 #include "Generators/Simplex.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::Simplex )
+FASTSIMD_BUILD_CLASS( Simplex )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Cellular.h"
 #else
 #include "Generators/Cellular.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::CellularValue )
-FASTSIMD_BUILD_CLASS( FastNoise::CellularDistance )
-FASTSIMD_BUILD_CLASS( FastNoise::CellularLookup )
+FASTSIMD_BUILD_CLASS( CellularValue )
+FASTSIMD_BUILD_CLASS( CellularDistance )
+FASTSIMD_BUILD_CLASS( CellularLookup )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Fractal.h"
 #else
 #include "Generators/Fractal.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::FractalFBm )
-FASTSIMD_BUILD_CLASS( FastNoise::FractalBillow )
-FASTSIMD_BUILD_CLASS( FastNoise::FractalRidged )
-FASTSIMD_BUILD_CLASS( FastNoise::FractalRidgedMulti )
+FASTSIMD_BUILD_CLASS( FractalFBm )
+FASTSIMD_BUILD_CLASS( FractalBillow )
+FASTSIMD_BUILD_CLASS( FractalRidged )
+FASTSIMD_BUILD_CLASS( FractalRidgedMulti )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/DomainWarp.h"
 #else
 #include "Generators/DomainWarp.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpGradient )
+FASTSIMD_BUILD_CLASS( DomainWarpGradient )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/DomainWarpFractal.h"
 #else
 #include "Generators/DomainWarpFractal.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalProgressive )
-FASTSIMD_BUILD_CLASS( FastNoise::DomainWarpFractalIndependant )
+FASTSIMD_BUILD_CLASS( DomainWarpFractalProgressive )
+FASTSIMD_BUILD_CLASS( DomainWarpFractalIndependant )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Modifiers.h"
 #else
 #include "Generators/Modifiers.inl"
 #endif
-FASTSIMD_BUILD_CLASS( FastNoise::DomainScale )
-FASTSIMD_BUILD_CLASS( FastNoise::Remap )
-FASTSIMD_BUILD_CLASS( FastNoise::ConvertRGBA8 )
+FASTSIMD_BUILD_CLASS( DomainScale )
+FASTSIMD_BUILD_CLASS( Remap )
+FASTSIMD_BUILD_CLASS( ConvertRGBA8 )
 

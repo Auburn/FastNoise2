@@ -17,6 +17,7 @@ file(GLOB_RECURSE FastSIMD_headers "*.h")
 file(GLOB_RECURSE FastSIMD_inline "*.inl")
 
 add_library(FastNoise
+    FastNoise/FastNoiseMetadata.cpp
     ${FastSIMD_sources}
     ${FastSIMD_headers}
     ${FastSIMD_inline}

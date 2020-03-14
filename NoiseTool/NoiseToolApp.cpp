@@ -7,6 +7,7 @@
 #include <Magnum/ImageView.h>
 
 #include "FastNoise/FastNoise.h"
+#include "imnodes.h"
 
 using namespace Magnum;
 
@@ -102,6 +103,11 @@ NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
         .setSubImage(0, {}, mNoiseImage)
         .generateMipmap();
 
+
+    imnodes::Initialize();
+
+    // Setup style
+    //imnodes::SetNodeGridSpacePos(1, ImVec2(200.0f, 200.0f));
 }
 
 void NoiseToolApp::drawEvent() {
@@ -142,9 +148,30 @@ void NoiseToolApp::drawEvent() {
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double(ImGui::GetIO().Framerate), Double(ImGui::GetIO().Framerate));
 
-        ImGuiIntegration::image(mNoiseTexture, {512,512});
 
+        /*ImGui::Begin("Node Editor");
+        imnodes::BeginNodeEditor();
+        imnodes::BeginNode(1);
+
+        imnodes::BeginNodeTitleBar();
+        ImGui::TextUnformatted("simple node :)");
+        imnodes::EndNodeTitleBar();
+
+
+        imnodes::BeginInputAttribute(2);
+        ImGui::Text("input");
+        imnodes::EndAttribute();
+
+        imnodes::BeginOutputAttribute(3);
+        ImGuiIntegration::image(mNoiseTexture, {128,128});
+        imnodes::EndAttribute();
+
+        imnodes::EndNode();
+        imnodes::EndNodeEditor();
+        ImGui::End();*/
     }
+
+    mNodeEditor.Update();
 
     /* Set appropriate states. If you only draw ImGui, it is sufficient to
        just enable blending and scissor test in the constructor. */

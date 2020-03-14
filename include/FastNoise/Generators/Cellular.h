@@ -26,18 +26,36 @@ namespace FastNoise
 
         const float kJitter2D = 0.5f;
         const float kJitter3D = 0.45f;
+
+        FASTNOISE_METADATA_ABSTRACT( FastNoise )
+        {
+            Metadata( const char* className ) : FastNoise::Metadata( className )
+            {
+
+            }
+        };
     };
 
     class CellularValue : public virtual Cellular
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
+
+        FASTNOISE_METADATA( Cellular )
+        {
+            using Cellular::Metadata::Metadata;
+        };
     };
 
     class CellularDistance : public virtual Cellular
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
+
+        FASTNOISE_METADATA( Cellular )
+        {
+            using Cellular::Metadata::Metadata;
+        };
     };
 
     class CellularLookup : public virtual Cellular
@@ -60,5 +78,13 @@ namespace FastNoise
         float mLookupFreqW = 0.1f;
 
         std::shared_ptr<Generator> mLookupBase;
+
+        FASTNOISE_METADATA( Cellular )
+        {
+            Metadata( const char* className ) : Cellular::Metadata( className )
+            {
+
+            }
+        };
     };
 }

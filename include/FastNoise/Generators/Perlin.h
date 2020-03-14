@@ -7,6 +7,10 @@ namespace FastNoise
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        
+
+        FASTNOISE_METADATA( FastNoise )
+        {
+            using FastNoise::Metadata::Metadata;
+        };        
     };
 }

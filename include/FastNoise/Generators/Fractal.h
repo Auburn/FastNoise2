@@ -29,12 +29,25 @@ namespace FastNoise
             }
             mFractalBounding = 1.0f / ampFractal;
         }
+
+        FASTNOISE_METADATA_ABSTRACT( Modifier<1, T> )
+        {
+            Metadata( const char* className ) : Modifier<1, T>::Metadata( className )
+            {
+
+            }
+        };        
     };
 
     class FractalFBm : public virtual Fractal<>
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
+
+        FASTNOISE_METADATA( Fractal )
+        {
+            using Fractal::Metadata::Metadata;
+        };      
         
     };
 
@@ -42,6 +55,11 @@ namespace FastNoise
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
+
+        FASTNOISE_METADATA( Fractal )
+        {
+            using Fractal::Metadata::Metadata;
+        };      
         
     };
 
@@ -49,6 +67,11 @@ namespace FastNoise
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
+
+        FASTNOISE_METADATA( Fractal )
+        {
+            using Fractal::Metadata::Metadata;
+        };      
         
     };
 
@@ -73,5 +96,13 @@ namespace FastNoise
             }
             mWeightBounding = 2.0f / totalWeight;
         }
+
+        FASTNOISE_METADATA( Fractal )
+        {
+            Metadata( const char* className ) : Fractal::Metadata( className )
+            {
+
+            }
+        };      
     };
 }
