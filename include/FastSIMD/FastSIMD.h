@@ -41,12 +41,12 @@ namespace FastSIMD
     eLevel CPUMaxSIMDLevel();
 
     template<typename T>
-    T* NewSIMDClass( eLevel maxSIMDLevel );
+    T* New( eLevel maxSIMDLevel );
 
     template<typename T>
-    T* NewSIMDClass()
+    T* New()
     {
-        return NewSIMDClass<T>( CPUMaxSIMDLevel() );
+        return New<T>( CPUMaxSIMDLevel() );
     }
 
     template<typename CLASS_T, eLevel SIMD_LEVEL>

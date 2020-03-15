@@ -199,14 +199,14 @@ CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
 }
 
 template<typename CLASS_T>
-CLASS_T* FastSIMD::NewSIMDClass( eLevel maxSIMDLevel )
+CLASS_T* FastSIMD::New( eLevel maxSIMDLevel )
 {
     static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );
     return SIMDLevelSelector<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel );
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template CLASS* FastSIMD::NewSIMDClass( FastSIMD::eLevel );
+template CLASS* FastSIMD::New( FastSIMD::eLevel );
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY
 #include "FastSIMD_BuildList.inl"

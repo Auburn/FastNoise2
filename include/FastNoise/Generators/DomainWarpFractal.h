@@ -10,7 +10,6 @@ namespace FastNoise
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
         FASTNOISE_METADATA( Fractal<DomainWarp> )
-        {
             using Fractal<DomainWarp>::Metadata::Metadata;
         };    
     };
@@ -20,8 +19,7 @@ namespace FastNoise
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
-        FASTNOISE_METADATA( Fractal<DomainWarp> )
-        {
+        FASTNOISE_METADATA( Fractal<DomainWarp> )        
             using Fractal<DomainWarp>::Metadata::Metadata;
         };    
     };

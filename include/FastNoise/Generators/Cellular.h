@@ -28,7 +28,7 @@ namespace FastNoise
         const float kJitter3D = 0.45f;
 
         FASTNOISE_METADATA_ABSTRACT( FastNoise )
-        {
+        
             Metadata( const char* className ) : FastNoise::Metadata( className )
             {
 
@@ -42,7 +42,6 @@ namespace FastNoise
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
         FASTNOISE_METADATA( Cellular )
-        {
             using Cellular::Metadata::Metadata;
         };
     };
@@ -53,7 +52,6 @@ namespace FastNoise
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
         FASTNOISE_METADATA( Cellular )
-        {
             using Cellular::Metadata::Metadata;
         };
     };
@@ -80,7 +78,7 @@ namespace FastNoise
         std::shared_ptr<Generator> mLookupBase;
 
         FASTNOISE_METADATA( Cellular )
-        {
+        
             Metadata( const char* className ) : Cellular::Metadata( className )
             {
 

@@ -1,26 +1,42 @@
 #pragma once
 #include <vector>
+#include <memory>
 
-class FastNoiseNodeEditor
+#include <Magnum/Magnum.h>
+#include <Magnum\GL\GL.h>
+#include <Magnum/GL/Texture.h>
+#include <Magnum\ImageView.h>
+
+#include "FastNoise/FastNoise.h"
+
+namespace Magnum
 {
-public:
-    void Update();
-
-
-private:
-    struct Node
+    class FastNoiseNodeEditor
     {
-        int id;
-        float value;
-    };
+    public:
+        void Update();
 
-    struct Link
-    {
-        int id;
-        int startAttr, endAttr;
-    };
 
-    std::vector<Node> mNodes;
-    std::vector<Link> mLinks;
-    int mCurrentNodeId = 0;
-};
+    private:
+        struct Node
+        {
+            Node( const FastNoise::Metadata* );
+            void GeneratePreview( std::vector<Node>& );
+            std::shared_ptr<FastNoise::Generator> GetGenerator( std::vector<Node>&, bool& );
+
+            int id;
+            const FastNoise::Metadata* metadata;
+
+            std::vector<int> memberNodes;
+            std::vector<FastNoise::Metadata::MemberVariable::ValueUnion> memberValues;
+
+            static const int NoiseSize = 128;
+            GL::Texture2D noiseTexture;
+            ImageView2D noiseImage;
+            float noiseData[NoiseSize * NoiseSize];
+        };
+
+        std::vector<Node> mNodes;
+        int mCurrentNodeId = 1;
+    };
+}

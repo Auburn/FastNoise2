@@ -23,7 +23,7 @@ namespace FastNoise
 
         virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) = 0;     
 
-        virtual Metadata* GetMetadata() = 0;
+        virtual const Metadata* GetMetadata() = 0;
     };
 
     template<size_t SOURCE_COUNT, typename T = Generator>
@@ -36,7 +36,7 @@ namespace FastNoise
         std::array<std::shared_ptr<T>, SOURCE_COUNT> mSourceBase;
 
         FASTNOISE_METADATA_ABSTRACT( FastNoise )
-        {
+        
             Metadata( const char* className ) : FastNoise::Metadata( className )
             {
                 for( size_t i = 0; i < SOURCE_COUNT; i++ )

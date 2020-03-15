@@ -7,9 +7,9 @@ namespace FastNoise
     class Fractal : public virtual Modifier<1, T>
     {
     public:
-        void SetLacunarity( float value ) { mLacunarity = value; } 
-        void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
         void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
+        void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
+        void SetLacunarity( float value ) { mLacunarity = value; } 
 
     protected:
 
@@ -31,10 +31,12 @@ namespace FastNoise
         }
 
         FASTNOISE_METADATA_ABSTRACT( Modifier<1, T> )
-        {
+
             Metadata( const char* className ) : Modifier<1, T>::Metadata( className )
             {
-
+                memberVariables.emplace_back( "Octaves", 3, &SetOctaveCount );
+                memberVariables.emplace_back( "Gain", 2.0f, &SetGain );
+                memberVariables.emplace_back( "Lacunarity", 0.5f, &SetLacunarity );
             }
         };        
     };
@@ -44,8 +46,7 @@ namespace FastNoise
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
-        FASTNOISE_METADATA( Fractal )
-        {
+        FASTNOISE_METADATA( Fractal )        
             using Fractal::Metadata::Metadata;
         };      
         
@@ -57,7 +58,6 @@ namespace FastNoise
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
         FASTNOISE_METADATA( Fractal )
-        {
             using Fractal::Metadata::Metadata;
         };      
         
@@ -69,7 +69,6 @@ namespace FastNoise
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
 
         FASTNOISE_METADATA( Fractal )
-        {
             using Fractal::Metadata::Metadata;
         };      
         
@@ -98,7 +97,7 @@ namespace FastNoise
         }
 
         FASTNOISE_METADATA( Fractal )
-        {
+
             Metadata( const char* className ) : Fractal::Metadata( className )
             {
 

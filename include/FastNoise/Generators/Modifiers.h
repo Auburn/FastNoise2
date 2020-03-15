@@ -14,7 +14,7 @@ namespace FastNoise
         float mScale = 1.0f;
 
         FASTNOISE_METADATA( Modifier<1> )
-        {
+        
             Metadata( const char* className ) : Modifier<1>::Metadata( className )
             {
 
@@ -36,10 +36,32 @@ namespace FastNoise
         float mToMax = 1.0f;
 
         FASTNOISE_METADATA( Modifier<1> )
-        {
+        
             Metadata( const char* className ) : Modifier<1>::Metadata( className )
             {
+                memberVariables.emplace_back( "From Min", -1.0f,
+                    []( Remap* p, float f )
+                {
+                    p->mFromMin = f;
+                });
+                
+                memberVariables.emplace_back( "From Max", 1.0f,
+                    []( Remap* p, float f )
+                {
+                    p->mFromMax = f;
+                });
+                
+                memberVariables.emplace_back( "To Min", 0.0f,
+                    []( Remap* p, float f )
+                {
+                    p->mToMin = f;
+                });
 
+                memberVariables.emplace_back( "To Max", 1.0f,
+                    std::function<void(Remap*,float)>( []( Remap* p, float f )
+                {
+                    p->mToMax = f;
+                })); //std function to test compile, temp
             }
         };    
     };
@@ -56,7 +78,7 @@ namespace FastNoise
         float mMax = 1.0f;
 
         FASTNOISE_METADATA( Modifier<1> )
-        {
+        
             Metadata( const char* className ) : Modifier<1>::Metadata( className )
             {
 

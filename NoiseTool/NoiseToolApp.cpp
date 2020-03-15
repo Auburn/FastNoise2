@@ -34,7 +34,7 @@ NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
     _indexBuffer.setData(indexData);
 
     _mesh.setPrimitive(cube.primitive())
-        .setCount(cube.indices().size())
+        .setCount((int)cube.indices().size())
         .addVertexBuffer(_vertexBuffer, 0, Shaders::Phong::Position{},
             Shaders::Phong::Normal{})
         .setIndexBuffer(_indexBuffer, 0, indexType, indexStart, indexEnd);
