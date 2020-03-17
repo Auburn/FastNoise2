@@ -41,6 +41,17 @@ void FastNoiseNodeEditor::Node::GeneratePreview( std::vector<Node>& nodes )
         .setStorage(Math::log2( NoiseSize ) + 1, GL::TextureFormat::RGBA8, { NoiseSize, NoiseSize })
         .setSubImage(0, {}, noiseImage)
         .generateMipmap();
+
+    for( auto& node : nodes )
+    {
+        for( int link : node.memberNodes )
+        {
+            if( link >> 8 == id )
+            {
+                node.GeneratePreview( nodes );
+            }
+        }
+    }
 }
 
 std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( std::vector<Node>& nodes, bool& valid )
@@ -52,15 +63,16 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
         auto source = std::find_if( nodes.begin(), nodes.end(),
             [id = memberNodes[i] >> 8] ( const Node& n ) { return n.id == id; } );
 
-        if (source == nodes.end())
+        if( source == nodes.end() || !metadata->memberNodes[i].setFunc( node.get(), source->GetGenerator( nodes, valid ) ) )
         {
             memberNodes[i] = -1;
             valid = false;
         }
-        else
-        {
-            metadata->memberNodes[i].setFunc( node.get(), source->GetGenerator( nodes, valid ) );
-        }
+    }
+    
+    for( int i = 0; i < metadata->memberVariables.size(); i++ )
+    {
+        metadata->memberVariables[i].setFunc( node.get(), memberValues[i] );
     }
 
     return node;
@@ -68,7 +80,7 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
 
 void FastNoiseNodeEditor::Update()
 {
-    ImGui::SetNextWindowSize( ImVec2(800, 600), ImGuiCond_Always );
+    ImGui::SetNextWindowSize( ImVec2(800, 600), ImGuiCond_FirstUseEver );
     ImGui::Begin( "FastNoise Node Editor" );
 
     imnodes::BeginNodeEditor();
@@ -79,8 +91,7 @@ void FastNoiseNodeEditor::Update()
 
         imnodes::BeginNodeTitleBar();
         ImGui::TextUnformatted( node.metadata->name );
-        imnodes::EndNodeTitleBar();
-        
+        imnodes::EndNodeTitleBar();        
 
         int attributeId = node.id << 8;
 
@@ -100,18 +111,18 @@ void FastNoiseNodeEditor::Update()
             case FastNoise::Metadata::MemberVariable::EFloat:
             {
                 ImGui::PushItemWidth( 60.0f );
-                if( ImGui::DragFloat( nodeVar.name, &node.memberValues[i].f ) )
+                if( ImGui::DragFloat( nodeVar.name, &node.memberValues[i].f, 0.1f, node.metadata->memberVariables[i].valueMin.f, node.metadata->memberVariables[i].valueMax.f ) )
                 {
-
+                    node.GeneratePreview( mNodes );
                 }
             }
             break;
             case FastNoise::Metadata::MemberVariable::EInt:
             {
                 ImGui::PushItemWidth( 60.0f );
-                if( ImGui::DragInt( nodeVar.name, &node.memberValues[i].i ) )
+                if( ImGui::DragInt( nodeVar.name, &node.memberValues[i].i, 0.2f, node.metadata->memberVariables[i].valueMin.i, node.metadata->memberVariables[i].valueMax.i ) )
                 {
-
+                    node.GeneratePreview( mNodes );
                 }
             }
             break;
@@ -154,7 +165,7 @@ void FastNoiseNodeEditor::Update()
 
         for( auto& metadata : FastNoise::MetadataManager::GetMetadataClasses() )
         {
-            if (ImGui::MenuItem(metadata->name))
+            if( ImGui::MenuItem( metadata->name ) )
             {
                 const int node_id = ++mCurrentNodeId;
                 imnodes::SetNodeScreenSpacePos(node_id, startPos);

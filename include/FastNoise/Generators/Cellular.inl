@@ -138,22 +138,22 @@ public:
                 
                     float32v newCellValue = float32v( 1.0f / INT_MAX ) * FS_Converti32_f32( hash );
                     float32v newDistance = this->GetDistance( xd, yd, zd );
-				
-				    mask32v closer = FS_LessThan_f32( newDistance, distance );
-				
-				    distance = FS_Min_f32( newDistance, distance );
-				    cellValue = FS_Select_f32( closer, newCellValue, cellValue );
-			
-			        zcf += float32v( 1 );
-			        zc += int32v( Primes::Z );
-		        }
-		        ycf += float32v( 1 );
-		        yc += int32v( Primes::Y );
-	        }
-	        xcf += float32v( 1 );
-	        xc += int32v( Primes::X );
-	    }
-	
+                
+                    mask32v closer = FS_LessThan_f32( newDistance, distance );
+                
+                    distance = FS_Min_f32( newDistance, distance );
+                    cellValue = FS_Select_f32( closer, newCellValue, cellValue );
+            
+                    zcf += float32v( 1 );
+                    zc += int32v( Primes::Z );
+                }
+                ycf += float32v( 1 );
+                yc += int32v( Primes::Y );
+            }
+            xcf += float32v( 1 );
+            xc += int32v( Primes::X );
+        }
+    
         return cellValue;
     }
 };

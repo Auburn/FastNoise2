@@ -30,7 +30,7 @@ namespace Magnum
             std::vector<int> memberNodes;
             std::vector<FastNoise::Metadata::MemberVariable::ValueUnion> memberValues;
 
-            static const int NoiseSize = 128;
+            static const int NoiseSize = 192;
             GL::Texture2D noiseTexture;
             ImageView2D noiseImage;
             float noiseData[NoiseSize * NoiseSize];
