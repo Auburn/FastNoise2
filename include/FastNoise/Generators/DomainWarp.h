@@ -5,9 +5,7 @@ namespace FastNoise
 {
     class DomainWarp : public virtual Modifier<1>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        
+    public:        
         void SetWarpFrequency( float value ) { mWarpFrequency = value; }
         void SetWarpAmplitude( float value ) { mWarpAmplitude = value; } 
         float GetWarpFrequency() { return mWarpFrequency; }
@@ -21,20 +19,14 @@ namespace FastNoise
         
             Metadata( const char* className ) : Modifier<1>::Metadata( className )
             {
-                memberVariables.emplace_back( "Warp Frequency", 0.5f,
-                    std::function<void(DomainWarp*, float)>( &SetWarpFrequency) );
-
-                memberVariables.emplace_back( "Warp Amplitude", 1.0f,
-                    std::function<void(DomainWarp*, float)>( &SetWarpAmplitude ));
+                memberVariables.emplace_back( "Warp Frequency", 0.5f, &SetWarpFrequency );
+                memberVariables.emplace_back( "Warp Amplitude", 1.0f, &SetWarpAmplitude );
             }
         };
     };
 
     class DomainWarpGradient : public virtual DomainWarp
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         FASTNOISE_METADATA( DomainWarp )
             using DomainWarp::Metadata::Metadata;
         };        

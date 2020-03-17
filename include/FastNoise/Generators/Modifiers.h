@@ -6,8 +6,6 @@ namespace FastNoise
     class DomainScale : public virtual Modifier<1>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         void SetScale( float value ) { mScale = value; };
 
     protected:
@@ -17,7 +15,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Modifier<1>::Metadata( className )
             {
-
+                memberVariables.emplace_back( "Scale", 1.0f, &SetScale );
             }
         };    
     };
@@ -25,9 +23,7 @@ namespace FastNoise
     class Remap : public virtual Modifier<1>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
-        void SetRemap(float fromMin, float fromMax, float toMin, float toMax) { mFromMin = fromMin; mFromMax = fromMax; mToMin = toMin; mToMax = toMax; }
+        void SetRemap( float fromMin, float fromMax, float toMin, float toMax ) { mFromMin = fromMin; mFromMax = fromMax; mToMin = toMin; mToMax = toMax; }
 
     protected:
         float mFromMin = -1.0f;
@@ -58,10 +54,10 @@ namespace FastNoise
                 });
 
                 memberVariables.emplace_back( "To Max", 1.0f,
-                    std::function<void(Remap*,float)>( []( Remap* p, float f )
+                    []( Remap* p, float f )
                 {
                     p->mToMax = f;
-                })); //std function to test compile, temp
+                });
             }
         };    
     };
@@ -69,9 +65,7 @@ namespace FastNoise
     class ConvertRGBA8 : public virtual Modifier<1>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT(FastNoise::SUPPORTED_SIMD_LEVELS);
-
-        void SetMinMax(float min, float max) { mMin = min; mMax = max; }
+        void SetMinMax( float min, float max ) { mMin = min; mMax = max; }
 
     protected:
         float mMin = -1.0f;
@@ -80,8 +74,18 @@ namespace FastNoise
         FASTNOISE_METADATA( Modifier<1> )
         
             Metadata( const char* className ) : Modifier<1>::Metadata( className )
-            {
+            {            
+                memberVariables.emplace_back( "Min", -1.0f,
+                    []( ConvertRGBA8* p, float f )
+                {
+                    p->mMin = f;
+                });
 
+                memberVariables.emplace_back( "Max", 1.0f,
+                    []( ConvertRGBA8* p, float f )
+                {
+                    p->mMax = f;
+                });
             }
         };    
     };

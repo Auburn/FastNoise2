@@ -20,9 +20,11 @@ namespace Magnum
     private:
         struct Node
         {
+            using Ptr = std::unique_ptr<Node>;
+
             Node( const FastNoise::Metadata* );
-            void GeneratePreview( std::vector<Node>& );
-            std::shared_ptr<FastNoise::Generator> GetGenerator( std::vector<Node>&, bool& );
+            void GeneratePreview( std::vector<Ptr>& );
+            std::shared_ptr<FastNoise::Generator> GetGenerator( std::vector<Ptr>&, bool& );
 
             int id;
             const FastNoise::Metadata* metadata;
@@ -36,7 +38,7 @@ namespace Magnum
             float noiseData[NoiseSize * NoiseSize];
         };
 
-        std::vector<Node> mNodes;
+        std::vector<Node::Ptr> mNodes;
         int mCurrentNodeId = 1;
     };
 }

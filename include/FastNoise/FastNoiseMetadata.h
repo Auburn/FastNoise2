@@ -98,15 +98,39 @@ namespace FastNoise
         };
 
         struct MemberNode
-        {            
+        {
             const char* name;
 
             std::function<bool(Generator*, std::shared_ptr<Generator>&)> setFunc;
 
-            MemberNode( const char* n, std::function<bool(Generator*, std::shared_ptr<Generator>&)>&& func )
+            template<typename T>
+            MemberNode( const char* n, T&& func )
             {
                 name = n;
-                setFunc = func;
+                setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s ) 
+                {
+                    std::remove_reference_t<GetArg<T, 1>> downCast = std::dynamic_pointer_cast<decltype( downCast )::element_type>( s );
+                    if( downCast )
+                    {
+                        func( dynamic_cast<GetArg<T, 0>>( g ), downCast );
+                    }
+                    return (bool)downCast;
+                };
+            }
+
+            template<typename T, typename U>
+            MemberNode( const char* n, void(T::* func)( const std::shared_ptr<U>& ) )
+            {
+                name = n;
+                setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s ) 
+                {
+                    std::shared_ptr<U> downCast = std::dynamic_pointer_cast<U>( s );
+                    if( downCast )
+                    {
+                        ( dynamic_cast<T*>( g )->*func )( downCast );
+                    }
+                    return (bool)downCast;
+                };
             }
         };
 
@@ -152,6 +176,7 @@ namespace FastNoise
     }
 
 #define FASTNOISE_METADATA( ... ) public:\
+    FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );\
     const FastNoise::Metadata* GetMetadata() override;\
     struct Metadata : __VA_ARGS__::Metadata{\
     virtual Generator* NodeFactory( FastSIMD::eLevel ) const override;

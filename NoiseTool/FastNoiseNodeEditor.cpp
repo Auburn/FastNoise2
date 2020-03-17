@@ -16,7 +16,7 @@ FastNoiseNodeEditor::Node::Node( const FastNoise::Metadata* meta ) :
 
 }
 
-void FastNoiseNodeEditor::Node::GeneratePreview( std::vector<Node>& nodes )
+void FastNoiseNodeEditor::Node::GeneratePreview( std::vector<Node::Ptr>& nodes )
 {
     auto gen = FastNoise::New<FastNoise::ConvertRGBA8>();
 
@@ -44,26 +44,26 @@ void FastNoiseNodeEditor::Node::GeneratePreview( std::vector<Node>& nodes )
 
     for( auto& node : nodes )
     {
-        for( int link : node.memberNodes )
+        for( int link : node->memberNodes )
         {
             if( link >> 8 == id )
             {
-                node.GeneratePreview( nodes );
+                node->GeneratePreview( nodes );
             }
         }
     }
 }
 
-std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( std::vector<Node>& nodes, bool& valid )
+std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( std::vector<Node::Ptr>& nodes, bool& valid )
 {
     std::shared_ptr<FastNoise::Generator> node( metadata->NodeFactory() );
 
     for( int i = 0; i < metadata->memberNodes.size(); i++ )
     {
         auto source = std::find_if( nodes.begin(), nodes.end(),
-            [id = memberNodes[i] >> 8] ( const Node& n ) { return n.id == id; } );
+            [id = memberNodes[i] >> 8] ( const Node::Ptr& n ) { return n->id == id; } );
 
-        if( source == nodes.end() || !metadata->memberNodes[i].setFunc( node.get(), source->GetGenerator( nodes, valid ) ) )
+        if( source == nodes.end() || !metadata->memberNodes[i].setFunc( node.get(), source->get()->GetGenerator( nodes, valid ) ) )
         {
             memberNodes[i] = -1;
             valid = false;
@@ -85,44 +85,44 @@ void FastNoiseNodeEditor::Update()
 
     imnodes::BeginNodeEditor();
 
-    for( Node& node : mNodes )
+    for( auto& node : mNodes )
     {
-        imnodes::BeginNode(node.id);
+        imnodes::BeginNode(node->id);
 
         imnodes::BeginNodeTitleBar();
-        ImGui::TextUnformatted( node.metadata->name );
+        ImGui::TextUnformatted( node->metadata->name );
         imnodes::EndNodeTitleBar();        
 
-        int attributeId = node.id << 8;
+        int attributeId = node->id << 8;
 
-        for( auto& memberNode : node.metadata->memberNodes )
+        for( auto& memberNode : node->metadata->memberNodes )
         {
             imnodes::BeginInputAttribute( attributeId++ );
             ImGui::TextUnformatted( memberNode.name );
             imnodes::EndAttribute();
         }
 
-        for( int i = 0; i < node.metadata->memberVariables.size(); i++ )
+        for( int i = 0; i < node->metadata->memberVariables.size(); i++ )
         {
-            auto& nodeVar = node.metadata->memberVariables[i];
+            auto& nodeVar = node->metadata->memberVariables[i];
 
             switch ( nodeVar.type )
             {
             case FastNoise::Metadata::MemberVariable::EFloat:
             {
                 ImGui::PushItemWidth( 60.0f );
-                if( ImGui::DragFloat( nodeVar.name, &node.memberValues[i].f, 0.1f, node.metadata->memberVariables[i].valueMin.f, node.metadata->memberVariables[i].valueMax.f ) )
+                if( ImGui::DragFloat( nodeVar.name, &node->memberValues[i].f, 0.02f, node->metadata->memberVariables[i].valueMin.f, node->metadata->memberVariables[i].valueMax.f ) )
                 {
-                    node.GeneratePreview( mNodes );
+                    node->GeneratePreview( mNodes );
                 }
             }
             break;
             case FastNoise::Metadata::MemberVariable::EInt:
             {
                 ImGui::PushItemWidth( 60.0f );
-                if( ImGui::DragInt( nodeVar.name, &node.memberValues[i].i, 0.2f, node.metadata->memberVariables[i].valueMin.i, node.metadata->memberVariables[i].valueMax.i ) )
+                if( ImGui::DragInt( nodeVar.name, &node->memberValues[i].i, 0.2f, node->metadata->memberVariables[i].valueMin.i, node->metadata->memberVariables[i].valueMax.i ) )
                 {
-                    node.GeneratePreview( mNodes );
+                    node->GeneratePreview( mNodes );
                 }
             }
             break;
@@ -139,21 +139,21 @@ void FastNoiseNodeEditor::Update()
         ImGui::TextUnformatted( "Output" );
 
         ImGui::Indent();*/
-        ImGuiIntegration::image( node.noiseTexture, { Node::NoiseSize, Node::NoiseSize } );
+        ImGuiIntegration::image( node->noiseTexture, { Node::NoiseSize, Node::NoiseSize } );
         imnodes::EndAttribute();
 
         imnodes::EndNode();
     }
     
-    for( Node& node : mNodes )
+    for( Node::Ptr& node : mNodes )
     {
-        int attributeId = node.id << 8;
+        int attributeId = node->id << 8;
 
-        for( int i = 0; i < node.metadata->memberNodes.size(); i++  )
+        for( int i = 0; i < node->metadata->memberNodes.size(); i++  )
         {
-            if( node.memberNodes[i] != -1 )
+            if( node->memberNodes[i] != -1 )
             {                
-                imnodes::Link( attributeId, node.memberNodes[i], attributeId++ );
+                imnodes::Link( attributeId, node->memberNodes[i], attributeId++ );
             }
         }
     }
@@ -170,18 +170,18 @@ void FastNoiseNodeEditor::Update()
                 const int node_id = ++mCurrentNodeId;
                 imnodes::SetNodeScreenSpacePos(node_id, startPos);
                 
-                mNodes.push_back( Node( metadata ) );
+                mNodes.push_back( std::make_unique<Node>( metadata ) );
                 
-                Node& node = mNodes.back();
-                node.id = node_id;
+                Node::Ptr& node = mNodes.back();
+                node->id = node_id;
 
-                node.memberNodes = std::vector<int>( metadata->memberNodes.size(), -1 );
+                node->memberNodes = std::vector<int>( metadata->memberNodes.size(), -1 );
 
                 for( auto& value : metadata->memberVariables )
                 {
-                    node.memberValues.push_back( value.valueDefault );
+                    node->memberValues.push_back( value.valueDefault );
                 }
-                node.GeneratePreview( mNodes );
+                node->GeneratePreview( mNodes );
             }
         }
 
@@ -194,22 +194,22 @@ void FastNoiseNodeEditor::Update()
     int startAttr, endAttr;
     if( imnodes::IsLinkCreated( &startAttr, &endAttr ) )
     {
-        for( Node& n : mNodes )
+        for( Node::Ptr& n : mNodes )
         {
-            int attrId = n.id << 8;
+            int attrId = n->id << 8;
 
-            for( int& id : n.memberNodes )
+            for( int& id : n->memberNodes )
             {
                 if( attrId == startAttr )
                 {
                     id = endAttr;
-                    n.GeneratePreview( mNodes );
+                    n->GeneratePreview( mNodes );
                     break;
                 }
                 if( attrId++ == endAttr )
                 {
                     id = startAttr;
-                    n.GeneratePreview( mNodes );
+                    n->GeneratePreview( mNodes );
                     break;
                 }
             }

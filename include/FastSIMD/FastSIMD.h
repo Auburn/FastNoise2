@@ -36,7 +36,7 @@ namespace FastSIMD
         (FASTSIMD_COMPILE_AVX2       ? Level_AVX2   : 0) |
         (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : 0) |
         (FASTSIMD_COMPILE_NEON       ? Level_NEON   : 0) ;
-															  
+                                                              
 
     eLevel CPUMaxSIMDLevel();
 

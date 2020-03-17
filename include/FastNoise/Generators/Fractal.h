@@ -34,51 +34,41 @@ namespace FastNoise
 
             Metadata( const char* className ) : Modifier<1, T>::Metadata( className )
             {
-                memberVariables.emplace_back( "Octaves", 3, &SetOctaveCount );
-                memberVariables.emplace_back( "Gain", 2.0f, &SetGain );
-                memberVariables.emplace_back( "Lacunarity", 0.5f, &SetLacunarity );
+                memberVariables.emplace_back( "Octaves", 3, &SetOctaveCount, 2, 16 );
+                memberVariables.emplace_back( "Lacunarity", 2.0f, &SetLacunarity );
+                memberVariables.emplace_back( "Gain", 0.5f, &SetGain );
             }
         };        
     };
 
     class FractalFBm : public virtual Fractal<>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         FASTNOISE_METADATA( Fractal )        
             using Fractal::Metadata::Metadata;
-        };      
-        
+        };    
     };
 
     class FractalBillow : public virtual Fractal<>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         FASTNOISE_METADATA( Fractal )
             using Fractal::Metadata::Metadata;
-        };      
-        
+        };    
     };
 
     class FractalRidged : public virtual Fractal<>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         FASTNOISE_METADATA( Fractal )
             using Fractal::Metadata::Metadata;
-        };      
-        
+        };              
     };
 
     class FractalRidgedMulti : public virtual Fractal<>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        
+        void SetWeightAmplitude( float value ) { mWeightAmp = value; CalculateFractalBounding(); }
+
+    protected:
+
         float mWeightAmp = 2.0f;
         float mWeightBounding = 2.0f / 1.75f;
 
@@ -100,7 +90,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Fractal::Metadata( className )
             {
-
+                memberVariables.emplace_back( "Weight Amplitude", 2.0f, &SetWeightAmplitude );
             }
         };      
     };

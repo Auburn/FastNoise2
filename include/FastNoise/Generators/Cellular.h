@@ -7,8 +7,6 @@ namespace FastNoise
     class Cellular : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         enum class DistanceFunction
         {
             Euclidean,
@@ -31,16 +29,14 @@ namespace FastNoise
         
             Metadata( const char* className ) : FastNoise::Metadata( className )
             {
-
+                memberVariables.emplace_back( "Jitter Modifier", 1.0f, &SetJitterModifier );
+                //memberVariables.emplace_back( "Distance Function", 1, &SetDistanceFunction );
             }
         };
     };
 
     class CellularValue : public virtual Cellular
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         FASTNOISE_METADATA( Cellular )
             using Cellular::Metadata::Metadata;
         };
@@ -48,9 +44,6 @@ namespace FastNoise
 
     class CellularDistance : public virtual Cellular
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         FASTNOISE_METADATA( Cellular )
             using Cellular::Metadata::Metadata;
         };
@@ -59,8 +52,6 @@ namespace FastNoise
     class CellularLookup : public virtual Cellular
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-
         virtual void SetLookup( const std::shared_ptr<Generator>& gen ) = 0;
 
         void SetLookupFrequency( float freq ) { mLookupFreqX = freq; mLookupFreqY = freq; mLookupFreqZ = freq; mLookupFreqW = freq; }
@@ -81,7 +72,31 @@ namespace FastNoise
         
             Metadata( const char* className ) : Cellular::Metadata( className )
             {
+                memberNodes.emplace_back( "Lookup", &SetLookup );
 
+                memberVariables.emplace_back( "Lookup Frequency X", 0.10f,
+                    []( CellularLookup* p, float f )
+                {
+                    p->mLookupFreqX = f;
+                });
+                
+                memberVariables.emplace_back( "Lookup Frequency Y", 0.1f,
+                    []( CellularLookup* p, float f )
+                {
+                    p->mLookupFreqY = f;
+                });
+                
+                memberVariables.emplace_back( "Lookup Frequency Z", 0.1f,
+                    []( CellularLookup* p, float f )
+                {
+                    p->mLookupFreqZ = f;
+                });
+                
+                memberVariables.emplace_back( "Lookup Frequency W", 0.1f,
+                    []( CellularLookup* p, float f )
+                {
+                    p->mLookupFreqW = f;
+                });
             }
         };
     };

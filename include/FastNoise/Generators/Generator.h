@@ -42,14 +42,9 @@ namespace FastNoise
                 for( size_t i = 0; i < SOURCE_COUNT; i++ )
                 {
                     memberNodes.emplace_back( "Source",
-                        [i] (Generator* g, std::shared_ptr<Generator> s)
+                        [i] ( Modifier* g, std::shared_ptr<T> s )
                     {
-                        std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
-                        if( downCast )
-                        {
-                            dynamic_cast<Modifier*>( g )->SetSource( downCast, i );
-                        }
-                        return (bool)downCast;
+                        g->SetSource( s, i );
                     });
                 }
             }
