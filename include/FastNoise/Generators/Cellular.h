@@ -25,9 +25,9 @@ namespace FastNoise
         const float kJitter2D = 0.5f;
         const float kJitter3D = 0.45f;
 
-        FASTNOISE_METADATA_ABSTRACT( FastNoise )
+        FASTNOISE_METADATA_ABSTRACT( Generator )
         
-            Metadata( const char* className ) : FastNoise::Metadata( className )
+            Metadata( const char* className ) : Generator::Metadata( className )
             {
                 memberVariables.emplace_back( "Jitter Modifier", 1.0f, &SetJitterModifier );
                 //memberVariables.emplace_back( "Distance Function", 1, &SetDistanceFunction );

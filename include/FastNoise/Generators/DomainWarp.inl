@@ -4,7 +4,7 @@
 #include "CoherentHelpers.inl"
 
 template<typename FS>
-class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::Modifier<1>, FS>
+class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::Modifier<>, FS>
 {
 public:
     virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) = 0;

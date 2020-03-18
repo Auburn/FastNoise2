@@ -24,10 +24,12 @@ namespace FastNoise
         virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) = 0;     
 
         virtual const Metadata* GetMetadata() = 0;
+
+        using Metadata = FastNoise::Metadata;
     };
 
     template<size_t SOURCE_COUNT, typename T = Generator>
-    class Modifier : public virtual Generator
+    class Blend : public virtual Generator
     {
     public:
         virtual void SetSource( const std::shared_ptr<T>& gen, size_t index = 0 ) = 0;
@@ -35,19 +37,39 @@ namespace FastNoise
     protected:
         std::array<std::shared_ptr<T>, SOURCE_COUNT> mSourceBase;
 
-        FASTNOISE_METADATA_ABSTRACT( FastNoise )
+        FASTNOISE_METADATA_ABSTRACT( Generator )
         
-            Metadata( const char* className ) : FastNoise::Metadata( className )
+            Metadata( const char* className ) : Generator::Metadata( className )
             {
                 for( size_t i = 0; i < SOURCE_COUNT; i++ )
                 {
                     memberNodes.emplace_back( "Source",
-                        [i] ( Modifier* g, std::shared_ptr<T> s )
+                        [i] ( Blend* g, std::shared_ptr<T> s )
                     {
                         g->SetSource( s, i );
                     });
                 }
             }
         };
+    };
+
+    template<typename T = Generator>
+    using Modifier = Blend<1, T>;    
+
+    class Constant : public virtual Generator
+    {
+    public:
+        void SetValue( float value ) { mValue = value; }
+
+    protected:
+        float mValue = 1.0f;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                memberVariables.emplace_back( "Value", 1.0f, &SetValue );
+            }
+        };    
     };
 }

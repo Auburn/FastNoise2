@@ -3,7 +3,7 @@
 
 namespace FastNoise
 {
-    class DomainScale : public virtual Modifier<1>
+    class DomainScale : public virtual Modifier<>
     {
     public:
         void SetScale( float value ) { mScale = value; };
@@ -11,16 +11,16 @@ namespace FastNoise
     protected:
         float mScale = 1.0f;
 
-        FASTNOISE_METADATA( Modifier<1> )
+        FASTNOISE_METADATA( Modifier<> )
         
-            Metadata( const char* className ) : Modifier<1>::Metadata( className )
+            Metadata( const char* className ) : Modifier<>::Metadata( className )
             {
                 memberVariables.emplace_back( "Scale", 1.0f, &SetScale );
             }
         };    
     };
 
-    class Remap : public virtual Modifier<1>
+    class Remap : public virtual Modifier<>
     {
     public:
         void SetRemap( float fromMin, float fromMax, float toMin, float toMax ) { mFromMin = fromMin; mFromMax = fromMax; mToMin = toMin; mToMax = toMax; }
@@ -31,9 +31,9 @@ namespace FastNoise
         float mToMin = 0.0f;
         float mToMax = 1.0f;
 
-        FASTNOISE_METADATA( Modifier<1> )
+        FASTNOISE_METADATA( Modifier<> )
         
-            Metadata( const char* className ) : Modifier<1>::Metadata( className )
+            Metadata( const char* className ) : Modifier<>::Metadata( className )
             {
                 memberVariables.emplace_back( "From Min", -1.0f,
                     []( Remap* p, float f )
@@ -62,7 +62,7 @@ namespace FastNoise
         };    
     };
 
-    class ConvertRGBA8 : public virtual Modifier<1>
+    class ConvertRGBA8 : public virtual Modifier<>
     {
     public:
         void SetMinMax( float min, float max ) { mMin = min; mMax = max; }
@@ -71,9 +71,9 @@ namespace FastNoise
         float mMin = -1.0f;
         float mMax = 1.0f;
 
-        FASTNOISE_METADATA( Modifier<1> )
+        FASTNOISE_METADATA( Modifier<> )
         
-            Metadata( const char* className ) : Modifier<1>::Metadata( className )
+            Metadata( const char* className ) : Modifier<>::Metadata( className )
             {            
                 memberVariables.emplace_back( "Min", -1.0f,
                     []( ConvertRGBA8* p, float f )

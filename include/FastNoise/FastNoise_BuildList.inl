@@ -7,10 +7,12 @@
 namespace FastNoise {}
 using namespace FastNoise;
 
-#ifndef FASTSIMD_INCLUDE_HEADER_ONLY
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Generator.h"
+#else
 #include "Generators/Generator.inl"
 #endif
-
+FASTSIMD_BUILD_CLASS( Constant )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/White.h"
@@ -83,3 +85,15 @@ FASTSIMD_BUILD_CLASS( DomainScale )
 FASTSIMD_BUILD_CLASS( Remap )
 FASTSIMD_BUILD_CLASS( ConvertRGBA8 )
 
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Blends.h"
+#else
+#include "Generators/Blends.inl"
+#endif
+FASTSIMD_BUILD_CLASS( Add )
+FASTSIMD_BUILD_CLASS( Subtract )
+FASTSIMD_BUILD_CLASS( Multiply )
+FASTSIMD_BUILD_CLASS( Divide )
+FASTSIMD_BUILD_CLASS( Min )
+FASTSIMD_BUILD_CLASS( Max )
+FASTSIMD_BUILD_CLASS( Fade )

@@ -4,7 +4,7 @@
 namespace FastNoise
 {
     template<typename T = Generator>
-    class Fractal : public virtual Modifier<1, T>
+    class Fractal : public virtual Modifier<T>
     {
     public:
         void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
@@ -12,11 +12,10 @@ namespace FastNoise
         void SetLacunarity( float value ) { mLacunarity = value; } 
 
     protected:
-
+        int32_t mOctaves = 3;
         float mLacunarity = 2.0f;
         float mGain = 0.5f;
         float mFractalBounding = 1.0f / 1.75f;
-        int32_t mOctaves = 3;
 
         virtual void CalculateFractalBounding()
         {
@@ -30,9 +29,9 @@ namespace FastNoise
             mFractalBounding = 1.0f / ampFractal;
         }
 
-        FASTNOISE_METADATA_ABSTRACT( Modifier<1, T> )
+        FASTNOISE_METADATA_ABSTRACT( Modifier<T> )
 
-            Metadata( const char* className ) : Modifier<1, T>::Metadata( className )
+            Metadata( const char* className ) : Modifier<T>::Metadata( className )
             {
                 memberVariables.emplace_back( "Octaves", 3, &SetOctaveCount, 2, 16 );
                 memberVariables.emplace_back( "Lacunarity", 2.0f, &SetLacunarity );

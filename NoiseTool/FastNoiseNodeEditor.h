@@ -24,7 +24,7 @@ namespace Magnum
 
             Node( const FastNoise::Metadata* );
             void GeneratePreview( std::vector<Ptr>& );
-            std::shared_ptr<FastNoise::Generator> GetGenerator( std::vector<Ptr>&, bool& );
+            std::shared_ptr<FastNoise::Generator> GetGenerator( std::vector<Ptr>&, std::vector<int>&, bool& );
 
             int id;
             const FastNoise::Metadata* metadata;

@@ -164,7 +164,7 @@ public:
 };
 
 template<typename FS, auto SOURCE_COUNT, typename T>
-class FS_T<FastNoise::Modifier<SOURCE_COUNT, T>, FS> : public virtual FastNoise::Modifier<SOURCE_COUNT, T>, public FS_T<FastNoise::Generator, FS>
+class FS_T<FastNoise::Blend<SOURCE_COUNT, T>, FS> : public virtual FastNoise::Blend<SOURCE_COUNT, T>, public FS_T<FastNoise::Generator, FS>
 {
 public:
     void SetSource( const std::shared_ptr<T>& gen, size_t index ) final
@@ -195,3 +195,15 @@ protected:
     std::array<FS_T<T, FS>*, SOURCE_COUNT> mSource;
 };
 
+template<typename FS>
+class FS_T<FastNoise::Constant, FS> : public virtual FastNoise::Constant, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    float32v FS_INLINE GenT(int32v seed, P... pos)
+    {
+        return float32v( mValue );
+    }
+};
