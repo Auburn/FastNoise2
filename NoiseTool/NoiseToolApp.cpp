@@ -11,13 +11,13 @@
 
 using namespace Magnum;
 
-NoiseToolApp::NoiseToolApp(const Arguments& arguments) :
+NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments, Configuration{}
     .setTitle("FastNoise Tool")
     .setSize( Vector2i( 1920, 1080 ) )
     .setWindowFlags( Sdl2Application::Configuration::WindowFlag::Resizable )
     },
-    mNoiseImage(PixelFormat::R32F)
+    mNoiseImage( PixelFormat::R32F )
 {
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);

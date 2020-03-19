@@ -14,8 +14,8 @@ namespace Magnum
     class FastNoiseNodeEditor
     {
     public:
+        FastNoiseNodeEditor();
         void Update();
-
 
     private:
         struct Node
@@ -23,7 +23,7 @@ namespace Magnum
             using Ptr = std::unique_ptr<Node>;
 
             Node( const FastNoise::Metadata* );
-            void GeneratePreview( std::vector<Ptr>& );
+            void GeneratePreview( FastNoiseNodeEditor* );
             std::shared_ptr<FastNoise::Generator> GetGenerator( std::vector<Ptr>&, std::vector<int>&, bool& );
 
             int id;
@@ -32,7 +32,7 @@ namespace Magnum
             std::vector<int> memberNodes;
             std::vector<FastNoise::Metadata::MemberVariable::ValueUnion> memberValues;
 
-            static const int NoiseSize = 192;
+            static const int NoiseSize = 224;
             GL::Texture2D noiseTexture;
             ImageView2D noiseImage;
             float noiseData[NoiseSize * NoiseSize];
@@ -40,5 +40,13 @@ namespace Magnum
 
         std::vector<Node::Ptr> mNodes;
         int mCurrentNodeId = 1;
+
+        void GenerateSelectedPreview();
+
+        int mSelectedNode = -1;
+        GL::Texture2D mNoiseTexture;
+        ImageView2D mNoiseImage;
+        float* mNoiseData = nullptr;
+        VectorTypeFor<2, Int> mPreviewWindowsSize = { 0,0 };
     };
 }
