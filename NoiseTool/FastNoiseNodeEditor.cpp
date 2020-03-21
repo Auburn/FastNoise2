@@ -26,7 +26,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( FastNoiseNodeEditor* editor )
 
     if( isValid )
     {
-        gen->GenUniformGrid2D( noiseData, 0, 0, NoiseSize, NoiseSize, 0.05f, 0.05f, 1337 );
+        gen->GenUniformGrid2D( noiseData, 0, 0, NoiseSize, NoiseSize, editor->mNodeFrequency, editor->mNodeFrequency, editor->mNodeSeed );
     }
     else
     {
@@ -116,6 +116,22 @@ void FastNoiseNodeEditor::Update()
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "FastNoise Node Editor" ) )
     {
+        bool edited = false;
+        ImGui::SetNextItemWidth( 100 );
+        edited |= ImGui::DragInt( "Seed", &mNodeSeed );
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth( 100 );
+        edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );
+
+        if( edited )
+        {
+            for( Node::Ptr& node : mNodes )
+            {
+                node->GeneratePreview( this );
+            }
+            GenerateSelectedPreview();
+        }
+
         imnodes::BeginNodeEditor();
 
         std::string className;
@@ -164,17 +180,8 @@ void FastNoiseNodeEditor::Update()
                 break;
                 }
             }
-
-            /*ImGui::PushItemWidth(120.0f);
-            ImGui::DragFloat("value", &node.value, 0.01f);
-            ImGui::PopItemWidth();*/
-
+            
             imnodes::BeginOutputAttribute( attributeId );
-            /*const float text_width = ImGui::CalcTextSize( "Output" ).x;
-            ImGui::Indent(ImGui::GetWindowWidth() - text_width);
-            ImGui::TextUnformatted( "Output" );
-
-            ImGui::Indent();*/
             ImGuiIntegration::image( node->noiseTexture, { Node::NoiseSize, Node::NoiseSize } );
             imnodes::EndAttribute();
 
@@ -195,8 +202,11 @@ void FastNoiseNodeEditor::Update()
             }
         }
 
+        ImVec2 drag = ImGui::GetMouseDragDelta( ImGuiMouseButton_Right );
+        float distance = sqrtf( drag.x * drag.x + drag.y * drag.y );
+
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2(4, 4) );
-        if( ImGui::BeginPopupContextWindow() )
+        if( distance < 5.0f && ImGui::BeginPopupContextWindow() )
         {
             ImVec2 startPos = ImGui::GetMousePosOnOpeningCurrentPopup();
 
@@ -238,6 +248,27 @@ void FastNoiseNodeEditor::Update()
                 mSelectedNode = selected[0];
                 GenerateSelectedPreview();
             }
+
+            if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+            {
+                for( int deleteID : selected )
+                {
+                    mNodes.erase( std::find_if( mNodes.begin(), mNodes.end(),
+                        [deleteID]( const Node::Ptr& n ) { return n->id == deleteID; } ) );
+
+                    for( auto& node : mNodes )
+                    {
+                        for( int& link : node->memberNodes )
+                        {
+                            if( link >> 8 == deleteID )
+                            {
+                                link = -1;
+                                node->GeneratePreview( this );
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         imnodes::EndNodeEditor();
@@ -270,8 +301,8 @@ void FastNoiseNodeEditor::Update()
     }
     ImGui::End();
 
-    ImGui::SetNextWindowSize( ImVec2( 768, 768 ), ImGuiCond_FirstUseEver);
-    if( ImGui::Begin("FastNoise Preview") )
+    ImGui::SetNextWindowSize( ImVec2( 768, 768 ), ImGuiCond_FirstUseEver );
+    if( ImGui::Begin( "FastNoise Preview" ) )
     {
         ImVec2 winSize = ImGui::GetContentRegionAvail();
 
@@ -318,7 +349,7 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
 
         if( isValid )
         {
-            gen->GenUniformGrid2D( mNoiseData, 0, 0, mPreviewWindowsSize.y(), mPreviewWindowsSize.x(), 0.05f, 0.05f, 1337 );
+            gen->GenUniformGrid2D( mNoiseData, 0, 0, mPreviewWindowsSize.y(), mPreviewWindowsSize.x(), mNodeFrequency, mNodeFrequency, mNodeSeed );
         }
     }
 
