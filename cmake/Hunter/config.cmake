@@ -15,3 +15,7 @@ hunter_config(corrade VERSION ${HUNTER_corrade_VERSION}
 		BUILD_STATIC=ON
 		BUILD_SHARED_LIBS=OFF
 )
+
+hunter_config(benchmark VERSION ${HUNTER_benchmark_VERSION}
+    CMAKE_ARGS 
+)
