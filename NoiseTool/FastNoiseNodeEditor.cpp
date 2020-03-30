@@ -237,6 +237,8 @@ void FastNoiseNodeEditor::Update()
         }
         ImGui::PopStyleVar();
 
+        imnodes::EndNodeEditor();
+
         if( int selectedCount = imnodes::NumSelectedNodes() )
         {
             std::vector<int> selected( selectedCount );
@@ -271,8 +273,6 @@ void FastNoiseNodeEditor::Update()
             }
         }
 
-        imnodes::EndNodeEditor();
-        
         int startAttr, endAttr;
         if( imnodes::IsLinkCreated( &startAttr, &endAttr ) )
         {

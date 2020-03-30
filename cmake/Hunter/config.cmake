@@ -18,4 +18,5 @@ hunter_config(corrade VERSION ${HUNTER_corrade_VERSION}
 
 hunter_config(benchmark VERSION ${HUNTER_benchmark_VERSION}
     CMAKE_ARGS 
+		BUILD_SHARED_LIBS=OFF
 )
