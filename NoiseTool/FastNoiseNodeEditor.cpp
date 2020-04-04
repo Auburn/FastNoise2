@@ -157,27 +157,34 @@ void FastNoiseNodeEditor::Update()
             for( int i = 0; i < node->metadata->memberVariables.size(); i++ )
             {
                 auto& nodeVar = node->metadata->memberVariables[i];
+                ImGui::PushItemWidth( 60.0f );
 
                 switch ( nodeVar.type )
                 {
-                case FastNoise::Metadata::MemberVariable::EFloat:
-                {
-                    ImGui::PushItemWidth( 60.0f );
-                    if( ImGui::DragFloat( nodeVar.name, &node->memberValues[i].f, 0.02f, node->metadata->memberVariables[i].valueMin.f, node->metadata->memberVariables[i].valueMax.f ) )
+                    case FastNoise::Metadata::MemberVariable::EFloat:
                     {
-                        node->GeneratePreview( this );
+                        if( ImGui::DragFloat( nodeVar.name, &node->memberValues[i].f, 0.02f, node->metadata->memberVariables[i].valueMin.f, node->metadata->memberVariables[i].valueMax.f ) )
+                        {
+                            node->GeneratePreview( this );
+                        }
                     }
-                }
-                break;
-                case FastNoise::Metadata::MemberVariable::EInt:
-                {
-                    ImGui::PushItemWidth( 60.0f );
-                    if( ImGui::DragInt( nodeVar.name, &node->memberValues[i].i, 0.2f, node->metadata->memberVariables[i].valueMin.i, node->metadata->memberVariables[i].valueMax.i ) )
+                    break;
+                    case FastNoise::Metadata::MemberVariable::EInt:
                     {
-                        node->GeneratePreview( this );
+                        if( ImGui::DragInt( nodeVar.name, &node->memberValues[i].i, 0.2f, node->metadata->memberVariables[i].valueMin.i, node->metadata->memberVariables[i].valueMax.i ) )
+                        {
+                            node->GeneratePreview( this );
+                        }
                     }
-                }
-                break;
+                    break;
+                    case FastNoise::Metadata::MemberVariable::EEnum:
+                    {
+                        if( ImGui::Combo( nodeVar.name, &node->memberValues[i].i, node->metadata->memberVariables[i].enumNames.data(), node->metadata->memberVariables[i].enumNames.size() ) )
+                        {
+                            node->GeneratePreview( this );
+                        }
+                    }
+                    break;
                 }
             }
             

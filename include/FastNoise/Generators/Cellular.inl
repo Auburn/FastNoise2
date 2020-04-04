@@ -12,37 +12,38 @@ protected:
     {
         switch ( mDistanceFunction )
         {
-        default:
-        case DistanceFunction::Euclidean:
-        {
-            float32v distSqr = dX * dX;
-            (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
+            default:
+            case DistanceFunction::Euclidean:
+            {
+                float32v distSqr = dX * dX;
+                (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
 
-            return FS_InvSqrt_f32( distSqr ) * distSqr;
-        }
-        case DistanceFunction::EuclideanSquared:
-        {
-            float32v distSqr = dX * dX;
-            (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
+                return FS_InvSqrt_f32( distSqr ) * distSqr;
+            }
 
-            return distSqr;
-        }
+            case DistanceFunction::EuclideanSquared:
+            {
+                float32v distSqr = dX * dX;
+                (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
 
-        case DistanceFunction::Manhattan:
-        {
-            float32v dist = FS_Abs_f32( dX );
-            dist += (FS_Abs_f32( d ) + ...);
+                return distSqr;
+            }
 
-            return dist;
-        }
+            case DistanceFunction::Manhattan:
+            {
+                float32v dist = FS_Abs_f32( dX );
+                dist += (FS_Abs_f32( d ) + ...);
 
-        case DistanceFunction::Natural:
-        {
-            float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
-            (void( both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
+                return dist;
+            }
 
-            return both;
-        }
+            case DistanceFunction::Natural:
+            {
+                float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
+                (void( both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
+
+                return both;
+            }
         }
     }
 };

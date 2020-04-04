@@ -30,7 +30,7 @@ namespace FastNoise
             Metadata( const char* className ) : Generator::Metadata( className )
             {
                 memberVariables.emplace_back( "Jitter Modifier", 1.0f, &SetJitterModifier );
-                //memberVariables.emplace_back( "Distance Function", 1, &SetDistanceFunction );
+                memberVariables.emplace_back( "Distance Function", DistanceFunction::EuclideanSquared, &SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
             }
         };
     };
@@ -70,7 +70,7 @@ namespace FastNoise
             {
                 memberNodes[0].name = "Lookup";
 
-                memberVariables.emplace_back( "Lookup Frequency X", 0.10f,
+                memberVariables.emplace_back( "Lookup Frequency X", 0.1f,
                     []( CellularLookup* p, float f )
                 {
                     p->mLookupFreqX = f;

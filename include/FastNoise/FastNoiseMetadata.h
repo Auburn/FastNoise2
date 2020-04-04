@@ -33,7 +33,8 @@ namespace FastNoise
             enum eType
             {
                 EFloat,
-                EInt
+                EInt,
+                EEnum
             };
 
             union ValueUnion
@@ -45,6 +46,7 @@ namespace FastNoise
             const char* name;
             eType type;
             ValueUnion valueDefault, valueMin, valueMax;
+            std::vector<const char*> enumNames;
 
             std::function<void(Generator*, ValueUnion)> setFunc;
 
@@ -94,6 +96,17 @@ namespace FastNoise
                 valueMax.i = maxV;
 
                 setFunc = [func]( Generator* g, ValueUnion v ) { ( dynamic_cast<T*>(g)->*func )( v.i ); };
+            }
+
+            template<typename T, typename E, typename = std::enable_if_t<std::is_enum_v<E>>, typename... NAMES>
+            MemberVariable( const char* n, E defaultV, void( T::*func )( E ), NAMES... names )
+            {
+                name = n;
+                type = EEnum;
+                valueDefault.i = (int32_t)defaultV;
+                enumNames = { names... };
+
+                setFunc = [func]( Generator* g, ValueUnion v ) { ( dynamic_cast<T*>(g)->*func )( (E)v.i ); };
             }
         };
 
