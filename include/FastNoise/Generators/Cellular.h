@@ -49,11 +49,9 @@ namespace FastNoise
         };
     };
 
-    class CellularLookup : public virtual Cellular
+    class CellularLookup : public virtual Modifier<Generator, Cellular>
     {
     public:
-        virtual void SetLookup( const std::shared_ptr<Generator>& gen ) = 0;
-
         void SetLookupFrequency( float freq ) { mLookupFreqX = freq; mLookupFreqY = freq; mLookupFreqZ = freq; mLookupFreqW = freq; }
         void SetLookupFrequencyAxis( float freqX, float freqY = 0.1f, float freqZ = 0.1f, float freqW = 0.1f )
         {
@@ -66,13 +64,11 @@ namespace FastNoise
         float mLookupFreqZ = 0.1f;
         float mLookupFreqW = 0.1f;
 
-        std::shared_ptr<Generator> mLookupBase;
-
-        FASTNOISE_METADATA( Cellular )
+        FASTNOISE_METADATA( Modifier<Generator, Cellular> )
         
-            Metadata( const char* className ) : Cellular::Metadata( className )
+            Metadata( const char* className ) : Modifier<Generator, Cellular>::Metadata( className )
             {
-                memberNodes.emplace_back( "Lookup", &SetLookup );
+                memberNodes[0].name = "Lookup";
 
                 memberVariables.emplace_back( "Lookup Frequency X", 0.10f,
                     []( CellularLookup* p, float f )

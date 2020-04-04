@@ -28,8 +28,8 @@ namespace FastNoise
         using Metadata = FastNoise::Metadata;
     };
 
-    template<size_t SOURCE_COUNT, typename T = Generator>
-    class Blend : public virtual Generator
+    template<size_t SOURCE_COUNT, typename T = Generator, typename P = Generator>
+    class Blend : public virtual P
     {
     public:
         virtual void SetSource( const std::shared_ptr<T>& gen, size_t index = 0 ) = 0;
@@ -37,9 +37,9 @@ namespace FastNoise
     protected:
         std::array<std::shared_ptr<T>, SOURCE_COUNT> mSourceBase;
 
-        FASTNOISE_METADATA_ABSTRACT( Generator )
+        FASTNOISE_METADATA_ABSTRACT( P )
         
-            Metadata( const char* className ) : Generator::Metadata( className )
+            Metadata( const char* className ) : P::Metadata( className )
             {
                 for( size_t i = 0; i < SOURCE_COUNT; i++ )
                 {
@@ -53,8 +53,8 @@ namespace FastNoise
         };
     };
 
-    template<typename T = Generator>
-    using Modifier = Blend<1, T>;    
+    template<typename T = Generator, typename P = Generator> 
+    using Modifier = Blend<1, T, P>;
 
     class Constant : public virtual Generator
     {

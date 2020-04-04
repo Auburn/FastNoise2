@@ -19,7 +19,7 @@ void BenchFastNoiseGenerator( benchmark::State& state, int testSize, const FastN
         }
     }
 
-    size_t dataSize = testSize * testSize * testSize;
+    size_t dataSize = (size_t)testSize * testSize * testSize;
 
     float* data = new float[dataSize];
     size_t totalData = 0;

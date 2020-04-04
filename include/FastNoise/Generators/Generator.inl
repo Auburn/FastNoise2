@@ -163,8 +163,8 @@ public:
     }
 };
 
-template<typename FS, auto SOURCE_COUNT, typename T>
-class FS_T<FastNoise::Blend<SOURCE_COUNT, T>, FS> : public virtual FastNoise::Blend<SOURCE_COUNT, T>, public FS_T<FastNoise::Generator, FS>
+template<typename FS, auto SOURCE_COUNT, typename T, typename P>
+class FS_T<FastNoise::Blend<SOURCE_COUNT, T, P>, FS> : public virtual FastNoise::Blend<SOURCE_COUNT, T, P>, public FS_T<P, FS>
 {
 public:
     void SetSource( const std::shared_ptr<T>& gen, size_t index ) final
@@ -172,7 +172,7 @@ public:
         assert( index < SOURCE_COUNT );
         assert( gen->GetSIMDLevel() == GetSIMDLevel() );
 
-        if ( index < SOURCE_COUNT && gen->GetSIMDLevel() == GetSIMDLevel() )
+        if( index < SOURCE_COUNT && gen->GetSIMDLevel() == GetSIMDLevel() )
         {
             this->mSourceBase[index] = gen;
             this->mSource[index] = dynamic_cast<FS_T<T, FS>*>( gen.get() );
@@ -183,7 +183,7 @@ public:
     {
         assert( index < SOURCE_COUNT );
 
-        if ( index < SOURCE_COUNT )
+        if( index < SOURCE_COUNT )
         {
             return mSource[index];
         }
@@ -202,7 +202,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    float32v FS_INLINE GenT(int32v seed, P... pos)
+    float32v FS_INLINE GenT( int32v seed, P... pos )
     {
         return float32v( mValue );
     }

@@ -270,20 +270,9 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FS_T<FastNoise::Cellular, FS>
+class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FS_T<FastNoise::Modifier<FastNoise::Generator, FastNoise::Cellular>, FS>
 {
 public:
-    virtual void SetLookup( const std::shared_ptr<FastNoise::Generator>& gen ) final
-    {
-        assert( gen->GetSIMDLevel() == GetSIMDLevel() );
-
-        if ( gen->GetSIMDLevel() == GetSIMDLevel() )
-        {
-            this->mLookupBase = gen;
-            this->mLookup = dynamic_cast<FS_T<FastNoise::Generator, FS>*>( gen.get() );
-        }
-    }
-
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
     {
         float32v jitter = float32v( kJitter2D * mJitterModifier );
@@ -328,7 +317,7 @@ public:
             xc += int32v( Primes::X );
         }
 
-        return mLookup->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ) );
+        return this->mSource[0]->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ) );
     }
 
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
@@ -388,9 +377,6 @@ public:
             xc += int32v( Primes::X );
         }
 
-        return mLookup->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ), cellZ * float32v( mLookupFreqZ ) );
+        return this->mSource[0]->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ), cellZ * float32v( mLookupFreqZ ) );
     }
-
-protected:
-    FS_T<Generator, FS>* mLookup;
 };
