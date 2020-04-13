@@ -95,8 +95,8 @@ FS_INLINE int32v HashPrimes( int32v seed, P... primedPos )
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
 
-    hash = hash * hash * hash * int32v( 60493 );
-    return (hash >> 13) ^ hash;
+    hash = hash * int32v( 0x27d4eb2d );
+    return (hash >> 15) ^ hash;
 }
 
 template<typename FS = FS_SIMD_CLASS, typename... P>
@@ -105,7 +105,7 @@ FS_INLINE int32v HashPrimesHB( int32v seed, P... primedPos )
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
     
-    hash = hash * hash * hash * int32v( 60493 );
+    hash = hash * int32v( 0x27d4eb2d );
     return hash;
 };    
 
@@ -115,7 +115,7 @@ FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos )
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
     
-    hash = hash * hash * hash * int32v( 60493 );
+    hash = hash * int32v( 0x27d4eb2d );
     return FS_Converti32_f32( hash ) * float32v( 1.f / INT_MAX );
 };
 
