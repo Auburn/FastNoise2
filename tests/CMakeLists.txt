@@ -1,5 +1,7 @@
 
-hunter_add_package(benchmark)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+add_subdirectory(ThirdParty/benchmark EXCLUDE_FROM_ALL)
+
 find_package(benchmark CONFIG REQUIRED)
 
 add_executable(FastNoiseBenchmark 

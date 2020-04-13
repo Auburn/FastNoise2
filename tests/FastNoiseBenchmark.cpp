@@ -10,12 +10,29 @@ void BenchFastNoiseGenerator( benchmark::State& state, int testSize, const FastN
 
     std::shared_ptr<FastNoise::Generator> source( FastSIMD::New<FastNoise::Constant>( level ) );
 
-    for( int i = 0; i < metadata->memberNodes.size(); i++ )
+    for( const auto& memberNode : metadata->memberNodes )
     {
-        if( !metadata->memberNodes[i].setFunc( generator.get(), source ) )
+        if( !memberNode.setFunc( generator.get(), source ) )
         {
-            state.SkipWithError( "Could not set valid sources for generator" );
-            return;
+            // If constant source is not valid try all other node types in order
+            for( const FastNoise::Metadata* tryMetadata : FastNoise::MetadataManager::GetMetadataClasses() )
+            {
+                std::shared_ptr<FastNoise::Generator> trySource( tryMetadata->NodeFactory( level ) );
+
+                // Other node types may also have sources
+                if( memberNode.setFunc( generator.get(), trySource ) )
+                {
+                    for( const auto& tryMemberNode : tryMetadata->memberNodes )
+                    {
+                        if( !tryMemberNode.setFunc( trySource.get(), source ) )
+                        {
+                            state.SkipWithError( "Could not set valid sources for generator" );
+                            return;
+                        }                        
+                    }
+                    break;
+                }
+            }
         }
     }
 
