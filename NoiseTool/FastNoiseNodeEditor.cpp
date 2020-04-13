@@ -26,7 +26,9 @@ void FastNoiseNodeEditor::Node::GeneratePreview( FastNoiseNodeEditor* editor )
 
     if( isValid )
     {
-        gen->GenUniformGrid2D( noiseData, 0, 0, NoiseSize, NoiseSize, editor->mNodeFrequency, editor->mNodeFrequency, editor->mNodeSeed );
+        float offset = editor->mNodeFrequency * NoiseSize * -0.5f;
+
+        gen->GenUniformGrid2D( noiseData, offset, offset, NoiseSize, NoiseSize, editor->mNodeFrequency, editor->mNodeFrequency, editor->mNodeSeed );
     }
     else
     {
@@ -356,7 +358,9 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
 
         if( isValid )
         {
-            gen->GenUniformGrid2D( mNoiseData, 0, 0, mPreviewWindowsSize.y(), mPreviewWindowsSize.x(), mNodeFrequency, mNodeFrequency, mNodeSeed );
+            float offset = mNodeFrequency * -0.5f;
+
+            gen->GenUniformGrid2D( mNoiseData, mPreviewWindowsSize.y() * offset, mPreviewWindowsSize.x() * offset, mPreviewWindowsSize.y(), mPreviewWindowsSize.x(), mNodeFrequency, mNodeFrequency, mNodeSeed );
         }
     }
 
