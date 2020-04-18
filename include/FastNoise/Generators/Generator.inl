@@ -170,9 +170,9 @@ public:
     void SetSource( const std::shared_ptr<T>& gen, size_t index ) final
     {
         assert( index < SOURCE_COUNT );
-        assert( gen->GetSIMDLevel() == GetSIMDLevel() );
+        assert( gen->GetSIMDLevel() == this->GetSIMDLevel() );
 
-        if( index < SOURCE_COUNT && gen->GetSIMDLevel() == GetSIMDLevel() )
+        if( index < SOURCE_COUNT && gen->GetSIMDLevel() == this->GetSIMDLevel() )
         {
             this->mSourceBase[index] = gen;
             this->mSource[index] = dynamic_cast<FS_T<T, FS>*>( gen.get() );

@@ -33,9 +33,9 @@ namespace FastNoise
 
             Metadata( const char* className ) : Modifier<T>::Metadata( className )
             {
-                memberVariables.emplace_back( "Octaves", 3, &SetOctaveCount, 2, 16 );
-                memberVariables.emplace_back( "Lacunarity", 2.0f, &SetLacunarity );
-                memberVariables.emplace_back( "Gain", 0.5f, &SetGain );
+                this->memberVariables.emplace_back( "Octaves", 3, &Fractal::SetOctaveCount, 2, 16 );
+                this->memberVariables.emplace_back( "Lacunarity", 2.0f, &Fractal::SetLacunarity );
+                this->memberVariables.emplace_back( "Gain", 0.5f, &Fractal::SetGain );
             }
         };        
     };
@@ -89,7 +89,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Fractal::Metadata( className )
             {
-                memberVariables.emplace_back( "Weight Amplitude", 2.0f, &SetWeightAmplitude );
+                memberVariables.emplace_back( "Weight Amplitude", 2.0f, &FractalRidgedMulti::SetWeightAmplitude );
             }
         };      
     };

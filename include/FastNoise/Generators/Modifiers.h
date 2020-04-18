@@ -15,7 +15,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Modifier<>::Metadata( className )
             {
-                memberVariables.emplace_back( "Scale", 1.0f, &SetScale );
+                memberVariables.emplace_back( "Scale", 1.0f, &DomainScale::SetScale );
             }
         };    
     };

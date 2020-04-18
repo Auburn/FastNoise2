@@ -43,7 +43,7 @@ namespace FastNoise
             {
                 for( size_t i = 0; i < SOURCE_COUNT; i++ )
                 {
-                    memberNodes.emplace_back( "Source",
+                    this->memberNodes.emplace_back( "Source",
                         [i] ( Blend* g, std::shared_ptr<T> s )
                     {
                         g->SetSource( s, i );
@@ -68,7 +68,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
-                memberVariables.emplace_back( "Value", 1.0f, &SetValue );
+                memberVariables.emplace_back( "Value", 1.0f, &Constant::SetValue );
             }
         };    
     };

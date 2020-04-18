@@ -57,7 +57,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Blend<2>::Metadata( className )
             {
-                memberVariables.emplace_back( "Fade", 0.5f, &SetFade, 0.0f, 1.0f );
+                memberVariables.emplace_back( "Fade", 0.5f, &Fade::SetFade, 0.0f, 1.0f );
             }
         };    
     };

@@ -29,8 +29,8 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
-                memberVariables.emplace_back( "Jitter Modifier", 1.0f, &SetJitterModifier );
-                memberVariables.emplace_back( "Distance Function", DistanceFunction::EuclideanSquared, &SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
+                memberVariables.emplace_back( "Jitter Modifier", 1.0f, &Cellular::SetJitterModifier );
+                memberVariables.emplace_back( "Distance Function", DistanceFunction::EuclideanSquared, &Cellular::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
             }
         };
     };

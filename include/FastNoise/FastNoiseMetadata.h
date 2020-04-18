@@ -122,7 +122,7 @@ namespace FastNoise
                 name = n;
                 setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s ) 
                 {
-                    std::remove_reference_t<GetArg<T, 1>> downCast = std::dynamic_pointer_cast<decltype( downCast )::element_type>( s );
+                    std::remove_reference_t<GetArg<T, 1>> downCast = std::dynamic_pointer_cast<typename decltype( downCast )::element_type>( s );
                     if( downCast )
                     {
                         func( dynamic_cast<GetArg<T, 0>>( g ), downCast );

@@ -79,7 +79,14 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
             auto source = std::find_if(nodes.begin(), nodes.end(),
                 [id = memberNodes[i] >> 8](const Node::Ptr& n) { return n->id == id; });
 
-            if( source == nodes.end() || !metadata->memberNodes[i].setFunc( node.get(), source->get()->GetGenerator( nodes, dependancies, valid ) ) )
+            if( source == nodes.end() )
+            {
+                valid = false;
+                continue;
+            }
+
+            auto sourceGen = source->get()->GetGenerator( nodes, dependancies, valid );
+            if( !metadata->memberNodes[i].setFunc( node.get(), sourceGen ) )
             {
                 valid = false;
             }
@@ -353,8 +360,9 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
     else
     {
         auto gen = FastNoise::New<FastNoise::ConvertRGBA8>();
+        std::vector<int> dependancies;
 
-        gen->SetSource( find->get()->GetGenerator( mNodes, std::vector<int>(), isValid ) );
+        gen->SetSource( find->get()->GetGenerator( mNodes, dependancies, isValid ) );
 
         if( isValid )
         {

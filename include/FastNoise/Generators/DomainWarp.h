@@ -19,8 +19,8 @@ namespace FastNoise
         
             Metadata( const char* className ) : Modifier<>::Metadata( className )
             {
-                memberVariables.emplace_back( "Warp Frequency", 0.5f, &SetWarpFrequency );
-                memberVariables.emplace_back( "Warp Amplitude", 1.0f, &SetWarpAmplitude );
+                memberVariables.emplace_back( "Warp Frequency", 0.5f, &DomainWarp::SetWarpFrequency );
+                memberVariables.emplace_back( "Warp Amplitude", 1.0f, &DomainWarp::SetWarpAmplitude );
             }
         };
     };

@@ -42,7 +42,7 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     float32v gX = _mm256_permutevar8x32_ps( float32v( 0, -1, 0, 1, 1, -1, -1, 1 ), hash );
     float32v gY = _mm256_permutevar8x32_ps( float32v( 1, 0, -1, 0, 1, 1, -1, -1 ), hash );
 
-    return FS_FMulAdd_f32(gX, fX, fY * gY);
+    return FS_FMulAdd_f32( gX, fX, fY * gY );
 }
 
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), int> = 0>
@@ -107,7 +107,7 @@ FS_INLINE int32v HashPrimesHB( int32v seed, P... primedPos )
     
     hash = hash * int32v( 0x27d4eb2d );
     return hash;
-};    
+}  
 
 template<typename FS = FS_SIMD_CLASS, typename... P>
 FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos )
@@ -117,17 +117,16 @@ FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos )
     
     hash = hash * int32v( 0x27d4eb2d );
     return FS_Converti32_f32( hash ) * float32v( 1.f / INT_MAX );
-};
+}
 
 template<typename FS = FS_SIMD_CLASS>
 FS_INLINE float32v Lerp( float32v a, float32v b, float32v t )
 {
     return FS_FMulAdd_f32( t, b - a, a );
-};
+}
 
 template<typename FS = FS_SIMD_CLASS>
 FS_INLINE float32v InterpQuintic( float32v t )
 {
     return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ));
-};
-
+}
