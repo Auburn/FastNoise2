@@ -10,3 +10,6 @@
 [submodule "NoiseTool/ThirdParty/magnum-integration"]
 	path = NoiseTool/ThirdParty/magnum-integration
 	url = https://github.com/mosra/magnum-integration.git
+[submodule "tests/ThirdParty/benchmark"]
+	path = tests/ThirdParty/benchmark
+	url = https://github.com/google/benchmark.git
