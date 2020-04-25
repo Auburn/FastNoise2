@@ -28,6 +28,11 @@ jobs:
             cc: "gcc", cxx: "g++"
           }
         - {
+            name: "Windows Latest Clang", artifact: "Windows-Clang.tar.xz",
+            os: windows-latest,
+            cc: "clang", cxx: "clang++"
+          }
+        - {
             name: "Ubuntu Latest GCC", artifact: "Linux.tar.xz",
             os: ubuntu-latest,
             cc: "gcc", cxx: "g++"
@@ -265,6 +270,10 @@ jobs:
           }
         - {
             name: "Windows Latest MinGW", artifact: "Windows-MinGW.tar.xz",
+            os: ubuntu-latest
+          }
+        - {
+            name: "Windows Latest Clang", artifact: "Windows-Clang.tar.xz",
             os: ubuntu-latest
           }
         - {
