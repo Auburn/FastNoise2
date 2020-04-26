@@ -87,7 +87,7 @@ int main( int argc, char** argv )
 
     for( FastSIMD::eLevel level = FastSIMD::CPUMaxSIMDLevel(); level != FastSIMD::Level_Null; level = (FastSIMD::eLevel)(level >> 1) )
     {
-        if( !(level & FastSIMD::COMPILED_SIMD_LEVELS) )
+        if( !(level & FastSIMD::COMPILED_SIMD_LEVELS & FastNoise::SUPPORTED_SIMD_LEVELS) )
         {
             continue;
         }
