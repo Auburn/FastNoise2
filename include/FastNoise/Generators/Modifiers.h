@@ -3,7 +3,7 @@
 
 namespace FastNoise
 {
-    class DomainScale : public virtual Modifier<>
+    class DomainScale : public virtual SingleSource<>
     {
     public:
         void SetScale( float value ) { mScale = value; };
@@ -11,16 +11,16 @@ namespace FastNoise
     protected:
         float mScale = 1.0f;
 
-        FASTNOISE_METADATA( Modifier<> )
+        FASTNOISE_METADATA( SingleSource<> )
         
-            Metadata( const char* className ) : Modifier<>::Metadata( className )
+            Metadata( const char* className ) : SingleSource<>::Metadata( className )
             {
                 memberVariables.emplace_back( "Scale", 1.0f, &DomainScale::SetScale );
             }
         };    
     };
 
-    class Remap : public virtual Modifier<>
+    class Remap : public virtual SingleSource<>
     {
     public:
         void SetRemap( float fromMin, float fromMax, float toMin, float toMax ) { mFromMin = fromMin; mFromMax = fromMax; mToMin = toMin; mToMax = toMax; }
@@ -31,9 +31,9 @@ namespace FastNoise
         float mToMin = 0.0f;
         float mToMax = 1.0f;
 
-        FASTNOISE_METADATA( Modifier<> )
+        FASTNOISE_METADATA( SingleSource<> )
         
-            Metadata( const char* className ) : Modifier<>::Metadata( className )
+            Metadata( const char* className ) : SingleSource<>::Metadata( className )
             {
                 memberVariables.emplace_back( "From Min", -1.0f,
                     []( Remap* p, float f )
@@ -62,7 +62,7 @@ namespace FastNoise
         };    
     };
 
-    class ConvertRGBA8 : public virtual Modifier<>
+    class ConvertRGBA8 : public virtual SingleSource<>
     {
     public:
         void SetMinMax( float min, float max ) { mMin = min; mMax = max; }
@@ -71,9 +71,9 @@ namespace FastNoise
         float mMin = -1.0f;
         float mMax = 1.0f;
 
-        FASTNOISE_METADATA( Modifier<> )
+        FASTNOISE_METADATA( SingleSource<> )
         
-            Metadata( const char* className ) : Modifier<>::Metadata( className )
+            Metadata( const char* className ) : SingleSource<>::Metadata( className )
             {            
                 memberVariables.emplace_back( "Min", -1.0f,
                     []( ConvertRGBA8* p, float f )

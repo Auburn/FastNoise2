@@ -3,6 +3,10 @@
 
 #include "Generator.h"
 
+#ifdef FS_SIMD_CLASS
+#pragma warning( disable:4250 )
+#endif
+
 template<typename FS>
 class FS_T<FastNoise::Generator, FS> : public virtual FastNoise::Generator
 {
@@ -164,35 +168,59 @@ public:
 };
 
 template<typename FS, auto SOURCE_COUNT, typename T, typename P>
-class FS_T<FastNoise::Blend<SOURCE_COUNT, T, P>, FS> : public virtual FastNoise::Blend<SOURCE_COUNT, T, P>, public FS_T<P, FS>
+class FS_T<FastNoise::SourceStore<SOURCE_COUNT, T, P>, FS> : public virtual FastNoise::SourceStore<SOURCE_COUNT, T, P>, public FS_T<P, FS>
 {
 public:
-    void SetSource( const std::shared_ptr<T>& gen, size_t index ) final
+    template<size_t index, typename... ARGS>
+    FS_INLINE float32v GetSourceValue( const HybridSource<index>& value, int32v seed, ARGS&&... pos )
     {
-        assert( index < SOURCE_COUNT );
+        static_assert( index < SOURCE_COUNT );
+
+        if( mSourceSIMD[index] ) return mSourceSIMD[index]->Gen( seed, pos... );
+
+        return float32v( value.constant );
+    }
+
+    template<size_t index, typename... ARGS>
+    FS_INLINE float32v GetSourceValue( const GeneratorSource<index>& value, int32v seed, ARGS&&... pos )
+    {
+        static_assert( index < SOURCE_COUNT );
+        assert( mSourceSIMD[index] );
+
+        return mSourceSIMD[index]->Gen( seed, pos... );
+    }
+
+    template<size_t index>
+    FS_INLINE FS_T<T, FS>* GetSourceSIMD( const GeneratorSource<index>& value )
+    {
+        static_assert( index < SOURCE_COUNT );
+        assert( mSourceSIMD[index] );
+
+        return mSourceSIMD[index];
+    }
+
+private:
+    void SetSourceImpl( const std::shared_ptr<T>& gen, size_t index ) final
+    {
         assert( gen->GetSIMDLevel() == this->GetSIMDLevel() );
 
         if( index < SOURCE_COUNT && gen->GetSIMDLevel() == this->GetSIMDLevel() )
         {
             this->mSourceBase[index] = gen;
-            this->mSource[index] = dynamic_cast<FS_T<T, FS>*>( gen.get() );
+            mSourceSIMD[index] = dynamic_cast<FS_T<T, FS>*>( gen.get() );
+            assert( mSourceSIMD[index] );
         }
     }
 
-    FS_T<T, FS>* GetSourceSIMD( size_t index = 0 )
-    {
-        assert( index < SOURCE_COUNT );
+    std::array<std::shared_ptr<T>, SOURCE_COUNT> mSourceBase;
+    std::array<FS_T<T, FS>*, SOURCE_COUNT> mSourceSIMD = {};
+};
 
-        if( index < SOURCE_COUNT )
-        {
-            return mSource[index];
-        }
 
-        return nullptr;
-    }
+template<typename FS, typename T, typename P>
+class FS_T<FastNoise::SingleSource<T, P>, FS> : public virtual FastNoise::SingleSource<T, P>, public FS_T<FastNoise::SourceStore<1, T, P>, FS>
+{
 
-protected:
-    std::array<FS_T<T, FS>*, SOURCE_COUNT> mSource;
 };
 
 template<typename FS>

@@ -11,21 +11,24 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        float32v amp = float32v( this->mSource[0]->GetWarpAmplitude() * mFractalBounding );
-        float32v freq = float32v( this->mSource[0]->GetWarpFrequency() );
+        float32v amp = float32v( this->GetSourceSIMD( mSource )->GetWarpAmplitude() * mFractalBounding );
+        float32v freq = float32v( this->GetSourceSIMD( mSource )->GetWarpFrequency() );
         int32v seedInc = seed;
 
-        this->mSource[0]->Warp( seedInc, amp, (pos * freq)..., pos... );
+        float32v gain = this->GetSourceValue( mGain, seed, pos... );
+        float32v lacunarity = float32v( mLacunarity );
+
+        this->GetSourceSIMD( mSource )->Warp( seedInc, amp, (pos * freq)..., pos... );
 
         for (int i = 1; i < mOctaves; i++)
         {
             seedInc -= int32v( -1 );
-            freq *= float32v( mLacunarity );
-            amp *= float32v( mGain );
-            this->mSource[0]->Warp( seedInc, amp, (pos * freq)..., pos... );
+            freq *= lacunarity;
+            amp *= gain;
+            this->GetSourceSIMD( mSource )->Warp( seedInc, amp, (pos * freq)..., pos... );
         }
 
-        return this->mSource[0]->GetSourceSIMD()->Gen( seed, pos... );
+        return this->GetSourceValue( mSource, seed, pos... );
     }
 };
 
@@ -40,21 +43,24 @@ public:
     {
         return [&] ( std::remove_reference_t<P>... noisePos, P... warpPos )
         {
-            float32v amp = float32v( this->mSource[0]->GetWarpAmplitude() * mFractalBounding );
-            float32v freq = float32v( this->mSource[0]->GetWarpFrequency() );
+            float32v amp = float32v( this->GetSourceSIMD( mSource )->GetWarpAmplitude() * mFractalBounding );
+            float32v freq = float32v( this->GetSourceSIMD( mSource )->GetWarpFrequency() );
             int32v seedInc = seed;
+
+            float32v gain = this->GetSourceValue( mGain, seed, pos... );
+            float32v lacunarity = float32v( mLacunarity );
         
-            this->mSource[0]->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
+            this->GetSourceSIMD( mSource )->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
     
             for( int i = 1; i < mOctaves; i++ )
             {
                 seedInc -= int32v( -1 );
-                freq *= float32v( mLacunarity );
-                amp *= float32v( mGain );
-                this->mSource[0]->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
+                freq *= lacunarity;
+                amp *= gain;
+                this->GetSourceSIMD( mSource )->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
             }
     
-            return this->mSource[0]->GetSourceSIMD()->Gen( seed, warpPos... );
+            return this->GetSourceValue( mSource, seed, warpPos... );
 
         } ( pos..., pos... );
     }

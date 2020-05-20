@@ -49,7 +49,7 @@ namespace FastNoise
         };
     };
 
-    class CellularLookup : public virtual Modifier<Generator, Cellular>
+    class CellularLookup : public virtual SingleSource<Generator, Cellular>
     {
     public:
         void SetLookupFrequency( float freq ) { mLookupFreqX = freq; mLookupFreqY = freq; mLookupFreqZ = freq; mLookupFreqW = freq; }
@@ -64,9 +64,9 @@ namespace FastNoise
         float mLookupFreqZ = 0.1f;
         float mLookupFreqW = 0.1f;
 
-        FASTNOISE_METADATA( Modifier<Generator, Cellular> )
+        FASTNOISE_METADATA( SingleSource<Generator, Cellular> )
         
-            Metadata( const char* className ) : Modifier<Generator, Cellular>::Metadata( className )
+            Metadata( const char* className ) : SingleSource<Generator, Cellular>::Metadata( className )
             {
                 memberNodes[0].name = "Lookup";
 

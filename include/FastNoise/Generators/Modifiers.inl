@@ -3,7 +3,7 @@
 #include "Modifiers.h"
 
 template<typename FS>
-class FS_T<FastNoise::DomainScale, FS> : public virtual FastNoise::DomainScale, public FS_T<FastNoise::Modifier<>, FS>
+class FS_T<FastNoise::DomainScale, FS> : public virtual FastNoise::DomainScale, public FS_T<FastNoise::SingleSource<>, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -11,12 +11,12 @@ public:
     template<typename... P> 
     float32v FS_INLINE GenT( int32v seed, P... pos )
     {
-        return this->mSource[0]->Gen( seed, (pos * float32v( mScale ))... );
+        return this->GetSourceValue( mSource, seed, (pos * float32v( mScale ))... );
     }
 };
 
 template<typename FS>
-class FS_T<FastNoise::Remap, FS> : public virtual FastNoise::Remap, public FS_T<FastNoise::Modifier<>, FS>
+class FS_T<FastNoise::Remap, FS> : public virtual FastNoise::Remap, public FS_T<FastNoise::SingleSource<>, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -24,14 +24,14 @@ public:
     template<typename... P>
     float32v FS_INLINE GenT( int32v seed, P... pos )
     {
-        float32v source = this->mSource[0]->Gen( seed, pos... );
+        float32v source = this->GetSourceValue( mSource, seed, pos... );
             
         return float32v( mToMin ) + (( source - float32v( mFromMin ) ) / float32v( mFromMax - mFromMin ) * float32v( mToMax - mToMin ));
     }
 };
 
 template<typename FS>
-class FS_T<FastNoise::ConvertRGBA8, FS> : public virtual FastNoise::ConvertRGBA8, public FS_T<FastNoise::Modifier<>, FS>
+class FS_T<FastNoise::ConvertRGBA8, FS> : public virtual FastNoise::ConvertRGBA8, public FS_T<FastNoise::SingleSource<>, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -39,7 +39,7 @@ public:
     template<typename... P>
     float32v FS_INLINE GenT( int32v seed, P... pos )
     {
-        float32v source = this->mSource[0]->Gen(seed, pos...);
+        float32v source = this->GetSourceValue( mSource, seed, pos... );
         
         source = FS_Min_f32( source, float32v( mMax ));
         source = FS_Max_f32( source, float32v( mMin ));

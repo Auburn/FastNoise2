@@ -5,15 +5,13 @@
 #include "FastNoise/FastNoise_Config.h"
 #include "FastNoise/FastNoiseMetadata.h"
 
-#ifdef FS_SIMD_CLASS
-#pragma warning( disable:4250 )
-#endif
-
 namespace FastNoise
 {
     class Generator
     {
     public:
+        using Metadata = FastNoise::Metadata;
+
         virtual ~Generator() {}
 
         virtual FastSIMD::eLevel GetSIMDLevel() = 0;
@@ -24,18 +22,53 @@ namespace FastNoise
         virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) = 0;     
 
         virtual const Metadata* GetMetadata() = 0;
+    };
 
-        using Metadata = FastNoise::Metadata;
+
+    template<size_t I>
+    class BaseSource
+    { };
+
+    template<size_t I>
+    class GeneratorSource : public BaseSource<I>
+    { };
+
+    template<size_t I>
+    class HybridSource : public BaseSource<I>
+    {
+    public:
+        float constant;
+
+        HybridSource()
+        {
+            constant = 0.0f;
+        }
+
+        HybridSource( float f )
+        {
+            constant = f;
+        }
+
+        operator float()
+        {
+            return constant;
+        }
     };
 
     template<size_t SOURCE_COUNT, typename T = Generator, typename P = Generator>
-    class Blend : public virtual P
+    class SourceStore : public virtual P
     {
-    public:
-        virtual void SetSource( const std::shared_ptr<T>& gen, size_t index = 0 ) = 0;
-
     protected:
-        std::array<std::shared_ptr<T>, SOURCE_COUNT> mSourceBase;
+        template<size_t index>
+        void SetSourceT( const BaseSource<index>&, const std::shared_ptr<T>& gen )
+        {
+            static_assert( index < SOURCE_COUNT );
+
+            SetSourceImpl( gen, index );
+        }
+
+    private:      
+        virtual void SetSourceImpl( const std::shared_ptr<T>& gen, size_t index = 0 ) = 0;
 
         FASTNOISE_METADATA_ABSTRACT( P )
         
@@ -44,17 +77,42 @@ namespace FastNoise
                 for( size_t i = 0; i < SOURCE_COUNT; i++ )
                 {
                     this->memberNodes.emplace_back( "Source",
-                        [i] ( Blend* g, std::shared_ptr<T> s )
+                        [i] ( SourceStore* g, std::shared_ptr<T> s )
                     {
-                        g->SetSource( s, i );
+                        g->SetSourceImpl( s, i );
                     });
                 }
             }
         };
     };
 
-    template<typename T = Generator, typename P = Generator> 
-    using Modifier = Blend<1, T, P>;
+    template<typename T = Generator, typename P = Generator>
+    class SingleSource : public virtual SourceStore<1, T, P>
+    {
+    public:
+        void SetSource( const std::shared_ptr<T>& gen )
+        {
+            this->SetSourceT( mSource, gen );
+        }
+
+    protected:
+        GeneratorSource<0> mSource;
+
+        FASTNOISE_METADATA_ABSTRACT( P )
+
+            Metadata( const char* className ) : P::Metadata( className )
+            {
+                /*for( size_t i = 0; i < SOURCE_COUNT; i++ )
+                {
+                    this->memberNodes.emplace_back( "Source",
+                        [i]( SourceStore* g, std::shared_ptr<T> s )
+                        {
+                            g->SetSourceImpl( s, i );
+                        } );
+                }*/
+            }
+        };
+    };
 
     class Constant : public virtual Generator
     {

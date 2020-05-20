@@ -3,7 +3,7 @@
 #include "Fractal.h"
 
 template<typename FS, typename T>
-class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FS_T<FastNoise::Modifier<T>, FS>
+class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FS_T<FastNoise::SourceStore<2, T>, FS>
 {
 
 };
@@ -17,14 +17,17 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        float32v sum = this->mSource[0]->Gen( seed, pos... );
-        float32v amp = float32v( 1 );
+        float32v gain = this->GetSourceValue( mGain  , seed, pos... );
+        float32v sum  = this->GetSourceValue( mSource, seed, pos... );
+
+        float32v lacunarity = float32v( mLacunarity );
+        float32v amp        = float32v( 1 );
 
         for( int i = 1; i < mOctaves; i++ )
         {
             seed -= int32v( -1 );
-            amp *= float32v( mGain );
-            sum += this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) * amp;
+            amp *= gain;
+            sum += this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) * amp;
         }
 
         return sum * float32v( mFractalBounding );
@@ -40,14 +43,17 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        float32v sum = FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) ) * float32v( 2 ) - float32v( 1 );
+        float32v sum = FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) ) * float32v( 2 ) - float32v( 1 );
+        float32v gain = this->GetSourceValue( mGain, seed, pos... );
+
+        float32v lacunarity = float32v( mLacunarity );
         float32v amp = float32v( 1 );
 
         for( int i = 1; i < mOctaves; i++ )
         {
             seed -= int32v( -1 );
-            amp *= float32v( mGain );
-            sum += (FS_Abs_f32(this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) ) * float32v( 2 ) - float32v( 1 )) * amp;
+            amp *= gain;
+            sum += (FS_Abs_f32(this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) ) * float32v( 2 ) - float32v( 1 )) * amp;
         }
 
         return sum * float32v( mFractalBounding );
@@ -63,14 +69,17 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT(int32v seed, P... pos)
     {
-        float32v sum = float32v( 1 ) - FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) );
+        float32v sum = float32v( 1 ) - FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );
+        float32v gain = this->GetSourceValue( mGain, seed, pos... );
+
+        float32v lacunarity = float32v( mLacunarity );
         float32v amp = float32v( 1 );
 
         for( int i = 1; i < mOctaves; i++ )
         {
             seed -= int32v( -1 );
-            amp *= float32v( mGain );
-            sum -= (float32v( 1 ) - FS_Abs_f32( this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ))... ) )) * amp;
+            amp *= gain;
+            sum -= (float32v( 1 ) - FS_Abs_f32( this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) )) * amp;
         }
 
         return sum;
@@ -87,8 +96,10 @@ public:
     FS_INLINE float32v GenT( int32v seed, P... pos )
     {
         float32v offset = float32v( 1 );
-        float32v sum = offset - FS_Abs_f32( this->mSource[0]->Gen( seed, pos... ) );
+        float32v sum = offset - FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );
+        float32v gain = this->GetSourceValue( mGain, seed, pos... ) * float32v( 6 );
         //sum *= sum;
+        float32v lacunarity = float32v( mLacunarity );
         float32v amp = sum;
 
         float weight = mWeightAmp;
@@ -96,11 +107,11 @@ public:
 
         for( int i = 1; i < mOctaves; i++ )
         {
-            amp *= float32v( mGain * 6 );
+            amp *= gain;
             amp = FS_Min_f32( FS_Max_f32( amp, float32v( 0 ) ), float32v( 1 ) );
 
             seed -= int32v( -1 );
-            float32v value = offset - FS_Abs_f32( this->mSource[0]->Gen( seed, (pos *= float32v( mLacunarity ) )... ));
+            float32v value = offset - FS_Abs_f32( this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ));
 
             value *= amp;
             amp = value;

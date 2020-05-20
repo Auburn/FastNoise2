@@ -271,7 +271,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FS_T<FastNoise::Modifier<FastNoise::Generator, FastNoise::Cellular>, FS>
+class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FS_T<FastNoise::SingleSource<FastNoise::Generator, FastNoise::Cellular>, FS>
 {
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
@@ -318,7 +318,7 @@ public:
             xc += int32v( Primes::X );
         }
 
-        return this->mSource[0]->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ) );
+        return this->GetSourceValue( mSource, seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ) );
     }
 
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
@@ -378,6 +378,6 @@ public:
             xc += int32v( Primes::X );
         }
 
-        return this->mSource[0]->Gen( seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ), cellZ * float32v( mLookupFreqZ ) );
+        return this->GetSourceValue( mSource, seed - int32v( -1 ), cellX * float32v( mLookupFreqX ), cellY * float32v( mLookupFreqY ), cellZ * float32v( mLookupFreqZ ) );
     }
 };

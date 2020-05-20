@@ -3,7 +3,7 @@
 
 namespace FastNoise
 {
-    class DomainWarp : public virtual Modifier<>
+    class DomainWarp : public virtual SingleSource<>
     {
     public:        
         void SetWarpFrequency( float value ) { mWarpFrequency = value; }
@@ -15,9 +15,9 @@ namespace FastNoise
         float mWarpFrequency = 0.5f;
         float mWarpAmplitude = 1.0f;
 
-        FASTNOISE_METADATA_ABSTRACT( Modifier<> )
+        FASTNOISE_METADATA_ABSTRACT( SingleSource<> )
         
-            Metadata( const char* className ) : Modifier<>::Metadata( className )
+            Metadata( const char* className ) : SingleSource<>::Metadata( className )
             {
                 memberVariables.emplace_back( "Warp Frequency", 0.5f, &DomainWarp::SetWarpFrequency );
                 memberVariables.emplace_back( "Warp Amplitude", 1.0f, &DomainWarp::SetWarpAmplitude );

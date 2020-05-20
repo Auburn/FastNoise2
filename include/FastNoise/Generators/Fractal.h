@@ -4,17 +4,21 @@
 namespace FastNoise
 {
     template<typename T = Generator>
-    class Fractal : public virtual Modifier<T>
+    class Fractal : public virtual SourceStore<2, T>
     {
     public:
-        void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
+        void SetSource( const std::shared_ptr<T>& gen ) { this->SetSourceT( mSource, gen ); }
         void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
+        void SetGain( const std::shared_ptr<T>& source ) { mGain = 1.0f; SetSource( mGain, source ); CalculateFractalBounding(); }
+        void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
         void SetLacunarity( float value ) { mLacunarity = value; } 
 
     protected:
+        GeneratorSource<0> mSource;
+        HybridSource<1> mGain = 0.5f;
+
         int32_t mOctaves = 3;
         float mLacunarity = 2.0f;
-        float mGain = 0.5f;
         float mFractalBounding = 1.0f / 1.75f;
 
         virtual void CalculateFractalBounding()
@@ -29,13 +33,13 @@ namespace FastNoise
             mFractalBounding = 1.0f / ampFractal;
         }
 
-        FASTNOISE_METADATA_ABSTRACT( Modifier<T> )
+        FASTNOISE_METADATA_ABSTRACT( SourceStore<2, T> )
 
-            Metadata( const char* className ) : Modifier<T>::Metadata( className )
+            Metadata( const char* className ) : SourceStore<2, T>::Metadata( className )
             {
                 this->memberVariables.emplace_back( "Octaves", 3, &Fractal::SetOctaveCount, 2, 16 );
                 this->memberVariables.emplace_back( "Lacunarity", 2.0f, &Fractal::SetLacunarity );
-                this->memberVariables.emplace_back( "Gain", 0.5f, &Fractal::SetGain );
+                //this->memberVariables.emplace_back( "Gain", 0.5f, &Fractal::SetGain );
             }
         };        
     };

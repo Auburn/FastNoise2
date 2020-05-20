@@ -11,6 +11,23 @@ namespace Primes
     static const int32_t Lookup[] = { X,Y,Z,W };
 }
 
+#if 0 // K.jpg new gradients
+template<typename FS = FS_SIMD_CLASS>
+FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+{
+    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFC ) ) * float32v( 0.3333333333333333f ) );
+
+    float32v a = FS_Select_f32( hash << 30, fY, fX );
+    a *= FS_Select_f32( index << 30, float32v( 2 ), float32v( 1.7320508075688772935f ) );
+
+    float32v b = FS_Select_f32( hash << 30, fX, fY );
+    b = FS_BitwiseXor_f32( b, FS_Casti32_f32( index << 31 ) );
+    b = FS_BitwiseAndNot_f32( b, FS_Casti32_f32( (index << 30) >> 31 ) );
+
+    return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( hash << 31 ) );
+}
+#endif // 0 // K.jpg new gradients
+
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level != FastSIMD::Level_AVX2 && FS::SIMD_Level != FastSIMD::Level_AVX512 ), int> = 0>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
