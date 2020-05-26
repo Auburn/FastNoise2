@@ -72,11 +72,10 @@ namespace FastNoise
         void SetWeightAmplitude( float value ) { mWeightAmp = value; CalculateFractalBounding(); }
 
     protected:
-
         float mWeightAmp = 2.0f;
         float mWeightBounding = 2.0f / 1.75f;
 
-        virtual void CalculateFractalBounding() override
+        void CalculateFractalBounding() override
         {
             Fractal::CalculateFractalBounding();
 

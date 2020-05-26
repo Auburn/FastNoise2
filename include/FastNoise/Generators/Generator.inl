@@ -27,7 +27,6 @@ public:
 
     virtual void SetSourceSIMDPtr( Generator* base, void** simdPtr ) final
     {
-        assert( base );
         auto simd = dynamic_cast<VoidPtrStorageType>( base );
         assert( simd );
         *simdPtr = reinterpret_cast<void*>( simd );
@@ -40,8 +39,7 @@ public:
         {
             auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-            auto simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
-            assert( simdT );
+            auto simdT = static_cast<FS_T<T, FS>*>( simdGen );
             return simdT->Gen( seed, pos... );
         }
         return float32v( memberVariable.constant );
@@ -53,8 +51,7 @@ public:
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        auto simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
-        assert( simdT );
+        auto simdT = static_cast<FS_T<T, FS>*>( simdGen );
         return simdT->Gen( seed, pos... );
     }
 
@@ -64,8 +61,7 @@ public:
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        auto simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
-        assert( simdT );
+        auto simdT = static_cast<FS_T<T, FS>*>( simdGen );
         return simdT;
     }
 
@@ -74,14 +70,14 @@ public:
         int32v xIdx = int32v::FS_Zero();
         int32v yIdx = int32v::FS_Incremented();
 
-        float32v xOffset = float32v( xStart );
-        float32v yOffset = float32v( yStart );
+        float32v xOffset( xStart );
+        float32v yOffset( yStart );
 
-        float32v xScale = float32v( xStep );
-        float32v yScale = float32v( yStep );
+        float32v xScale( xStep );
+        float32v yScale( yStep );
 
-        int32v ySizeV = int32v( ySize );
-        int32v yMax = int32v( ySize ) + int32v( -1 );
+        int32v ySizeV( ySize );
+        int32v yMax = ySizeV + int32v( -1 );
 
         int32_t totalValues = xSize * ySize;
         int32_t index = 0;
@@ -121,22 +117,22 @@ public:
 
     void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) final
     {
-        int32v xIdx = int32v::FS_Zero();
-        int32v yIdx = int32v::FS_Zero();
+        int32v xIdx( 0 );
+        int32v yIdx( 0 );
         int32v zIdx = int32v::FS_Incremented();
 
-        float32v xOffset = float32v( xStart );
-        float32v yOffset = float32v( yStart );
-        float32v zOffset = float32v( zStart );
+        float32v xOffset( xStart );
+        float32v yOffset( yStart );
+        float32v zOffset( zStart );
 
-        float32v xScale = float32v( xStep );
-        float32v yScale = float32v( yStep );
-        float32v zScale = float32v( zStep );
+        float32v xScale( xStep );
+        float32v yScale( yStep );
+        float32v zScale( zStep );
 
-        int32v ySizeV = int32v( ySize );
-        int32v yMax = int32v( ySize ) + int32v( -1 );
-        int32v zSizeV = int32v( zSize );
-        int32v zMax = int32v( zSize ) + int32v( -1 );
+        int32v ySizeV( ySize );
+        int32v yMax = ySizeV + int32v( -1 );
+        int32v zSizeV( zSize );
+        int32v zMax = zSizeV + int32v( -1 );
 
         int32_t totalValues = xSize * ySize * zSize;
         int32_t index = 0;

@@ -38,7 +38,7 @@ namespace FastNoise
     public:
         using Metadata = FastNoise::Metadata;
 
-        virtual ~Generator() {}
+        virtual ~Generator() = default;
 
         virtual FastSIMD::eLevel GetSIMDLevel() = 0;
 
@@ -49,7 +49,7 @@ namespace FastNoise
 
         virtual const Metadata* GetMetadata() = 0;
 
-
+    protected:
         template<typename T>
         void SetSourceMemberVariable( BaseSource<T>& memberVariable, const std::shared_ptr<T>& gen )
         {

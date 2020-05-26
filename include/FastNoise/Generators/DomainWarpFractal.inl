@@ -16,7 +16,7 @@ public:
         int32v seedInc = seed;
 
         float32v gain = this->GetSourceValue( mGain, seed, pos... );
-        float32v lacunarity = float32v( mLacunarity );
+        float32v lacunarity( mLacunarity );
 
         this->GetSourceSIMD( mSource )->Warp( seedInc, amp, (pos * freq)..., pos... );
 
@@ -48,7 +48,7 @@ public:
             int32v seedInc = seed;
 
             float32v gain = this->GetSourceValue( mGain, seed, pos... );
-            float32v lacunarity = float32v( mLacunarity );
+            float32v lacunarity( mLacunarity );
         
             this->GetSourceSIMD( mSource )->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
     

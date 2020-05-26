@@ -28,9 +28,10 @@ void FastNoiseNodeEditor::Node::GeneratePreview( FastNoiseNodeEditor* editor )
 
     if( isValid )
     {
-        float offset = editor->mNodeFrequency * NoiseSize * -0.5f;
+        float frequency = editor->mNodeFrequency * 2.0f;
+        float offset = frequency * NoiseSize * -0.5f;
 
-        gen->GenUniformGrid2D( noiseData, offset, offset, NoiseSize, NoiseSize, editor->mNodeFrequency, editor->mNodeFrequency, editor->mNodeSeed );
+        gen->GenUniformGrid2D( noiseData, offset, offset, NoiseSize, NoiseSize, frequency, frequency, editor->mNodeSeed );
     }
     else
     {

@@ -54,7 +54,7 @@ namespace Magnum
         float* mNoiseData = nullptr;
         VectorTypeFor<2, Int> mPreviewWindowsSize = { 0,0 };
 
-        float mNodeFrequency = 0.05f;
+        float mNodeFrequency = 0.01f;
         int mNodeSeed = 1337;
     };
 }

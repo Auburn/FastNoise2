@@ -20,8 +20,8 @@ public:
         float32v gain = this->GetSourceValue( mGain  , seed, pos... );
         float32v sum  = this->GetSourceValue( mSource, seed, pos... );
 
-        float32v lacunarity = float32v( mLacunarity );
-        float32v amp        = float32v( 1 );
+        float32v lacunarity( mLacunarity );
+        float32v amp( 1 );
 
         for( int i = 1; i < mOctaves; i++ )
         {
@@ -46,8 +46,8 @@ public:
         float32v sum = FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) ) * float32v( 2 ) - float32v( 1 );
         float32v gain = this->GetSourceValue( mGain, seed, pos... );
 
-        float32v lacunarity = float32v( mLacunarity );
-        float32v amp = float32v( 1 );
+        float32v lacunarity( mLacunarity );
+        float32v amp( 1 );
 
         for( int i = 1; i < mOctaves; i++ )
         {
@@ -72,8 +72,8 @@ public:
         float32v sum = float32v( 1 ) - FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );
         float32v gain = this->GetSourceValue( mGain, seed, pos... );
 
-        float32v lacunarity = float32v( mLacunarity );
-        float32v amp = float32v( 1 );
+        float32v lacunarity( mLacunarity );
+        float32v amp( 1 );
 
         for( int i = 1; i < mOctaves; i++ )
         {
@@ -95,15 +95,16 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        float32v offset = float32v( 1 );
+        float32v offset( 1 );
         float32v sum = offset - FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );
         float32v gain = this->GetSourceValue( mGain, seed, pos... ) * float32v( 6 );
-        //sum *= sum;
-        float32v lacunarity = float32v( mLacunarity );
+        
+        float32v lacunarity( mLacunarity );
         float32v amp = sum;
 
-        float weight = mWeightAmp;
-        float totalWeight = 1.0f;
+        float32v weightAmp( mWeightAmp );
+        float32v weight = weightAmp;
+        float32v totalWeight( 1.0f );
 
         for( int i = 1; i < mOctaves; i++ )
         {
@@ -115,10 +116,11 @@ public:
 
             value *= amp;
             amp = value;
-            sum += value * FS_Reciprocal_f32( float32v( weight ) );
 
-            totalWeight += 1.0f / weight;
-            weight *= mWeightAmp;
+            float32v weightRecip = FS_Reciprocal_f32( float32v( weight ) );
+            sum += value * weightRecip;
+            totalWeight += weightRecip;
+            weight *= weightAmp;
         }
 
         return sum * float32v( mWeightBounding ) - offset;
