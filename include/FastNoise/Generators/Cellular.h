@@ -54,48 +54,18 @@ namespace FastNoise
     {
     public:
         void SetLookup( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
-        void SetLookupFrequency( float freq ) { mLookupFreqX = freq; mLookupFreqY = freq; mLookupFreqZ = freq; mLookupFreqW = freq; }
-        void SetLookupFrequencyAxis( float freqX, float freqY = 0.1f, float freqZ = 0.1f, float freqW = 0.1f )
-        {
-            mLookupFreqX = freqX; mLookupFreqY = freqY; mLookupFreqZ = freqZ; mLookupFreqW = freqW;
-        }
+        void SetLookupFrequency( float freq ) { mLookupFreq = freq; }
 
     protected:
         GeneratorSource mLookup;
-        float mLookupFreqX = 0.1f;
-        float mLookupFreqY = 0.1f;
-        float mLookupFreqZ = 0.1f;
-        float mLookupFreqW = 0.1f;
+        float mLookupFreq = 0.1f;
 
         FASTNOISE_METADATA( Cellular )
         
             Metadata( const char* className ) : Cellular::Metadata( className )
             {
                 this->AddGeneratorSource( "Lookup", &CellularLookup::SetLookup );
-
-                this->AddVariable( "Lookup Frequency X", 0.1f,
-                    []( CellularLookup* p, float f )
-                {
-                    p->mLookupFreqX = f;
-                });
-                
-                this->AddVariable( "Lookup Frequency Y", 0.1f,
-                    []( CellularLookup* p, float f )
-                {
-                    p->mLookupFreqY = f;
-                });
-                
-                this->AddVariable( "Lookup Frequency Z", 0.1f,
-                    []( CellularLookup* p, float f )
-                {
-                    p->mLookupFreqZ = f;
-                });
-                
-                this->AddVariable( "Lookup Frequency W", 0.1f,
-                    []( CellularLookup* p, float f )
-                {
-                    p->mLookupFreqW = f;
-                });
+                this->AddVariable( "Lookup Frequency", 0.1f, &CellularLookup::SetLookupFrequency );
             }
         };
     };

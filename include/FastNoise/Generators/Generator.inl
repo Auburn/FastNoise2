@@ -33,27 +33,27 @@ public:
         *simdPtr = reinterpret_cast<void*>( simd );
     }
 
-    template<typename T, typename... ARGS>
-    FS_INLINE float32v GetSourceValue( const HybridSourceT<T>& memberVariable, int32v seed, ARGS&&... pos )
+    template<typename T, typename... POS>
+    FS_INLINE float32v GetSourceValue( const HybridSourceT<T>& memberVariable, int32v seed, POS... pos )
     {
         if( memberVariable.simdGeneratorPtr )
         {
-            VoidPtrStorageType simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
+            auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-            FS_T<T, FS>* simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
+            auto simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
             assert( simdT );
             return simdT->Gen( seed, pos... );
         }
         return float32v( memberVariable.constant );
     }
 
-    template<typename T, typename... ARGS>
-    FS_INLINE float32v GetSourceValue( const GeneratorSourceT<T>& memberVariable, int32v seed, ARGS&&... pos )
+    template<typename T, typename... POS>
+    FS_INLINE float32v GetSourceValue( const GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos )
     {
         assert( memberVariable.simdGeneratorPtr );
-        VoidPtrStorageType simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
+        auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        FS_T<T, FS>* simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
+        auto simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
         assert( simdT );
         return simdT->Gen( seed, pos... );
     }
@@ -62,9 +62,9 @@ public:
     FS_INLINE const FS_T<T, FS>* GetSourceSIMD( const GeneratorSourceT<T>& memberVariable )
     {
         assert( memberVariable.simdGeneratorPtr );
-        FS_T<Generator, FS>* simdGen = reinterpret_cast<FS_T<Generator, FS>*>( memberVariable.simdGeneratorPtr );
+        auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        FS_T<T, FS>* simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
+        auto simdT = dynamic_cast<FS_T<T, FS>*>( simdGen );
         assert( simdT );
         return simdT;
     }

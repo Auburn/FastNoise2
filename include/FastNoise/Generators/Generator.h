@@ -27,19 +27,9 @@ namespace FastNoise
     {
         float constant;
 
-        HybridSourceT()
-        {
-            constant = 0.0f;
-        }
-
-        HybridSourceT( float f )
+        HybridSourceT( float f = 0.0f )
         {
             constant = f;
-        }
-
-        operator float()
-        {
-            return constant;
         }
     };
 

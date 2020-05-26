@@ -11,7 +11,7 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos )
     {
-        float32v amp = float32v( this->GetSourceSIMD( mSource )->GetWarpAmplitude() * mFractalBounding );
+        float32v amp = float32v( mFractalBounding ) * this->GetSourceValue( this->GetSourceSIMD( mSource )->GetWarpAmplitude(), seed, pos... );
         float32v freq = float32v( this->GetSourceSIMD( mSource )->GetWarpFrequency() );
         int32v seedInc = seed;
 
@@ -43,7 +43,7 @@ public:
     {
         return [&] ( std::remove_reference_t<P>... noisePos, P... warpPos )
         {
-            float32v amp = float32v( this->GetSourceSIMD( mSource )->GetWarpAmplitude() * mFractalBounding );
+            float32v amp = float32v( mFractalBounding ) * this->GetSourceValue( this->GetSourceSIMD( mSource )->GetWarpAmplitude(), seed, pos... );
             float32v freq = float32v( this->GetSourceSIMD( mSource )->GetWarpFrequency() );
             int32v seedInc = seed;
 

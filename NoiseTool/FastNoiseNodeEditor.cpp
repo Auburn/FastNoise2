@@ -160,25 +160,11 @@ void FastNoiseNodeEditor::Update()
 
         DoNodes();
 
-        // Check for new links
-        for( Node::Ptr& node : mNodes )
-        {
-            int attributeId = node->id << 8;
-
-            for( int* link : node->memberLinks )
-            {
-                if( *link != -1 )
-                {                
-                    imnodes::Link( attributeId, *link, attributeId );
-                }
-                attributeId++;
-            }
-        }
-
         DoContextMenu();
 
         imnodes::EndNodeEditor();        
 
+        // Check for new links
         int startAttr, endAttr;
         if( imnodes::IsLinkCreated( &startAttr, &endAttr ) )
         {
@@ -401,6 +387,21 @@ void FastNoiseNodeEditor::DoNodes()
         imnodes::EndAttribute();
 
         imnodes::EndNode();
+    }
+
+    // Do current node links
+    for( Node::Ptr& node : mNodes )
+    {
+        int attributeId = node->id << 8;
+
+        for( int* link : node->memberLinks )
+        {
+            if( *link != -1 )
+            {
+                imnodes::Link( attributeId, *link, attributeId );
+            }
+            attributeId++;
+        }
     }
 }
 

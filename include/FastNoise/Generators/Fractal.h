@@ -23,12 +23,12 @@ namespace FastNoise
 
         virtual void CalculateFractalBounding()
         {
-            float amp = mGain;
+            float amp = mGain.constant;
             float ampFractal = 1.0f;
             for( int32_t i = 1; i < mOctaves; i++ )
             {
                 ampFractal += amp;
-                amp *= mGain;
+                amp *= mGain.constant;
             }
             mFractalBounding = 1.0f / ampFractal;
         }

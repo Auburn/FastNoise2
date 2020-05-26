@@ -7,6 +7,9 @@ template<typename FS>
 class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::Generator, FS>
 {
 public:
+    float GetWarpFrequency() const { return mWarpFrequency; }
+    const HybridSource& GetWarpAmplitude() const { return mWarpAmplitude; }
+
     virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const = 0;
     virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const = 0;
 
@@ -15,7 +18,7 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT(int32v seed, P... pos)
     {
-        Warp( seed, float32v( mWarpAmplitude ), (pos * float32v( mWarpFrequency ))..., pos... );
+        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), (pos * float32v( mWarpFrequency ))..., pos... );
 
         return this->GetSourceValue( mSource, seed, pos...);
     }
