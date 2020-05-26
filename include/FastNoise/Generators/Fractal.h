@@ -9,7 +9,7 @@ namespace FastNoise
     public:
         void SetSource( const std::shared_ptr<T>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
-        void SetGain( const std::shared_ptr<Generator>& source ) { mGain = 1.0f; this->SetSourceMemberVariable( mGain, source ); CalculateFractalBounding(); }
+        void SetGain( const std::shared_ptr<Generator>& gen ) { mGain = 1.0f; this->SetSourceMemberVariable( mGain, gen ); CalculateFractalBounding(); }
         void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
         void SetLacunarity( float value ) { mLacunarity = value; } 
 

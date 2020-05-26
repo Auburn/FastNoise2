@@ -15,11 +15,12 @@ namespace FastNoise
             Natural,
         };
 
+        void SetJitterModifier( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
         void SetJitterModifier( float value ) { mJitterModifier = value; }
         void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }
 
     protected:
-        float mJitterModifier = 1.0f;
+        HybridSource mJitterModifier = 1.0f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
 
         const float kJitter2D = 0.5f;
@@ -29,7 +30,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
-                this->AddVariable( "Jitter Modifier", 1.0f, &Cellular::SetJitterModifier );
+                this->AddHybridSource( "Jitter Modifier", 1.0f, &Cellular::SetJitterModifier, &Cellular::SetJitterModifier );
                 this->AddVariableEnum( "Distance Function", DistanceFunction::EuclideanSquared, &Cellular::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
             }
         };

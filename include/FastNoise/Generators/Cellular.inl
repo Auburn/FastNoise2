@@ -54,7 +54,7 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
     {
-        float32v jitter = float32v( kJitter2D * mJitterModifier );
+        float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         float32v distance = float32v( FLT_MAX );
         float32v cellValue;
 
@@ -101,7 +101,7 @@ public:
 
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
     {
-        float32v jitter = float32v( kJitter3D * mJitterModifier );
+        float32v jitter = float32v( kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
         float32v distance = float32v( FLT_MAX );
         float32v cellValue;
         
@@ -165,7 +165,7 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
     {
-        float32v jitter = float32v( kJitter2D * mJitterModifier );
+        float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         float32v distance = float32v( FLT_MAX );
 
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
@@ -212,7 +212,7 @@ public:
 
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
     {
-        float32v jitter = float32v( kJitter3D * mJitterModifier );
+        float32v jitter = float32v( kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
         float32v distance = float32v( FLT_MAX );
 
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
@@ -276,7 +276,7 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
     {
-        float32v jitter = float32v( kJitter2D * mJitterModifier );
+        float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         float32v distance = float32v( FLT_MAX );
         float32v cellX, cellY;
 
@@ -323,7 +323,7 @@ public:
 
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
     {
-        float32v jitter = float32v( kJitter3D * mJitterModifier );
+        float32v jitter = float32v( kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
         float32v distance = float32v( FLT_MAX );
         float32v cellX, cellY, cellZ;
 
