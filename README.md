@@ -1,6 +1,6 @@
-# FastNoise2
-
 [![discord](https://img.shields.io/discord/703636892901441577?style=flat-square&logo=discord "Discord")](https://discord.gg/3tevcwQ)
+
+# FastNoise2
 
 WIP successor to FastNoiseSIMD
 
