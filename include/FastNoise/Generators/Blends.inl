@@ -4,7 +4,7 @@
 
 
 template<typename FS>
-class FS_T<FastNoise::Add, FS> : public virtual FastNoise::Add, public FS_T<FastNoise::SourceStore<2>, FS>
+class FS_T<FastNoise::Add, FS> : public virtual FastNoise::Add, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -17,7 +17,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Subtract, FS> : public virtual FastNoise::Subtract, public FS_T<FastNoise::SourceStore<2>, FS>
+class FS_T<FastNoise::Subtract, FS> : public virtual FastNoise::Subtract, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -30,7 +30,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Multiply, FS> : public virtual FastNoise::Multiply, public FS_T<FastNoise::SourceStore<2>, FS>
+class FS_T<FastNoise::Multiply, FS> : public virtual FastNoise::Multiply, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -43,7 +43,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Divide, FS> : public virtual FastNoise::Divide, public FS_T<FastNoise::SourceStore<2>, FS>
+class FS_T<FastNoise::Divide, FS> : public virtual FastNoise::Divide, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -56,7 +56,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Min, FS> : public virtual FastNoise::Min, public FS_T<FastNoise::SourceStore<2>, FS>
+class FS_T<FastNoise::Min, FS> : public virtual FastNoise::Min, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -69,7 +69,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Max, FS> : public virtual FastNoise::Max, public FS_T<FastNoise::SourceStore<2>, FS>
+class FS_T<FastNoise::Max, FS> : public virtual FastNoise::Max, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -82,7 +82,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Fade, FS> : public virtual FastNoise::Fade, public FS_T<FastNoise::SourceStore<3>, FS>
+class FS_T<FastNoise::Fade, FS> : public virtual FastNoise::Fade, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;

@@ -15,6 +15,9 @@ namespace Magnum
     {
     public:
         FastNoiseNodeEditor();
+        void DoContextMenu();
+        void DoNodes();
+        void UpdateSelected();
         void Update();
 
     private:
@@ -29,7 +32,9 @@ namespace Magnum
             int id;
             const FastNoise::Metadata* metadata;
 
+            std::vector<int*> memberLinks;
             std::vector<int> memberNodes;
+            std::vector<std::pair<int, float>> memberHybrids;
             std::vector<FastNoise::Metadata::MemberVariable::ValueUnion> memberValues;
 
             static const int NoiseSize = 224;

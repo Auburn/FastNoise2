@@ -3,20 +3,48 @@
 
 namespace FastNoise
 {
-    template<typename LHS_T>
-    class Operator : public virtual SourceStore<2>
+    class OperatorSourceLHS : public virtual Generator
     {
-    protected:
-        LHS_T mLHS;
-        HybridSource<1> mRHS;
+    public:
+        void SetLHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLHS, gen ); }
+        void SetRHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mRHS, gen ); }
+        void SetRHS( float value ) { mRHS = value; }
 
-        FASTNOISE_METADATA_ABSTRACT( SourceStore<2> )
-            using SourceStore<2>::Metadata::Metadata;
+    protected:
+        GeneratorSource mLHS;
+        HybridSource mRHS;
+
+        FASTNOISE_METADATA_ABSTRACT( Generator )
+            
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddGeneratorSource( "LHS", &OperatorSourceLHS::SetLHS );
+                this->AddHybridSource( "RHS", 0.0f, &OperatorSourceLHS::SetRHS, &OperatorSourceLHS::SetRHS );
+            }
         };
     };
 
-    using OperatorSourceLHS = Operator<GeneratorSource<0>>;
-    using OperatorHybridLHS = Operator<HybridSource<0>>;
+    class OperatorHybridLHS : public virtual Generator
+    {
+    public:
+        void SetLHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLHS, gen ); }
+        void SetLHS( float value ) { mLHS = value; }
+        void SetRHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mRHS, gen ); }
+        void SetRHS( float value ) { mRHS = value; }
+
+    protected:
+        HybridSource mLHS;
+        HybridSource mRHS;
+
+        FASTNOISE_METADATA_ABSTRACT( Generator )
+            
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddHybridSource( "LHS", 0.0f, &OperatorHybridLHS::SetLHS, &OperatorHybridLHS::SetLHS );
+                this->AddHybridSource( "RHS", 0.0f, &OperatorHybridLHS::SetRHS, &OperatorHybridLHS::SetRHS );
+            }
+        };
+    };
 
     class Add : public virtual OperatorSourceLHS
     {
@@ -60,21 +88,27 @@ namespace FastNoise
         };    
     };
 
-    class Fade : public virtual SourceStore<3>
+    class Fade : public virtual Generator
     {
     public:
+        void SetA( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mA, gen ); }
+        void SetB( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mB, gen ); }
+
+        void SetFade( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mFade, gen ); }
         void SetFade( float value ) { mFade = value; }
 
     protected:
-        GeneratorSource<0> mA;
-        GeneratorSource<1> mB;
-        HybridSource<2> mFade = 0.5f;
+        GeneratorSource mA;
+        GeneratorSource mB;
+        HybridSource mFade = 0.5f;
 
-        FASTNOISE_METADATA( SourceStore<3> )
+        FASTNOISE_METADATA( Generator )
 
-            Metadata( const char* className ) : SourceStore<3>::Metadata( className )
+            Metadata( const char* className ) : Generator::Metadata( className )
             {
-                memberVariables.emplace_back( "Fade", 0.5f, &Fade::SetFade, 0.0f, 1.0f );
+                this->AddGeneratorSource( "A", &Fade::SetA );
+                this->AddGeneratorSource( "B", &Fade::SetB );
+                this->AddHybridSource( "Fade", 0.5f, &Fade::SetFade, &Fade::SetFade );
             }
         };    
     };

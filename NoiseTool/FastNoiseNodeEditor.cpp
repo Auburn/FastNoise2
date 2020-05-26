@@ -2,10 +2,12 @@
 #include "imnodes.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <Magnum/PixelFormat.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
+
 
 using namespace Magnum;
 
@@ -47,9 +49,9 @@ void FastNoiseNodeEditor::Node::GeneratePreview( FastNoiseNodeEditor* editor )
 
     for( auto& node : editor->mNodes )
     {
-        for( int link : node->memberNodes )
+        for( int* link : node->memberLinks )
         {
-            if( link >> 8 == id )
+            if( *link >> 8 == id )
             {
                 node->GeneratePreview( editor );
             }
@@ -66,55 +68,66 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
 {
     std::shared_ptr<FastNoise::Generator> node( metadata->NodeFactory() );
     dependancies.push_back( id );
-    
+
+    for( int* link : memberLinks )
+    {
+        if( *link != -1 && std::find( dependancies.begin(), dependancies.end(), *link >> 8 ) != dependancies.end() )
+        {
+            *link = -1;
+            valid = false;
+        }        
+    }
+
     for( int i = 0; i < metadata->memberNodes.size(); i++ )
     {
-        if( std::find( dependancies.begin(), dependancies.end(), memberNodes[i] >> 8 ) != dependancies.end() )
+        auto source = std::find_if(nodes.begin(), nodes.end(),
+            [id = memberNodes[i] >> 8]( const Node::Ptr& n ) { return n->id == id; });
+
+        if( source == nodes.end() )
+        {
+            valid = false;
+            continue;
+        }
+
+        auto sourceGen = source->get()->GetGenerator( nodes, dependancies, valid );
+        if( !metadata->memberNodes[i].setFunc( node.get(), sourceGen ) )
         {
             memberNodes[i] = -1;
             valid = false;
-        }
-        else
-        {
-            auto source = std::find_if(nodes.begin(), nodes.end(),
-                [id = memberNodes[i] >> 8](const Node::Ptr& n) { return n->id == id; });
-
-            if( source == nodes.end() )
-            {
-                valid = false;
-                continue;
-            }
-
-            auto sourceGen = source->get()->GetGenerator( nodes, dependancies, valid );
-            if( !metadata->memberNodes[i].setFunc( node.get(), sourceGen ) )
-            {
-                valid = false;
-            }
-        }
+        }        
     }
 
-    for (int i = 0; i < metadata->memberVariables.size(); i++)
+    for( int i = 0; i < metadata->memberHybrids.size(); i++ )
     {
-        metadata->memberVariables[i].setFunc(node.get(), memberValues[i]);
+        auto source = std::find_if(nodes.begin(), nodes.end(),
+            [id = memberHybrids[i].first >> 8]( const Node::Ptr& n ) { return n->id == id; });
+
+        if( source != nodes.end() )
+        {
+            auto sourceGen = source->get()->GetGenerator( nodes, dependancies, valid );
+            if( metadata->memberHybrids[i].setNodeFunc( node.get(), sourceGen ) )
+            {
+                continue;
+            }
+            else
+            {
+                memberHybrids[i].first = -1;
+            }
+        }
+
+        metadata->memberHybrids[i].setValueFunc( node.get(), memberHybrids[i].second );
+    }
+
+    for( int i = 0; i < metadata->memberVariables.size(); i++ )
+    {
+        metadata->memberVariables[i].setFunc( node.get(), memberValues[i] );
     }    
 
 
     return node;
 }
 
-void FormatClassName( std::string& string, const char* name )
-{
-    string = name;
-    for( int i = 1; i < string.size(); i++ )
-    {
-        if( isupper( string[i] ) && islower( string[i - 1] ) )
-        {
-            string.insert( i++, 1, ' ' );
-        }
-    }
-}
-
-Magnum::FastNoiseNodeEditor::FastNoiseNodeEditor() :
+FastNoiseNodeEditor::FastNoiseNodeEditor() :
     mNoiseImage( PixelFormat::RGBA8Srgb, { 0, 0 } )
 {
 
@@ -125,6 +138,8 @@ void FastNoiseNodeEditor::Update()
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "FastNoise Node Editor" ) )
     {
+        UpdateSelected();
+
         bool edited = false;
         ImGui::SetNextItemWidth( 100 );
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
@@ -143,151 +158,26 @@ void FastNoiseNodeEditor::Update()
 
         imnodes::BeginNodeEditor();
 
-        std::string className;
+        DoNodes();
 
-        for( auto& node : mNodes )
-        {
-            imnodes::BeginNode(node->id);
-
-            imnodes::BeginNodeTitleBar();
-            FormatClassName( className, node->metadata->name );
-            ImGui::TextUnformatted( className.c_str() );
-            imnodes::EndNodeTitleBar();        
-
-            int attributeId = node->id << 8;
-
-            for( auto& memberNode : node->metadata->memberNodes )
-            {
-                imnodes::BeginInputAttribute( attributeId++ );
-                ImGui::TextUnformatted( memberNode.name );
-                imnodes::EndAttribute();
-            }
-
-            for( int i = 0; i < node->metadata->memberVariables.size(); i++ )
-            {
-                auto& nodeVar = node->metadata->memberVariables[i];
-                ImGui::PushItemWidth( 60.0f );
-
-                switch ( nodeVar.type )
-                {
-                    case FastNoise::Metadata::MemberVariable::EFloat:
-                    {
-                        if( ImGui::DragFloat( nodeVar.name, &node->memberValues[i].f, 0.02f, node->metadata->memberVariables[i].valueMin.f, node->metadata->memberVariables[i].valueMax.f ) )
-                        {
-                            node->GeneratePreview( this );
-                        }
-                    }
-                    break;
-                    case FastNoise::Metadata::MemberVariable::EInt:
-                    {
-                        if( ImGui::DragInt( nodeVar.name, &node->memberValues[i].i, 0.2f, node->metadata->memberVariables[i].valueMin.i, node->metadata->memberVariables[i].valueMax.i ) )
-                        {
-                            node->GeneratePreview( this );
-                        }
-                    }
-                    break;
-                    case FastNoise::Metadata::MemberVariable::EEnum:
-                    {
-                        if( ImGui::Combo( nodeVar.name, &node->memberValues[i].i, node->metadata->memberVariables[i].enumNames.data(), node->metadata->memberVariables[i].enumNames.size() ) )
-                        {
-                            node->GeneratePreview( this );
-                        }
-                    }
-                    break;
-                }
-            }
-            
-            imnodes::BeginOutputAttribute( attributeId );
-            ImGuiIntegration::image( node->noiseTexture, { Node::NoiseSize, Node::NoiseSize } );
-            imnodes::EndAttribute();
-
-            imnodes::EndNode();
-        }
-    
+        // Check for new links
         for( Node::Ptr& node : mNodes )
         {
             int attributeId = node->id << 8;
 
-            for( int i = 0; i < node->metadata->memberNodes.size(); i++  )
+            for( int* link : node->memberLinks )
             {
-                if( node->memberNodes[i] != -1 )
+                if( *link != -1 )
                 {                
-                    imnodes::Link( attributeId, node->memberNodes[i], attributeId );
+                    imnodes::Link( attributeId, *link, attributeId );
                 }
                 attributeId++;
             }
         }
 
-        ImVec2 drag = ImGui::GetMouseDragDelta( ImGuiMouseButton_Right );
-        float distance = sqrtf( drag.x * drag.x + drag.y * drag.y );
+        DoContextMenu();
 
-        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2(4, 4) );
-        if( distance < 5.0f && ImGui::BeginPopupContextWindow() )
-        {
-            ImVec2 startPos = ImGui::GetMousePosOnOpeningCurrentPopup();
-
-            for( auto& metadata : FastNoise::MetadataManager::GetMetadataClasses() )
-            {
-                FormatClassName( className, metadata->name );
-                if( ImGui::MenuItem( className.c_str() ) )
-                {
-                    const int node_id = ++mCurrentNodeId;
-                    imnodes::SetNodeScreenSpacePos( node_id, startPos );
-                
-                    mNodes.push_back( std::make_unique<Node>( metadata ) );
-                
-                    Node::Ptr& node = mNodes.back();
-                    node->id = node_id;
-
-                    node->memberNodes = std::vector<int>( metadata->memberNodes.size(), -1 );
-
-                    for( auto& value : metadata->memberVariables )
-                    {
-                        node->memberValues.push_back( value.valueDefault );
-                    }
-                    node->GeneratePreview( this );
-                }
-            }
-
-            ImGui::EndPopup();
-        }
-        ImGui::PopStyleVar();
-
-        imnodes::EndNodeEditor();
-
-        if( int selectedCount = imnodes::NumSelectedNodes() )
-        {
-            std::vector<int> selected( selectedCount );
-
-            imnodes::GetSelectedNodes( selected.data() );
-
-            if( selected[0] != mSelectedNode )
-            {
-                mSelectedNode = selected[0];
-                GenerateSelectedPreview();
-            }
-
-            if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
-            {
-                for( int deleteID : selected )
-                {
-                    mNodes.erase( std::find_if( mNodes.begin(), mNodes.end(),
-                        [deleteID]( const Node::Ptr& n ) { return n->id == deleteID; } ) );
-
-                    for( auto& node : mNodes )
-                    {
-                        for( int& link : node->memberNodes )
-                        {
-                            if( link >> 8 == deleteID )
-                            {
-                                link = -1;
-                                node->GeneratePreview( this );
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        imnodes::EndNodeEditor();        
 
         int startAttr, endAttr;
         if( imnodes::IsLinkCreated( &startAttr, &endAttr ) )
@@ -296,17 +186,17 @@ void FastNoiseNodeEditor::Update()
             {
                 int attrId = n->id << 8;
 
-                for( int& id : n->memberNodes )
+                for( int* id : n->memberLinks )
                 {
                     if( attrId == startAttr )
                     {
-                        id = endAttr;
+                        *id = endAttr;
                         n->GeneratePreview( this );
                         break;
                     }
                     if( attrId == endAttr )
                     {
-                        id = startAttr;
+                        *id = startAttr;
                         n->GeneratePreview( this );
                         break;
                     }
@@ -332,6 +222,238 @@ void FastNoiseNodeEditor::Update()
         ImGuiIntegration::image( mNoiseTexture, { (float)mNoiseImage.size().x(), (float)mNoiseImage.size().y() } );
     }
     ImGui::End();
+}
+
+void FastNoiseNodeEditor::UpdateSelected()
+{
+    if( int selectedCount = imnodes::NumSelectedLinks() )
+    {
+        std::vector<int> selected( selectedCount );
+
+        imnodes::GetSelectedLinks( selected.data() );
+
+        if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+        {
+            for( int deleteID : selected )
+            {
+                for( auto& node : mNodes )
+                {
+                    bool changed = false;
+                    int attributeId = node->id << 8;
+
+                    for( int* link : node->memberLinks )
+                    {
+                        if( attributeId == deleteID )
+                        {
+                            *link = -1;
+                            changed = true;
+                        }
+                        attributeId++;
+                    }
+
+                    if( changed )
+                    {
+                        node->GeneratePreview( this );
+                    }
+                }
+            }
+        }
+    }
+
+    if( int selectedCount = imnodes::NumSelectedNodes() )
+    {
+        std::vector<int> selected( selectedCount );
+
+        imnodes::GetSelectedNodes( selected.data() );
+
+        if( selected[0] != mSelectedNode )
+        {
+            mSelectedNode = selected[0];
+            GenerateSelectedPreview();
+        }
+
+        if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+        {
+            for( int deleteID : selected )
+            {
+                mNodes.erase( std::find_if( mNodes.begin(), mNodes.end(),
+                                            [deleteID]( const Node::Ptr& n ) { return n->id == deleteID; } ) );
+
+                for( auto& node : mNodes )
+                {
+                    bool changed = false;
+
+                    for( int* link : node->memberLinks )
+                    {
+                        if( *link >> 8 == deleteID )
+                        {
+                            *link = -1;
+                            changed = true;
+                        }
+                    }
+
+                    if( changed )
+                    {
+                        node->GeneratePreview( this );
+                    }
+                }
+            }
+        }
+    }
+}
+
+void FormatClassName( std::string& string, const char* name )
+{
+    string = name;
+    for( int i = 1; i < string.size(); i++ )
+    {
+        if( isupper( string[i] ) && islower( string[i - 1] ) )
+        {
+            string.insert( i++, 1, ' ' );
+        }
+    }
+}
+
+void FastNoiseNodeEditor::DoNodes()
+{
+    std::string className;
+
+    for( auto& node : mNodes )
+    {
+        imnodes::BeginNode(node->id);
+
+        imnodes::BeginNodeTitleBar();
+        FormatClassName( className, node->metadata->name );
+        ImGui::TextUnformatted( className.c_str() );
+        imnodes::EndNodeTitleBar();        
+
+        int attributeId = node->id << 8;
+
+        for( auto& memberNode : node->metadata->memberNodes )
+        {
+            imnodes::BeginInputAttribute( attributeId++ );
+            ImGui::TextUnformatted( memberNode.name );
+            imnodes::EndAttribute();
+        }
+
+        for( int i = 0; i < node->metadata->memberHybrids.size(); i++ )
+        {
+            imnodes::BeginInputAttribute( attributeId++ );
+            ImGui::PushItemWidth( 60.0f );
+
+            bool isLinked = node->memberHybrids[i].first != -1;
+
+            if( isLinked )
+            {
+                ImGui::PushItemFlag( ImGuiItemFlags_Disabled, true );
+                ImGui::PushStyleVar( ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f );
+            }
+
+            if( ImGui::DragFloat( node->metadata->memberHybrids[i].name, &node->memberHybrids[i].second, 0.02f ) )
+            {
+                node->GeneratePreview( this );
+            }
+
+            if( isLinked )
+            {
+                ImGui::PopItemFlag();
+                ImGui::PopStyleVar();
+            }
+            imnodes::EndAttribute();
+        }
+
+        for( int i = 0; i < node->metadata->memberVariables.size(); i++ )
+        {
+            auto& nodeVar = node->metadata->memberVariables[i];
+            ImGui::PushItemWidth( 60.0f );
+
+            switch ( nodeVar.type )
+            {
+            case FastNoise::Metadata::MemberVariable::EFloat:
+                {
+                    if( ImGui::DragFloat( nodeVar.name, &node->memberValues[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
+                    {
+                        node->GeneratePreview( this );
+                    }
+                }
+                break;
+            case FastNoise::Metadata::MemberVariable::EInt:
+                {
+                    if( ImGui::DragInt( nodeVar.name, &node->memberValues[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
+                    {
+                        node->GeneratePreview( this );
+                    }
+                }
+                break;
+            case FastNoise::Metadata::MemberVariable::EEnum:
+                {
+                    if( ImGui::Combo( nodeVar.name, &node->memberValues[i].i, nodeVar.enumNames.data(), nodeVar.enumNames.size() ) )
+                    {
+                        node->GeneratePreview( this );
+                    }
+                }
+                break;
+            }
+        }
+            
+        imnodes::BeginOutputAttribute( attributeId );
+        ImGuiIntegration::image( node->noiseTexture, { Node::NoiseSize, Node::NoiseSize } );
+        imnodes::EndAttribute();
+
+        imnodes::EndNode();
+    }
+}
+
+void FastNoiseNodeEditor::DoContextMenu()
+{
+    std::string className;
+    ImVec2 drag = ImGui::GetMouseDragDelta( ImGuiMouseButton_Right );
+    float distance = sqrtf( drag.x * drag.x + drag.y * drag.y );
+
+
+    ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2(4, 4) );
+    if( distance < 5.0f && ImGui::BeginPopupContextWindow() )
+    {
+        ImVec2 startPos = ImGui::GetMousePosOnOpeningCurrentPopup();
+
+        for( auto& metadata : FastNoise::MetadataManager::GetMetadataClasses() )
+        {
+            FormatClassName( className, metadata->name );
+            if( ImGui::MenuItem( className.c_str() ) )
+            {
+                const int node_id = ++mCurrentNodeId;
+                imnodes::SetNodeScreenSpacePos( node_id, startPos );
+                
+                mNodes.push_back( std::make_unique<Node>( metadata ) );
+                
+                Node::Ptr& node = mNodes.back();
+                node->id = node_id;
+
+                for( auto& value : metadata->memberVariables )
+                {
+                    node->memberValues.push_back( value.valueDefault );
+                }
+
+                node->memberNodes.reserve( metadata->memberNodes.size() );
+                for( auto& value : metadata->memberNodes )
+                {
+                    node->memberNodes.emplace_back( -1 );
+                    node->memberLinks.emplace_back( &node->memberNodes.back() );
+                }
+
+                node->memberHybrids.reserve( metadata->memberHybrids.size() );
+                for( auto& value : metadata->memberHybrids )
+                {
+                    node->memberHybrids.emplace_back( -1, value.valueDefault );
+                    node->memberLinks.emplace_back( &node->memberHybrids.back().first );
+                }
+                node->GeneratePreview( this );
+            }
+        }
+
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar();
 }
 
 void FastNoiseNodeEditor::GenerateSelectedPreview()

@@ -29,8 +29,8 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
-                memberVariables.emplace_back( "Jitter Modifier", 1.0f, &Cellular::SetJitterModifier );
-                memberVariables.emplace_back( "Distance Function", DistanceFunction::EuclideanSquared, &Cellular::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
+                this->AddVariable( "Jitter Modifier", 1.0f, &Cellular::SetJitterModifier );
+                this->AddVariableEnum( "Distance Function", DistanceFunction::EuclideanSquared, &Cellular::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
             }
         };
     };
@@ -49,9 +49,10 @@ namespace FastNoise
         };
     };
 
-    class CellularLookup : public virtual SingleSource<Generator, Cellular>
+    class CellularLookup : public virtual Cellular
     {
     public:
+        void SetLookup( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
         void SetLookupFrequency( float freq ) { mLookupFreqX = freq; mLookupFreqY = freq; mLookupFreqZ = freq; mLookupFreqW = freq; }
         void SetLookupFrequencyAxis( float freqX, float freqY = 0.1f, float freqZ = 0.1f, float freqW = 0.1f )
         {
@@ -59,36 +60,37 @@ namespace FastNoise
         }
 
     protected:
+        GeneratorSource mLookup;
         float mLookupFreqX = 0.1f;
         float mLookupFreqY = 0.1f;
         float mLookupFreqZ = 0.1f;
         float mLookupFreqW = 0.1f;
 
-        FASTNOISE_METADATA( SingleSource<Generator, Cellular> )
+        FASTNOISE_METADATA( Cellular )
         
-            Metadata( const char* className ) : SingleSource<Generator, Cellular>::Metadata( className )
+            Metadata( const char* className ) : Cellular::Metadata( className )
             {
-                memberNodes[0].name = "Lookup";
+                this->AddGeneratorSource( "Lookup", &CellularLookup::SetLookup );
 
-                memberVariables.emplace_back( "Lookup Frequency X", 0.1f,
+                this->AddVariable( "Lookup Frequency X", 0.1f,
                     []( CellularLookup* p, float f )
                 {
                     p->mLookupFreqX = f;
                 });
                 
-                memberVariables.emplace_back( "Lookup Frequency Y", 0.1f,
+                this->AddVariable( "Lookup Frequency Y", 0.1f,
                     []( CellularLookup* p, float f )
                 {
                     p->mLookupFreqY = f;
                 });
                 
-                memberVariables.emplace_back( "Lookup Frequency Z", 0.1f,
+                this->AddVariable( "Lookup Frequency Z", 0.1f,
                     []( CellularLookup* p, float f )
                 {
                     p->mLookupFreqZ = f;
                 });
                 
-                memberVariables.emplace_back( "Lookup Frequency W", 0.1f,
+                this->AddVariable( "Lookup Frequency W", 0.1f,
                     []( CellularLookup* p, float f )
                 {
                     p->mLookupFreqW = f;

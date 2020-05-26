@@ -4,11 +4,11 @@
 #include "CoherentHelpers.inl"
 
 template<typename FS>
-class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::SingleSource<>, FS>
+class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::Generator, FS>
 {
 public:
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) = 0;
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) = 0;
+    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const = 0;
+    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const = 0;
 
     FASTNOISE_IMPL_GEN_T;
 
@@ -25,7 +25,7 @@ template<typename FS>
 class FS_T<FastNoise::DomainWarpGradient, FS> : public virtual FastNoise::DomainWarpGradient, public FS_T<FastNoise::DomainWarp, FS>
 {
 public:
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) override
+    void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const override
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );
@@ -54,7 +54,7 @@ public:
         yOut = FS_FMulAdd_f32( Lerp( Lerp( y00, y10, xs ), Lerp( y01, y11, xs ), ys ), warpAmp * float32v( 1.0f / (0xffff / 2.0f) ), yOut );
     }
             
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) override
+    void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const override
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );

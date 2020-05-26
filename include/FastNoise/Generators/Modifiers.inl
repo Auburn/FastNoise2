@@ -3,7 +3,7 @@
 #include "Modifiers.h"
 
 template<typename FS>
-class FS_T<FastNoise::DomainScale, FS> : public virtual FastNoise::DomainScale, public FS_T<FastNoise::SingleSource<>, FS>
+class FS_T<FastNoise::DomainScale, FS> : public virtual FastNoise::DomainScale, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -16,7 +16,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::Remap, FS> : public virtual FastNoise::Remap, public FS_T<FastNoise::SingleSource<>, FS>
+class FS_T<FastNoise::Remap, FS> : public virtual FastNoise::Remap, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;
@@ -31,7 +31,7 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::ConvertRGBA8, FS> : public virtual FastNoise::ConvertRGBA8, public FS_T<FastNoise::SingleSource<>, FS>
+class FS_T<FastNoise::ConvertRGBA8, FS> : public virtual FastNoise::ConvertRGBA8, public FS_T<FastNoise::Generator, FS>
 {
 public:
     FASTNOISE_IMPL_GEN_T;

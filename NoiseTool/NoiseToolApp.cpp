@@ -4,7 +4,10 @@
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Magnum/PixelFormat.h>
 #include <Magnum/Math/Matrix4.h>
-#include <Magnum/ImageView.h>
+#include <Magnum/Trade/MeshData3D.h>
+#include <Magnum/GL/DefaultFramebuffer.h>
+#include <Magnum/MeshTools/Interleave.h>
+#include <Magnum/MeshTools/CompressIndices.h>
 
 #include "FastNoise/FastNoise.h"
 #include "imnodes.h"
@@ -16,8 +19,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     .setTitle("FastNoise Tool")
     .setSize( Vector2i( 1920, 1080 ) )
     .setWindowFlags( Sdl2Application::Configuration::WindowFlag::Resizable )
-    },
-    mNoiseImage( PixelFormat::R32F )
+    }
 {
     GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
     GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
@@ -59,49 +61,6 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
         GL::Renderer::BlendEquation::Add);
     GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
         GL::Renderer::BlendFunction::OneMinusSourceAlpha);
-
-
-    // FastNoise
-    auto fractal = FastNoise::New<FastNoise::FractalFBm>();
-    fractal->SetSource( FastNoise::New<FastNoise::Simplex>() );
-
-    auto generator = FastNoise::New<FastNoise::ConvertRGBA8>();
-    generator->SetSource( fractal );
-    
-    //std::cout << "SIMD Level:  " << generator->GetSIMDLevel() << "\n";
-    
-    Containers::Array<char> data(512 * 512 * sizeof(float));
-
-    Containers::Array<float> x(512 * 512);
-    Containers::Array<float> y(512 * 512);
-    Containers::Array<float> z(512 * 512);
-
-    for (int i = 0; i < 512 * 512; i++)
-    {
-        x[i] = 0;
-    }
-    for (int i = 0; i < 512 * 512; i++)
-    {
-        y[i] = (i % 512) * 0.01f;
-    }
-    for (int i = 0; i < 512 * 512; i++)
-    {
-        z[i] = (i / 512) * 0.01f;
-    }
-
-    //generator->GenPositionArray3D((float*)data.data(), x, y, z, 512 * 512, 0, 0, 0, 1337);
-
-    generator->GenUniformGrid2D((float*)data.data(), 0, 0, 512, 512, 0.01f, 0.01f, 1337 );
-
-    mNoiseImage = Image2D( PixelFormat::RGBA8Unorm, { 512, 512 }, std::move(data) );
-    
-    mNoiseTexture.setMagnificationFilter(GL::SamplerFilter::Linear)
-        .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
-        .setWrapping(GL::SamplerWrapping::ClampToEdge)
-        .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-        .setStorage(Math::log2(512) + 1, GL::TextureFormat::RGBA8, { 512, 512 })
-        .setSubImage(0, {}, mNoiseImage)
-        .generateMipmap();
 
 
     imnodes::Initialize();
@@ -148,27 +107,6 @@ void NoiseToolApp::drawEvent() {
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double(ImGui::GetIO().Framerate), Double(ImGui::GetIO().Framerate));
 
-
-        /*ImGui::Begin("Node Editor");
-        imnodes::BeginNodeEditor();
-        imnodes::BeginNode(1);
-
-        imnodes::BeginNodeTitleBar();
-        ImGui::TextUnformatted("simple node :)");
-        imnodes::EndNodeTitleBar();
-
-
-        imnodes::BeginInputAttribute(2);
-        ImGui::Text("input");
-        imnodes::EndAttribute();
-
-        imnodes::BeginOutputAttribute(3);
-        ImGuiIntegration::image(mNoiseTexture, {128,128});
-        imnodes::EndAttribute();
-
-        imnodes::EndNode();
-        imnodes::EndNodeEditor();
-        ImGui::End();*/
     }
 
     mNodeEditor.Update();

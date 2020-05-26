@@ -3,7 +3,7 @@
 #include "Fractal.h"
 
 template<typename FS, typename T>
-class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FS_T<FastNoise::SourceStore<2, T>, FS>
+class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FS_T<FastNoise::Generator, FS>
 {
 
 };

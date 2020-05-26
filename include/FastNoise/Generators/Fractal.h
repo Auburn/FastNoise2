@@ -4,18 +4,18 @@
 namespace FastNoise
 {
     template<typename T = Generator>
-    class Fractal : public virtual SourceStore<2, T>
+    class Fractal : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<T>& gen ) { this->SetSourceT( mSource, gen ); }
+        void SetSource( const std::shared_ptr<T>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
-        void SetGain( const std::shared_ptr<T>& source ) { mGain = 1.0f; SetSource( mGain, source ); CalculateFractalBounding(); }
+        void SetGain( const std::shared_ptr<Generator>& source ) { mGain = 1.0f; this->SetSourceMemberVariable( mGain, source ); CalculateFractalBounding(); }
         void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
         void SetLacunarity( float value ) { mLacunarity = value; } 
 
     protected:
-        GeneratorSource<0> mSource;
-        HybridSource<1> mGain = 0.5f;
+        GeneratorSourceT<T> mSource;
+        HybridSource mGain = 0.5f;
 
         int32_t mOctaves = 3;
         float mLacunarity = 2.0f;
@@ -33,13 +33,14 @@ namespace FastNoise
             mFractalBounding = 1.0f / ampFractal;
         }
 
-        FASTNOISE_METADATA_ABSTRACT( SourceStore<2, T> )
+        FASTNOISE_METADATA_ABSTRACT( Generator )
 
-            Metadata( const char* className ) : SourceStore<2, T>::Metadata( className )
+            Metadata( const char* className ) : Generator::Metadata( className )
             {
-                this->memberVariables.emplace_back( "Octaves", 3, &Fractal::SetOctaveCount, 2, 16 );
-                this->memberVariables.emplace_back( "Lacunarity", 2.0f, &Fractal::SetLacunarity );
-                //this->memberVariables.emplace_back( "Gain", 0.5f, &Fractal::SetGain );
+                this->AddGeneratorSource( "Source", &Fractal::SetSource );
+                this->AddHybridSource( "Gain", 0.5f, &Fractal::SetGain, &Fractal::SetGain );
+                this->AddVariable( "Octaves", 3, &Fractal::SetOctaveCount, 2, 16 );
+                this->AddVariable( "Lacunarity", 2.0f, &Fractal::SetLacunarity );
             }
         };        
     };
@@ -93,7 +94,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Fractal::Metadata( className )
             {
-                memberVariables.emplace_back( "Weight Amplitude", 2.0f, &FractalRidgedMulti::SetWeightAmplitude );
+                this->AddVariable( "Weight Amplitude", 2.0f, &FractalRidgedMulti::SetWeightAmplitude );
             }
         };      
     };

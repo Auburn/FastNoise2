@@ -41,6 +41,26 @@ namespace FastNoise
             {
                 float f;
                 int32_t i;
+
+                ValueUnion( float v = 0 )
+                {
+                    f = v;
+                }
+
+                ValueUnion( int32_t v )
+                {
+                    i = v;
+                }
+
+                operator float()
+                {
+                    return f;
+                }
+
+                operator int32_t()
+                {
+                    return i;
+                }
             };
 
             const char* name;
@@ -49,109 +69,120 @@ namespace FastNoise
             std::vector<const char*> enumNames;
 
             std::function<void(Generator*, ValueUnion)> setFunc;
-
-            template<typename T>
-            MemberVariable( const char* n, float defaultV, T&& func, float minV = 0.0f, float maxV = 0.0f )
-            {
-                name = n;
-                type = EFloat;
-                valueDefault.f = defaultV;
-                valueMin.f = minV;
-                valueMax.f = maxV;
-
-                setFunc = [func]( Generator* g, ValueUnion v ) { func( dynamic_cast<GetArg<T, 0>>( g ), v.f ); };
-            }
-
-            template<typename T>
-            MemberVariable(const char* n, float defaultV, void( T::*func )( float ), float minV = 0, float maxV = 0)
-            {
-                name = n;
-                type = EFloat;
-                valueDefault.f = defaultV;
-                valueMin.f = minV;
-                valueMax.f = maxV;
-
-                setFunc = [func](Generator* g, ValueUnion v) { ( dynamic_cast<T*>(g)->*func )( v.f ); };
-            }
-
-            template<typename T>
-            MemberVariable( const char* n, int32_t defaultV, T&& func, int32_t minV = 0, int32_t maxV = 0 )
-            {
-                name = n;
-                type = EInt; 
-                valueDefault.i = defaultV;
-                valueMin.i = minV;
-                valueMax.i = maxV;
-
-                setFunc = [func]( Generator* g, ValueUnion v ) { func( dynamic_cast<GetArg<T, 0>>( g ), v.i ); };
-            }
-
-            template<typename T>
-            MemberVariable( const char* n, int32_t defaultV, void( T::*func )( int32_t ), int32_t minV = 0, int32_t maxV = 0 )
-            {
-                name = n;
-                type = EInt;
-                valueDefault.i = defaultV;
-                valueMin.i = minV;
-                valueMax.i = maxV;
-
-                setFunc = [func]( Generator* g, ValueUnion v ) { ( dynamic_cast<T*>(g)->*func )( v.i ); };
-            }
-
-            template<typename T, typename E, typename = std::enable_if_t<std::is_enum_v<E>>, typename... NAMES>
-            MemberVariable( const char* n, E defaultV, void( T::*func )( E ), NAMES... names )
-            {
-                name = n;
-                type = EEnum;
-                valueDefault.i = (int32_t)defaultV;
-                enumNames = { names... };
-
-                setFunc = [func]( Generator* g, ValueUnion v ) { ( dynamic_cast<T*>(g)->*func )( (E)v.i ); };
-            }
         };
+
+        template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
+        void AddVariable( const char* name, T defaultV, U&& func, T minV = 0, T maxV = 0 )
+        {
+            MemberVariable member;
+            member.name = name;
+            member.valueDefault = defaultV;
+            member.valueMin = minV;
+            member.valueMax = maxV;
+
+            member.type = std::is_same_v<T, float> ? MemberVariable::EFloat : MemberVariable::EInt;            
+
+            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { func( dynamic_cast<GetArg<U, 0>>(g), v ); };
+
+            memberVariables.push_back( member );
+        }
+
+        template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
+        void AddVariable( const char* name, T defaultV, void( U::*func )( T ), T minV = 0, T maxV = 0 )
+        {
+            MemberVariable member;
+            member.name = name;
+            member.valueDefault = defaultV;
+            member.valueMin = minV;
+            member.valueMax = maxV;
+
+            member.type = std::is_same_v<T, float> ? MemberVariable::EFloat : MemberVariable::EInt;
+
+            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { ( dynamic_cast<U*>(g)->*func )( v ); };
+
+            memberVariables.push_back( member );
+        }
+
+        template<typename T, typename U, typename = std::enable_if_t<std::is_enum_v<T>>, typename... NAMES>
+        void AddVariableEnum( const char* name, T defaultV, void(U::* func)( T ), NAMES... names )
+        {
+            MemberVariable member;
+            member.name = name;
+            member.type = MemberVariable::EEnum;
+            member.valueDefault = (int32_t)defaultV;
+            member.enumNames = { names... };
+
+            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { (dynamic_cast<U*>(g)->*func)( (T)v.i ); };
+
+            memberVariables.push_back( member );
+        }
 
         struct MemberNode
         {
             const char* name;
 
             std::function<bool(Generator*, std::shared_ptr<Generator>&)> setFunc;
-
-            template<typename T>
-            MemberNode( const char* n, T&& func )
-            {
-                name = n;
-                setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s ) 
-                {
-                    std::remove_reference_t<GetArg<T, 1>> downCast = std::dynamic_pointer_cast<typename decltype( downCast )::element_type>( s );
-                    if( downCast )
-                    {
-                        func( dynamic_cast<GetArg<T, 0>>( g ), downCast );
-                    }
-                    return (bool)downCast;
-                };
-            }
-
-            template<typename T, typename U>
-            MemberNode( const char* n, void(T::* func)( const std::shared_ptr<U>& ) )
-            {
-                name = n;
-                setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s ) 
-                {
-                    std::shared_ptr<U> downCast = std::dynamic_pointer_cast<U>( s );
-                    if( downCast )
-                    {
-                        ( dynamic_cast<T*>( g )->*func )( downCast );
-                    }
-                    return (bool)downCast;
-                };
-            }
         };
+
+        template<typename T, typename U>
+        void AddGeneratorSource( const char* name, void(U::* func)(const std::shared_ptr<T>&) )
+        {
+            MemberNode member;
+            member.name = name;
+
+            member.setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s )
+            {
+                std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
+                if( downCast )
+                {
+                    (dynamic_cast<U*>(g)->*func)( downCast );
+                }
+                return (bool)downCast;
+            };
+
+            memberNodes.push_back( member );
+        }
+
+        struct MemberHybrid
+        {
+            const char* name;
+            float valueDefault = 0.0f;
+
+            std::function<void( Generator*, float )> setValueFunc;
+            std::function<bool( Generator*, std::shared_ptr<Generator>& )> setNodeFunc;
+        };
+
+        template<typename T, typename U>
+        void AddHybridSource( const char* name, float defaultValue, void(U::* funcNode)(const std::shared_ptr<T>&), void(U::* funcValue)(float) )
+        {
+            MemberHybrid member;
+            member.name = name;
+            member.valueDefault = defaultValue;
+
+            member.setNodeFunc = [funcNode]( Generator* g, std::shared_ptr<Generator>& s )
+            {
+                std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
+                if( downCast )
+                {
+                    (dynamic_cast<U*>(g)->*funcNode)( downCast );
+                }
+                return (bool)downCast;
+            };
+
+            member.setValueFunc = [funcValue]( Generator* g, float v )
+            {
+                (dynamic_cast<U*>(g)->*funcValue)(v);
+            };
+
+            memberHybrids.push_back( member );
+        }
 
         const char* name;
         uint16_t id;
 
         std::vector<MemberVariable> memberVariables;
         std::vector<MemberNode>     memberNodes;
+        std::vector<MemberHybrid>   memberHybrids;
 
         virtual Generator* NodeFactory( FastSIMD::eLevel ) const = 0;
 

@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cassert>
 #include <memory>
 
 #include "FastNoise/FastNoise_Config.h"
@@ -7,6 +8,41 @@
 
 namespace FastNoise
 {
+    template<typename T>
+    struct BaseSource
+    {
+        std::shared_ptr<T> base;
+        void* simdGeneratorPtr = nullptr;
+
+    protected:
+        BaseSource() = default;
+    };
+
+    template<typename T>
+    struct GeneratorSourceT : BaseSource<T>
+    { };
+
+    template<typename T>
+    struct HybridSourceT : BaseSource<T>
+    {
+        float constant;
+
+        HybridSourceT()
+        {
+            constant = 0.0f;
+        }
+
+        HybridSourceT( float f )
+        {
+            constant = f;
+        }
+
+        operator float()
+        {
+            return constant;
+        }
+    };
+
     class Generator
     {
     public:
@@ -22,97 +58,26 @@ namespace FastNoise
         virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) = 0;     
 
         virtual const Metadata* GetMetadata() = 0;
+
+
+        template<typename T>
+        void SetSourceMemberVariable( BaseSource<T>& memberVariable, const std::shared_ptr<T>& gen )
+        {
+            static_assert( std::is_base_of_v<Generator, T> );
+            assert( gen.get() );
+            assert( GetSIMDLevel() == gen->GetSIMDLevel() );
+
+            memberVariable.base = gen;
+            SetSourceSIMDPtr( dynamic_cast<Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
+        }
+
+    private:
+        virtual void SetSourceSIMDPtr( Generator* base, void** simdPtr ) = 0;
     };
 
+    using GeneratorSource = GeneratorSourceT<Generator>;
+    using HybridSource = HybridSourceT<Generator>;
 
-    template<size_t I>
-    class BaseSource
-    { };
-
-    template<size_t I>
-    class GeneratorSource : public BaseSource<I>
-    { };
-
-    template<size_t I>
-    class HybridSource : public BaseSource<I>
-    {
-    public:
-        float constant;
-
-        HybridSource()
-        {
-            constant = 0.0f;
-        }
-
-        HybridSource( float f )
-        {
-            constant = f;
-        }
-
-        operator float()
-        {
-            return constant;
-        }
-    };
-
-    template<size_t SOURCE_COUNT, typename T = Generator, typename P = Generator>
-    class SourceStore : public virtual P
-    {
-    protected:
-        template<size_t index>
-        void SetSourceT( const BaseSource<index>&, const std::shared_ptr<T>& gen )
-        {
-            static_assert( index < SOURCE_COUNT );
-
-            SetSourceImpl( gen, index );
-        }
-
-    private:      
-        virtual void SetSourceImpl( const std::shared_ptr<T>& gen, size_t index = 0 ) = 0;
-
-        FASTNOISE_METADATA_ABSTRACT( P )
-        
-            Metadata( const char* className ) : P::Metadata( className )
-            {
-                for( size_t i = 0; i < SOURCE_COUNT; i++ )
-                {
-                    this->memberNodes.emplace_back( "Source",
-                        [i] ( SourceStore* g, std::shared_ptr<T> s )
-                    {
-                        g->SetSourceImpl( s, i );
-                    });
-                }
-            }
-        };
-    };
-
-    template<typename T = Generator, typename P = Generator>
-    class SingleSource : public virtual SourceStore<1, T, P>
-    {
-    public:
-        void SetSource( const std::shared_ptr<T>& gen )
-        {
-            this->SetSourceT( mSource, gen );
-        }
-
-    protected:
-        GeneratorSource<0> mSource;
-
-        FASTNOISE_METADATA_ABSTRACT( P )
-
-            Metadata( const char* className ) : P::Metadata( className )
-            {
-                /*for( size_t i = 0; i < SOURCE_COUNT; i++ )
-                {
-                    this->memberNodes.emplace_back( "Source",
-                        [i]( SourceStore* g, std::shared_ptr<T> s )
-                        {
-                            g->SetSourceImpl( s, i );
-                        } );
-                }*/
-            }
-        };
-    };
 
     class Constant : public virtual Generator
     {
@@ -126,7 +91,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
-                memberVariables.emplace_back( "Value", 1.0f, &Constant::SetValue );
+                this->AddVariable( "Value", 1.0f, &Constant::SetValue );
             }
         };    
     };
