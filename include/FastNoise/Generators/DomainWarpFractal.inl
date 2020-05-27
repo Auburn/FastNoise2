@@ -9,7 +9,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v amp = float32v( mFractalBounding ) * this->GetSourceValue( this->GetSourceSIMD( mSource )->GetWarpAmplitude(), seed, pos... );
         float32v freq = float32v( this->GetSourceSIMD( mSource )->GetWarpFrequency() );
@@ -39,7 +39,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return [&] ( std::remove_reference_t<P>... noisePos, P... warpPos )
         {

@@ -7,7 +7,7 @@ template<typename FS>
 class FS_T<FastNoise::Perlin, FS> : public virtual FastNoise::Perlin, public FS_T<FastNoise::Generator, FS>
 {
 public:
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );
@@ -30,7 +30,7 @@ public:
                Lerp( GetGradientDot( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDot( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs), ys);
     }
 
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );

@@ -6,7 +6,7 @@
 template<typename FS>
 class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public FS_T<FastNoise::Generator, FS>
 {
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         const float SQRT3 = 1.7320508075688772935274463415059f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
@@ -50,7 +50,7 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         return float32v( 70 ) * ( n0 + n1 + n2 );
     }
 
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
         const float F3 = 1.0f / 3.0f;
         const float G3 = 1.0f / 6.0f;

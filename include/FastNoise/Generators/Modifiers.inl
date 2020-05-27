@@ -9,7 +9,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mSource, seed, (pos * float32v( mScale ))... );
     }
@@ -22,7 +22,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v source = this->GetSourceValue( mSource, seed, pos... );
             
@@ -37,7 +37,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v source = this->GetSourceValue( mSource, seed, pos... );
         

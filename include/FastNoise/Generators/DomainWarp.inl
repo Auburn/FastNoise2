@@ -16,7 +16,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT(int32v seed, P... pos)
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), (pos * float32v( mWarpFrequency ))..., pos... );
 
@@ -28,7 +28,7 @@ template<typename FS>
 class FS_T<FastNoise::DomainWarpGradient, FS> : public virtual FastNoise::DomainWarpGradient, public FS_T<FastNoise::DomainWarp, FS>
 {
 public:
-    void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const override
+    void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );
@@ -53,11 +53,13 @@ public:
 
     #undef GRADIENT_COORD
 
-        xOut = FS_FMulAdd_f32( Lerp( Lerp( x00, x10, xs ), Lerp( x01, x11, xs ), ys ), warpAmp * float32v( 1.0f / (0xffff / 2.0f) ), xOut );
-        yOut = FS_FMulAdd_f32( Lerp( Lerp( y00, y10, xs ), Lerp( y01, y11, xs ), ys ), warpAmp * float32v( 1.0f / (0xffff / 2.0f) ), yOut );
+        float32v normalise = warpAmp * float32v( 1.0f / (0xffff / 2.0f) );
+
+        xOut = FS_FMulAdd_f32( Lerp( Lerp( x00, x10, xs ), Lerp( x01, x11, xs ), ys ), normalise, xOut );
+        yOut = FS_FMulAdd_f32( Lerp( Lerp( y00, y10, xs ), Lerp( y01, y11, xs ), ys ), normalise, yOut );
     }
             
-    void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const override
+    void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const final
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );
@@ -99,9 +101,11 @@ public:
         float32v y1y = Lerp( Lerp( y001, y101, xs ), Lerp( y011, y111, xs ), ys );
         float32v z1y = Lerp( Lerp( z001, z101, xs ), Lerp( z011, z111, xs ), ys );
 
-        xOut = FS_FMulAdd_f32( Lerp( x0y, x1y, zs ), warpAmp * float32v( 1.0f / (0x3ff / 2.0f) ), xOut );
-        yOut = FS_FMulAdd_f32( Lerp( y0y, y1y, zs ), warpAmp * float32v( 1.0f / (0x3ff / 2.0f) ), yOut );
-        zOut = FS_FMulAdd_f32( Lerp( z0y, z1y, zs ), warpAmp * float32v( 1.0f / (0x3ff / 2.0f) ), zOut );
+        float32v normalise = warpAmp * float32v( 1.0f / (0x3ff / 2.0f) );
+
+        xOut = FS_FMulAdd_f32( Lerp( x0y, x1y, zs ), normalise, xOut );
+        yOut = FS_FMulAdd_f32( Lerp( y0y, y1y, zs ), normalise, yOut );
+        zOut = FS_FMulAdd_f32( Lerp( z0y, z1y, zs ), normalise, zOut );
     }
 };
 

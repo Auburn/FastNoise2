@@ -15,7 +15,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v gain = this->GetSourceValue( mGain  , seed, pos... );
         float32v sum  = this->GetSourceValue( mSource, seed, pos... );
@@ -41,7 +41,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v sum = FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) ) * float32v( 2 ) - float32v( 1 );
         float32v gain = this->GetSourceValue( mGain, seed, pos... );
@@ -67,7 +67,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT(int32v seed, P... pos)
+    FS_INLINE float32v GenT(int32v seed, P... pos) const
     {
         float32v sum = float32v( 1 ) - FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );
         float32v gain = this->GetSourceValue( mGain, seed, pos... );
@@ -93,7 +93,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v offset( 1 );
         float32v sum = offset - FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );

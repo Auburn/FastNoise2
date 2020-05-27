@@ -11,21 +11,21 @@ template<typename FS>
 class FS_T<FastNoise::Generator, FS> : public virtual FastNoise::Generator
 {
 public:
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) = 0;
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) = 0;
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
 
 #define FASTNOISE_IMPL_GEN_T\
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) override { return GenT( seed, x, y ); }\
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) override { return GenT( seed, x, y, z ); }
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const override { return GenT( seed, x, y ); }\
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }
 
-    virtual FastSIMD::eLevel GetSIMDLevel() final
+    FastSIMD::eLevel GetSIMDLevel() const final
     {
         return FS::SIMD_Level;
     }
 
     using VoidPtrStorageType = FS_T<Generator, FS>*;
 
-    virtual void SetSourceSIMDPtr( Generator* base, void** simdPtr ) final
+    void SetSourceSIMDPtr( Generator* base, void** simdPtr ) final
     {
         auto simd = dynamic_cast<VoidPtrStorageType>( base );
         assert( simd );
@@ -33,7 +33,7 @@ public:
     }
 
     template<typename T, typename... POS>
-    FS_INLINE float32v GetSourceValue( const HybridSourceT<T>& memberVariable, int32v seed, POS... pos )
+    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const HybridSourceT<T>& memberVariable, int32v seed, POS... pos ) const
     {
         if( memberVariable.simdGeneratorPtr )
         {
@@ -46,7 +46,7 @@ public:
     }
 
     template<typename T, typename... POS>
-    FS_INLINE float32v GetSourceValue( const GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos )
+    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos ) const
     {
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
@@ -56,7 +56,7 @@ public:
     }
 
     template<typename T>
-    FS_INLINE const FS_T<T, FS>* GetSourceSIMD( const GeneratorSourceT<T>& memberVariable )
+    FS_INLINE const FS_T<T, FS>* GetSourceSIMD( const GeneratorSourceT<T>& memberVariable ) const
     {
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
@@ -65,7 +65,7 @@ public:
         return simdT;
     }
 
-    void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) final
+    void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) const final
     {
         int32v xIdx = int32v::FS_Zero();
         int32v yIdx = int32v::FS_Incremented();
@@ -115,7 +115,7 @@ public:
         }
     }
 
-    void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) final
+    void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) const final
     {
         int32v xIdx( 0 );
         int32v yIdx( 0 );
@@ -176,7 +176,7 @@ public:
         }
     }
 
-    void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) final
+    void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) const final
     {
         int32_t index = 0;
         while( index < int64_t(count) - float32v::FS_Size() )
@@ -217,7 +217,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return float32v( mValue );
     }

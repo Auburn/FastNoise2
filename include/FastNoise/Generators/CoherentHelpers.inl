@@ -68,8 +68,8 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
     // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
 
-    float32v gX = _mm512_permutexvar_ps( hash, float32v( 0, -1, 0, 1, 1, -1, -1, 1, 0, -1, 0, 1, 1, -1, -1, 1 ));
-    float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 0, -1, 0, 1, 1, -1, -1, 1, 0, -1, 0, 1, 1, -1, -1 ));
+    float32v gX = _mm512_permutexvar_ps( hash, float32v( 0, -1, 0, 1, 1, -1, -1, 1, 0, -1, 0, 1, 1, -1, -1, 1 ) );
+    float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 0, -1, 0, 1, 1, -1, -1, 1, 0, -1, 0, 1, 1, -1, -1 ) );
 
     return FS_FMulAdd_f32(gX, fX, fY * gY);
 }
@@ -84,9 +84,9 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float3
     float32v u = FS_Select_f32( l8, fX, fY );
 
     //if h < 4 then y else if h is 12 or 14 then x else z
-    mask32v l4 = FS_LessThan_i32( hasha13, int32v( 2 ));
-    mask32v h12o14 = FS_Equal_i32( hasha13, int32v( 12 ));
-    float32v v = FS_Select_f32( l4, fY, FS_Select_f32( h12o14, fX, fZ ));
+    mask32v l4 = FS_LessThan_i32( hasha13, int32v( 2 ) );
+    mask32v h12o14 = FS_Equal_i32( hasha13, int32v( 12 ) );
+    float32v v = FS_Select_f32( l4, fY, FS_Select_f32( h12o14, fX, fZ ) );
 
     //if h1 then -u else u
     //if h2 then -v else v
@@ -99,9 +99,9 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float3
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), int> = 0>
 FS_INLINE float32v GetGradientDot(int32v hash, float32v fX, float32v fY, float32v fZ)
 {
-    float32v gX = _mm512_permutexvar_ps( hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ));
-    float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ));
-    float32v gZ = _mm512_permutexvar_ps( hash, float32v( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 ));
+    float32v gX = _mm512_permutexvar_ps( hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
+    float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+    float32v gZ = _mm512_permutexvar_ps( hash, float32v( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 ) );
 
     return FS_FMulAdd_f32( gX, fX, FS_FMulAdd_f32( fY, gY, fZ * gZ ));
 }
@@ -145,5 +145,5 @@ FS_INLINE float32v Lerp( float32v a, float32v b, float32v t )
 template<typename FS = FS_SIMD_CLASS>
 FS_INLINE float32v InterpQuintic( float32v t )
 {
-    return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ));
+    return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
 }

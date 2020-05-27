@@ -10,7 +10,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mLHS, seed, pos... ) + this->GetSourceValue( mRHS, seed, pos... );
     }
@@ -23,7 +23,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mLHS, seed, pos... ) - this->GetSourceValue( mRHS, seed, pos... );
     }
@@ -36,7 +36,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mLHS, seed, pos... ) * this->GetSourceValue( mRHS, seed, pos... );
     }
@@ -49,7 +49,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mLHS, seed, pos... ) / this->GetSourceValue( mRHS, seed, pos... );
     }
@@ -62,7 +62,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return FS_Min_f32( this->GetSourceValue( mLHS, seed, pos... ), this->GetSourceValue( mRHS, seed, pos... ) );
     }
@@ -75,7 +75,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         return FS_Max_f32( this->GetSourceValue( mLHS, seed, pos... ), this->GetSourceValue( mRHS, seed, pos... ) );
     }
@@ -88,7 +88,7 @@ public:
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
-    float32v FS_INLINE GenT( int32v seed, P... pos )
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v fade = FS_Abs_f32( this->GetSourceValue( mFade, seed, pos... ) );
 
