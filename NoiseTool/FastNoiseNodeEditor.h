@@ -8,6 +8,7 @@
 #include <Magnum\ImageView.h>
 
 #include "FastNoise/FastNoise.h"
+#include "MeshNoisePreview.h"
 
 namespace Magnum
 {
@@ -18,7 +19,7 @@ namespace Magnum
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();
-        void Update();
+        void Draw(const Matrix4& transformation, const Matrix4& projection);
 
     private:
         struct Node
@@ -43,11 +44,14 @@ namespace Magnum
             float noiseData[NoiseSize * NoiseSize];
         };
 
+        void GenerateSelectedPreview();
+
         std::vector<Node::Ptr> mNodes;
         int mCurrentNodeId = 1;
 
-        void GenerateSelectedPreview();
+        MeshNoisePreview mMeshNoisePreview;
 
+        // Preview Window
         int mSelectedNode = -1;
         GL::Texture2D mNoiseTexture;
         ImageView2D mNoiseImage;

@@ -45,6 +45,15 @@ namespace FastNoise
         virtual void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) const = 0;
         virtual void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) const = 0;
 
+        void GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed )
+        {
+            GenUniformGrid2D( noiseOut, xStart * frequency, yStart * frequency, xSize, ySize, frequency, frequency, seed );
+        }
+        void GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed )
+        {
+            GenUniformGrid3D( noiseOut, xStart * frequency, yStart * frequency, zStart * frequency, xSize, ySize, zSize, frequency, frequency, frequency, seed );
+        }
+
         virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;     
 
         virtual const Metadata* GetMetadata() = 0;

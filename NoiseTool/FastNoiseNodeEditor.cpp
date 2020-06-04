@@ -131,10 +131,10 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
 FastNoiseNodeEditor::FastNoiseNodeEditor() :
     mNoiseImage( PixelFormat::RGBA8Srgb, { 0, 0 } )
 {
-
+    imnodes::Initialize();
 }
 
-void FastNoiseNodeEditor::Update()
+void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection )
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "FastNoise Node Editor" ) )
@@ -209,6 +209,11 @@ void FastNoiseNodeEditor::Update()
         ImGuiIntegration::image( mNoiseTexture, { (float)mNoiseImage.size().x(), (float)mNoiseImage.size().y() } );
     }
     ImGui::End();
+
+    if( mSelectedNode != -1 )
+    {
+        mMeshNoisePreview.Draw( transformation, projection );
+    }
 }
 
 void FastNoiseNodeEditor::UpdateSelected()
@@ -486,13 +491,16 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
         auto gen = FastNoise::New<FastNoise::ConvertRGBA8>();
         std::vector<int> dependancies;
 
-        gen->SetSource( find->get()->GetGenerator( mNodes, dependancies, isValid ) );
+        auto nodeGen = find->get()->GetGenerator( mNodes, dependancies, isValid );
 
         if( isValid )
         {
             float offset = mNodeFrequency * -0.5f;
 
+            gen->SetSource( nodeGen );
             gen->GenUniformGrid2D( mNoiseData, mPreviewWindowsSize.y() * offset, mPreviewWindowsSize.x() * offset, mPreviewWindowsSize.y(), mPreviewWindowsSize.x(), mNodeFrequency, mNodeFrequency, mNodeSeed );
+
+            mMeshNoisePreview.ReGenerate( nodeGen, 0.02f, mNodeSeed );
         }
     }
 

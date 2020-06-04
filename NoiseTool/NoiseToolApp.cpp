@@ -1,200 +1,206 @@
-#include "NoiseToolApp.h"
 #include <imgui.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
-#include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Magnum/PixelFormat.h>
 #include <Magnum/Math/Matrix4.h>
 #include <Magnum/Trade/MeshData3D.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/MeshTools/Interleave.h>
-#include <Magnum/MeshTools/CompressIndices.h>
+#include <Magnum/GL/Renderer.h>
 
+#include "NoiseToolApp.h"
 #include "FastNoise/FastNoise.h"
-#include "imnodes.h"
 
 using namespace Magnum;
 
 NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments, Configuration{}
-    .setTitle("FastNoise Tool")
+    .setTitle( "FastNoise Tool" )
     .setSize( Vector2i( 1920, 1080 ) )
-    .setWindowFlags( Sdl2Application::Configuration::WindowFlag::Resizable )
-    }
+    .setWindowFlags( Configuration::WindowFlag::Resizable ) }
 {
-    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
-    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
+    GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
+    GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
 
-    const Trade::MeshData3D cube = Primitives::cubeSolid();
+    mCameraObject.setTransformation( Matrix4::translation( Vector3::zAxis( 50.0f ) ) );
+    mCameraVelocity = Vector3( 0 );
 
-    _vertexBuffer.setData(MeshTools::interleave(cube.positions(0), cube.normals(0)));
+    UpdatePespectiveProjection();
 
-    Containers::Array<char> indexData;
-    MeshIndexType indexType;
-    UnsignedInt indexStart, indexEnd;
-    std::tie(indexData, indexType, indexStart, indexEnd) =
-        MeshTools::compressIndices(cube.indices());
-    _indexBuffer.setData(indexData);
-
-    _mesh.setPrimitive(cube.primitive())
-        .setCount((int)cube.indices().size())
-        .addVertexBuffer(_vertexBuffer, 0, Shaders::Phong::Position{},
-            Shaders::Phong::Normal{})
-        .setIndexBuffer(_indexBuffer, 0, indexType, indexStart, indexEnd);
-
-    _transformation =
-        Matrix4::rotationX(Deg( 30.0f ))*Matrix4::rotationY(Deg( 40.0f ));
-    
-    _projection =
-        Matrix4::perspectiveProjection(
-            Deg(35.0f), Vector2{ windowSize() }.aspectRatio(), 0.01f, 100.0f)*
-        Matrix4::translation(Vector3::zAxis(-10.0f));
-
-    _color = Color3::fromHsv( Math::ColorHsv( Deg(35.0f), 1.0f, 1.0f ));
-
-    _imgui = ImGuiIntegration::Context(Vector2{ windowSize() } / dpiScaling(),
-        windowSize(), framebufferSize());
+    mImGuiContext = ImGuiIntegration::Context( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() );
 
     /* Set up proper blending to be used by ImGui. There's a great chance
        you'll need this exact behavior for the rest of your scene. If not, set
        this only for the drawFrame() call. */
-    GL::Renderer::setBlendEquation(GL::Renderer::BlendEquation::Add,
-        GL::Renderer::BlendEquation::Add);
-    GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
-        GL::Renderer::BlendFunction::OneMinusSourceAlpha);
-
-
-    imnodes::Initialize();
-
-    // Setup style
-    //imnodes::SetNodeGridSpacePos(1, ImVec2(200.0f, 200.0f));
+    GL::Renderer::setBlendEquation( GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add );
+    GL::Renderer::setBlendFunction( GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha );
 }
 
-void NoiseToolApp::drawEvent() {
-    GL::defaultFramebuffer.clear(
-        GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
+void NoiseToolApp::drawEvent()
+{
+    GL::defaultFramebuffer.clear( GL::FramebufferClear::Color | GL::FramebufferClear::Depth );
 
-    _shader.setLightPosition({ 7.0f, 5.0f, 2.5f })
-        .setLightColor(Color3{ 1.0f })
-        .setDiffuseColor(_color)
-        .setAmbientColor(Color3::fromHsv(Math::ColorHsv(_color.hue(), 1.0f, 0.3f)))
-        .setTransformationMatrix(_transformation)
-        .setNormalMatrix(_transformation.rotationScaling())
-        .setProjectionMatrix(_projection);
-    _mesh.draw(_shader);
-
-    _imgui.newFrame();
+    mImGuiContext.newFrame();
 
     /* Enable text input, if needed */
-    if (ImGui::GetIO().WantTextInput && !isTextInputActive())
+    if( ImGui::GetIO().WantTextInput && !isTextInputActive() )
         startTextInput();
-    else if (!ImGui::GetIO().WantTextInput && isTextInputActive())
+    else if( !ImGui::GetIO().WantTextInput && isTextInputActive() )
         stopTextInput();
 
-    /* 1. Show a simple window.
-       Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets appear in
-       a window called "Debug" automatically */
     {
-        ImGui::Text("Hello, world!");
-        ImGui::SliderFloat("Float", &_floatValue, 0.0f, 1.0f);
-        if (ImGui::ColorEdit3("Clear Color", _clearColor.data()))
-            GL::Renderer::setClearColor(_clearColor);
-        if (ImGui::Button("Test Window"))
-        {
-        }
-        if (ImGui::Button("Another Window"))
-        {
-        }
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-            1000.0 / Double(ImGui::GetIO().Framerate), Double(ImGui::GetIO().Framerate));
+        if( ImGui::ColorEdit3( "Clear Color", mClearColor.data() ) )
+            GL::Renderer::setClearColor( mClearColor );
 
+        ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
+            1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
     }
 
-    mNodeEditor.Update();
+    // Update camera pos
+    if( !mCameraVelocity.isZero() ) {
+        Matrix4 transform = mCameraObject.transformation();
+        transform.translation() += transform.rotation() * mCameraVelocity * 0.3f;
+        mCameraObject.setTransformation( transform );
+        redraw();
+    }
+
+    mNodeEditor.Draw( mCamera.cameraMatrix(), mCamera.projectionMatrix() );
 
     /* Set appropriate states. If you only draw ImGui, it is sufficient to
        just enable blending and scissor test in the constructor. */
-    GL::Renderer::enable(GL::Renderer::Feature::Blending);
-    GL::Renderer::enable(GL::Renderer::Feature::ScissorTest);
-    GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
-    GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
+    GL::Renderer::enable( GL::Renderer::Feature::Blending );
+    GL::Renderer::enable( GL::Renderer::Feature::ScissorTest );
+    GL::Renderer::disable( GL::Renderer::Feature::FaceCulling );
+    GL::Renderer::disable( GL::Renderer::Feature::DepthTest );
 
-    _imgui.drawFrame();
+    mImGuiContext.drawFrame();
 
     /* Reset state. Only needed if you want to draw something else with
        different state after. */
-    GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
-    GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
-    GL::Renderer::disable(GL::Renderer::Feature::ScissorTest);
-    GL::Renderer::disable(GL::Renderer::Feature::Blending);
+    GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
+    GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
+    GL::Renderer::disable( GL::Renderer::Feature::ScissorTest );
+    GL::Renderer::disable( GL::Renderer::Feature::Blending );
 
     swapBuffers();
     redraw();
 }
 
-void NoiseToolApp::viewportEvent(ViewportEvent& event) {
-    GL::defaultFramebuffer.setViewport({ {}, event.framebufferSize() });
+void NoiseToolApp::viewportEvent( ViewportEvent& event )
+{
+    GL::defaultFramebuffer.setViewport( { {}, event.framebufferSize() } );
 
-    _projection =
-        Matrix4::perspectiveProjection(
-            Deg(35.0f), Vector2{ windowSize() }.aspectRatio(), 0.01f, 100.0f)*
-        Matrix4::translation(Vector3::zAxis(-10.0f));
+    UpdatePespectiveProjection();
 
-    _imgui.relayout(Vector2{ event.windowSize() } / event.dpiScaling(),
-        event.windowSize(), event.framebufferSize());
+    mImGuiContext.relayout( Vector2{ event.windowSize() } / event.dpiScaling(), event.windowSize(), event.framebufferSize() );
 }
 
-void NoiseToolApp::keyPressEvent(KeyEvent& event) {
-    if (_imgui.handleKeyPressEvent(event)) return;
+void NoiseToolApp::keyPressEvent( KeyEvent& event )
+{
+    if( mImGuiContext.handleKeyPressEvent( event ) ) return;
+
+    switch( event.key() )
+    {
+    case KeyEvent::Key::W:
+        mCameraVelocity.z() = -1.0f;
+        break;
+    case KeyEvent::Key::S:
+        mCameraVelocity.z() = 1.0f;
+        break;
+    case KeyEvent::Key::A:
+        mCameraVelocity.x() = -1.0f;
+        break;
+    case KeyEvent::Key::D:
+        mCameraVelocity.x() = 1.0f;
+        break;
+    case KeyEvent::Key::Q:
+        mCameraVelocity.y() = -1.0f;
+        break;
+    case KeyEvent::Key::E:
+        mCameraVelocity.y() = 1.0f;
+        break;
+    default:
+        break;
+    }
+
 }
 
-void NoiseToolApp::keyReleaseEvent(KeyEvent& event) {
-    if (_imgui.handleKeyReleaseEvent(event)) return;
+void NoiseToolApp::keyReleaseEvent( KeyEvent& event )
+{
+    if( mImGuiContext.handleKeyReleaseEvent( event ) ) return;
+
+    switch( event.key() )
+    {
+    case KeyEvent::Key::W:
+    case KeyEvent::Key::S:
+        mCameraVelocity.z() = 0.0f;
+        break;
+    case KeyEvent::Key::A:
+    case KeyEvent::Key::D:
+        mCameraVelocity.x() = 0.0f;
+        break;
+    case KeyEvent::Key::Q:
+    case KeyEvent::Key::E:
+        mCameraVelocity.y() = 0.0f;
+        break;
+    default:
+        break;
+    }
 }
 
-void NoiseToolApp::mousePressEvent(MouseEvent& event) {
-    if (_imgui.handleMousePressEvent(event)) return;
-    if (event.button() != MouseEvent::Button::Left) return;
+void NoiseToolApp::mousePressEvent( MouseEvent& event )
+{
+    if( mImGuiContext.handleMousePressEvent( event ) ) return;
+    if( event.button() != MouseEvent::Button::Left ) return;
 
-    _previousMousePosition = event.position();
     event.setAccepted();
 }
 
-void NoiseToolApp::mouseReleaseEvent(MouseEvent& event) {
-    if (_imgui.handleMouseReleaseEvent(event)) return;
-    _color = Color3::fromHsv(Math::ColorHsv((Deg)(_color.hue() + Deg( 50.0f )), 1.0f, 1.0f));
+void NoiseToolApp::mouseReleaseEvent( MouseEvent& event )
+{
+    if( mImGuiContext.handleMouseReleaseEvent( event ) ) return;
 
     event.setAccepted();
-    redraw();
 }
 
-void NoiseToolApp::mouseScrollEvent(MouseScrollEvent& event) {
-    if(_imgui.handleMouseScrollEvent(event)) {
+void NoiseToolApp::mouseScrollEvent( MouseScrollEvent& event ) {
+    if( mImGuiContext.handleMouseScrollEvent( event ) )
+    {
         /* Prevent scrolling the page */
         event.setAccepted();
         return;
     }
 }
 
-void NoiseToolApp::mouseMoveEvent(MouseMoveEvent& event) {
-    if (_imgui.handleMouseMoveEvent(event)) return;
-    if (!(event.buttons() & MouseMoveEvent::Button::Left)) return;
+void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
+{
+    if( mImGuiContext.handleMouseMoveEvent( event ) ) return;
+    if( !(event.buttons() & MouseMoveEvent::Button::Left) ) return;
 
-    const Vector2 delta = 3.0f*
-        Vector2{ event.position() - _previousMousePosition } /
-        Vector2{ GL::defaultFramebuffer.viewport().size() };
+    const Matrix4 transform = mCameraObject.transformation();
 
-    _transformation =
-        Matrix4::rotationX(Rad{ delta.y() })*
-        _transformation*
-        Matrix4::rotationY(Rad{ delta.x() });
+    constexpr float angleScale = 0.004f;
+    float angleX = event.relativePosition().x() * angleScale;
+    float angleY = event.relativePosition().y() * angleScale;
 
-    _previousMousePosition = event.position();
+    if( angleX != 0.0f || angleY != 0.0f ) 
+    {
+        mCameraObject.setTransformation( Matrix4::lookAt( transform.translation(),
+            transform.translation() - transform.rotationScaling() * Vector3 { -angleX, angleY, 1.0f },
+            Vector3::yAxis() ) );
+    }
+
     event.setAccepted();
     redraw();
 }
 
-void NoiseToolApp::textInputEvent(TextInputEvent& event) {
-    if(_imgui.handleTextInputEvent(event)) return;
+void NoiseToolApp::textInputEvent( TextInputEvent& event )
+{
+    if( mImGuiContext.handleTextInputEvent( event ) ) return;
+}
+
+void NoiseToolApp::UpdatePespectiveProjection()
+{
+    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 0.01f, 1000.0f ) );
 }
 
 MAGNUM_APPLICATION_MAIN( NoiseToolApp )

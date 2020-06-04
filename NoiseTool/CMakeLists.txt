@@ -32,16 +32,14 @@ set(HUNTER_ENABLED ON CACHE BOOL "" FORCE)
 add_executable(NoiseTool 
     "NoiseToolApp.cpp"
     "FastNoiseNodeEditor.cpp"
+    "MeshNoisePreview.cpp"
     "imnodes.cpp")
  
 target_link_libraries(NoiseTool PUBLIC
     FastNoise
     Magnum::Application
-    Magnum::GL
-    Magnum::Magnum
-    Magnum::MeshTools
-    Magnum::Primitives
     Magnum::Shaders
+    Magnum::SceneGraph
     MagnumIntegration::ImGui
 )
  
