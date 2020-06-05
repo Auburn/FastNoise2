@@ -29,14 +29,25 @@ namespace Magnum
         void textInputEvent( TextInputEvent& event ) override;
 
         void UpdatePespectiveProjection();
+        void HandleKeyEvent( KeyEvent::Key key, bool value );
 
         SceneGraph::Object<SceneGraph::MatrixTransformation3D> mCameraObject;
         SceneGraph::Camera3D mCamera{ mCameraObject };
-        Vector3 mCameraVelocity;
+        Timeline mFrameTime;
 
         ImGuiIntegration::Context mImGuiContext{ NoCreate };
         Color3 mClearColor{ 0.122f };
 
         FastNoiseNodeEditor mNodeEditor;
+
+        enum Key
+        {
+            Key_W, Key_A, Key_S, Key_D, Key_Q, Key_E,
+            Key_Left, Key_Right, Key_Up, Key_Down, Key_PgUp, Key_PgDn,
+            Key_LShift, Key_RShift,
+            Key_Count
+        };
+
+        std::array<bool, Key_Count> mKeyDown = {};
     };
 }

@@ -22,7 +22,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
 
     mCameraObject.setTransformation( Matrix4::translation( Vector3::zAxis( 50.0f ) ) );
-    mCameraVelocity = Vector3( 0 );
+    mFrameTime.start();
 
     UpdatePespectiveProjection();
 
@@ -56,9 +56,41 @@ void NoiseToolApp::drawEvent()
     }
 
     // Update camera pos
-    if( !mCameraVelocity.isZero() ) {
+    Vector3 cameraVelocity( 0 );
+    if( mKeyDown[Key_W] || mKeyDown[Key_Up] )
+    {
+        cameraVelocity.z() -= 1.0f;
+    }
+    if( mKeyDown[Key_S] || mKeyDown[Key_Down] )
+    {
+        cameraVelocity.z() += 1.0f;
+    }
+    if( mKeyDown[Key_A] || mKeyDown[Key_Left] )
+    {
+        cameraVelocity.x() -= 1.0f;
+    }
+    if( mKeyDown[Key_D] || mKeyDown[Key_Right] )
+    {
+        cameraVelocity.x() += 1.0f;
+    }
+    if( mKeyDown[Key_Q] || mKeyDown[Key_PgDn] )
+    {
+        cameraVelocity.y() -= 1.0f;
+    }
+    if( mKeyDown[Key_E] || mKeyDown[Key_PgUp] )
+    {
+        cameraVelocity.y() += 1.0f;
+    }
+    if( mKeyDown[Key_RShift] || mKeyDown[Key_LShift] )
+    {
+        cameraVelocity *= 3.0f;
+    }
+
+    cameraVelocity *= mFrameTime.previousFrameDuration() * 100.0f;
+
+    if( !cameraVelocity.isZero() ) {
         Matrix4 transform = mCameraObject.transformation();
-        transform.translation() += transform.rotation() * mCameraVelocity * 0.3f;
+        transform.translation() += transform.rotation() * cameraVelocity;
         mCameraObject.setTransformation( transform );
         redraw();
     }
@@ -83,6 +115,7 @@ void NoiseToolApp::drawEvent()
 
     swapBuffers();
     redraw();
+    mFrameTime.nextFrame();
 }
 
 void NoiseToolApp::viewportEvent( ViewportEvent& event )
@@ -98,49 +131,61 @@ void NoiseToolApp::keyPressEvent( KeyEvent& event )
 {
     if( mImGuiContext.handleKeyPressEvent( event ) ) return;
 
-    switch( event.key() )
-    {
-    case KeyEvent::Key::W:
-        mCameraVelocity.z() = -1.0f;
-        break;
-    case KeyEvent::Key::S:
-        mCameraVelocity.z() = 1.0f;
-        break;
-    case KeyEvent::Key::A:
-        mCameraVelocity.x() = -1.0f;
-        break;
-    case KeyEvent::Key::D:
-        mCameraVelocity.x() = 1.0f;
-        break;
-    case KeyEvent::Key::Q:
-        mCameraVelocity.y() = -1.0f;
-        break;
-    case KeyEvent::Key::E:
-        mCameraVelocity.y() = 1.0f;
-        break;
-    default:
-        break;
-    }
-
+    HandleKeyEvent( event.key(), true );
 }
 
 void NoiseToolApp::keyReleaseEvent( KeyEvent& event )
 {
     if( mImGuiContext.handleKeyReleaseEvent( event ) ) return;
 
-    switch( event.key() )
+    HandleKeyEvent( event.key(), false );
+}
+
+void NoiseToolApp::HandleKeyEvent( KeyEvent::Key key, bool value )
+{
+    switch( key )
     {
     case KeyEvent::Key::W:
+        mKeyDown[Key_W] = value;
+        break;
     case KeyEvent::Key::S:
-        mCameraVelocity.z() = 0.0f;
+        mKeyDown[Key_S] = value;
         break;
     case KeyEvent::Key::A:
+        mKeyDown[Key_A] = value;
+        break;
     case KeyEvent::Key::D:
-        mCameraVelocity.x() = 0.0f;
+        mKeyDown[Key_D] = value;
         break;
     case KeyEvent::Key::Q:
+        mKeyDown[Key_Q] = value;
+        break;
     case KeyEvent::Key::E:
-        mCameraVelocity.y() = 0.0f;
+        mKeyDown[Key_E] = value;
+        break;
+    case KeyEvent::Key::Up:
+        mKeyDown[Key_Up] = value;
+        break;
+    case KeyEvent::Key::Down:
+        mKeyDown[Key_Down] = value;
+        break;
+    case KeyEvent::Key::Left:
+        mKeyDown[Key_Left] = value;
+        break;
+    case KeyEvent::Key::Right:
+        mKeyDown[Key_Right] = value;
+        break;
+    case KeyEvent::Key::PageDown:
+        mKeyDown[Key_PgDn] = value;
+        break;
+    case KeyEvent::Key::PageUp:
+        mKeyDown[Key_PgUp] = value;
+        break;
+    case KeyEvent::Key::LeftShift:
+        mKeyDown[Key_LShift] = value;
+        break;
+    case KeyEvent::Key::RightShift:
+        mKeyDown[Key_RShift] = value;
         break;
     default:
         break;
@@ -202,5 +247,6 @@ void NoiseToolApp::UpdatePespectiveProjection()
 {
     mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 0.01f, 1000.0f ) );
 }
+
 
 MAGNUM_APPLICATION_MAIN( NoiseToolApp )

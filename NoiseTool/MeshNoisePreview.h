@@ -19,7 +19,7 @@ namespace Magnum
     public:
         MeshNoisePreview();
 
-        void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, float frequency, int32_t seed );
+        void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed );
 
         void Draw( const Matrix4& transformation, const Matrix4& projection );
 
@@ -157,11 +157,11 @@ namespace Magnum
 
             GL::Mesh& GetMesh() { return mMesh; }
 
-            static constexpr uint32_t SIZE = 78;
+            static constexpr uint32_t SIZE = 62;
             static constexpr float AO_STRENGTH = 0.6f;
 
         private:
-            static void AddQuad( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
+            static void AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
                 int32_t facingIdx, int32_t offsetA, int32_t offsetB, Vector3 normal, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
 
             static constexpr uint32_t SIZE_GEN = SIZE + 2;

@@ -10,18 +10,23 @@ using namespace Magnum;
 
 MeshNoisePreview::MeshNoisePreview()
 {
-    for( int i = 0; i < 8; i++ )
+    mBuildData.frequency = 0.02f;
+    mBuildData.isoSurface = 0.0f;
+
+    uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
+
+    threadCount -= threadCount / 4;
+
+    for( uint32_t i = 0; i < threadCount; i++ )
     {
         mThreads.emplace_back( GenerateLoopThread, std::ref( mGenerateQueue ), std::ref( mCompleteQueue ) );
     }
 }
 
-void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, float frequency, int32_t seed )
+void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed )
 {
     mBuildData.generator = generator;
-    mBuildData.frequency = frequency;
     mBuildData.seed = seed;
-    mBuildData.isoSurface = 0.0f;
     mBuildData.pos = Vector3i( 0 );
     mBuildData.genVersion = mCompleteQueue.IncVersion();
 
@@ -36,34 +41,45 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
 
     const int range = 2;
 
+    std::vector<Vector3i> chunkPositions;
+
     for( int x = -range; x <= range; x++ )
     {
         for( int y = -range; y <= range; y++ )
         {
             for( int z = -range; z <= range; z++ )
             {
-                mBuildData.pos = Vector3i( x, y, z ) * Chunk::SIZE;
-                mGenerateQueue.Push( mBuildData );
+                chunkPositions.push_back( Vector3i( x, y, z ) * Chunk::SIZE );
             }
         }
     }
 
+    std::sort( chunkPositions.begin(), chunkPositions.end(), []( const Vector3i& a, const Vector3i& b )
+    {
+        return a.dot() < b.dot();
+    } );
+
+    for( const Vector3i& pos : chunkPositions )
+    {
+        mBuildData.pos = pos;
+        mGenerateQueue.Push( mBuildData );
+    }
 }
 
 void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection )
 {
     Chunk::MeshData meshData;
     if( mCompleteQueue.Pop( meshData ) )
-    {        
+    {
         mChunks.emplace_back( meshData );
     }
 
     mShader.setLightPosition( { 10000.0f, 6000.0f, 8000.0f } )
-           .setLightColor( Color3{ 0.6f } )
-           .setAmbientColor( Color3( 0.2f ) )
-           .setTransformationMatrix( transformation )
-           .setNormalMatrix( transformation.rotationScaling() )
-           .setProjectionMatrix( projection );
+        .setLightColor( Color3{ 0.6f } )
+        .setAmbientColor( Color3( 0.2f ) )
+        .setTransformationMatrix( transformation )
+        .setNormalMatrix( transformation.rotationScaling() )
+        .setProjectionMatrix( projection );
 
     size_t triCount = 0;
 
@@ -73,10 +89,21 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
         chunk.GetMesh().draw( mShader );
     }
 
+    ImGui::Text( "Thread Count: %llu", mThreads.size() );
     ImGui::Text( "Triangle Count: %0.1fK", triCount / 1000.0 );
+    ImGui::Text( "Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
+
+    if( ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f ) )
+    {
+        ReGenerate( mBuildData.generator, mBuildData.seed );
+    }
+    if( ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.1f ) )
+    {
+        ReGenerate( mBuildData.generator, mBuildData.seed );
+    }
 }
 
-void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue  )
+void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
 {
     while( true )
     {
@@ -98,16 +125,16 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     thread_local static std::vector<VertexData> vertexData;
     thread_local static std::vector<uint32_t> indicies;
 
-    buildData.generator->GenUniformGrid3D( densityValues, 
+    buildData.generator->GenUniformGrid3D( densityValues,
         buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
         SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
 
     vertexData.clear();
     indicies.clear();
 
-    const int32_t STEP_X = SIZE_GEN * SIZE_GEN;
-    const int32_t STEP_Y = SIZE_GEN;
-    const int32_t STEP_Z = 1;
+    constexpr int32_t STEP_X = SIZE_GEN * SIZE_GEN;
+    constexpr int32_t STEP_Y = SIZE_GEN;
+    constexpr int32_t STEP_Z = 1;
 
     int32_t noiseIdx = STEP_X + STEP_Y + STEP_Z;
 
@@ -127,38 +154,38 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                 {
                     if( densityValues[noiseIdx + STEP_X] < buildData.isoSurface ) // Right
                     {
-                        AddQuad( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_X, STEP_Y, STEP_Z, Vector3(1,0,0),
-                                 Vector3(xf + 1,yf,zf), Vector3(xf + 1,yf + 1,zf), Vector3(xf + 1,yf + 1,zf + 1), Vector3(xf + 1,yf,zf + 1) );
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_X, STEP_Y, STEP_Z, Vector3( 1, 0, 0 ),
+                            Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
-                    
+
                     if( densityValues[noiseIdx - STEP_X] < buildData.isoSurface ) // Left
                     {
-                        AddQuad( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_X, -STEP_Y, STEP_Z, Vector3(-1,0,0),
-                                 Vector3(xf,yf + 1,zf), Vector3(xf,yf,zf), Vector3(xf,yf,zf + 1), Vector3(xf,yf + 1,zf + 1) );
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_X, -STEP_Y, STEP_Z, Vector3( -1, 0, 0 ),
+                            Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx + STEP_Y] < buildData.isoSurface ) // Up
                     {
-                        AddQuad( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Y, -STEP_X, STEP_Z, Vector3(0,1,0),
-                                 Vector3(xf + 1,yf + 1,zf),Vector3(xf,yf + 1,zf), Vector3(xf,yf + 1,zf + 1), Vector3(xf + 1,yf + 1,zf + 1) );
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Y, STEP_Z, STEP_X, Vector3( 0, 1, 0 ),
+                            Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                     }
-                    
+
                     if( densityValues[noiseIdx - STEP_Y] < buildData.isoSurface ) // Down
                     {
-                        AddQuad( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Y, STEP_X, STEP_Z, Vector3(0,-1,0),
-                                 Vector3(xf,yf,zf), Vector3(xf + 1,yf,zf), Vector3(xf + 1,yf,zf + 1), Vector3(xf,yf,zf + 1) );
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Y, -STEP_Z, STEP_X, Vector3( 0, -1, 0 ),
+                            Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx + STEP_Z] < buildData.isoSurface ) // Forward
                     {
-                        AddQuad( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Z, STEP_X, STEP_Y, Vector3(0,0,1),
-                                  Vector3(xf,yf,zf + 1), Vector3(xf + 1,yf,zf + 1), Vector3(xf + 1,yf + 1,zf + 1), Vector3(xf,yf + 1,zf + 1) );
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Z, STEP_X, STEP_Y, Vector3( 0, 0, 1 ),
+                            Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
-                    
+
                     if( densityValues[noiseIdx - STEP_Z] < buildData.isoSurface ) // Back
                     {
-                        AddQuad( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Z, -STEP_X, STEP_Y, Vector3(0,0,-1),
-                                 Vector3(xf + 1,yf,zf), Vector3(xf,yf,zf), Vector3(xf,yf + 1,zf), Vector3(xf + 1,yf + 1,zf ) );
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Z, -STEP_X, STEP_Y, Vector3( 0, 0, -1 ),
+                            Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                     }
                 }
                 noiseIdx++;
@@ -166,13 +193,13 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
 
             noiseIdx += STEP_Z * 2;
         }
-        
+
         noiseIdx += STEP_Y * 2;
     }
 
     MeshData meshData( buildData.pos, vertexData, indicies );
 
-    return meshData;    
+    return meshData;
 }
 
 MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
@@ -190,7 +217,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
     meshData.Free();
 }
 
-void MeshNoisePreview::Chunk::AddQuad( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
+void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
     int32_t facingIdx, int32_t offsetA, int32_t offsetB, Vector3 normal, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
 {
     uint8_t sideA0 = density[facingIdx - offsetA] >= isoSurface;
@@ -209,22 +236,22 @@ void MeshNoisePreview::Chunk::AddQuad( std::vector<VertexData>& verts, std::vect
     uint8_t light11 = 3 - (sideA1 + sideB1 + corner11);
 
     uint32_t vertIdx = (uint32_t)verts.size();
-    verts.emplace_back( pos00, normal, Color3( ( (float)light00 / 3.0f ) * AO_STRENGTH ) );
-    verts.emplace_back( pos01, normal, Color3( ( (float)light01 / 3.0f ) * AO_STRENGTH ) );
-    verts.emplace_back( pos10, normal, Color3( ( (float)light10 / 3.0f ) * AO_STRENGTH ) );
-    verts.emplace_back( pos11, normal, Color3( ( (float)light11 / 3.0f ) * AO_STRENGTH ) );
+    verts.emplace_back( pos00, normal, Color3( ((float)light00 / 3.0f) * AO_STRENGTH ) );
+    verts.emplace_back( pos01, normal, Color3( ((float)light01 / 3.0f) * AO_STRENGTH ) );
+    verts.emplace_back( pos10, normal, Color3( ((float)light10 / 3.0f) * AO_STRENGTH ) );
+    verts.emplace_back( pos11, normal, Color3( ((float)light11 / 3.0f) * AO_STRENGTH ) );
 
     if( light00 + light11 > light01 + light10 )
-    {        
+    {
         indicies.push_back( vertIdx );
         indicies.push_back( vertIdx + 3 );
         indicies.push_back( vertIdx + 2 );
         indicies.push_back( vertIdx + 3 );
         indicies.push_back( vertIdx );
-        indicies.push_back( vertIdx + 1 );    
+        indicies.push_back( vertIdx + 1 );
     }
     else
-    {        
+    {
         indicies.push_back( vertIdx );
         indicies.push_back( vertIdx + 1 );
         indicies.push_back( vertIdx + 2 );

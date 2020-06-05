@@ -471,16 +471,11 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
     bool isValid = true;
     size_t noiseSize = mPreviewWindowsSize.x() * mPreviewWindowsSize.y();
 
-    if( !noiseSize )
-    {
-        return;
-    }
-
-    if( mNoiseData )
+    if( noiseSize )
     {
         delete[] mNoiseData;
+        mNoiseData = new float[noiseSize];
     }
-    mNoiseData = new float[noiseSize];
 
     if( find == mNodes.end() )
     {
@@ -495,13 +490,23 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
 
         if( isValid )
         {
-            float offset = mNodeFrequency * -0.5f;
+            mMeshNoisePreview.ReGenerate( nodeGen, mNodeSeed );
 
+            if( !noiseSize )
+            {
+                return;
+            }
+
+            float offset = mNodeFrequency * -0.5f;
             gen->SetSource( nodeGen );
             gen->GenUniformGrid2D( mNoiseData, mPreviewWindowsSize.y() * offset, mPreviewWindowsSize.x() * offset, mPreviewWindowsSize.y(), mPreviewWindowsSize.x(), mNodeFrequency, mNodeFrequency, mNodeSeed );
 
-            mMeshNoisePreview.ReGenerate( nodeGen, 0.02f, mNodeSeed );
         }
+    }
+
+    if( !noiseSize )
+    {
+        return;
     }
 
     if( !isValid )
@@ -509,7 +514,7 @@ void FastNoiseNodeEditor::GenerateSelectedPreview()
         memset( mNoiseData, 0, sizeof( float ) * noiseSize );
     }
 
-    Corrade::Containers::ArrayView<float> view( mNoiseData, noiseSize );
+    Containers::ArrayView<float> view( mNoiseData, noiseSize );
 
     mNoiseImage = ImageView2D( PixelFormat::RGBA8Srgb, mPreviewWindowsSize, view );
 
