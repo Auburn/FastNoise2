@@ -2,8 +2,10 @@
 
 #include <imgui.h>
 
+#include <Corrade/Utility/Resource.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/Math/Matrix4.h>
+#include <Magnum/Shaders/Implementation/CreateCompatibilityShader.h>
 
 using namespace Magnum;
 
@@ -31,6 +33,7 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
     mBuildData.genVersion = mCompleteQueue.IncVersion();
 
     mChunks.clear();
+    mInProgressChunks.clear();
     mGenerateQueue.Clear();
 
     Chunk::MeshData meshData;
@@ -38,39 +41,14 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
     {
         meshData.Free();
     }
-
-    const int range = 2;
-
-    std::vector<Vector3i> chunkPositions;
-
-    for( int x = -range; x <= range; x++ )
-    {
-        for( int y = -range; y <= range; y++ )
-        {
-            for( int z = -range; z <= range; z++ )
-            {
-                chunkPositions.push_back( Vector3i( x, y, z ) * Chunk::SIZE );
-            }
-        }
-    }
-
-    std::sort( chunkPositions.begin(), chunkPositions.end(), []( const Vector3i& a, const Vector3i& b )
-    {
-        return a.dot() < b.dot();
-    } );
-
-    for( const Vector3i& pos : chunkPositions )
-    {
-        mBuildData.pos = pos;
-        mGenerateQueue.Push( mBuildData );
-    }
 }
 
-void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection )
+void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
     Chunk::MeshData meshData;
     if( mCompleteQueue.Pop( meshData ) )
     {
+        mInProgressChunks.erase( meshData.pos );
         mChunks.emplace_back( meshData );
     }
 
@@ -80,8 +58,11 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
     for( Chunk& chunk : mChunks )
     {
-        triCount += chunk.GetMesh().count() / 3;
-        chunk.GetMesh().draw( mShader );
+        if( chunk.GetMesh().count() )
+        {
+            triCount += chunk.GetMesh().count() / 3;
+            chunk.GetMesh().draw( mShader );
+        }
     }
 
     ImGui::Text( "Thread Count: %llu", mThreads.size() );
@@ -96,6 +77,8 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     {
         ReGenerate( mBuildData.generator, mBuildData.seed );
     }
+
+    UpdateChunksForPosition( cameraPosition );
 }
 
 void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
@@ -110,6 +93,51 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
         {
             meshData.Free();
         }
+    }
+}
+
+void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
+{
+    const int range = 2;
+
+    position += Vector3( Chunk::SIZE / 2.0f );
+
+    Vector3i chunkCenter = (Vector3i( position ) / Chunk::SIZE) * Chunk::SIZE;
+
+    std::vector<Vector3i> chunkPositions;
+
+    for( int x = -range; x <= range; x++ )
+    {
+        for( int y = -range; y <= range; y++ )
+        {
+            for( int z = -range; z <= range; z++ )
+            {
+                Vector3i chunkPos = Vector3i( x, y, z ) * Chunk::SIZE + chunkCenter;
+
+                if( std::find_if( mChunks.begin(), mChunks.end(), [&]( const Chunk& chunk ) { return chunk.GetPos() == chunkPos; } ) == mChunks.end() &&
+                    std::find( mInProgressChunks.begin(), mInProgressChunks.end(), chunkPos ) == mInProgressChunks.end() )
+                {
+                    chunkPositions.push_back( chunkPos );                    
+                }
+            }
+        }
+    }
+
+    std::sort( chunkPositions.begin(), chunkPositions.end(), [chunkCenter]( const Vector3i& a, const Vector3i& b )
+        {
+            return (chunkCenter - a).dot() < (chunkCenter - b).dot();
+        } );
+
+    for( const Vector3i& pos : chunkPositions )
+    {
+        if( mInProgressChunks.size() >= mThreads.size() * 2 )
+        {
+            break;
+        }
+
+        mBuildData.pos = pos;
+        mGenerateQueue.Push( mBuildData );
+        mInProgressChunks.insert( pos );
     }
 }
 
@@ -211,15 +239,21 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
 
 MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 {
-    mVertexBuffer.setData( meshData.vertexData );
-    mIndexBuffer.setData( meshData.indicies );
+    mPos = meshData.pos;
 
-    //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
+    if( !meshData.vertexData.empty() )
+    {
+        mVertexBuffer = GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData );
+        mIndexBuffer  = GL::Buffer( GL::Buffer::TargetHint::Array, meshData.indicies );
 
-    mMesh.setPrimitive( GL::MeshPrimitive::Triangles )
-        .setCount( mIndexBuffer.size() )
-        .setIndexBuffer( mIndexBuffer, 0, GL::MeshIndexType::UnsignedInt, 0, mVertexBuffer.size() - 1 )
-        .addVertexBuffer( mVertexBuffer, 0, Shaders::VertexColor3D::Position{}, Shaders::VertexColor3D::Color3{} );
+        //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
+
+        mMesh = GL::Mesh( GL::MeshPrimitive::Triangles );
+
+        mMesh.setCount( mIndexBuffer.size() )
+            .setIndexBuffer( mIndexBuffer, 0, GL::MeshIndexType::UnsignedInt, 0, mVertexBuffer.size() - 1 )
+            .addVertexBuffer( mVertexBuffer, 0, Shaders::VertexColor3D::Position{}, Shaders::VertexColor3D::Color3{} );
+    }
 
     meshData.Free();
 }
@@ -266,4 +300,71 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
         indicies.push_back( vertIdx + 2 );
         indicies.push_back( vertIdx + 1 );
     }
+}
+
+MeshNoisePreview::VertexColorShader::VertexColorShader()
+{
+#ifdef MAGNUM_BUILD_STATIC
+    if( !Utility::Resource::hasGroup( "MagnumShaders" ) )
+        importShaderResources();
+#endif
+
+    Utility::Resource rs( "MagnumShaders" );
+
+#ifndef MAGNUM_TARGET_GLES
+    const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GL320, GL::Version::GL310, GL::Version::GL300, GL::Version::GL210 } );
+#else
+    const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GLES300, GL::Version::GLES200 } );
+#endif
+
+    std::string fragShader( rs.get( "VertexColor.frag" ) );
+    std::string mainStart( "void main() {" );
+    size_t mainStartIdx = fragShader.find( mainStart );
+
+    CORRADE_INTERNAL_ASSERT_OUTPUT( mainStartIdx != std::string::npos );
+    fragShader.insert( mainStartIdx + mainStart.length(), "if( !gl_FrontFacing ){ fragmentColor = vec4(0.0,0.0,0.0,1.0); return; }" );
+
+    GL::Shader vert = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Vertex );
+    GL::Shader frag = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Fragment );
+
+    CORRADE_INTERNAL_ASSERT_OUTPUT(
+        vert.addSource( rs.get( "generic.glsl" ) )
+            .addSource( rs.get( "VertexColor3D.vert" ) ).compile() );
+    CORRADE_INTERNAL_ASSERT_OUTPUT( 
+        frag.addSource( rs.get( "generic.glsl" ) )
+            .addSource( fragShader ).compile() );
+
+    attachShader( vert );
+    attachShader( frag );
+
+    /* ES3 has this done in the shader directly */
+#if !defined(MAGNUM_TARGET_GLES) || defined(MAGNUM_TARGET_GLES2)
+#ifndef MAGNUM_TARGET_GLES
+    if( !GL::Context::current().isExtensionSupported<GL::Extensions::ARB::explicit_attrib_location>( version ) )
+#endif
+    {
+        bindAttributeLocation( Position::Location, "position" );
+        bindAttributeLocation( Color3::Location, "color" ); /* Color4 is the same */
+    }
+#endif
+
+    CORRADE_INTERNAL_ASSERT_OUTPUT( link() );
+
+#ifndef MAGNUM_TARGET_GLES
+    if( !GL::Context::current().isExtensionSupported<GL::Extensions::ARB::explicit_uniform_location>( version ) )
+#endif
+    {
+        mTransformationProjectionMatrixUniform = uniformLocation( "transformationProjectionMatrix" );
+    }
+
+    /* Set defaults in OpenGL ES (for desktop they are set in shader code itself) */
+#ifdef MAGNUM_TARGET_GLES
+    setTransformationProjectionMatrix( Matrix4{} );
+#endif
+}
+
+MeshNoisePreview::VertexColorShader& MeshNoisePreview::VertexColorShader::setTransformationProjectionMatrix( const Matrix4& matrix )
+{
+    setUniform( mTransformationProjectionMatrixUniform, matrix );
+    return *this;
 }

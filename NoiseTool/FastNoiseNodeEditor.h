@@ -19,7 +19,7 @@ namespace Magnum
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();
-        void Draw(const Matrix4& transformation, const Matrix4& projection);
+        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
 
     private:
         struct Node

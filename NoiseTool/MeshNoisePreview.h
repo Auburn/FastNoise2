@@ -3,6 +3,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <unordered_set>
 #include <vector>
 
 #include <Magnum/GL/Buffer.h>
@@ -22,7 +23,7 @@ namespace Magnum
 
         void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed );
 
-        void Draw( const Matrix4& transformation, const Matrix4& projection );
+        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
 
     private:
         template<typename T>
@@ -32,7 +33,7 @@ namespace Magnum
             void Clear()
             {
                 std::unique_lock<std::mutex> lock( mMutex );
-                mQueue = std::queue<T>();
+                mQueue = {};
             }
 
             T Pop()
@@ -100,6 +101,32 @@ namespace Magnum
             std::mutex mMutex;
         };
 
+        class VertexColorShader : public GL::AbstractShaderProgram
+        {
+        public:
+            typedef Shaders::Generic<3>::Position Position;
+            typedef Shaders::Generic<3>::Color3 Color3;
+            typedef Shaders::Generic<3>::Color4 Color4;
+
+            enum : UnsignedInt
+            {
+                ColorOutput = Shaders::Generic<3>::ColorOutput
+            };
+
+            explicit VertexColorShader();
+            explicit VertexColorShader( NoCreateT ) noexcept : AbstractShaderProgram{ NoCreate } {}
+
+            VertexColorShader( const VertexColorShader& ) = delete;
+            VertexColorShader( VertexColorShader&& ) noexcept = default;
+            VertexColorShader& operator=( const VertexColorShader& ) = delete;
+            VertexColorShader& operator=( VertexColorShader&& ) noexcept = default;
+
+            VertexColorShader& setTransformationProjectionMatrix( const Matrix4& matrix );
+
+        private:
+            Int mTransformationProjectionMatrixUniform{ 0 };
+        };
+
         class Chunk
         {
         public:
@@ -118,14 +145,19 @@ namespace Magnum
 
                 MeshData( Vector3i p, const std::vector<VertexData>& v, const std::vector<uint32_t>& i ) : pos( p )
                 {
+                    if( v.empty() )
+                    {
+                        return;
+                    }
+
                     VertexData* vertexDataPtr = new VertexData[v.size()];
                     uint32_t* indiciesPtr = new uint32_t[i.size()];
 
                     std::memcpy( vertexDataPtr, v.data(), v.size() * sizeof( VertexData ) );
                     std::memcpy( indiciesPtr, i.data(), i.size() * sizeof( uint32_t ) );
 
-                    vertexData = Containers::ArrayView<VertexData>( vertexDataPtr, v.size() );
-                    indicies = Containers::ArrayView<uint32_t>( indiciesPtr, i.size() );
+                    vertexData = { vertexDataPtr, v.size() };
+                    indicies = { indiciesPtr, i.size() };
                 }
 
                 void Free()
@@ -133,8 +165,8 @@ namespace Magnum
                     delete[] vertexData.data();
                     delete[] indicies.data();
 
-                    vertexData = Containers::ArrayView<VertexData>();
-                    indicies = Containers::ArrayView<uint32_t>();
+                    vertexData = nullptr;
+                    indicies = nullptr;
                 }
 
                 Vector3i pos;
@@ -157,6 +189,7 @@ namespace Magnum
             Chunk( MeshData& meshData );
 
             GL::Mesh& GetMesh() { return mMesh; }
+            Vector3i GetPos() const { return mPos; }
 
             static constexpr uint32_t SIZE          = 62;
             static constexpr Vector3  LIGHT_DIR     = { 3, 4, 2 };
@@ -170,19 +203,31 @@ namespace Magnum
             static constexpr uint32_t SIZE_GEN = SIZE + 2;
 
             Vector3i mPos;
-            GL::Buffer mIndexBuffer, mVertexBuffer;
-            GL::Mesh mMesh;
+            GL::Buffer mVertexBuffer{ NoCreate };
+            GL::Buffer mIndexBuffer{ NoCreate };
+            GL::Mesh mMesh{ NoCreate };
+        };
+
+        struct Vector3iHash
+        {
+            size_t operator()( const Vector3i& v ) const
+            {
+                return (size_t)v.x() ^ ((size_t)v.y() << 16) ^ ((size_t)v.z() << 32);
+            }
         };
 
         static void GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue );
+
+        void UpdateChunksForPosition( Vector3 position );
 
         Chunk::BuildData mBuildData;
         std::vector<Chunk> mChunks;
 
         GenerateQueue<Chunk::BuildData> mGenerateQueue;
         CompleteQueue<Chunk::MeshData> mCompleteQueue;
+        std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
         std::vector<std::thread> mThreads;
 
-        Shaders::VertexColor3D mShader;
+        VertexColorShader mShader;
     };
 }

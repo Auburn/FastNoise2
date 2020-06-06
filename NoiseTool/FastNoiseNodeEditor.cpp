@@ -134,7 +134,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
     imnodes::Initialize();
 }
 
-void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection )
+void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
     ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "FastNoise Node Editor" ) )
@@ -212,7 +212,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
     if( mSelectedNode != -1 )
     {
-        mMeshNoisePreview.Draw( transformation, projection );
+        mMeshNoisePreview.Draw( transformation, projection, cameraPosition );
     }
 }
 

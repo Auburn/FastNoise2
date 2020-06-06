@@ -94,7 +94,7 @@ void NoiseToolApp::drawEvent()
         redraw();
     }
 
-    mNodeEditor.Draw( mCamera.cameraMatrix(), mCamera.projectionMatrix() );
+    mNodeEditor.Draw( mCamera.cameraMatrix(), mCamera.projectionMatrix(), mCameraObject.transformation().translation() );
 
     /* Set appropriate states. If you only draw ImGui, it is sufficient to
        just enable blending and scissor test in the constructor. */
@@ -242,7 +242,7 @@ void NoiseToolApp::textInputEvent( TextInputEvent& event )
 
 void NoiseToolApp::UpdatePespectiveProjection()
 {
-    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 1.0f, 1000.0f ) );
+    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 3.0f, 10000.0f ) );
 }
 
 
