@@ -4,7 +4,6 @@
 
 #include <Magnum/Math/Color.h>
 #include <Magnum/Math/Matrix4.h>
-#include <Magnum/Shaders/Phong.h>
 
 using namespace Magnum;
 
@@ -12,6 +11,7 @@ MeshNoisePreview::MeshNoisePreview()
 {
     mBuildData.frequency = 0.02f;
     mBuildData.isoSurface = 0.0f;
+    mBuildData.color = Color3( 1.0f );
 
     uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
 
@@ -74,12 +74,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
         mChunks.emplace_back( meshData );
     }
 
-    mShader.setLightPosition( { 10000.0f, 6000.0f, 8000.0f } )
-        .setLightColor( Color3{ 0.6f } )
-        .setAmbientColor( Color3( 0.2f ) )
-        .setTransformationMatrix( transformation )
-        .setNormalMatrix( transformation.rotationScaling() )
-        .setProjectionMatrix( projection );
+    mShader.setTransformationProjectionMatrix( projection * transformation );
 
     size_t triCount = 0;
 
@@ -132,6 +127,18 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     vertexData.clear();
     indicies.clear();
 
+    float xLight = abs( dot( LIGHT_DIR.normalized(), Vector3( 1, 0, 0 ) ) ) * (1.0f - AMBIENT_LIGHT) + AMBIENT_LIGHT;
+    Color3 colorRight = buildData.color * xLight;
+    Color3 colorLeft = buildData.color * (1.0f - xLight);
+
+    float yLight = abs( dot( LIGHT_DIR.normalized(), Vector3( 0, 1, 0 ) ) ) * (1.0f - AMBIENT_LIGHT) + AMBIENT_LIGHT;
+    Color3 colorUp = buildData.color * yLight;
+    Color3 colorDown = buildData.color * (1.0f - yLight);
+
+    float zLight = abs( dot( LIGHT_DIR.normalized(), Vector3( 0, 0, 1 ) ) ) * (1.0f - AMBIENT_LIGHT) + AMBIENT_LIGHT;
+    Color3 colorForward = buildData.color * zLight;
+    Color3 colorBack = buildData.color * (1.0f - zLight);
+
     constexpr int32_t STEP_X = SIZE_GEN * SIZE_GEN;
     constexpr int32_t STEP_Y = SIZE_GEN;
     constexpr int32_t STEP_Z = 1;
@@ -154,37 +161,37 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                 {
                     if( densityValues[noiseIdx + STEP_X] < buildData.isoSurface ) // Right
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_X, STEP_Y, STEP_Z, Vector3( 1, 0, 0 ),
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_X, STEP_Y, STEP_Z, colorRight,
                             Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx - STEP_X] < buildData.isoSurface ) // Left
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_X, -STEP_Y, STEP_Z, Vector3( -1, 0, 0 ),
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_X, -STEP_Y, STEP_Z, colorLeft,
                             Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx + STEP_Y] < buildData.isoSurface ) // Up
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Y, STEP_Z, STEP_X, Vector3( 0, 1, 0 ),
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Y, STEP_Z, STEP_X, colorUp,
                             Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                     }
 
                     if( densityValues[noiseIdx - STEP_Y] < buildData.isoSurface ) // Down
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Y, -STEP_Z, STEP_X, Vector3( 0, -1, 0 ),
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Y, -STEP_Z, STEP_X, colorDown,
                             Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx + STEP_Z] < buildData.isoSurface ) // Forward
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Z, STEP_X, STEP_Y, Vector3( 0, 0, 1 ),
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Z, STEP_X, STEP_Y, colorForward,
                             Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx - STEP_Z] < buildData.isoSurface ) // Back
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Z, -STEP_X, STEP_Y, Vector3( 0, 0, -1 ),
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Z, -STEP_X, STEP_Y, colorBack,
                             Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                     }
                 }
@@ -212,13 +219,13 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
     mMesh.setPrimitive( GL::MeshPrimitive::Triangles )
         .setCount( mIndexBuffer.size() )
         .setIndexBuffer( mIndexBuffer, 0, GL::MeshIndexType::UnsignedInt, 0, mVertexBuffer.size() - 1 )
-        .addVertexBuffer( mVertexBuffer, 0, Shaders::Phong::Position{}, Shaders::Phong::Normal{}, Shaders::Phong::Color3{} );
+        .addVertexBuffer( mVertexBuffer, 0, Shaders::VertexColor3D::Position{}, Shaders::VertexColor3D::Color3{} );
 
     meshData.Free();
 }
 
 void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
-    int32_t facingIdx, int32_t offsetA, int32_t offsetB, Vector3 normal, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
+    int32_t facingIdx, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
 {
     uint8_t sideA0 = density[facingIdx - offsetA] >= isoSurface;
     uint8_t sideA1 = density[facingIdx + offsetA] >= isoSurface;
@@ -230,18 +237,18 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
     uint8_t corner10 = (sideA1 && sideB0) || density[facingIdx + offsetA - offsetB] >= isoSurface;
     uint8_t corner11 = (sideA1 && sideB1) || density[facingIdx + offsetA + offsetB] >= isoSurface;
 
-    uint8_t light00 = 3 - (sideA0 + sideB0 + corner00);
-    uint8_t light01 = 3 - (sideA1 + sideB0 + corner10);
-    uint8_t light10 = 3 - (sideA0 + sideB1 + corner01);
-    uint8_t light11 = 3 - (sideA1 + sideB1 + corner11);
+    float light00 = (float)(sideA0 + sideB0 + corner00) / 3.0f;
+    float light01 = (float)(sideA1 + sideB0 + corner10) / 3.0f;
+    float light10 = (float)(sideA0 + sideB1 + corner01) / 3.0f;
+    float light11 = (float)(sideA1 + sideB1 + corner11) / 3.0f;
 
     uint32_t vertIdx = (uint32_t)verts.size();
-    verts.emplace_back( pos00, normal, Color3( ((float)light00 / 3.0f) * AO_STRENGTH ) );
-    verts.emplace_back( pos01, normal, Color3( ((float)light01 / 3.0f) * AO_STRENGTH ) );
-    verts.emplace_back( pos10, normal, Color3( ((float)light10 / 3.0f) * AO_STRENGTH ) );
-    verts.emplace_back( pos11, normal, Color3( ((float)light11 / 3.0f) * AO_STRENGTH ) );
+    verts.emplace_back( pos00, color * (1.0f - light00 * AO_STRENGTH) );
+    verts.emplace_back( pos01, color * (1.0f - light01 * AO_STRENGTH) );
+    verts.emplace_back( pos10, color * (1.0f - light10 * AO_STRENGTH) );
+    verts.emplace_back( pos11, color * (1.0f - light11 * AO_STRENGTH) );
 
-    if( light00 + light11 > light01 + light10 )
+    if( light00 + light11 < light01 + light10 )
     {
         indicies.push_back( vertIdx );
         indicies.push_back( vertIdx + 3 );

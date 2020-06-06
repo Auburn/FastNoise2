@@ -19,7 +19,6 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     .setWindowFlags( Configuration::WindowFlag::Resizable ) }
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
-    GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
 
     mCameraObject.setTransformation( Matrix4::translation( Vector3::zAxis( 50.0f ) ) );
     mFrameTime.start();
@@ -83,10 +82,10 @@ void NoiseToolApp::drawEvent()
     }
     if( mKeyDown[Key_RShift] || mKeyDown[Key_LShift] )
     {
-        cameraVelocity *= 3.0f;
+        cameraVelocity *= 4.0f;
     }
 
-    cameraVelocity *= mFrameTime.previousFrameDuration() * 100.0f;
+    cameraVelocity *= mFrameTime.previousFrameDuration() * 80.0f;
 
     if( !cameraVelocity.isZero() ) {
         Matrix4 transform = mCameraObject.transformation();
@@ -101,7 +100,6 @@ void NoiseToolApp::drawEvent()
        just enable blending and scissor test in the constructor. */
     GL::Renderer::enable( GL::Renderer::Feature::Blending );
     GL::Renderer::enable( GL::Renderer::Feature::ScissorTest );
-    GL::Renderer::disable( GL::Renderer::Feature::FaceCulling );
     GL::Renderer::disable( GL::Renderer::Feature::DepthTest );
 
     mImGuiContext.drawFrame();
@@ -109,7 +107,6 @@ void NoiseToolApp::drawEvent()
     /* Reset state. Only needed if you want to draw something else with
        different state after. */
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
-    GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
     GL::Renderer::disable( GL::Renderer::Feature::ScissorTest );
     GL::Renderer::disable( GL::Renderer::Feature::Blending );
 
@@ -245,7 +242,7 @@ void NoiseToolApp::textInputEvent( TextInputEvent& event )
 
 void NoiseToolApp::UpdatePespectiveProjection()
 {
-    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 0.01f, 1000.0f ) );
+    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 1.0f, 1000.0f ) );
 }
 
 

@@ -8,7 +8,8 @@
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/Math/Vector3.h>
-#include <Magnum/Shaders/Phong.h>
+#include <Magnum/Math/Color.h>
+#include <Magnum/Shaders/VertexColor.h>
 
 #include "FastNoise/FastNoise.h"
 
@@ -105,11 +106,10 @@ namespace Magnum
             struct VertexData
             {
                 VertexData() = default;
-                VertexData( Vector3 p, Vector3 n, Vector3 c ) : pos(p), norm(n), col(c) {}
+                VertexData( Vector3 p, Color3 c ) : pos(p), col(c) {}
 
                 Vector3 pos;
-                Vector3 norm;
-                Vector3 col;
+                Color3 col;
             };
 
             struct MeshData
@@ -146,6 +146,7 @@ namespace Magnum
             {
                 std::shared_ptr<FastNoise::Generator> generator;
                 Vector3i pos;
+                Color3 color;
                 float frequency, isoSurface;
                 int32_t seed;
                 uint32_t genVersion;
@@ -157,12 +158,14 @@ namespace Magnum
 
             GL::Mesh& GetMesh() { return mMesh; }
 
-            static constexpr uint32_t SIZE = 62;
-            static constexpr float AO_STRENGTH = 0.6f;
+            static constexpr uint32_t SIZE          = 62;
+            static constexpr Vector3  LIGHT_DIR     = { 3, 4, 2 };
+            static constexpr float    AMBIENT_LIGHT = 0.3f;
+            static constexpr float    AO_STRENGTH   = 0.6f;
 
         private:
             static void AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
-                int32_t facingIdx, int32_t offsetA, int32_t offsetB, Vector3 normal, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
+                int32_t facingIdx, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
 
             static constexpr uint32_t SIZE_GEN = SIZE + 2;
 
@@ -180,6 +183,6 @@ namespace Magnum
         CompleteQueue<Chunk::MeshData> mCompleteQueue;
         std::vector<std::thread> mThreads;
 
-        Shaders::Phong mShader{ Shaders::Phong::Flag::VertexColor };
+        Shaders::VertexColor3D mShader;
     };
 }
