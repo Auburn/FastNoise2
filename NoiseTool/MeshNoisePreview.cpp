@@ -11,7 +11,7 @@ using namespace Magnum;
 
 MeshNoisePreview::MeshNoisePreview()
 {
-    mBuildData.frequency = 0.02f;
+    mBuildData.frequency = 0.005f;
     mBuildData.isoSurface = 0.0f;
     mBuildData.color = Color3( 1.0f );
 
@@ -27,6 +27,7 @@ MeshNoisePreview::MeshNoisePreview()
 
 void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed )
 {
+    mLoadRange = 160.0f;
     mBuildData.generator = generator;
     mBuildData.seed = seed;
     mBuildData.pos = Vector3i( 0 );
@@ -34,6 +35,7 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
 
     mChunks.clear();
     mInProgressChunks.clear();
+    mDistanceOrderedChunks.clear();
     mGenerateQueue.Clear();
 
     Chunk::MeshData meshData;
@@ -45,35 +47,81 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
 
 void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+    if( mTriCount > mTriLimit ) // Reduce load range if over tri limit
+    {
+        mLoadRange = std::max( mLoadRange * 0.995f, Chunk::SIZE * 1.5f );
+    }
+
+    // Unload further chunk if out of load range
+    Vector3i camChunkPos = Vector3i( cameraPosition - Vector3( Chunk::SIZE / 2.0f ) );
+    if( !mDistanceOrderedChunks.empty() )
+    {
+        while( true )
+        {
+            Vector3i backChunkPos = mDistanceOrderedChunks.back();
+            float unloadRange = mLoadRange * 1.1f;
+            if( (camChunkPos - backChunkPos).dot() > unloadRange * unloadRange )
+            {
+                mChunks.erase( backChunkPos );
+                mDistanceOrderedChunks.pop_back();
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
     Chunk::MeshData meshData;
-    if( mCompleteQueue.Pop( meshData ) )
+    while( mCompleteQueue.Pop( meshData ) )
     {
         mInProgressChunks.erase( meshData.pos );
-        mChunks.emplace_back( meshData );
+        mDistanceOrderedChunks.push_back( meshData.pos );
+        mChunks.emplace( meshData.pos, meshData );
+    }
+
+    // Increase load range if queue is not full
+    if( (double)mTriCount < mTriLimit * 0.9 && mInProgressChunks.size() <= mThreads.size() )
+    {
+        mLoadRange = std::min( mLoadRange * 1.01f, 1000.0f );
     }
 
     mShader.setTransformationProjectionMatrix( projection * transformation );
 
-    size_t triCount = 0;
-
-    for( Chunk& chunk : mChunks )
+    std::sort( mDistanceOrderedChunks.begin(), mDistanceOrderedChunks.end(), 
+        [camChunkPos]( const Vector3i& a, const Vector3i& b )
     {
-        if( chunk.GetMesh().count() )
+        return (camChunkPos - a).dot() < (camChunkPos - b).dot();
+    } );
+
+    mTriCount = 0;
+
+    for( const Vector3i& pos : mDistanceOrderedChunks )
+    {
+        GL::Mesh& mesh = mChunks.at( pos ).GetMesh();
+
+        if( mesh.count() )
         {
-            triCount += chunk.GetMesh().count() / 3;
-            chunk.GetMesh().draw( mShader );
+            mTriCount += mesh.count() / 3;
+            mesh.draw( mShader );
         }
     }
 
     ImGui::Text( "Thread Count: %llu", mThreads.size() );
-    ImGui::Text( "Triangle Count: %0.1fK", triCount / 1000.0 );
+    //ImGui::Text( "Generating Queue Count: %llu", mGenerateQueue.Count() );
+    ImGui::Text( "Triangle Count: %0.1fK", mTriCount / 1000.0f );
     ImGui::Text( "Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
+    ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
 
-    if( ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f ) )
+    float triLimit1000 = mTriLimit / 1000.0f;
+    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 500000.0f, "%0.1fK" ) )
     {
-        ReGenerate( mBuildData.generator, mBuildData.seed );
+        mTriLimit = triLimit1000 * 1000;
     }
-    if( ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.1f ) )
+
+    if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) |
+        ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" ) |
+        ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f ) )
     {
         ReGenerate( mBuildData.generator, mBuildData.seed );
     }
@@ -98,24 +146,25 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
 
 void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 {
-    const int range = 2;
+    int chunkRange = (int)ceilf( mLoadRange / Chunk::SIZE );
 
-    position += Vector3( Chunk::SIZE / 2.0f );
+    position -= Vector3( Chunk::SIZE / 2.0f );
+    Vector3i positionI = Vector3i( position );
 
     Vector3i chunkCenter = (Vector3i( position ) / Chunk::SIZE) * Chunk::SIZE;
 
     std::vector<Vector3i> chunkPositions;
 
-    for( int x = -range; x <= range; x++ )
+    for( int x = -chunkRange; x <= chunkRange; x++ )
     {
-        for( int y = -range; y <= range; y++ )
+        for( int y = -chunkRange; y <= chunkRange; y++ )
         {
-            for( int z = -range; z <= range; z++ )
+            for( int z = -chunkRange; z <= chunkRange; z++ )
             {
                 Vector3i chunkPos = Vector3i( x, y, z ) * Chunk::SIZE + chunkCenter;
 
-                if( std::find_if( mChunks.begin(), mChunks.end(), [&]( const Chunk& chunk ) { return chunk.GetPos() == chunkPos; } ) == mChunks.end() &&
-                    std::find( mInProgressChunks.begin(), mInProgressChunks.end(), chunkPos ) == mInProgressChunks.end() )
+                if( mChunks.find( chunkPos ) == mChunks.end() && (positionI - chunkPos).dot() <= mLoadRange * mLoadRange &&
+                    mInProgressChunks.find( chunkPos ) == mInProgressChunks.end() )
                 {
                     chunkPositions.push_back( chunkPos );                    
                 }
@@ -123,14 +172,14 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
         }
     }
 
-    std::sort( chunkPositions.begin(), chunkPositions.end(), [chunkCenter]( const Vector3i& a, const Vector3i& b )
+    std::sort( chunkPositions.begin(), chunkPositions.end(), [positionI]( const Vector3i& a, const Vector3i& b )
         {
-            return (chunkCenter - a).dot() < (chunkCenter - b).dot();
+            return (positionI - a).dot() < (positionI - b).dot();
         } );
 
     for( const Vector3i& pos : chunkPositions )
     {
-        if( mInProgressChunks.size() >= mThreads.size() * 2 )
+        if( mGenerateQueue.Count() >= mThreads.size() * 64 )
         {
             break;
         }

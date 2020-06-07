@@ -82,7 +82,7 @@ void NoiseToolApp::drawEvent()
     }
     if( mKeyDown[Key_RShift] || mKeyDown[Key_LShift] )
     {
-        cameraVelocity *= 4.0f;
+        cameraVelocity *= 6.0f;
     }
 
     cameraVelocity *= mFrameTime.previousFrameDuration() * 80.0f;
@@ -242,7 +242,7 @@ void NoiseToolApp::textInputEvent( TextInputEvent& event )
 
 void NoiseToolApp::UpdatePespectiveProjection()
 {
-    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 3.0f, 10000.0f ) );
+    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 2.0f, 1200.0f ) );
 }
 
 

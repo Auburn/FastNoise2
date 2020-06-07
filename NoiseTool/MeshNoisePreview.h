@@ -36,6 +36,11 @@ namespace Magnum
                 mQueue = {};
             }
 
+            size_t Count()
+            {
+                return mQueue.size();
+            }
+
             T Pop()
             {
                 std::unique_lock<std::mutex> lock( mMutex );
@@ -191,7 +196,7 @@ namespace Magnum
             GL::Mesh& GetMesh() { return mMesh; }
             Vector3i GetPos() const { return mPos; }
 
-            static constexpr uint32_t SIZE          = 62;
+            static constexpr uint32_t SIZE = 94;
             static constexpr Vector3  LIGHT_DIR     = { 3, 4, 2 };
             static constexpr float    AMBIENT_LIGHT = 0.3f;
             static constexpr float    AO_STRENGTH   = 0.6f;
@@ -220,12 +225,17 @@ namespace Magnum
 
         void UpdateChunksForPosition( Vector3 position );
 
+        std::unordered_map<Vector3i, Chunk, Vector3iHash> mChunks;
+        std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
+        std::vector<Vector3i> mDistanceOrderedChunks;
+
         Chunk::BuildData mBuildData;
-        std::vector<Chunk> mChunks;
+        float mLoadRange = 300.0f;
+        uint32_t mTriLimit = 80000000; // 80 mil
+        uint32_t mTriCount = 0;
 
         GenerateQueue<Chunk::BuildData> mGenerateQueue;
         CompleteQueue<Chunk::MeshData> mCompleteQueue;
-        std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
         std::vector<std::thread> mThreads;
 
         VertexColorShader mShader;
