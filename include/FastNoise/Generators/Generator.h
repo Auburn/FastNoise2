@@ -77,21 +77,4 @@ namespace FastNoise
     using GeneratorSource = GeneratorSourceT<Generator>;
     using HybridSource = HybridSourceT<Generator>;
 
-
-    class Constant : public virtual Generator
-    {
-    public:
-        void SetValue( float value ) { mValue = value; }
-
-    protected:
-        float mValue = 1.0f;
-
-        FASTNOISE_METADATA( Generator )
-
-            Metadata( const char* className ) : Generator::Metadata( className )
-            {
-                this->AddVariable( "Value", 1.0f, &Constant::SetValue );
-            }
-        };    
-    };
 }

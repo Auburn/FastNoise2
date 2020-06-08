@@ -208,17 +208,3 @@ public:
         }
     }
 };
-
-
-template<typename FS>
-class FS_T<FastNoise::Constant, FS> : public virtual FastNoise::Constant, public FS_T<FastNoise::Generator, FS>
-{
-public:
-    FASTNOISE_IMPL_GEN_T;
-
-    template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
-    {
-        return float32v( mValue );
-    }
-};

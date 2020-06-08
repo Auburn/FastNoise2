@@ -35,9 +35,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v t1 = float32v( 0.5f ) - (x1 * x1) - (y1 * y1);
         float32v t2 = float32v( 0.5f ) - (x2 * x2) - (y2 * y2);
     
-        t0 = FS_Max_f32( t0, float32v::FS_Zero() );
-        t1 = FS_Max_f32( t1, float32v::FS_Zero() );
-        t2 = FS_Max_f32( t2, float32v::FS_Zero() );
+        t0 = FS_Max_f32( t0, float32v( 0 ) );
+        t1 = FS_Max_f32( t1, float32v( 0 ) );
+        t2 = FS_Max_f32( t2, float32v( 0 ) );
     
         t0 *= t0;
         t1 *= t1;
@@ -96,10 +96,10 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v t2 = float32v( 0.6f ) - (x2 * x2) - (y2 * y2) - (z2 * z2);
         float32v t3 = float32v( 0.6f ) - (x3 * x3) - (y3 * y3) - (z3 * z3);
 
-        t0 = FS_Max_f32( t0, float32v::FS_Zero() );
-        t1 = FS_Max_f32( t1, float32v::FS_Zero() );
-        t2 = FS_Max_f32( t2, float32v::FS_Zero() );
-        t3 = FS_Max_f32( t3, float32v::FS_Zero() );
+        t0 = FS_Max_f32( t0, float32v( 0 ) );
+        t1 = FS_Max_f32( t1, float32v( 0 ) );
+        t2 = FS_Max_f32( t2, float32v( 0 ) );
+        t3 = FS_Max_f32( t3, float32v( 0 ) );
 
         t0 *= t0;
         t1 *= t1;

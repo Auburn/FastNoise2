@@ -136,7 +136,8 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
-    ImGui::SetNextWindowSize( ImVec2( 800, 600 ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "FastNoise Node Editor" ) )
     {
         UpdateSelected();
@@ -195,6 +196,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     ImGui::End();
 
     ImGui::SetNextWindowSize( ImVec2( 768, 768 ), ImGuiCond_FirstUseEver );
+    ImGui::SetNextWindowPos( ImVec2( 1143, 305 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "FastNoise Preview" ) )
     {
         ImVec2 winSize = ImGui::GetContentRegionAvail();

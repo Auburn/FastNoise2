@@ -12,7 +12,14 @@ using namespace FastNoise;
 #else
 #include "Generators/Generator.inl"
 #endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/BasicGenerators.h"
+#else
+#include "Generators/BasicGenerators.inl"
+#endif
 FASTSIMD_BUILD_CLASS( Constant )
+FASTSIMD_BUILD_CLASS( PositionOutput )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/White.h"
