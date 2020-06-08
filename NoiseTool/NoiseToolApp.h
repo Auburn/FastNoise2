@@ -37,6 +37,7 @@ namespace Magnum
 
         ImGuiIntegration::Context mImGuiContext{ NoCreate };
         Color3 mClearColor{ 0.122f };
+        bool mBackFaceCulling = false;
 
         FastNoiseNodeEditor mNodeEditor;
 

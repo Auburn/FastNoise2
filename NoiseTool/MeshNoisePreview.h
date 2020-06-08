@@ -36,11 +36,6 @@ namespace Magnum
                 mQueue = {};
             }
 
-            size_t Count()
-            {
-                return mQueue.size();
-            }
-
             T Pop()
             {
                 std::unique_lock<std::mutex> lock( mMutex );
@@ -53,12 +48,13 @@ namespace Magnum
                 return item;
             }
 
-            void Push( const T& item )
+            size_t Push( const T& item )
             {
                 std::unique_lock<std::mutex> lock( mMutex );
                 mQueue.push( item );
                 lock.unlock();
                 mCond.notify_one();
+                return mQueue.size();
             }
 
         private:
@@ -75,6 +71,12 @@ namespace Magnum
             {
                 std::unique_lock<std::mutex> lock( mMutex );
                 return ++mVersion;
+            }
+
+            size_t Count()
+            {
+                std::unique_lock<std::mutex> lock( mMutex );
+                return mQueue.size();
             }
 
             bool Pop( T& out )
@@ -196,7 +198,7 @@ namespace Magnum
             GL::Mesh& GetMesh() { return mMesh; }
             Vector3i GetPos() const { return mPos; }
 
-            static constexpr uint32_t SIZE = 94;
+            static constexpr uint32_t SIZE = 126;
             static constexpr Vector3  LIGHT_DIR     = { 3, 4, 2 };
             static constexpr float    AMBIENT_LIGHT = 0.3f;
             static constexpr float    AO_STRENGTH   = 0.6f;
@@ -224,6 +226,7 @@ namespace Magnum
         static void GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue );
 
         void UpdateChunksForPosition( Vector3 position );
+        void UpdateChunkQueues( const Vector3& position );
 
         std::unordered_map<Vector3i, Chunk, Vector3iHash> mChunks;
         std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
@@ -231,8 +234,9 @@ namespace Magnum
 
         Chunk::BuildData mBuildData;
         float mLoadRange = 300.0f;
-        uint32_t mTriLimit = 80000000; // 80 mil
+        uint32_t mTriLimit = 100000000; // 100 mil
         uint32_t mTriCount = 0;
+        int mStaggerCheck = 0;
 
         GenerateQueue<Chunk::BuildData> mGenerateQueue;
         CompleteQueue<Chunk::MeshData> mCompleteQueue;

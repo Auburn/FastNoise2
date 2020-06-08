@@ -5,7 +5,10 @@
 #include <Corrade/Utility/Resource.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/Math/Matrix4.h>
+#include <Magnum/Math/Frustum.h>
+#include <Magnum/Math/Intersection.h>
 #include <Magnum/Shaders/Implementation/CreateCompatibilityShader.h>
+
 
 using namespace Magnum;
 
@@ -27,7 +30,7 @@ MeshNoisePreview::MeshNoisePreview()
 
 void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed )
 {
-    mLoadRange = 160.0f;
+    mLoadRange = 200.0f;
     mBuildData.generator = generator;
     mBuildData.seed = seed;
     mBuildData.pos = Vector3i( 0 );
@@ -47,54 +50,15 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
 
 void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
-    if( mTriCount > mTriLimit ) // Reduce load range if over tri limit
-    {
-        mLoadRange = std::max( mLoadRange * 0.995f, Chunk::SIZE * 1.5f );
-    }
+    UpdateChunkQueues( cameraPosition );
 
-    // Unload further chunk if out of load range
-    Vector3i camChunkPos = Vector3i( cameraPosition - Vector3( Chunk::SIZE / 2.0f ) );
-    if( !mDistanceOrderedChunks.empty() )
-    {
-        while( true )
-        {
-            Vector3i backChunkPos = mDistanceOrderedChunks.back();
-            float unloadRange = mLoadRange * 1.1f;
-            if( (camChunkPos - backChunkPos).dot() > unloadRange * unloadRange )
-            {
-                mChunks.erase( backChunkPos );
-                mDistanceOrderedChunks.pop_back();
-            }
-            else
-            {
-                break;
-            }
-        }
-    }
+    Matrix4 transformationProjection = projection * transformation;
 
-    Chunk::MeshData meshData;
-    while( mCompleteQueue.Pop( meshData ) )
-    {
-        mInProgressChunks.erase( meshData.pos );
-        mDistanceOrderedChunks.push_back( meshData.pos );
-        mChunks.emplace( meshData.pos, meshData );
-    }
-
-    // Increase load range if queue is not full
-    if( (double)mTriCount < mTriLimit * 0.9 && mInProgressChunks.size() <= mThreads.size() )
-    {
-        mLoadRange = std::min( mLoadRange * 1.01f, 1000.0f );
-    }
-
-    mShader.setTransformationProjectionMatrix( projection * transformation );
-
-    std::sort( mDistanceOrderedChunks.begin(), mDistanceOrderedChunks.end(), 
-        [camChunkPos]( const Vector3i& a, const Vector3i& b )
-    {
-        return (camChunkPos - a).dot() < (camChunkPos - b).dot();
-    } );
+    Frustum camFrustrum = Frustum::fromMatrix( transformationProjection );
+    mShader.setTransformationProjectionMatrix( transformationProjection );
 
     mTriCount = 0;
+    uint32_t drawnTriCount = 0;
 
     for( const Vector3i& pos : mDistanceOrderedChunks )
     {
@@ -102,19 +66,27 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
         if( mesh.count() )
         {
-            mTriCount += mesh.count() / 3;
-            mesh.draw( mShader );
+            uint32_t meshTriCount = mesh.count();
+            mTriCount += meshTriCount;
+
+            Range3Di bbox( pos, pos + Vector3i( Chunk::SIZE + 1 ) );
+
+            if( Math::Intersection::rangeFrustum( Range3D( bbox ), camFrustrum ) )
+            {
+                drawnTriCount += meshTriCount;
+                mesh.draw( mShader );
+            }
         }
     }
+    mTriCount /= 3;
 
-    ImGui::Text( "Thread Count: %llu", mThreads.size() );
     //ImGui::Text( "Generating Queue Count: %llu", mGenerateQueue.Count() );
-    ImGui::Text( "Triangle Count: %0.1fK", mTriCount / 1000.0f );
+    ImGui::Text( "Triangle Count: %0.1fK (%0.1fK)", mTriCount / 1000.0f, drawnTriCount / 3000.0f );
     ImGui::Text( "Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
 
     float triLimit1000 = mTriLimit / 1000.0f;
-    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 500000.0f, "%0.1fK" ) )
+    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 1000000.0f, "%0.1fK" ) )
     {
         mTriLimit = triLimit1000 * 1000;
     }
@@ -129,6 +101,126 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     UpdateChunksForPosition( cameraPosition );
 }
 
+void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
+{
+    if( mTriCount > mTriLimit ) // Reduce load range if over tri limit
+    {
+        mLoadRange = std::max( mLoadRange * 0.995f, Chunk::SIZE * 1.5f );
+    }
+
+    // Unload further chunk if out of load range
+    size_t deletedChunks = 0;
+    Vector3i chunkPos = Vector3i( position - Vector3( Chunk::SIZE / 2.0f ) );
+    while( !mDistanceOrderedChunks.empty() )
+    {
+        Vector3i backChunkPos = mDistanceOrderedChunks.back();
+        float unloadRange = mLoadRange * 1.1f;
+        if( deletedChunks < 20 && (chunkPos - backChunkPos).dot() > unloadRange * unloadRange )
+        {
+            mChunks.erase( backChunkPos );
+            mDistanceOrderedChunks.pop_back();
+            deletedChunks++;
+        }
+        else
+        {
+            break;
+        }
+    }    
+    ImGui::Text( "Deleted Chunks: %llu", deletedChunks );
+
+    size_t newChunks = 0;
+    size_t queueCount = mCompleteQueue.Count();
+    if( queueCount )
+    {
+        size_t maxNewChunks = std::clamp( queueCount / 3, 4ull, 15ull );
+        Chunk::MeshData meshData;
+
+        while( newChunks < maxNewChunks && mCompleteQueue.Pop( meshData ) )
+        {
+            mInProgressChunks.erase( meshData.pos );
+            mDistanceOrderedChunks.push_back( meshData.pos );
+            mChunks.emplace( meshData.pos, meshData );
+            newChunks++;
+        }
+
+    }
+    ImGui::Text( "New Chunks: %llu", newChunks );
+
+    // Increase load range if queue is not full
+    if( (double)mTriCount < mTriLimit * 0.9 && mInProgressChunks.size() <= mThreads.size() )
+    {
+        mLoadRange = std::min( mLoadRange * 1.01f, 1000.0f );
+    }
+
+    std::sort( mDistanceOrderedChunks.begin(), mDistanceOrderedChunks.end(), 
+        [chunkPos]( const Vector3i& a, const Vector3i& b )
+        {
+            return (chunkPos - a).dot() < (chunkPos - b).dot();
+        } );
+}
+
+void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
+{
+    int chunkRange = (int)ceilf( mLoadRange / Chunk::SIZE );
+
+    position -= Vector3( Chunk::SIZE / 2.0f );
+    Vector3i positionI = Vector3i( position );
+
+    Vector3i chunkCenter = (positionI / Chunk::SIZE) * Chunk::SIZE;
+
+    std::vector<Vector3i> chunkPositions;
+    Vector3i chunkPos;
+    int loadRangeSq = (int)(mLoadRange * mLoadRange);
+
+    int staggerShift = (loadRangeSq * (int)mLoadRange) / 200000001;
+    int staggerCount = (1 << staggerShift) - 1;
+
+    for( int x = -chunkRange; x <= chunkRange; x++ )
+    {
+        if( (x & staggerCount) != (mStaggerCheck & staggerCount) )
+        {
+            continue;
+        }
+
+        chunkPos.x() = x * Chunk::SIZE + chunkCenter.x();
+
+        for( int y = -chunkRange; y <= chunkRange; y++ )
+        {
+            chunkPos.y() = y * Chunk::SIZE + chunkCenter.y();
+
+            for( int z = -chunkRange; z <= chunkRange; z++ )
+            {
+                chunkPos.z() = z * Chunk::SIZE + chunkCenter.z();
+
+                if( (positionI - chunkPos).dot() <= loadRangeSq && 
+                    mChunks.find( chunkPos ) == mChunks.end() && 
+                    mInProgressChunks.find( chunkPos ) == mInProgressChunks.end() )
+                {
+                    chunkPositions.push_back( chunkPos );
+                }
+            }
+        }
+    }
+
+    mStaggerCheck++;
+
+    std::sort( chunkPositions.begin(), chunkPositions.end(), [positionI]( const Vector3i& a, const Vector3i& b )
+    {
+        return (positionI - a).dot() < (positionI - b).dot();
+    } );
+
+    for( const Vector3i& pos : chunkPositions )
+    {
+        mBuildData.pos = pos;
+        mInProgressChunks.insert( pos );
+
+        if( mGenerateQueue.Push( mBuildData ) >= mThreads.size() * 64 )
+        {
+            break;
+        }
+    }
+}
+
 void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
 {
     while( true )
@@ -141,52 +233,6 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
         {
             meshData.Free();
         }
-    }
-}
-
-void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
-{
-    int chunkRange = (int)ceilf( mLoadRange / Chunk::SIZE );
-
-    position -= Vector3( Chunk::SIZE / 2.0f );
-    Vector3i positionI = Vector3i( position );
-
-    Vector3i chunkCenter = (Vector3i( position ) / Chunk::SIZE) * Chunk::SIZE;
-
-    std::vector<Vector3i> chunkPositions;
-
-    for( int x = -chunkRange; x <= chunkRange; x++ )
-    {
-        for( int y = -chunkRange; y <= chunkRange; y++ )
-        {
-            for( int z = -chunkRange; z <= chunkRange; z++ )
-            {
-                Vector3i chunkPos = Vector3i( x, y, z ) * Chunk::SIZE + chunkCenter;
-
-                if( mChunks.find( chunkPos ) == mChunks.end() && (positionI - chunkPos).dot() <= mLoadRange * mLoadRange &&
-                    mInProgressChunks.find( chunkPos ) == mInProgressChunks.end() )
-                {
-                    chunkPositions.push_back( chunkPos );                    
-                }
-            }
-        }
-    }
-
-    std::sort( chunkPositions.begin(), chunkPositions.end(), [positionI]( const Vector3i& a, const Vector3i& b )
-        {
-            return (positionI - a).dot() < (positionI - b).dot();
-        } );
-
-    for( const Vector3i& pos : chunkPositions )
-    {
-        if( mGenerateQueue.Count() >= mThreads.size() * 64 )
-        {
-            break;
-        }
-
-        mBuildData.pos = pos;
-        mGenerateQueue.Push( mBuildData );
-        mInProgressChunks.insert( pos );
     }
 }
 

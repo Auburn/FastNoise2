@@ -20,7 +20,6 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
-    mCameraObject.setTransformation( Matrix4::translation( Vector3::zAxis( 50.0f ) ) );
     mFrameTime.start();
 
     UpdatePespectiveProjection();
@@ -49,6 +48,8 @@ void NoiseToolApp::drawEvent()
     {
         if( ImGui::ColorEdit3( "Clear Color", mClearColor.data() ) )
             GL::Renderer::setClearColor( mClearColor );
+
+        ImGui::Checkbox( "Backface Culling", &mBackFaceCulling );
 
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
@@ -82,7 +83,7 @@ void NoiseToolApp::drawEvent()
     }
     if( mKeyDown[Key_RShift] || mKeyDown[Key_LShift] )
     {
-        cameraVelocity *= 6.0f;
+        cameraVelocity *= 4.0f;
     }
 
     cameraVelocity *= mFrameTime.previousFrameDuration() * 80.0f;
@@ -94,6 +95,11 @@ void NoiseToolApp::drawEvent()
         redraw();
     }
 
+    if( mBackFaceCulling )
+    {
+        GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
+    }
+
     mNodeEditor.Draw( mCamera.cameraMatrix(), mCamera.projectionMatrix(), mCameraObject.transformation().translation() );
 
     /* Set appropriate states. If you only draw ImGui, it is sufficient to
@@ -101,6 +107,7 @@ void NoiseToolApp::drawEvent()
     GL::Renderer::enable( GL::Renderer::Feature::Blending );
     GL::Renderer::enable( GL::Renderer::Feature::ScissorTest );
     GL::Renderer::disable( GL::Renderer::Feature::DepthTest );
+    GL::Renderer::disable( GL::Renderer::Feature::FaceCulling );
 
     mImGuiContext.drawFrame();
 
