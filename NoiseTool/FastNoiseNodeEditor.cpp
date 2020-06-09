@@ -8,7 +8,6 @@
 #include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 
-
 using namespace Magnum;
 
 FastNoiseNodeEditor::Node::Node( const FastNoise::Metadata* meta ) :

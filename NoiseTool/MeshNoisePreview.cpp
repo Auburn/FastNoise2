@@ -9,7 +9,6 @@
 #include <Magnum/Math/Intersection.h>
 #include <Magnum/Shaders/Implementation/CreateCompatibilityShader.h>
 
-
 using namespace Magnum;
 
 MeshNoisePreview::MeshNoisePreview()
@@ -87,7 +86,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
             if( Math::Intersection::rangeFrustum( Range3D( bbox ), camFrustrum ) )
             {
                 drawnTriCount += meshTriCount;
-                mesh.draw( mShader );
+                mShader.draw( mesh );
             }
         }
     }
