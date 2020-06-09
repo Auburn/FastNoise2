@@ -5,6 +5,7 @@
 #include "FastSIMD/FastSIMD.h"
 #include "FastNoise_Config.h"
 
+#include "Generators/BasicGenerators.h"
 #include "Generators/White.h"
 #include "Generators/Value.h"
 #include "Generators/Perlin.h"
@@ -14,6 +15,7 @@
 #include "Generators/DomainWarp.h"
 #include "Generators/DomainWarpFractal.h"
 #include "Generators/Modifiers.h"
+#include "Generators/Blends.h"
 
 namespace FastNoise
 {

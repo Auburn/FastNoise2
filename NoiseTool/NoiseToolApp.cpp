@@ -15,11 +15,11 @@ using namespace Magnum;
 NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments, Configuration{}
     .setTitle( "FastNoise Tool" )
-    .setSize( Vector2i( 1920, 1080 ) )
+    .setSize( Vector2i( 1280, 720 ) )
     .setWindowFlags( Configuration::WindowFlag::Resizable ) }
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
-
+    
     mFrameTime.start();
 
     UpdatePespectiveProjection();

@@ -28,6 +28,14 @@ MeshNoisePreview::MeshNoisePreview()
     }
 }
 
+MeshNoisePreview::~MeshNoisePreview()
+{
+    for( auto& thread : mThreads )
+    {
+        thread.detach();
+    }
+}
+
 void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed )
 {
     mLoadRange = 200.0f;
@@ -50,6 +58,11 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
 
 void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+    if( !mBuildData.generator )
+    {
+        return;
+    }
+
     UpdateChunkQueues( cameraPosition );
 
     Matrix4 transformationProjection = projection * transformation;
@@ -423,8 +436,9 @@ MeshNoisePreview::VertexColorShader::VertexColorShader()
     GL::Shader frag = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Fragment );
 
     CORRADE_INTERNAL_ASSERT_OUTPUT(
-        vert.addSource( rs.get( "generic.glsl" ) )
-            .addSource( rs.get( "VertexColor3D.vert" ) ).compile() );
+        vert.addSource( "#define THREE_DIMENSIONS\n" )
+            .addSource( rs.get( "generic.glsl" ) )
+            .addSource( rs.get( "VertexColor.vert" ) ).compile() );
     CORRADE_INTERNAL_ASSERT_OUTPUT( 
         frag.addSource( rs.get( "generic.glsl" ) )
             .addSource( fragShader ).compile() );

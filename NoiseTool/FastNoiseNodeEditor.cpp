@@ -391,7 +391,7 @@ void FastNoiseNodeEditor::DoNodes()
         }
             
         imnodes::BeginOutputAttribute( attributeId );
-        ImGuiIntegration::image( node->noiseTexture, { Node::NoiseSize, Node::NoiseSize } );
+        ImGuiIntegration::image( node->noiseTexture, { (float)Node::NoiseSize, (float)Node::NoiseSize } );
         imnodes::EndAttribute();
 
         imnodes::EndNode();

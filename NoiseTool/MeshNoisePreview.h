@@ -20,6 +20,7 @@ namespace Magnum
     {
     public:
         MeshNoisePreview();
+        ~MeshNoisePreview();
 
         void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed );
 
