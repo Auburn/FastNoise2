@@ -32,3 +32,6 @@
 *.app
 /.vs
 /out/build
+
+# Allow SDL2 libs
+!/NoiseTool/ThirdParty/SDL2-2.0.12/**
