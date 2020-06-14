@@ -138,13 +138,13 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
             break;
         }
     }    
-    ImGui::Text( "Deleted Chunks: %llu", deletedChunks );
+    ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
 
     size_t newChunks = 0;
     size_t queueCount = mCompleteQueue.Count();
     if( queueCount )
     {
-        size_t maxNewChunks = std::clamp( queueCount / 3, 4ull, 15ull );
+        size_t maxNewChunks = std::clamp( queueCount / 3, (size_t)4, (size_t)15 );
         Chunk::MeshData meshData;
 
         while( newChunks < maxNewChunks && mCompleteQueue.Pop( meshData ) )
@@ -156,7 +156,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         }
 
     }
-    ImGui::Text( "New Chunks: %llu", newChunks );
+    ImGui::Text( "New Chunks: %zu", newChunks );
 
     // Increase load range if queue is not full
     if( (double)mTriCount < mTriLimit * 0.9 && mInProgressChunks.size() <= mThreads.size() )

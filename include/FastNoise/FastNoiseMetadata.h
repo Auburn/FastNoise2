@@ -14,20 +14,6 @@ namespace FastNoise
         Metadata() = delete;
         inline Metadata( const char* );
 
-        //template<typename Ret, typename... Args>
-        //static std::tuple<Args...> getArgs(Ret(*)(Args...));
-
-        ////! Specialisation for Functor/Lambdas
-        //template<typename F, typename Ret, typename... Args>
-        //static std::tuple<Args...> getArgs(Ret(F::*)(Args...));
-
-        //! Specialisation for Functor/Lambdas
-        template<typename F, typename Ret, typename... Args>
-        static std::tuple<Args...> getArgs(Ret(F::*)(Args...) const);
-
-        template<typename F, std::size_t I>
-        using GetArg = std::tuple_element_t<I, decltype(getArgs(&F::operator()))>;
-
         struct MemberVariable
         {
             enum eType
@@ -70,6 +56,13 @@ namespace FastNoise
 
             std::function<void(Generator*, ValueUnion)> setFunc;
         };
+
+        //! Specialisation for Functor/Lambdas
+        template<typename F, typename Ret, typename... Args>
+        static std::tuple<Args...> getArgs( Ret( F::* )(Args...) const );
+
+        template<typename F, std::size_t I>
+        using GetArg = std::tuple_element_t<I, decltype(getArgs( &F::operator() ))>;
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
         void AddVariable( const char* name, T defaultV, U&& func, T minV = 0, T maxV = 0 )
