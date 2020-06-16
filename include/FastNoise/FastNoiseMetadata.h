@@ -114,7 +114,7 @@ namespace FastNoise
         {
             const char* name;
 
-            std::function<bool(Generator*, std::shared_ptr<Generator>&)> setFunc;
+            std::function<bool(Generator*, const std::shared_ptr<Generator>&)> setFunc;
         };
 
         template<typename T, typename U>
@@ -123,7 +123,7 @@ namespace FastNoise
             MemberNode member;
             member.name = name;
 
-            member.setFunc = [func]( Generator* g, std::shared_ptr<Generator>& s )
+            member.setFunc = [func]( Generator* g, const std::shared_ptr<Generator>& s )
             {
                 std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
                 if( downCast )
@@ -142,7 +142,7 @@ namespace FastNoise
             float valueDefault = 0.0f;
 
             std::function<void( Generator*, float )> setValueFunc;
-            std::function<bool( Generator*, std::shared_ptr<Generator>& )> setNodeFunc;
+            std::function<bool( Generator*, const std::shared_ptr<Generator>& )> setNodeFunc;
         };
 
         template<typename T, typename U>
@@ -152,7 +152,7 @@ namespace FastNoise
             member.name = name;
             member.valueDefault = defaultValue;
 
-            member.setNodeFunc = [funcNode]( Generator* g, std::shared_ptr<Generator>& s )
+            member.setNodeFunc = [funcNode]( Generator* g, const std::shared_ptr<Generator>& s )
             {
                 std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
                 if( downCast )
@@ -177,12 +177,15 @@ namespace FastNoise
         std::vector<MemberNode>     memberNodes;
         std::vector<MemberHybrid>   memberHybrids;
 
-        virtual Generator* NodeFactory( FastSIMD::eLevel ) const = 0;
+        virtual Generator* NodeFactory( FastSIMD::eLevel level = FastSIMD::Level_Null ) const = 0;
+    };
 
-        Generator* NodeFactory() const
-        {
-            return NodeFactory( FastSIMD::CPUMaxSIMDLevel() );
-        }
+    struct NodeData
+    {
+        const Metadata* metadata = nullptr;
+        std::vector<Metadata::MemberVariable::ValueUnion> variables;
+        std::vector<const NodeData*> nodes;
+        std::vector<std::pair<const NodeData*, float>> hybrids;
     };
 
     class MetadataManager
@@ -199,6 +202,22 @@ namespace FastNoise
         {
             return sMetadataClasses;
         }
+
+        static const Metadata* GetMetadataClass( uint16_t nodeId )
+        {
+            if( nodeId < sMetadataClasses.size() )
+            {
+                return sMetadataClasses[nodeId];
+            }
+
+            return nullptr;
+        }
+
+        static std::string SerialiseNodeData( const NodeData* nodeData );
+        static bool SerialiseNodeData( const NodeData* nodeData, std::vector<uint8_t>& dataStream );
+
+        static std::shared_ptr<Generator> DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
+        static std::shared_ptr<Generator> DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
 
     private:
         MetadataManager() = delete;

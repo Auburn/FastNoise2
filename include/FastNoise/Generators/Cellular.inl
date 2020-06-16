@@ -81,7 +81,7 @@ public:
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-                float32v newCellValue = float32v( 1.0f / INT_MAX ) * FS_Converti32_f32( hash );
+                float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                 float32v newDistance = this->GetDistance( xd, yd );
 
                 mask32v closer = FS_LessThan_f32( newDistance, distance );
@@ -137,7 +137,7 @@ public:
                     yd = FS_FMulAdd_f32( yd, invMag, ycf );
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
                 
-                    float32v newCellValue = float32v( 1.0f / INT_MAX ) * FS_Converti32_f32( hash );
+                    float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                     float32v newDistance = this->GetDistance( xd, yd, zd );
                 
                     mask32v closer = FS_LessThan_f32( newDistance, distance );

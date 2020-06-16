@@ -201,6 +201,11 @@ CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
 template<typename CLASS_T>
 CLASS_T* FastSIMD::New( eLevel maxSIMDLevel )
 {
+    if( maxSIMDLevel == Level_Null )
+    {
+        maxSIMDLevel = CPUMaxSIMDLevel();
+    }
+
     static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );
     return SIMDLevelSelector<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel );
 }
