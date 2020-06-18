@@ -67,8 +67,8 @@ public:
 
     void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) const final
     {
-        int32v xIdx = int32v::FS_Zero();
-        int32v yIdx = int32v::FS_Incremented();
+        int32v xIdx = int32v::FS_Incremented();
+        int32v yIdx = int32v::FS_Zero();
 
         float32v xOffset( xStart );
         float32v yOffset( yStart );
@@ -76,8 +76,8 @@ public:
         float32v xScale( xStep );
         float32v yScale( yStep );
 
-        int32v ySizeV( ySize );
-        int32v yMax = ySizeV + int32v( -1 );
+        int32v xSizeV( xSize );
+        int32v xMax = xSizeV + int32v( -1 );
 
         int32_t totalValues = xSize * ySize;
         int32_t index = 0;
@@ -90,11 +90,11 @@ public:
             FS_Store_f32( &noiseOut[index], Gen( int32v( seed ), xPos, yPos ));
             index += float32v::FS_Size();
 
-            yIdx += int32v( int32v::FS_Size() );
+            xIdx += int32v( int32v::FS_Size() );
 
-            mask32v yReset = FS_GreaterThan_i32( yIdx, yMax );
-            xIdx = FS_MaskedIncrement_i32( xIdx, yReset );
-            yIdx = FS_MaskedSub_i32( yIdx, ySizeV, yReset );
+            mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
+            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
+            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
         }
 
         float32v xPos = xOffset + (FS_Converti32_f32( xIdx ) * xScale);
@@ -117,9 +117,9 @@ public:
 
     void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) const final
     {
-        int32v xIdx( 0 );
+        int32v xIdx = int32v::FS_Incremented();
         int32v yIdx( 0 );
-        int32v zIdx = int32v::FS_Incremented();
+        int32v zIdx( 0 );
 
         float32v xOffset( xStart );
         float32v yOffset( yStart );
@@ -129,10 +129,10 @@ public:
         float32v yScale( yStep );
         float32v zScale( zStep );
 
+        int32v xSizeV( xSize );
+        int32v xMax = xSizeV + int32v( -1 );
         int32v ySizeV( ySize );
         int32v yMax = ySizeV + int32v( -1 );
-        int32v zSizeV( zSize );
-        int32v zMax = zSizeV + int32v( -1 );
 
         int32_t totalValues = xSize * ySize * zSize;
         int32_t index = 0;
@@ -146,14 +146,14 @@ public:
             FS_Store_f32( &noiseOut[index], Gen( int32v( seed ), xPos, yPos, zPos ) );
             index += float32v::FS_Size();
 
-            zIdx += int32v( int32v::FS_Size() );
+            xIdx += int32v( int32v::FS_Size() );
 
-            mask32v zReset = FS_GreaterThan_i32( zIdx, zMax );
-            yIdx = FS_MaskedIncrement_i32( yIdx, zReset );
-            zIdx = FS_MaskedSub_i32( zIdx, zSizeV, zReset );
+            mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
+            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
+            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
 
             mask32v yReset = FS_GreaterThan_i32( yIdx, yMax );
-            xIdx = FS_MaskedIncrement_i32( xIdx, yReset );
+            zIdx = FS_MaskedIncrement_i32( zIdx, yReset );
             yIdx = FS_MaskedSub_i32( yIdx, ySizeV, yReset );
         }
 

@@ -274,23 +274,23 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     Color3 colorForward = buildData.color * zLight;
     Color3 colorBack = buildData.color * (1.0f - zLight);
 
-    constexpr int32_t STEP_X = SIZE_GEN * SIZE_GEN;
+    constexpr int32_t STEP_X = 1;
     constexpr int32_t STEP_Y = SIZE_GEN;
-    constexpr int32_t STEP_Z = 1;
+    constexpr int32_t STEP_Z = SIZE_GEN * SIZE_GEN;
 
     int32_t noiseIdx = STEP_X + STEP_Y + STEP_Z;
 
-    for( uint32_t x = 0; x < SIZE; x++ )
+    for( uint32_t z = 0; z < SIZE; z++ )
     {
-        float xf = x + (float)buildData.pos.x();
+        float zf = z + (float)buildData.pos.z();
 
         for( uint32_t y = 0; y < SIZE; y++ )
         {
             float yf = y + (float)buildData.pos.y();
 
-            for( uint32_t z = 0; z < SIZE; z++ )
+            for( uint32_t x = 0; x < SIZE; x++ )
             {
-                float zf = z + (float)buildData.pos.z();
+                float xf = x + (float)buildData.pos.x();
 
                 if( densityValues[noiseIdx] >= buildData.isoSurface ) // isSolid
                 {
@@ -333,7 +333,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                 noiseIdx++;
             }
 
-            noiseIdx += STEP_Z * 2;
+            noiseIdx += STEP_X * 2;
         }
 
         noiseIdx += STEP_Y * 2;
