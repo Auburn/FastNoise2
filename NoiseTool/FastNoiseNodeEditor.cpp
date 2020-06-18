@@ -462,8 +462,7 @@ void FastNoiseNodeEditor::DoContextMenu()
 {
     std::string className;
     ImVec2 drag = ImGui::GetMouseDragDelta( ImGuiMouseButton_Right );
-    float distance = sqrtf( drag.x * drag.x + drag.y * drag.y );
-
+    float distance = sqrtf( ImDot(drag, drag ) );
 
     ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2(4, 4) );
     if( distance < 5.0f && ImGui::BeginPopupContextWindow() )
@@ -526,7 +525,7 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::GenerateSelectedPrevi
 
     if( find != mNodes.end() )
     {
-        generator = FastNoise::NewFromNodeString( find->second->serialised.c_str() );
+        generator = FastNoise::NewFromEncodedNodeTree( find->second->serialised.c_str() );
 
         if( generator && noiseSize )
         {

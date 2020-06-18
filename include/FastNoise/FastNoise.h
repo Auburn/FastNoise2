@@ -27,8 +27,8 @@ namespace FastNoise
         return std::shared_ptr<T>( FastSIMD::New<T>( maxLevel ) );
     }
 
-    inline std::shared_ptr<Generator> NewFromNodeString( const char* base64String, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
+    inline std::shared_ptr<Generator> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
     {
-        return MetadataManager::DeserialiseNodeData( base64String, maxLevel );
+        return MetadataManager::DeserialiseNodeData( encodedNodeTreeString, maxLevel );
     }
 }
