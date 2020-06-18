@@ -84,10 +84,12 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
     }
 
 #if FASTSIMD_x86
-    simdLevel = Level_Scalar; // default value
     int abcd[4] = { 0,0,0,0 }; // cpuid results
-
     cpuid( abcd, 0 ); // call cpuid function 0
+
+#if !FASTSIMD_64BIT
+    simdLevel = Level_Scalar; // default value
+
     if ( abcd[0] == 0 )
         return simdLevel; // no further cpuid function supported
     cpuid( abcd, 1 ); // call cpuid function 1 for feature flags
@@ -106,7 +108,9 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 
     if ( (abcd[3] & (1 << 26)) == 0 )
         return simdLevel; // no SSE2
-    simdLevel = Level_SSE2;
+#endif
+
+    simdLevel = Level_SSE2; // default value for 64bit
     // 2: SSE2 supported
 
     if ( (abcd[2] & (1 << 0)) == 0 )
@@ -204,6 +208,10 @@ CLASS_T* FastSIMD::New( eLevel maxSIMDLevel )
     if( maxSIMDLevel == Level_Null )
     {
         maxSIMDLevel = CPUMaxSIMDLevel();
+    }
+    else
+    {
+        maxSIMDLevel = std::min( maxSIMDLevel, CPUMaxSIMDLevel() );        
     }
 
     static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );
