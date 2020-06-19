@@ -12,15 +12,14 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments, Configuration{}
     .setTitle( "FastNoise Tool" )
     .setSize( Vector2i( 1280, 720 ) )
-    .setWindowFlags( Configuration::WindowFlag::Resizable ) }
+    .setWindowFlags( Configuration::WindowFlag::Resizable ) },
+    mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
     
     mFrameTime.start();
 
     UpdatePespectiveProjection();
-
-    mImGuiContext = ImGuiIntegration::Context( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() );
 
     /* Set up proper blending to be used by ImGui. There's a great chance
        you'll need this exact behavior for the rest of your scene. If not, set

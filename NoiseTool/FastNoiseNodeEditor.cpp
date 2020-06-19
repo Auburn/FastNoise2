@@ -179,6 +179,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 
     Debug{} << lSIMD.c_str();
 
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     imnodes::Initialize();
 }
 
@@ -369,12 +370,14 @@ void FastNoiseNodeEditor::DoNodes()
 
     for( auto& node : mNodes )
     {
-        imnodes::BeginNode(node.first);
+        imnodes::BeginNode( node.first );
 
         imnodes::BeginNodeTitleBar();
         FormatClassName( className, node.second->metadata->name );
         ImGui::TextUnformatted( className.c_str() );
-        imnodes::EndNodeTitleBar();        
+        imnodes::EndNodeTitleBar();
+
+        ImGui::PushItemWidth( 60.0f );        
 
         imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkDetachWithDragClick );
         int attributeId = node.first << 8;
@@ -389,17 +392,17 @@ void FastNoiseNodeEditor::DoNodes()
         for( size_t i = 0; i < node.second->metadata->memberHybrids.size(); i++ )
         {
             imnodes::BeginInputAttribute( attributeId++ );
-            ImGui::PushItemWidth( 60.0f );
 
             bool isLinked = node.second->memberHybrids[i].first != -1;
+            const char* floatFormat = "%.3f";
 
             if( isLinked )
             {
                 ImGui::PushItemFlag( ImGuiItemFlags_Disabled, true );
-                ImGui::PushStyleVar( ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f );
+                floatFormat = "";
             }
 
-            if( ImGui::DragFloat( node.second->metadata->memberHybrids[i].name, &node.second->memberHybrids[i].second, 0.02f ) )
+            if( ImGui::DragFloat( node.second->metadata->memberHybrids[i].name, &node.second->memberHybrids[i].second, 0.02f, 0, 0, floatFormat ) )
             {
                 node.second->GeneratePreview();
             }
@@ -407,7 +410,6 @@ void FastNoiseNodeEditor::DoNodes()
             if( isLinked )
             {
                 ImGui::PopItemFlag();
-                ImGui::PopStyleVar();
             }
             imnodes::EndInputAttribute();
         }
@@ -415,7 +417,6 @@ void FastNoiseNodeEditor::DoNodes()
         for( size_t i = 0; i < node.second->metadata->memberVariables.size(); i++ )
         {
             imnodes::BeginStaticAttribute( attributeId++ );
-            ImGui::PushItemWidth( 60.0f );
 
             auto& nodeVar = node.second->metadata->memberVariables[i];
 
@@ -449,6 +450,7 @@ void FastNoiseNodeEditor::DoNodes()
             imnodes::EndStaticAttribute();
         }
 
+        ImGui::PopItemWidth();
         imnodes::PopAttributeFlag();
         imnodes::BeginOutputAttribute( attributeId );
 
