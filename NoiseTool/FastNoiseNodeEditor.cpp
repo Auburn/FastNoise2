@@ -159,6 +159,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
     mNoiseImage( PixelFormat::RGBA8Srgb, { 0, 0 } )
 {
     imnodes::Initialize();
+    imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkDetachWithDragClick );
 }
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
@@ -260,72 +261,73 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
 void FastNoiseNodeEditor::UpdateSelected()
 {
-    if( int selectedCount = imnodes::NumSelectedLinks() )
+    std::vector<int> linksToDelete;
+
+    if( int selectedCount = imnodes::NumSelectedLinks() && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
     {
-        std::vector<int> selected( selectedCount );
+        linksToDelete.resize( selectedCount );
+        imnodes::GetSelectedLinks( linksToDelete.data() );
+    }
 
-        imnodes::GetSelectedLinks( selected.data() );
+    int destroyedLinkId;
+    if( imnodes::IsLinkDestroyed( &destroyedLinkId ) )
+    {
+        linksToDelete.push_back( destroyedLinkId );
+    }
 
-        if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+    for( int deleteID : linksToDelete )
+    {
+        for( auto& node : mNodes )
         {
-            for( int deleteID : selected )
+            bool changed = false;
+            int attributeId = node.first << 8;
+
+            for( int* link : node.second->memberLinks )
             {
-                for( auto& node : mNodes )
+                if( attributeId == deleteID )
                 {
-                    bool changed = false;
-                    int attributeId = node.first << 8;
-
-                    for( int* link : node.second->memberLinks )
-                    {
-                        if( attributeId == deleteID )
-                        {
-                            *link = -1;
-                            changed = true;
-                        }
-                        attributeId++;
-                    }
-
-                    if( changed )
-                    {
-                        node.second->GeneratePreview();
-                    }
+                    *link = -1;
+                    changed = true;
                 }
+                attributeId++;
+            }
+
+            if( changed )
+            {
+                node.second->GeneratePreview();
             }
         }
     }
 
-    if( int selectedCount = imnodes::NumSelectedNodes() )
+    if( int selectedCount = imnodes::NumSelectedNodes() && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
     {
         std::vector<int> selected( selectedCount );
 
         imnodes::GetSelectedNodes( selected.data() );
 
-        if( ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+        for( int deleteID : selected )
         {
-            for( int deleteID : selected )
+            mNodes.erase( deleteID );
+
+            for( auto& node : mNodes )
             {
-                mNodes.erase( deleteID );
+                bool changed = false;
 
-                for( auto& node : mNodes )
+                for( int* link : node.second->memberLinks )
                 {
-                    bool changed = false;
-
-                    for( int* link : node.second->memberLinks )
+                    if( *link >> 8 == deleteID )
                     {
-                        if( *link >> 8 == deleteID )
-                        {
-                            *link = -1;
-                            changed = true;
-                        }
-                    }
-
-                    if( changed )
-                    {
-                        node.second->GeneratePreview();
+                        *link = -1;
+                        changed = true;
                     }
                 }
+
+                if( changed )
+                {
+                    node.second->GeneratePreview();
+                }
             }
-        }
+        }        
     }
 }
 
@@ -360,7 +362,7 @@ void FastNoiseNodeEditor::DoNodes()
         {
             imnodes::BeginInputAttribute( attributeId++ );
             ImGui::TextUnformatted( memberNode.name );
-            imnodes::EndAttribute();
+            imnodes::EndInputAttribute();
         }
 
         for( size_t i = 0; i < node.second->metadata->memberHybrids.size(); i++ )
@@ -386,13 +388,15 @@ void FastNoiseNodeEditor::DoNodes()
                 ImGui::PopItemFlag();
                 ImGui::PopStyleVar();
             }
-            imnodes::EndAttribute();
+            imnodes::EndInputAttribute();
         }
 
         for( size_t i = 0; i < node.second->metadata->memberVariables.size(); i++ )
         {
-            auto& nodeVar = node.second->metadata->memberVariables[i];
+            imnodes::BeginStaticAttribute( attributeId++ );
             ImGui::PushItemWidth( 60.0f );
+
+            auto& nodeVar = node.second->metadata->memberVariables[i];
 
             switch ( nodeVar.type )
             {
@@ -421,12 +425,13 @@ void FastNoiseNodeEditor::DoNodes()
                 }
                 break;
             }
+            imnodes::EndStaticAttribute();
         }
             
         imnodes::BeginOutputAttribute( attributeId );
 
         Vector2 noiseSize = { (float)Node::NoiseSize, (float)Node::NoiseSize };
-        if( mSelectedNode == node.first )
+        if( mSelectedNode == node.first && !node.second->serialised.empty() )
         {
             ImVec2 cursorPos = ImGui::GetCursorScreenPos();
             ImGui::RenderFrame( cursorPos - ImVec2( 1, 1 ), cursorPos + ImVec2( noiseSize ) + ImVec2( 1, 1 ), IM_COL32( 255, 0, 0, 200 ), false );
@@ -437,7 +442,7 @@ void FastNoiseNodeEditor::DoNodes()
         {
             ChangeSelectedNode( node.first );
         }
-        imnodes::EndAttribute();
+        imnodes::EndOutputAttribute();
 
         imnodes::EndNode();
     }
