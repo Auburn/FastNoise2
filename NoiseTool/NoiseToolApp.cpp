@@ -5,7 +5,6 @@
 #include <Magnum/GL/Renderer.h>
 
 #include "NoiseToolApp.h"
-#include "FastNoise/FastNoise.h"
 
 using namespace Magnum;
 

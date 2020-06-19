@@ -158,8 +158,28 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
 FastNoiseNodeEditor::FastNoiseNodeEditor() :
     mNoiseImage( PixelFormat::RGBA8Srgb, { 0, 0 } )
 {
+    std::string lSIMD = "FastSIMD detected SIMD Level: ";
+
+    switch( FastSIMD::CPUMaxSIMDLevel() )
+    {
+    default:
+    case FastSIMD::Level_Null:   lSIMD.append( "NULL" ); break;
+    case FastSIMD::Level_Scalar: lSIMD.append( "Scalar" ); break;
+    case FastSIMD::Level_SSE:    lSIMD.append( "SSE" ); break;
+    case FastSIMD::Level_SSE2:   lSIMD.append( "SSE2" ); break;
+    case FastSIMD::Level_SSE3:   lSIMD.append( "SSE3" ); break;
+    case FastSIMD::Level_SSSE3:  lSIMD.append( "SSSE3" ); break;
+    case FastSIMD::Level_SSE41:  lSIMD.append( "SSE4.1" ); break;
+    case FastSIMD::Level_SSE42:  lSIMD.append( "SSE4.2" ); break;
+    case FastSIMD::Level_AVX:    lSIMD.append( "AVX" ); break;
+    case FastSIMD::Level_AVX2:   lSIMD.append( "AVX2" ); break;
+    case FastSIMD::Level_AVX512: lSIMD.append( "AVX512" ); break;
+    case FastSIMD::Level_NEON:   lSIMD.append( "NEON" ); break;
+    }
+
+    Debug{} << lSIMD.c_str();
+
     imnodes::Initialize();
-    imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkDetachWithDragClick );
 }
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
@@ -356,6 +376,7 @@ void FastNoiseNodeEditor::DoNodes()
         ImGui::TextUnformatted( className.c_str() );
         imnodes::EndNodeTitleBar();        
 
+        imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkDetachWithDragClick );
         int attributeId = node.first << 8;
 
         for( auto& memberNode : node.second->metadata->memberNodes )
@@ -427,7 +448,8 @@ void FastNoiseNodeEditor::DoNodes()
             }
             imnodes::EndStaticAttribute();
         }
-            
+
+        imnodes::PopAttributeFlag();
         imnodes::BeginOutputAttribute( attributeId );
 
         Vector2 noiseSize = { (float)Node::NoiseSize, (float)Node::NoiseSize };
