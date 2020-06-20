@@ -365,16 +365,13 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
     if( !meshData.vertexData.empty() )
     {
-        mVertexBuffer = GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData );
-        mIndexBuffer  = GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies );
-
         //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
 
         mMesh = GL::Mesh( GL::MeshPrimitive::Triangles );
 
-        mMesh.setCount( mIndexBuffer.size() )
-            .setIndexBuffer( mIndexBuffer, 0, GL::MeshIndexType::UnsignedInt, 0, mVertexBuffer.size() - 1 )
-            .addVertexBuffer( mVertexBuffer, 0, Shaders::VertexColor3D::Position{}, Shaders::VertexColor3D::Color3{} );
+        mMesh.setCount( meshData.indicies.size() )
+            .setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, meshData.vertexData.size() - 1 )
+            .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, Shaders::VertexColor3D::Position{}, Shaders::VertexColor3D::Color3{} );
     }
 
     meshData.Free();

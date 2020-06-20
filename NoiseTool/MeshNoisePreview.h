@@ -211,8 +211,6 @@ namespace Magnum
             static constexpr uint32_t SIZE_GEN = SIZE + 2;
 
             Vector3i mPos;
-            GL::Buffer mVertexBuffer{ NoCreate };
-            GL::Buffer mIndexBuffer{ NoCreate };
             GL::Mesh mMesh{ NoCreate };
         };
 
