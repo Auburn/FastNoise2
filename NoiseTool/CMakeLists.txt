@@ -31,11 +31,13 @@ add_subdirectory(ThirdParty/magnum-integration EXCLUDE_FROM_ALL)
 
 find_package(MagnumIntegration REQUIRED ImGui)
     
+include_directories(ThirdParty/imnodes)
+
 add_executable(NoiseTool 
     "NoiseToolApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
-    "imnodes.cpp")
+    "ThirdParty/imnodes/imnodes.cpp")
  
 target_link_libraries(NoiseTool PUBLIC
     FastNoise

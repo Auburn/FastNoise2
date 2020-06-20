@@ -16,10 +16,12 @@ namespace Magnum
     {
     public:
         FastNoiseNodeEditor();
+        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
+        void CheckLinks();
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();
-        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
+        int AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
 
     private:
         struct Node
@@ -52,6 +54,8 @@ namespace Magnum
 
         std::unordered_map<int, Node::Ptr> mNodes;
         int mCurrentNodeId = 0;
+        bool mDroppedLink = false;
+        int mDroppedLinkNodeId = 0;
 
         MeshNoisePreview mMeshNoisePreview;
 
@@ -62,7 +66,7 @@ namespace Magnum
         std::vector<float> mNoiseData;
         VectorTypeFor<2, Int> mPreviewWindowsSize = { 0,0 };
 
-        float mNodeFrequency = 0.01f;
+        float mNodeFrequency = 0.02f;
         int mNodeSeed = 1337;
 
         float mPreviewFrequency = 0.02f;
