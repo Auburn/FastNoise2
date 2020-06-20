@@ -387,6 +387,24 @@ void FormatClassName( std::string& string, const char* name )
     }
 }
 
+template<typename T>
+bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
+{
+    if( a.size() != b.size() )
+    {
+        return false;
+    }
+
+    for( size_t i = 0; i < a.size(); i++ )
+    {
+        if( strcmp( a[i].name, b[i].name ) != 0 )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 void FastNoiseNodeEditor::DoNodes()
 {
     std::string className;
@@ -399,6 +417,32 @@ void FastNoiseNodeEditor::DoNodes()
         FormatClassName( className, node.second->metadata->name );
         ImGui::TextUnformatted( className.c_str() );
         imnodes::EndNodeTitleBar();
+
+        // Right click node title to change node type
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
+        if( ImGui::BeginPopupContextItem() )
+        {
+            for( auto& metadata : FastNoise::MetadataManager::GetMetadataClasses() )
+            {
+                if( metadata == node.second->metadata ||
+                    !MatchingMembers( metadata->memberVariables, node.second->metadata->memberVariables ) ||
+                    !MatchingMembers( metadata->memberNodes, node.second->metadata->memberNodes ) || 
+                    !MatchingMembers( metadata->memberHybrids, node.second->metadata->memberHybrids ) )
+                {
+                    continue;
+                }
+
+                FormatClassName( className, metadata->name );
+                if( ImGui::MenuItem( className.c_str() ) )
+                {
+                    node.second->metadata = metadata;
+                    node.second->GeneratePreview();
+                }
+            }
+
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar();
 
         ImGui::PushItemWidth( 60.0f );        
 
@@ -580,7 +624,7 @@ void FastNoiseNodeEditor::DoContextMenu()
         for( auto& metadata : FastNoise::MetadataManager::GetMetadataClasses() )
         {
             FormatClassName( className, metadata->name );
-            if( (metadata->memberNodes.size() || metadata->memberHybrids.size()) && ImGui::MenuItem( className.c_str() ) )
+            if( (!metadata->memberNodes.empty() || !metadata->memberHybrids.empty()) && ImGui::MenuItem( className.c_str() ) )
             {
                 auto& newNode = mNodes[AddNode( startPos, metadata )];
 
