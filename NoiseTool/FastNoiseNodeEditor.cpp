@@ -179,15 +179,22 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 
     Debug{} << lSIMD.c_str();
 
+#ifdef IMGUI_HAS_DOCK
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+#endif
+    ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+
     imnodes::Initialize();
+
+    ImGui::StyleColorsDark();
+    imnodes::StyleColorsDark();
 }
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
     ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "FastNoise Node Editor" ) )
+    if( ImGui::Begin( "Node Editor" ) )
     {
         UpdateSelected();
 
@@ -246,7 +253,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
     ImGui::SetNextWindowSize( ImVec2( 768, 768 ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowPos( ImVec2( 1143, 305 ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "FastNoise Preview" ) )
+    if( ImGui::Begin( "Texture Preview" ) )
     {
         std::string serialised;
         auto find = mNodes.find( mSelectedNode );

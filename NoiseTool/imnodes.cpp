@@ -777,7 +777,7 @@ void begin_canvas_interaction(EditorContext& editor)
     }
 
     const bool left_mouse_clicked = ImGui::IsMouseClicked(0);
-    const bool middle_mouse_clicked = ImGui::IsMouseClicked(2);
+    const bool middle_mouse_clicked = ImGui::IsMouseClicked(1) || ImGui::IsMouseClicked(2);
 
     const bool started_panning =
         g.io.emulate_three_button_mouse.enabled
@@ -987,7 +987,7 @@ void click_interaction_update(EditorContext& editor)
         const bool dragging =
             g.io.emulate_three_button_mouse.enabled
                 ? (ImGui::IsMouseDragging(0, 0.f) && (*g.io.emulate_three_button_mouse.modifier))
-                : ImGui::IsMouseDragging(2, 0.f);
+                : ImGui::IsMouseDragging( 1, 0.f ) || ImGui::IsMouseDragging(2, 0.f);
 
         if (dragging)
         {
@@ -1614,7 +1614,7 @@ void EndNodeEditor()
     EditorContext& editor = editor_context_get();
 
     const bool is_left_mouse_clicked = ImGui::IsMouseClicked(0);
-    const bool is_middle_mouse_clicked = ImGui::IsMouseClicked(2);
+    const bool is_middle_mouse_clicked = ImGui::IsMouseClicked(1) || ImGui::IsMouseClicked(2);
 
     for (int link_idx = 0; link_idx < editor.links.pool.size(); ++link_idx)
     {

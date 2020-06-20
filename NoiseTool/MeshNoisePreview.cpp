@@ -76,9 +76,8 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     {
         GL::Mesh& mesh = mChunks.at( pos ).GetMesh();
 
-        if( mesh.count() )
+        if( uint32_t meshTriCount = mesh.count() )
         {
-            uint32_t meshTriCount = mesh.count();
             mTriCount += meshTriCount;
 
             Range3Di bbox( pos, pos + Vector3i( Chunk::SIZE + 1 ) );
@@ -94,7 +93,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
     //ImGui::Text( "Generating Queue Count: %llu", mGenerateQueue.Count() );
     ImGui::Text( "Triangle Count: %0.1fK (%0.1fK)", mTriCount / 1000.0f, drawnTriCount / 3000.0f );
-    ImGui::Text( "Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
+    ImGui::Text( "   Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
 
     float triLimit1000 = mTriLimit / 1000.0f;
@@ -113,21 +112,51 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     UpdateChunksForPosition( cameraPosition );
 }
 
+float MeshNoisePreview::GetLoadRangeModifier()
+{
+    return std::min( 0.01f, (float)(1000 / std::powl(  std::min( 1000.0f, mLoadRange ), 2 )) );
+}
+
 void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
 {
+    size_t queueCount = mCompleteQueue.Count();
+
     if( mTriCount > mTriLimit ) // Reduce load range if over tri limit
     {
-        mLoadRange = std::max( mLoadRange * 0.995f, Chunk::SIZE * 1.5f );
+        mLoadRange = std::max( mLoadRange * (1 - GetLoadRangeModifier()), Chunk::SIZE * 1.5f );
     }
+
+    StartTimer();
+    Vector3i chunkPos = Vector3i( position - Vector3( Chunk::SIZE / 2.0f ) );
+
+    size_t newChunks = 0;
+    if( queueCount )
+    {        
+        Chunk::MeshData meshData;
+
+        while( GetTimerDurationMs() < 14 && mCompleteQueue.Pop( meshData ) )
+        {
+            mInProgressChunks.erase( meshData.pos );
+            mDistanceOrderedChunks.push_back( meshData.pos );
+            mChunks.emplace( meshData.pos, meshData );
+            newChunks++;
+        }
+        mAvgNewChunks += (newChunks - mAvgNewChunks) * 0.01f;
+    }
+
+    std::sort( mDistanceOrderedChunks.begin(), mDistanceOrderedChunks.end(), 
+        [chunkPos]( const Vector3i& a, const Vector3i& b )
+        {
+            return (chunkPos - a).dot() < (chunkPos - b).dot();
+        } );
 
     // Unload further chunk if out of load range
     size_t deletedChunks = 0;
-    Vector3i chunkPos = Vector3i( position - Vector3( Chunk::SIZE / 2.0f ) );
     while( !mDistanceOrderedChunks.empty() )
     {
         Vector3i backChunkPos = mDistanceOrderedChunks.back();
         float unloadRange = mLoadRange * 1.1f;
-        if( deletedChunks < 20 && (chunkPos - backChunkPos).dot() > unloadRange * unloadRange )
+        if( GetTimerDurationMs() < 15 && (chunkPos - backChunkPos).dot() > unloadRange * unloadRange )
         {
             mChunks.erase( backChunkPos );
             mDistanceOrderedChunks.pop_back();
@@ -137,42 +166,24 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         {
             break;
         }
-    }    
+    }
+
+    ImGui::Text( "Meshing Chunks: %zu", mInProgressChunks.size() - mCompleteQueue.Count() );
+    ImGui::Text( " Queued Chunks: %zu", queueCount );
+    ImGui::Text( "    New Chunks: %zu (%0.1f)", newChunks, mAvgNewChunks );
     ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
 
-    size_t newChunks = 0;
-    size_t queueCount = mCompleteQueue.Count();
-    if( queueCount )
-    {
-        size_t maxNewChunks = std::clamp( queueCount / 3, (size_t)4, (size_t)15 );
-        Chunk::MeshData meshData;
-
-        while( newChunks < maxNewChunks && mCompleteQueue.Pop( meshData ) )
-        {
-            mInProgressChunks.erase( meshData.pos );
-            mDistanceOrderedChunks.push_back( meshData.pos );
-            mChunks.emplace( meshData.pos, meshData );
-            newChunks++;
-        }
-
-    }
-    ImGui::Text( "New Chunks: %zu", newChunks );
-
     // Increase load range if queue is not full
-    if( (double)mTriCount < mTriLimit * 0.9 && mInProgressChunks.size() <= mThreads.size() )
+    if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < 20 * mAvgNewChunks )
     {
-        mLoadRange = std::min( mLoadRange * 1.01f, 1000.0f );
+        mLoadRange = std::min( mLoadRange * (1 + GetLoadRangeModifier()), 2000.0f );
     }
 
-    std::sort( mDistanceOrderedChunks.begin(), mDistanceOrderedChunks.end(), 
-        [chunkPos]( const Vector3i& a, const Vector3i& b )
-        {
-            return (chunkPos - a).dot() < (chunkPos - b).dot();
-        } );
 }
 
 void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 {
+    //StartTimer();
     int chunkRange = (int)ceilf( mLoadRange / Chunk::SIZE );
 
     position -= Vector3( Chunk::SIZE / 2.0f );
@@ -184,7 +195,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
     Vector3i chunkPos;
     int loadRangeSq = (int)(mLoadRange * mLoadRange);
 
-    int staggerShift = (loadRangeSq * (int)mLoadRange) / 200000001;
+    int staggerShift = std::min( 5, (int)((loadRangeSq * (int64_t)mLoadRange) / 1000000000) );
     int staggerCount = (1 << staggerShift) - 1;
 
     for( int x = -chunkRange; x <= chunkRange; x++ )
@@ -226,11 +237,13 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
         mBuildData.pos = pos;
         mInProgressChunks.insert( pos );
 
-        if( mGenerateQueue.Push( mBuildData ) >= mThreads.size() * 64 )
+        if( mGenerateQueue.Push( mBuildData ) >= mThreads.size() * 16 )
         {
             break;
         }
     }
+
+    //ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
 }
 
 void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
@@ -262,15 +275,17 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     vertexData.clear();
     indicies.clear();
 
-    float xLight = abs( dot( LIGHT_DIR.normalized(), Vector3( 1, 0, 0 ) ) ) * (1.0f - AMBIENT_LIGHT) + AMBIENT_LIGHT;
+    Vector3 light = LIGHT_DIR.normalized() * (1.0f - AMBIENT_LIGHT) + Vector3( AMBIENT_LIGHT );
+
+    float xLight = abs( light.x() );
     Color3 colorRight = buildData.color * xLight;
     Color3 colorLeft = buildData.color * (1.0f - xLight);
 
-    float yLight = abs( dot( LIGHT_DIR.normalized(), Vector3( 0, 1, 0 ) ) ) * (1.0f - AMBIENT_LIGHT) + AMBIENT_LIGHT;
+    float yLight = abs( light.y() );
     Color3 colorUp = buildData.color * yLight;
     Color3 colorDown = buildData.color * (1.0f - yLight);
 
-    float zLight = abs( dot( LIGHT_DIR.normalized(), Vector3( 0, 0, 1 ) ) ) * (1.0f - AMBIENT_LIGHT) + AMBIENT_LIGHT;
+    float zLight = abs( light.z() );
     Color3 colorForward = buildData.color * zLight;
     Color3 colorBack = buildData.color * (1.0f - zLight);
 
@@ -292,39 +307,39 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
             {
                 float xf = x + (float)buildData.pos.x();
 
-                if( densityValues[noiseIdx] >= buildData.isoSurface ) // isSolid
+                if( densityValues[noiseIdx] <= buildData.isoSurface ) // isSolid
                 {
-                    if( densityValues[noiseIdx + STEP_X] < buildData.isoSurface ) // Right
+                    if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                     {
                         AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_X, STEP_Y, STEP_Z, colorRight,
                             Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
-                    if( densityValues[noiseIdx - STEP_X] < buildData.isoSurface ) // Left
+                    if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
                     {
                         AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_X, -STEP_Y, STEP_Z, colorLeft,
                             Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
-                    if( densityValues[noiseIdx + STEP_Y] < buildData.isoSurface ) // Up
+                    if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
                     {
                         AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Y, STEP_Z, STEP_X, colorUp,
                             Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                     }
 
-                    if( densityValues[noiseIdx - STEP_Y] < buildData.isoSurface ) // Down
+                    if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
                     {
                         AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Y, -STEP_Z, STEP_X, colorDown,
                             Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
-                    if( densityValues[noiseIdx + STEP_Z] < buildData.isoSurface ) // Forward
+                    if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
                     {
                         AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Z, STEP_X, STEP_Y, colorForward,
                             Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
-                    if( densityValues[noiseIdx - STEP_Z] < buildData.isoSurface ) // Back
+                    if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
                     {
                         AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Z, -STEP_X, STEP_Y, colorBack,
                             Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
@@ -351,7 +366,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
     if( !meshData.vertexData.empty() )
     {
         mVertexBuffer = GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData );
-        mIndexBuffer  = GL::Buffer( GL::Buffer::TargetHint::Array, meshData.indicies );
+        mIndexBuffer  = GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies );
 
         //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
 
@@ -368,15 +383,15 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
     int32_t facingIdx, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
 {
-    uint8_t sideA0 = density[facingIdx - offsetA] >= isoSurface;
-    uint8_t sideA1 = density[facingIdx + offsetA] >= isoSurface;
-    uint8_t sideB0 = density[facingIdx - offsetB] >= isoSurface;
-    uint8_t sideB1 = density[facingIdx + offsetB] >= isoSurface;
+    uint8_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
+    uint8_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
+    uint8_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
+    uint8_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
 
-    uint8_t corner00 = (sideA0 && sideB0) || density[facingIdx - offsetA - offsetB] >= isoSurface;
-    uint8_t corner01 = (sideA0 && sideB1) || density[facingIdx - offsetA + offsetB] >= isoSurface;
-    uint8_t corner10 = (sideA1 && sideB0) || density[facingIdx + offsetA - offsetB] >= isoSurface;
-    uint8_t corner11 = (sideA1 && sideB1) || density[facingIdx + offsetA + offsetB] >= isoSurface;
+    uint8_t corner00 = (sideA0 && sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
+    uint8_t corner01 = (sideA0 && sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
+    uint8_t corner10 = (sideA1 && sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
+    uint8_t corner11 = (sideA1 && sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
 
     float light00 = (float)(sideA0 + sideB0 + corner00) / 3.0f;
     float light01 = (float)(sideA1 + sideB0 + corner10) / 3.0f;
@@ -475,4 +490,14 @@ MeshNoisePreview::VertexColorShader& MeshNoisePreview::VertexColorShader::setTra
 {
     setUniform( mTransformationProjectionMatrixUniform, matrix );
     return *this;
+}
+
+void MeshNoisePreview::StartTimer()
+{
+    mTimerStart = std::chrono::high_resolution_clock::now();
+}
+
+float MeshNoisePreview::GetTimerDurationMs()
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - mTimerStart).count() / 1e3f;
 }

@@ -1,10 +1,10 @@
 #pragma once
-#include <atomic>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <unordered_set>
 #include <vector>
+#include <chrono>
 
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/Mesh.h>
@@ -228,6 +228,10 @@ namespace Magnum
 
         void UpdateChunksForPosition( Vector3 position );
         void UpdateChunkQueues( const Vector3& position );
+        float GetLoadRangeModifier();
+
+        void StartTimer();
+        float GetTimerDurationMs();
 
         std::unordered_map<Vector3i, Chunk, Vector3iHash> mChunks;
         std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
@@ -235,6 +239,7 @@ namespace Magnum
 
         Chunk::BuildData mBuildData;
         float mLoadRange = 300.0f;
+        float mAvgNewChunks = 1.0f;
         uint32_t mTriLimit = 100000000; // 100 mil
         uint32_t mTriCount = 0;
         int mStaggerCheck = 0;
@@ -242,6 +247,7 @@ namespace Magnum
         GenerateQueue<Chunk::BuildData> mGenerateQueue;
         CompleteQueue<Chunk::MeshData> mCompleteQueue;
         std::vector<std::thread> mThreads;
+        std::chrono::high_resolution_clock::time_point mTimerStart;
 
         VertexColorShader mShader;
     };

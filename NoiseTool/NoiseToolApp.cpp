@@ -104,6 +104,7 @@ void NoiseToolApp::drawEvent()
     GL::Renderer::disable( GL::Renderer::Feature::DepthTest );
     GL::Renderer::disable( GL::Renderer::Feature::FaceCulling );
 
+    mImGuiContext.updateApplicationCursor( *this );
     mImGuiContext.drawFrame();
 
     /* Reset state. Only needed if you want to draw something else with
@@ -244,7 +245,7 @@ void NoiseToolApp::textInputEvent( TextInputEvent& event )
 
 void NoiseToolApp::UpdatePespectiveProjection()
 {
-    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 2.0f, 1200.0f ) );
+    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 2.0f, 2300.0f ) );
 }
 
 
