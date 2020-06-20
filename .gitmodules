@@ -13,3 +13,6 @@
 [submodule "tests/ThirdParty/benchmark"]
 	path = tests/ThirdParty/benchmark
 	url = https://github.com/google/benchmark.git
+[submodule "NoiseTool/ThirdParty/imnodes"]
+	path = NoiseTool/ThirdParty/imnodes
+	url = https://github.com/Auburns/imnodes.git
