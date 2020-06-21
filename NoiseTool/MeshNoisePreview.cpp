@@ -97,7 +97,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
 
     float triLimit1000 = mTriLimit / 1000.0f;
-    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 1000000.0f, "%0.1fK" ) )
+    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 200000.0f, "%0.1fK" ) )
     {
         mTriLimit = triLimit1000 * 1000;
     }
@@ -172,6 +172,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
     ImGui::Text( " Queued Chunks: %zu", queueCount );
     ImGui::Text( "    New Chunks: %zu (%0.1f)", newChunks, mAvgNewChunks );
     ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
+    ImGui::Text( " Loaded Chunks: %zu", mDistanceOrderedChunks.size() );
 
     // Increase load range if queue is not full
     if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < 20 * mAvgNewChunks )
@@ -371,7 +372,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
         mMesh.setCount( meshData.indicies.size() )
             .setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, meshData.vertexData.size() - 1 )
-            .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, Shaders::VertexColor3D::Position{}, Shaders::VertexColor3D::Color3{} );
+            .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexColorShader::Position{}, VertexColorShader::Color3{} );
     }
 
     meshData.Free();

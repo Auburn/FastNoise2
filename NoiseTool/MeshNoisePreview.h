@@ -112,13 +112,13 @@ namespace Magnum
         class VertexColorShader : public GL::AbstractShaderProgram
         {
         public:
-            typedef Shaders::Generic<3>::Position Position;
-            typedef Shaders::Generic<3>::Color3 Color3;
-            typedef Shaders::Generic<3>::Color4 Color4;
+            typedef Shaders::Generic3D::Position Position;
+            typedef Shaders::Generic3D::Color3 Color3;
+            typedef Shaders::Generic3D::Color4 Color4;
 
             enum : UnsignedInt
             {
-                ColorOutput = Shaders::Generic<3>::ColorOutput
+                ColorOutput = Shaders::Generic3D::ColorOutput
             };
 
             explicit VertexColorShader();
@@ -238,7 +238,7 @@ namespace Magnum
         Chunk::BuildData mBuildData;
         float mLoadRange = 300.0f;
         float mAvgNewChunks = 1.0f;
-        uint32_t mTriLimit = 100000000; // 100 mil
+        uint32_t mTriLimit = 25000000; // 25 mil
         uint32_t mTriCount = 0;
         int mStaggerCheck = 0;
 
