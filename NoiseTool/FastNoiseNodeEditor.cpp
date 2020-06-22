@@ -266,7 +266,8 @@ void FastNoiseNodeEditor::CheckLinks()
 {
     // Check for new links
     int startAttr, endAttr;
-    if( imnodes::IsLinkCreated( &startAttr, &endAttr ) )
+    bool createdFromSnap;
+    if( imnodes::IsLinkCreated( &startAttr, &endAttr, &createdFromSnap) )
     {
         for( auto& n : mNodes )
         {
@@ -274,15 +275,23 @@ void FastNoiseNodeEditor::CheckLinks()
 
             for( int* id : n.second->memberLinks )
             {
+                int linkId = -1;
                 if( attrId == startAttr )
                 {
-                    *id = endAttr;
-                    n.second->GeneratePreview();
-                    break;
+                    linkId = endAttr;
                 }
-                if( attrId == endAttr )
+                else if( attrId == endAttr )
                 {
-                    *id = startAttr;
+                    linkId = startAttr;
+                }
+
+                if( linkId != -1 )
+                {
+                    if( createdFromSnap && *id != -1 )
+                    {
+                        break;
+                    }
+                    *id = linkId;
                     n.second->GeneratePreview();
                     break;
                 }
@@ -446,6 +455,7 @@ void FastNoiseNodeEditor::DoNodes()
 
         ImGui::PushItemWidth( 60.0f );        
 
+        imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkCreationOnSnap );
         imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkDetachWithDragClick );
         int attributeId = node.first << 8;
 
@@ -505,7 +515,7 @@ void FastNoiseNodeEditor::DoNodes()
                 break;
             case FastNoise::Metadata::MemberVariable::EEnum:
                 {
-                    if( ImGui::Combo( nodeVar.name, &node.second->memberValues[i].i, nodeVar.enumNames.data(), nodeVar.enumNames.size() ) )
+                    if( ImGui::Combo( nodeVar.name, &node.second->memberValues[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) )
                     {
                         node.second->GeneratePreview();
                     }
@@ -531,6 +541,7 @@ void FastNoiseNodeEditor::DoNodes()
             ChangeSelectedNode( node.first );
         }
         imnodes::EndOutputAttribute();
+        imnodes::PopAttributeFlag();
 
         imnodes::EndNode();
     }
