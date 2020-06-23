@@ -65,87 +65,93 @@ public:
         return simdT;
     }
 
-    void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) const final
+    OutputMinMax GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
     {
-        int32v xIdx = int32v::FS_Incremented();
-        int32v yIdx = int32v::FS_Zero();
+        assert( xSize >= int32v::Size() );
 
-        float32v xOffset( xStart );
-        float32v yOffset( yStart );
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
 
-        float32v xScale( xStep );
-        float32v yScale( yStep );
+        int32v xIdx( xStart );
+        int32v yIdx( yStart );
+
+        float32v freqV( frequency );
 
         int32v xSizeV( xSize );
-        int32v xMax = xSizeV + int32v( -1 );
+        int32v xMax = xSizeV + xIdx + int32v( -1 );
 
         int32_t totalValues = xSize * ySize;
         int32_t index = 0;
 
-        while ( index < totalValues - float32v::FS_Size() )
+        xIdx += int32v::FS_Incremented();
+
+        while( index < totalValues - float32v::FS_Size() )
         {
-            float32v xPos = xOffset + (FS_Converti32_f32( xIdx ) * xScale);
-            float32v yPos = yOffset + (FS_Converti32_f32( yIdx ) * yScale);
+            float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
+            float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
 
-            FS_Store_f32( &noiseOut[index], Gen( int32v( seed ), xPos, yPos ));
+            float32v gen = Gen( int32v( seed ), xPos, yPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
             index += float32v::FS_Size();
-
             xIdx += int32v( int32v::FS_Size() );
 
             mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
-            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
             yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
+            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
         }
 
-        float32v xPos = xOffset + (FS_Converti32_f32( xIdx ) * xScale);
-        float32v yPos = yOffset + (FS_Converti32_f32( yIdx ) * yScale);
+        float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
+        float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
-        int32_t remaining = totalValues - index;
 
-        switch ( remaining )
-        {
-            case float32v::FS_Size():
-            FS_Store_f32( &noiseOut[index], gen );
-            break;
-
-        default:
-            memcpy( &noiseOut[index], &gen, size_t( remaining ) * sizeof( int32_t ) );
-            break;
-        }
+        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) const final
+    OutputMinMax GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed ) const final
     {
-        int32v xIdx = int32v::FS_Incremented();
-        int32v yIdx( 0 );
-        int32v zIdx( 0 );
+        assert( xSize >= int32v::Size() );
 
-        float32v xOffset( xStart );
-        float32v yOffset( yStart );
-        float32v zOffset( zStart );
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
 
-        float32v xScale( xStep );
-        float32v yScale( yStep );
-        float32v zScale( zStep );
+        int32v xIdx( xStart );
+        int32v yIdx( yStart );
+        int32v zIdx( zStart );
+
+        float32v freqV( frequency );
 
         int32v xSizeV( xSize );
-        int32v xMax = xSizeV + int32v( -1 );
+        int32v xMax = xSizeV + xIdx + int32v( -1 );
         int32v ySizeV( ySize );
-        int32v yMax = ySizeV + int32v( -1 );
+        int32v yMax = ySizeV + yIdx + int32v( -1 );
 
         int32_t totalValues = xSize * ySize * zSize;
         int32_t index = 0;
 
-        while ( index < totalValues - float32v::FS_Size() )
+        xIdx += int32v::FS_Incremented();
+
+        while( index < totalValues - float32v::FS_Size() )
         {
-            float32v xPos = xOffset + (FS_Converti32_f32( xIdx ) * xScale);
-            float32v yPos = yOffset + (FS_Converti32_f32( yIdx ) * yScale);
-            float32v zPos = zOffset + (FS_Converti32_f32( zIdx ) * zScale);
+            float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
+            float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
+            float32v zPos = FS_Converti32_f32( zIdx ) * freqV;
 
-            FS_Store_f32( &noiseOut[index], Gen( int32v( seed ), xPos, yPos, zPos ) );
+            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
             index += float32v::FS_Size();
-
             xIdx += int32v( int32v::FS_Size() );
 
             mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
@@ -157,27 +163,49 @@ public:
             yIdx = FS_MaskedSub_i32( yIdx, ySizeV, yReset );
         }
 
-        float32v xPos = xOffset + (FS_Converti32_f32( xIdx ) * xScale);
-        float32v yPos = yOffset + (FS_Converti32_f32( yIdx ) * yScale);
-        float32v zPos = zOffset + (FS_Converti32_f32( zIdx ) * zScale);
+        float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
+        float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
+        float32v zPos = FS_Converti32_f32( zIdx ) * freqV;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
-        int32_t remaining = totalValues - index;
 
-        switch ( remaining )
-        {
-            case float32v::FS_Size():
-                FS_Store_f32( &noiseOut[index], gen );
-                break;
-
-            default:
-                memcpy( &noiseOut[index], &gen, size_t( remaining ) * sizeof( int32_t ) );
-                break;
-        }
+        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) const final
+    OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int32_t seed ) const final
     {
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
+        int32_t index = 0;
+        while( index < int64_t(count) - float32v::FS_Size() )
+        {
+            float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
+            float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
+
+            float32v gen = Gen( int32v( seed ), xPos, yPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+            index += float32v::FS_Size();
+        }
+
+        float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
+        float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
+
+        float32v gen = Gen( int32v( seed ), xPos, yPos );
+
+        return DoRemaining( noiseOut, count, index, min, max, gen );
+    }
+
+    OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int32_t seed ) const final
+    {
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
         int32_t index = 0;
         while( index < int64_t(count) - float32v::FS_Size() )
         {
@@ -185,7 +213,13 @@ public:
             float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
             float32v zPos = float32v( zOffset ) + FS_Load_f32( &zPosArray[index] );
 
-            FS_Store_f32( &noiseOut[index], Gen( int32v( seed ), xPos, yPos, zPos ) );
+            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
             index += float32v::FS_Size();
         }
 
@@ -194,17 +228,47 @@ public:
         float32v zPos = float32v( zOffset ) + FS_Load_f32( &zPosArray[index] );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
-        int32_t remaining = count - index;
 
-        switch( remaining )
+        return DoRemaining( noiseOut, count, index, min, max, gen );
+    }
+
+private:
+    static FS_INLINE OutputMinMax DoRemaining( float* noiseOut, int32_t totalValues, int32_t index, float32v min, float32v max, float32v finalGen )
+    {
+        OutputMinMax minMax;
+        int32_t remaining = totalValues - index;
+
+        if( remaining == float32v::FS_Size() )
         {
-        case float32v::FS_Size():
-            FS_Store_f32( &noiseOut[index], gen );
-            break;
+            FS_Store_f32( &noiseOut[index], finalGen );
 
-        default:
-            memcpy( &noiseOut[index], &gen, remaining * sizeof( int32_t ) );
-            break;
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, finalGen );
+            max = FS_Max_f32( max, finalGen );
+#endif
         }
+        else
+        {
+            memcpy( &noiseOut[index], &finalGen, size_t( remaining ) * sizeof( int32_t ) );
+
+#if FASTNOISE_CALC_MIN_MAX
+            do
+            {
+                minMax << noiseOut[index];
+
+            } while( ++index < totalValues );
+#endif
+        }
+
+#if FASTNOISE_CALC_MIN_MAX
+        float* minP = reinterpret_cast<float*>(&min);
+        float* maxP = reinterpret_cast<float*>(&max);
+        for( size_t i = 0; i < float32v::Size(); i++ )
+        {
+            minMax << OutputMinMax{ minP[i], maxP[i] };
+        }
+#endif
+
+        return minMax;
     }
 };

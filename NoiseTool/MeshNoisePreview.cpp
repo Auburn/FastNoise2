@@ -42,6 +42,7 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
     mBuildData.seed = seed;
     mBuildData.pos = Vector3i( 0 );
     mBuildData.genVersion = mCompleteQueue.IncVersion();
+    mMinMax = {};
 
     mChunks.clear();
     mInProgressChunks.clear();
@@ -95,12 +96,15 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     ImGui::Text( "Triangle Count: %0.1fK (%0.1fK)", mTriCount / 1000.0f, drawnTriCount / 3000.0f );
     ImGui::Text( "   Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
+    ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
 
     float triLimit1000 = mTriLimit / 1000.0f;
     if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 200000.0f, "%0.1fK" ) )
     {
-        mTriLimit = triLimit1000 * 1000;
+        mTriLimit = (uint32_t)(triLimit1000 * 1000);
     }
+
+
 
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) |
         ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" ) |
@@ -138,6 +142,8 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         {
             mInProgressChunks.erase( meshData.pos );
             mDistanceOrderedChunks.push_back( meshData.pos );
+
+            mMinMax << meshData.minMax;
             mChunks.emplace( meshData.pos, meshData );
             newChunks++;
         }
@@ -269,7 +275,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     thread_local static std::vector<VertexData> vertexData;
     thread_local static std::vector<uint32_t> indicies;
 
-    buildData.generator->GenUniformGrid3D( densityValues,
+    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues,
         buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
         SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
 
@@ -355,7 +361,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
         noiseIdx += STEP_Y * 2;
     }
 
-    MeshData meshData( buildData.pos, vertexData, indicies );
+    MeshData meshData( buildData.pos, minMax, vertexData, indicies );
 
     return meshData;
 }
@@ -370,8 +376,8 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
         mMesh = GL::Mesh( GL::MeshPrimitive::Triangles );
 
-        mMesh.setCount( meshData.indicies.size() )
-            .setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, meshData.vertexData.size() - 1 )
+        mMesh.setCount( (Int)meshData.indicies.size() )
+            .setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, (UnsignedInt)meshData.vertexData.size() - 1 )
             .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexColorShader::Position{}, VertexColorShader::Color3{} );
     }
 

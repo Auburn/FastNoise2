@@ -1,6 +1,8 @@
 #pragma once
 #include "FastSIMD/FastSIMD.h"
 
+#define FASTNOISE_CALC_MIN_MAX 1
+
 namespace FastNoise
 {
     const FastSIMD::Level_BitFlags SUPPORTED_SIMD_LEVELS =

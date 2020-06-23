@@ -1,6 +1,6 @@
 #pragma once
-#include <array>
 #include <cassert>
+#include <cmath>
 #include <memory>
 
 #include "FastNoise/FastNoise_Config.h"
@@ -8,6 +8,26 @@
 
 namespace FastNoise
 {
+    struct OutputMinMax
+    {
+        float min = INFINITY;
+        float max = -INFINITY;
+
+        OutputMinMax& operator <<( float v )
+        {
+            min = fminf( min, v );
+            max = fmaxf( max, v );
+            return *this;
+        }
+
+        OutputMinMax& operator <<( const OutputMinMax& v )
+        {
+            min = fminf( min, v.min );
+            max = fmaxf( max, v.max );
+            return *this;
+        }
+    };
+
     template<typename T>
     struct BaseSource
     {
@@ -42,19 +62,23 @@ namespace FastNoise
 
         virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
 
-        virtual void GenUniformGrid2D( float* noiseOut, float xStart, float yStart, int32_t xSize, int32_t ySize, float xStep, float yStep, int32_t seed ) const = 0;
-        virtual void GenUniformGrid3D( float* noiseOut, float xStart, float yStart, float zStart, int32_t xSize, int32_t ySize, int32_t zSize, float xStep, float yStep, float zStep, int32_t seed ) const = 0;
+        virtual OutputMinMax GenUniformGrid2D( float* noiseOut,
+            int32_t xStart, int32_t yStart,
+            int32_t xSize, int32_t ySize,
+            float frequency, int32_t seed ) const = 0;
 
-        void GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed )
-        {
-            GenUniformGrid2D( noiseOut, xStart * frequency, yStart * frequency, xSize, ySize, frequency, frequency, seed );
-        }
-        void GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed )
-        {
-            GenUniformGrid3D( noiseOut, xStart * frequency, yStart * frequency, zStart * frequency, xSize, ySize, zSize, frequency, frequency, frequency, seed );
-        }
+        virtual OutputMinMax GenUniformGrid3D( float* noiseOut,
+            int32_t xStart, int32_t yStart, int32_t zStart,
+            int32_t xSize,  int32_t ySize,  int32_t zSize,
+            float frequency, int32_t seed ) const = 0;
 
-        virtual void GenPositionArray3D( float* noiseOut, const float* xPosArray, const float* yPosArray, const float* zPosArray, int32_t count, float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;     
+        virtual OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count,
+            const float* xPosArray, const float* yPosArray,
+            float xOffset, float yOffset, int32_t seed ) const = 0;     
+
+        virtual OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count,
+            const float* xPosArray, const float* yPosArray, const float* zPosArray, 
+            float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;     
 
         virtual const Metadata* GetMetadata() = 0;
 

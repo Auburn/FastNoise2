@@ -32,9 +32,8 @@ void FastNoiseNodeEditor::Node::GeneratePreview()
         genRGB->SetSource( generator );
 
         float frequency = editor.mNodeFrequency;
-        float offset = frequency * NoiseSize * -0.5f;
 
-        genRGB->GenUniformGrid2D( noiseData, offset, offset, NoiseSize, NoiseSize, frequency, frequency, editor.mNodeSeed );
+        genRGB->GenUniformGrid2D( noiseData, 0, 0, NoiseSize, NoiseSize, frequency, editor.mNodeSeed );
 
         serialised = FastNoise::MetadataManager::SerialiseNodeData( nodeDatas.back().get() );
     }
@@ -236,6 +235,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         {
             serialised = find->second->serialised;
         }
+
+        //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
 
         ImGui::SetNextItemWidth( 100 );
         bool edited = ImGui::DragFloat( "Frequency", &mPreviewFrequency, 0.001f );
@@ -665,9 +666,12 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::GenerateSelectedPrevi
         if( generator && noiseSize )
         {
             auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>();
-            float offset = mPreviewFrequency * -0.5f;
+
             genRGB->SetSource( generator );
-            genRGB->GenUniformGrid2D( mNoiseData.data(), mPreviewWindowsSize.x() * offset, mPreviewWindowsSize.y() * offset, mPreviewWindowsSize.x(), mPreviewWindowsSize.y(), mPreviewFrequency, mPreviewFrequency, mNodeSeed );
+            mMinMax = genRGB->GenUniformGrid2D( mNoiseData.data(),
+                mPreviewWindowsSize.x() / -2, mPreviewWindowsSize.y() / -2,
+                mPreviewWindowsSize.x(), mPreviewWindowsSize.y(),
+                mPreviewFrequency, mNodeSeed );
         }
     }
 

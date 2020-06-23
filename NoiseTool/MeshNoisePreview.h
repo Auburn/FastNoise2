@@ -151,7 +151,7 @@ namespace Magnum
             {
                 MeshData() = default;
 
-                MeshData( Vector3i p, const std::vector<VertexData>& v, const std::vector<uint32_t>& i ) : pos( p )
+                MeshData( Vector3i p, FastNoise::OutputMinMax mm, const std::vector<VertexData>& v, const std::vector<uint32_t>& i ) : pos( p ), minMax( mm )
                 {
                     if( v.empty() )
                     {
@@ -180,6 +180,7 @@ namespace Magnum
                 Vector3i pos;
                 Containers::ArrayView<VertexData> vertexData;
                 Containers::ArrayView<uint32_t> indicies;
+                FastNoise::OutputMinMax minMax;
             };
 
             struct BuildData
@@ -241,6 +242,7 @@ namespace Magnum
         uint32_t mTriLimit = 25000000; // 25 mil
         uint32_t mTriCount = 0;
         int mStaggerCheck = 0;
+        FastNoise::OutputMinMax mMinMax;
 
         GenerateQueue<Chunk::BuildData> mGenerateQueue;
         CompleteQueue<Chunk::MeshData> mCompleteQueue;

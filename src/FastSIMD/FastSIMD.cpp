@@ -1,9 +1,11 @@
 #include "FastSIMD/FastSIMD.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <intrin.h>
+
 #include "FastSIMD/TypeList.h"
 
-#include <inttypes.h>
-#include <intrin.h>
-#include <stdexcept>
 
 static FastSIMD::eLevel simdLevel = FastSIMD::Level_Null;
 
