@@ -50,7 +50,7 @@ void BenchFastNoiseGenerator2D( benchmark::State& state, size_t testSize, const 
 
     for( auto _ : state )
     {
-        generator->GenUniformGrid2D( data, 0, 0, testSize, testSize, 0.1f, 0.1f, seed++ );
+        generator->GenUniformGrid2D( data, 0, 0, testSize, testSize, 0.1f, seed++ );
         totalData += dataSize;
     }
 
@@ -71,7 +71,7 @@ void BenchFastNoiseGenerator3D( benchmark::State& state, size_t testSize, const 
 
     for( auto _ : state )
     {
-        generator->GenUniformGrid3D( data, 0, 0, 0, testSize, testSize, testSize, 0.1f, 0.1f, 0.1f, seed++ );
+        generator->GenUniformGrid3D( data, 0, 0, 0, testSize, testSize, testSize, 0.1f, seed++ );
         totalData += dataSize;
     }
 
