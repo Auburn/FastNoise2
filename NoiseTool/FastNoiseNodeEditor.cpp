@@ -14,14 +14,15 @@ using namespace Magnum;
 
 FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, const FastNoise::Metadata* meta ) :
     editor( e ),
-    metadata( meta ),
-    noiseImage( PixelFormat::RGBA8Srgb, { NoiseSize, NoiseSize } )
+    metadata( meta )
 {
 
 }
 
 void FastNoiseNodeEditor::Node::GeneratePreview()
 {
+    static std::array<float, NoiseSize * NoiseSize> noiseData;
+
     std::unordered_set<int> dependancies;
     std::vector<std::unique_ptr<FastNoise::NodeData>> nodeDatas;
     auto generator = GetGenerator( dependancies, nodeDatas );
@@ -33,25 +34,20 @@ void FastNoiseNodeEditor::Node::GeneratePreview()
 
         float frequency = editor.mNodeFrequency;
 
-        genRGB->GenUniformGrid2D( noiseData, 0, 0, NoiseSize, NoiseSize, frequency, editor.mNodeSeed );
+        genRGB->GenUniformGrid2D( noiseData.data(), 0, 0, NoiseSize, NoiseSize, frequency, editor.mNodeSeed );
 
         serialised = FastNoise::MetadataManager::SerialiseNodeData( nodeDatas.back().get() );
     }
     else
     {
-        memset( noiseData, 0, sizeof( noiseData ));
+        std::fill( noiseData.begin(), noiseData.end(), 0 );
         serialised.clear();
     }
 
-    noiseImage.setData( noiseData );
+    ImageView2D noiseImage( PixelFormat::RGBA8Unorm, { NoiseSize, NoiseSize }, noiseData );
     
-    noiseTexture.setMagnificationFilter( GL::SamplerFilter::Linear )
-        .setMinificationFilter( GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear )
-        .setWrapping( GL::SamplerWrapping::ClampToEdge )
-        .setMaxAnisotropy( GL::Sampler::maxMaxAnisotropy() )
-        .setStorage( Math::log2( NoiseSize ) + 1, GL::TextureFormat::RGBA8, { NoiseSize, NoiseSize } )
-        .setSubImage( 0, {}, noiseImage )
-        .generateMipmap();
+    noiseTexture.setStorage( 1, GL::TextureFormat::RGBA8, noiseImage.size() )
+        .setSubImage( 0, {}, noiseImage );
 
     for( auto& node : editor.mNodes )
     {
@@ -154,8 +150,7 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
     return node;
 }
 
-FastNoiseNodeEditor::FastNoiseNodeEditor() :
-    mNoiseImage( PixelFormat::RGBA8Srgb, { 0, 0 } )
+FastNoiseNodeEditor::FastNoiseNodeEditor()
 {
     std::string lSIMD = "FastSIMD detected SIMD Level: ";
 
@@ -225,40 +220,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     }
     ImGui::End();
 
-    ImGui::SetNextWindowSize( ImVec2( 768, 768 ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowPos( ImVec2( 1143, 305 ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "Texture Preview" ) )
-    {
-        std::string serialised;
-        auto find = mNodes.find( mSelectedNode );
-        if( find != mNodes.end() )
-        {
-            serialised = find->second->serialised;
-        }
-
-        //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
-
-        ImGui::SetNextItemWidth( 100 );
-        bool edited = ImGui::DragFloat( "Frequency", &mPreviewFrequency, 0.001f );
-        ImGui::SameLine();
-
-        const char* serialisedLabel = "Encoded Node Tree";
-        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x );
-        ImGui::InputText( serialisedLabel, serialised.data(), serialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
-
-        ImVec2 winSize = ImGui::GetContentRegionAvail();
-
-        if( winSize.x >= 1 && winSize.y >= 1 &&
-          ( edited || mPreviewWindowsSize.x() != winSize.x || mPreviewWindowsSize.y() != winSize.y ) )
-        {
-            mPreviewWindowsSize.x() = (int)winSize.x;
-            mPreviewWindowsSize.y() = (int)winSize.y;
-            GenerateSelectedPreview();
-        }        
-
-        ImGuiIntegration::image( mNoiseTexture, { (float)mNoiseImage.size().x(), (float)mNoiseImage.size().y() } );
-    }
-    ImGui::End();
+    mNoiseTexture.Draw();
 
     mMeshNoisePreview.Draw( transformation, projection, cameraPosition );    
 }
@@ -654,47 +616,14 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::GenerateSelectedPrevi
 {
     auto find = mNodes.find( mSelectedNode );
 
-    std::shared_ptr<FastNoise::Generator> generator;
-    size_t noiseSize = (size_t)mPreviewWindowsSize.x() * mPreviewWindowsSize.y();
-
-    mNoiseData.resize( noiseSize );    
+    std::shared_ptr<FastNoise::Generator> generator;  
 
     if( find != mNodes.end() )
     {
         generator = FastNoise::NewFromEncodedNodeTree( find->second->serialised.c_str() );
-
-        if( generator && noiseSize )
-        {
-            auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>();
-
-            genRGB->SetSource( generator );
-            mMinMax = genRGB->GenUniformGrid2D( mNoiseData.data(),
-                mPreviewWindowsSize.x() / -2, mPreviewWindowsSize.y() / -2,
-                mPreviewWindowsSize.x(), mPreviewWindowsSize.y(),
-                mPreviewFrequency, mNodeSeed );
-        }
     }
 
-    if( !noiseSize )
-    {
-        return generator;
-    }
-
-    if( !generator )
-    {
-        std::fill( mNoiseData.begin(), mNoiseData.end(), 0 );
-    }
-
-    mNoiseImage = ImageView2D( PixelFormat::RGBA8Srgb, mPreviewWindowsSize, mNoiseData );
-
-    mNoiseTexture = GL::Texture2D();
-    mNoiseTexture.setMagnificationFilter( GL::SamplerFilter::Linear )
-        .setMinificationFilter( GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear )
-        .setWrapping( GL::SamplerWrapping::ClampToEdge )
-        .setMaxAnisotropy( GL::Sampler::maxMaxAnisotropy() )
-        .setStorage( (int)Math::log( (double)mPreviewWindowsSize.x() )+ 1, GL::TextureFormat::RGBA8, mPreviewWindowsSize )
-        .setSubImage( 0, {}, mNoiseImage )
-        .generateMipmap();
+    mNoiseTexture.ReGenerate( generator );
 
     return generator;
 }

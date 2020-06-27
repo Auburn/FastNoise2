@@ -37,6 +37,7 @@ add_executable(NoiseTool
     "NoiseToolApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
+    "NoiseTexture.cpp"
     "ThirdParty/imnodes/imnodes.cpp")
  
 target_link_libraries(NoiseTool PUBLIC

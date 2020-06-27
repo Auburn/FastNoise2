@@ -9,6 +9,7 @@
 
 #include "FastNoise/FastNoise.h"
 #include "MeshNoisePreview.h"
+#include "NoiseTexture.h"
 
 namespace Magnum
 {
@@ -45,8 +46,6 @@ namespace Magnum
 
             static const int NoiseSize = 224;
             GL::Texture2D noiseTexture;
-            ImageView2D noiseImage;
-            float noiseData[NoiseSize * NoiseSize];
         };
 
         std::shared_ptr<FastNoise::Generator> GenerateSelectedPreview();
@@ -58,18 +57,10 @@ namespace Magnum
         int mDroppedLinkNodeId = 0;
 
         MeshNoisePreview mMeshNoisePreview;
+        NoiseTexture mNoiseTexture;
 
-        // Preview Window
         int mSelectedNode = 0;
-        GL::Texture2D mNoiseTexture;
-        ImageView2D mNoiseImage;
-        std::vector<float> mNoiseData;
-        VectorTypeFor<2, Int> mPreviewWindowsSize = { 0,0 };
-        FastNoise::OutputMinMax mMinMax;
-
         float mNodeFrequency = 0.02f;
         int mNodeSeed = 1337;
-
-        float mPreviewFrequency = 0.02f;
     };
 }

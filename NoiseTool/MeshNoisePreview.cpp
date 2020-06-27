@@ -41,13 +41,13 @@ void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& 
     mBuildData.generator = generator;
     mBuildData.seed = seed;
     mBuildData.pos = Vector3i( 0 );
-    mBuildData.genVersion = mCompleteQueue.IncVersion();
     mMinMax = {};
 
     mChunks.clear();
     mInProgressChunks.clear();
     mDistanceOrderedChunks.clear();
     mGenerateQueue.Clear();
+    mBuildData.genVersion = mCompleteQueue.IncVersion();
 
     Chunk::MeshData meshData;
     while( mCompleteQueue.Pop( meshData ) )
