@@ -12,13 +12,14 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments, Configuration{}
     .setTitle( "FastNoise Tool" )
     .setSize( Vector2i( 1280, 720 ) )
-    .setWindowFlags( Configuration::WindowFlag::Resizable ) },
+    .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ) },
     mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
     
     mFrameTime.start();
 
+    mCameraObject.setTransformation( Matrix4::translation( { 20, 20, 20 } ) );
     UpdatePespectiveProjection();
 
     /* Set up proper blending to be used by ImGui. There's a great chance

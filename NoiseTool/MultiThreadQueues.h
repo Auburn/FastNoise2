@@ -74,7 +74,7 @@ public:
         return true;
     }
 
-    bool Push( const T& item, uint32_t version )
+    bool Push( const T& item, uint32_t version = 0 )
     {
         std::unique_lock<std::mutex> lock( mMutex );
         if( version == mVersion )
