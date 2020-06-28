@@ -20,7 +20,7 @@ namespace Magnum
         MeshNoisePreview();
         ~MeshNoisePreview();
 
-        void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed );
+        void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator );
 
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
 

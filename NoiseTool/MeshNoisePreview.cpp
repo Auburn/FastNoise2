@@ -14,6 +14,7 @@ using namespace Magnum;
 MeshNoisePreview::MeshNoisePreview()
 {
     mBuildData.frequency = 0.005f;
+    mBuildData.seed = 1338;
     mBuildData.isoSurface = 0.0f;
     mBuildData.color = Color3( 1.0f );
 
@@ -35,11 +36,10 @@ MeshNoisePreview::~MeshNoisePreview()
     }
 }
 
-void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, int32_t seed )
+void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator )
 {
     mLoadRange = 200.0f;
     mBuildData.generator = generator;
-    mBuildData.seed = seed;
     mBuildData.pos = Vector3i( 0 );
     mMinMax = {};
 
@@ -99,7 +99,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
 
     float triLimit1000 = mTriLimit / 1000.0f;
-    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 1000.0f, 200000.0f, "%0.1fK" ) )
+    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 10000.0f, 200000.0f, "%0.1fK" ) )
     {
         mTriLimit = (uint32_t)(triLimit1000 * 1000);
     }
@@ -107,10 +107,11 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
 
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) |
+        ImGui::DragInt( "Seed", &mBuildData.seed ) |
         ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" ) |
         ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f ) )
     {
-        ReGenerate( mBuildData.generator, mBuildData.seed );
+        ReGenerate( mBuildData.generator );
     }
 
     UpdateChunksForPosition( cameraPosition );
@@ -118,7 +119,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
 float MeshNoisePreview::GetLoadRangeModifier()
 {
-    return std::min( 0.01f, (float)(1000 / std::powl(  std::min( 1000.0f, mLoadRange ), 2 )) );
+    return std::min( 0.01f, (float)(1000 / std::powl(  std::min( 1000.0f, mLoadRange ), 1.5 )) );
 }
 
 void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )

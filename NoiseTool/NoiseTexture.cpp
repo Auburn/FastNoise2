@@ -15,9 +15,9 @@ NoiseTexture::NoiseTexture()
     mBuildData.iteration = 0;
     mBuildData.frequency = 0.02f;
     mBuildData.seed = 1337;
-    mBuildData.genVersion = 0;
     mBuildData.size = { -1, -1 };
     mBuildData.offset = { 0, 0, 0 };
+    mBuildData.generationType = BuildData::GenType_2D;
 
     for( size_t i = 0; i < 2; i++ )
     {
@@ -41,7 +41,7 @@ void NoiseTexture::Draw()
         if( mCurrentIteration < texData.iteration )
         {
             mCurrentIteration = texData.iteration;
-            ImageView2D noiseImage( PixelFormat::RGBA8Srgb, mBuildData.size, texData.textureData );
+            ImageView2D noiseImage( PixelFormat::RGBA8Srgb, texData.size, texData.textureData );
             SetPreviewTexture( noiseImage );
         }
         texData.Free();
@@ -49,27 +49,33 @@ void NoiseTexture::Draw()
 
     ImGui::SetNextWindowSize( ImVec2( 768, 768 ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowPos( ImVec2( 1143, 305 ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "Texture Preview" ) )
+    if( ImGui::Begin( "Texture Preview", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
     {
-        std::string serialised;
         //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
 
-        ImGui::SetNextItemWidth( 100 );
-        bool edited = ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
+        ImGui::PushItemWidth( 60.0f );
+        bool edited = ImGui::DragInt( "Seed", &mBuildData.seed );
         ImGui::SameLine();
+
+        edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
+        ImGui::SameLine();
+
+        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "3D Slice\0" );
+        ImGui::SameLine();
+
+        ImGui::PopItemWidth();
 
         const char* serialisedLabel = "Encoded Node Tree";
         ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x );
-        ImGui::InputText( serialisedLabel, serialised.data(), serialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
+        ImGui::InputText( serialisedLabel, mSerialised.data(), mSerialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
 
         ImVec2 winSize = ImGui::GetContentRegionAvail();
 
         if( winSize.x >= 1 && winSize.y >= 1 &&
             (edited || mBuildData.size.x() != winSize.x || mBuildData.size.y() != winSize.y) )
         {
-            mBuildData.size.x() = (int)winSize.x;
-            mBuildData.size.y() = (int)winSize.y;
-            ReGenerate( mBuildData.generator );
+            mBuildData.size = { (int)winSize.x, (int)winSize.y };
+            ReGenerate( mBuildData.generator, nullptr );
         }
 
         ImGuiIntegration::image( mNoiseTexture, Vector2( mNoiseTexture.imageSize( 0 ) ) );
@@ -84,25 +90,17 @@ void NoiseTexture::SetPreviewTexture( ImageView2D& imageView )
         .setSubImage( 0, {}, imageView );
 }
 
-void NoiseTexture::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator )
+void NoiseTexture::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, const char* serialised )
 {
     mBuildData.generator = generator;
     mBuildData.iteration++;
 
-    mGenerateQueue.Clear();
-
-    uint32_t newVersion = mBuildData.size.x() ^ (mBuildData.size.y() << 16);
-    if( newVersion != mBuildData.genVersion )
+    if( serialised )
     {
-        mBuildData.genVersion = newVersion;
-        mCompleteQueue.SetVersion( newVersion );
-
-        TextureData texData;
-        while( mCompleteQueue.Pop( texData ) )
-        {
-            texData.Free();
-        }
+        mSerialised = serialised;
     }
+
+    mGenerateQueue.Clear();
 
     size_t noiseSize = (size_t)mBuildData.size.x() * mBuildData.size.y();
     if( !noiseSize )
@@ -133,12 +131,26 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>();
 
     genRGB->SetSource( buildData.generator );
-    FastNoise::OutputMinMax minMax = genRGB->GenUniformGrid2D( noiseData.data(),
-        buildData.size.x() / -2, buildData.size.y() / -2,
-        buildData.size.x(), buildData.size.y(),
-        buildData.frequency, buildData.seed );
+    FastNoise::OutputMinMax minMax;
 
-    return TextureData( buildData.iteration, minMax, noiseData );
+    switch( buildData.generationType )
+    {
+    case BuildData::GenType_2D:
+        minMax = genRGB->GenUniformGrid2D( noiseData.data(),
+            buildData.size.x() / -2, buildData.size.y() / -2,
+            buildData.size.x(), buildData.size.y(),
+            buildData.frequency, buildData.seed );
+        break;
+
+    case BuildData::GenType_3D:
+        minMax = genRGB->GenUniformGrid3D( noiseData.data(),
+            buildData.size.x() / -2, buildData.size.y() / -2, 0,
+            buildData.size.x(), buildData.size.y(), 1,
+            buildData.frequency, buildData.seed );
+        break;
+    }
+
+    return TextureData( buildData.iteration, buildData.size, minMax, noiseData );
 }
 
 void NoiseTexture::GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, CompleteQueue<TextureData>& completeQueue )
@@ -149,7 +161,7 @@ void NoiseTexture::GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, 
 
         TextureData texData = BuildTexture( buildData );
 
-        if( !completeQueue.Push( texData, buildData.genVersion ) )
+        if( !completeQueue.Push( texData ) )
         {
             texData.Free();
         }

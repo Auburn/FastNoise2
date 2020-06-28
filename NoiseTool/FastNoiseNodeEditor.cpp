@@ -19,7 +19,7 @@ FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, const FastNoise::Metada
 
 }
 
-void FastNoiseNodeEditor::Node::GeneratePreview()
+void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
 {
     static std::array<float, NoiseSize * NoiseSize> noiseData;
 
@@ -55,12 +55,12 @@ void FastNoiseNodeEditor::Node::GeneratePreview()
         {
             if( *link >> 8 == id )
             {
-                node.second->GeneratePreview();
+                node.second->GeneratePreview( nodeTreeChanged );
             }
         }
     }
 
-    if( editor.mSelectedNode == id )
+    if( editor.mSelectedNode == id && nodeTreeChanged )
     {
         editor.ChangeSelectedNode( id );
     }
@@ -193,19 +193,18 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         UpdateSelected();
 
         bool edited = false;
-        ImGui::SetNextItemWidth( 100 );
+        ImGui::PushItemWidth( 60.0f );
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
         ImGui::SameLine();
-        ImGui::SetNextItemWidth( 100 );
         edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );
+        ImGui::PopItemWidth();
 
         if( edited )
         {
             for( auto& node : mNodes )
             {
-                node.second->GeneratePreview();
+                node.second->GeneratePreview( false );
             }
-            GenerateSelectedPreview();
         }
 
         imnodes::BeginNodeEditor();
@@ -616,14 +615,16 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::GenerateSelectedPrevi
 {
     auto find = mNodes.find( mSelectedNode );
 
-    std::shared_ptr<FastNoise::Generator> generator;  
+    std::shared_ptr<FastNoise::Generator> generator;
+    const char* serialised = "";
 
     if( find != mNodes.end() )
     {
-        generator = FastNoise::NewFromEncodedNodeTree( find->second->serialised.c_str() );
+        serialised = find->second->serialised.c_str();
+        generator = FastNoise::NewFromEncodedNodeTree( serialised );
     }
 
-    mNoiseTexture.ReGenerate( generator );
+    mNoiseTexture.ReGenerate( generator, serialised );
 
     return generator;
 }
@@ -636,6 +637,6 @@ void FastNoiseNodeEditor::ChangeSelectedNode( int newId )
 
     if( generator )
     {
-        mMeshNoisePreview.ReGenerate( generator, mNodeSeed );
+        mMeshNoisePreview.ReGenerate( generator );
     }
 }
