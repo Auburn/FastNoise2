@@ -111,7 +111,7 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v n2 = t2 * t2 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i2 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( Primes::Z ), k2 ) ), x2, y2, z2 );
         float32v n3 = t3 * t3 * GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
 
-        return float32v( 32 ) * (n0 + n1 + n2 + n3);
+        return float32v( 32.69588470458984375f ) * (n0 + n1 + n2 + n3);
     }
 };
 
@@ -175,7 +175,7 @@ class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, 
                 seed -= int32v( -1 );
             }
         }
-        return float32v( 32 ) * val;
+        return float32v( 32.694f ) * val;
     } 
 };
 
