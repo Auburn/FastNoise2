@@ -17,7 +17,23 @@ namespace FastNoise
             {
                 this->AddVariable( "Value", 1.0f, &Constant::SetValue );
             }
+        };
+    };
 
+    class Checkerboard : public virtual Generator
+    {
+    public:
+        void SetSize( float value ) { mSize = value; }
+
+    protected:
+        float mSize = 1.0f;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddVariable( "Size", 1.0f, &Checkerboard::SetSize );
+            }
         };
     };
 

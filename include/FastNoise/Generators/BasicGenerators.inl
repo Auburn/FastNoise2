@@ -17,6 +17,23 @@ public:
 };
 
 template<typename FS>
+class FS_T<FastNoise::Checkerboard, FS> : public virtual FastNoise::Checkerboard, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v multiplier = FS_Reciprocal_f32( float32v( mSize ) );
+
+        int32v value = (FS_Convertf32_i32( pos * multiplier ) ^ ...);
+
+        return FS_BitwiseXor_f32( float32v( 1.0f ), FS_Casti32_f32( value << 31 ) );
+    }
+};
+
+template<typename FS>
 class FS_T<FastNoise::PositionOutput, FS> : public virtual FastNoise::PositionOutput, public FS_T<FastNoise::Generator, FS>
 {
 public:
