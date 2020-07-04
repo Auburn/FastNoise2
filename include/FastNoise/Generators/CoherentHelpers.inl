@@ -13,7 +13,30 @@ namespace Primes
 
 #define ROOT3 1.7320508075688772935f
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<!(FS::SIMD_Level & (FastSIMD::Level_AVX2 | FastSIMD::Level_AVX512))>* = nullptr>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level < FastSIMD::Level_SSE41>* = nullptr>
+FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+{
+    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+
+    // Bit-4 = Choose X Y ordering
+    int32v xy = (index << 29) >> 31;
+    float32v a = FS_Select_f32( xy, fY, fX );
+    float32v b = FS_Select_f32( xy, fX, fY );
+
+    // Bit-1 = b flip sign
+    b = FS_BitwiseXor_f32( b, FS_Casti32_f32( index << 31 ) );
+
+    // Bit-2 = Mul a by 2 or Root3
+    int32v aMul2 = (index << 30) >> 31;
+    a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
+    // b zero value if a mul 2
+    b = FS_BitwiseAndNot_f32( b, FS_Casti32_f32( aMul2 ) );
+
+    // Bit-8 = Flip sign of a + b
+    return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( (index >> 3) << 31 ) );
+}
+
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_SSE41>* = nullptr>
 FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 {
     int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
@@ -36,7 +59,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( (index >> 3) << 31 ) );
 }
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<(FS::SIMD_Level == FastSIMD::Level_AVX2)>* = nullptr>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
 FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 {
     int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
@@ -61,7 +84,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 
 #undef ROOT3
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<!( FS::SIMD_Level & (FastSIMD::Level_AVX2 | FastSIMD::Level_AVX512) )>* = nullptr>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
     // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
@@ -83,7 +106,7 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     return fX + fY;
 }
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX2 ), int> = 0>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
     // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
@@ -95,7 +118,7 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     return FS_FMulAdd_f32( gX, fX, fY * gY );
 }
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), int> = 0>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX512> * = nullptr>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
     // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
@@ -107,7 +130,7 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     return FS_FMulAdd_f32(gX, fX, fY * gY);
 }
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level != FastSIMD::Level_AVX512 ), int> = 0>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level != FastSIMD::Level_AVX512 > * = nullptr >
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
 {
     int32v hasha13 = hash & int32v( 13 );
@@ -129,7 +152,7 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float3
     return FS_BitwiseXor_f32( u, h1 ) + FS_BitwiseXor_f32( v, h2 );
 }
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level == FastSIMD::Level_AVX512 ), int> = 0>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX512>* = nullptr>
 FS_INLINE float32v GetGradientDot(int32v hash, float32v fX, float32v fY, float32v fZ)
 {
     float32v gX = _mm512_permutexvar_ps( hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
