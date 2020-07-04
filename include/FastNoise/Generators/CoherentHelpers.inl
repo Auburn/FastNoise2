@@ -41,8 +41,8 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 {
     int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
-    float32v gX = _mm256_permutevar8x32_ps( index, float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ) );
-    float32v gY = _mm256_permutevar8x32_ps( index, float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ) );
+    float32v gX = _mm256_permutevar8x32_ps( float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ), index );
+    float32v gY = _mm256_permutevar8x32_ps( float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ), index );
 
     // Bit-8 = Flip sign of a + b
     return FS_BitwiseXor_f32( FS_FMulAdd_f32( gX, fX, fY * gY ), FS_Casti32_f32( (index >> 3) << 31 ) );
