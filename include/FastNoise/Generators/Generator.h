@@ -88,7 +88,7 @@ namespace FastNoise
         {
             static_assert( std::is_base_of_v<Generator, T> );
             assert( gen.get() );
-            assert( GetSIMDLevel() == gen->GetSIMDLevel() );
+            assert( GetSIMDLevel() == gen->GetSIMDLevel() ); // Ensure that all SIMD levels match
 
             memberVariable.base = gen;
             SetSourceSIMDPtr( dynamic_cast<Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );

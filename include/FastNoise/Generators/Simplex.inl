@@ -6,7 +6,7 @@
 template<typename FS>
 class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public FS_T<FastNoise::Generator, FS>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         const float SQRT3 = 1.7320508075688772935274463415059f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
@@ -50,7 +50,7 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         return float32v( 75.3929901123046875f ) * (n0 + n1 + n2);
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
         const float F3 = 1.0f / 3.0f;
         const float G3 = 1.0f / 6.0f;
@@ -116,8 +116,52 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
 };
 
 template<typename FS>
-class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, public FS_T<FastNoise::Simplex, FS>
+class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, public FS_T<FastNoise::Generator, FS>
 {
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    {
+        const float SQRT3 = 1.7320508075688772935274463415059f;
+        const float F2 = 0.5f * (SQRT3 - 1.0f);
+        const float G2 = (3.0f - SQRT3) / 6.0f;
+
+        float32v f = float32v( F2 ) * (x + y);
+        float32v x0 = FS_Floor_f32( x + f );
+        float32v y0 = FS_Floor_f32( y + f );
+
+        int32v i = FS_Convertf32_i32( x0 ) * int32v( Primes::X );
+        int32v j = FS_Convertf32_i32( y0 ) * int32v( Primes::Y );
+
+        float32v g = float32v( G2 ) * (x0 + y0);
+        x0 = x - (x0 - g);
+        y0 = y - (y0 - g);
+
+        mask32v i1 = FS_GreaterThan_f32( x0, y0 );
+        //mask32v j1 = ~i1; //NMasked funcs
+
+        float32v x1 = FS_MaskedSub_f32( x0, float32v( 1.f ), i1 ) + float32v( G2 );
+        float32v y1 = FS_NMaskedSub_f32( y0, float32v( 1.f ), i1 ) + float32v( G2 );
+        float32v x2 = x0 + float32v( (G2 * 2) - 1 );
+        float32v y2 = y0 + float32v( (G2 * 2) - 1 );
+
+        float32v t0 = float32v( 0.5f ) - (x0 * x0) - (y0 * y0);
+        float32v t1 = float32v( 0.5f ) - (x1 * x1) - (y1 * y1);
+        float32v t2 = float32v( 0.5f ) - (x2 * x2) - (y2 * y2);
+
+        t0 = FS_Max_f32( t0, float32v( 0 ) );
+        t1 = FS_Max_f32( t1, float32v( 0 ) );
+        t2 = FS_Max_f32( t2, float32v( 0 ) );
+
+        t0 *= t0;
+        t1 *= t1;
+        t2 *= t2;
+
+        float32v n0 = t0 * t0 * GetGradientDotFancy( HashPrimes( seed, i, j ), x0, y0 );
+        float32v n1 = t1 * t1 * GetGradientDotFancy( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
+        float32v n2 = t2 * t2 * GetGradientDotFancy( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
+
+        return float32v( 49.918426513671875f ) * (n0 + n1 + n2);
+    }
+
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
         float32v f = float32v( 2.0f / 3.0f ) * (x + y + z);
@@ -175,7 +219,7 @@ class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, 
                 seed -= int32v( -1 );
             }
         }
-        return float32v( 32.694f ) * val;
+        return float32v( 32.69428253173828125f ) * val;
     } 
 };
 

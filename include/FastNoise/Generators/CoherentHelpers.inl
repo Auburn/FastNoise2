@@ -3,32 +3,65 @@
 
 namespace Primes
 {
-    static const int32_t X = 1619;
-    static const int32_t Y = 31337;
-    static const int32_t Z = 6971;
-    static const int32_t W = 1013;
+    static constexpr int32_t X = 1619;
+    static constexpr int32_t Y = 31337;
+    static constexpr int32_t Z = 6971;
+    static constexpr int32_t W = 1013;
 
-    static const int32_t Lookup[] = { X,Y,Z,W };
+    static constexpr int32_t Lookup[] = { X,Y,Z,W };
 }
 
-#if 0 // K.jpg new gradients
-template<typename FS = FS_SIMD_CLASS>
-FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+#define ROOT3 1.7320508075688772935f
+
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<!(FS::SIMD_Level & (FastSIMD::Level_AVX2 | FastSIMD::Level_AVX512))>* = nullptr>
+FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 {
-    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFC ) ) * float32v( 0.3333333333333333f ) );
+    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
-    float32v a = FS_Select_f32( hash << 30, fY, fX );
-    a *= FS_Select_f32( index << 30, float32v( 2 ), float32v( 1.7320508075688772935f ) );
+    // Bit-4 = Choose X Y ordering
+    int32v xy = index << 29;
+    float32v a = FS_Select_f32( xy, fY, fX );
+    float32v b = FS_Select_f32( xy, fX, fY );
 
-    float32v b = FS_Select_f32( hash << 30, fX, fY );
+    // Bit-1 = b flip sign
     b = FS_BitwiseXor_f32( b, FS_Casti32_f32( index << 31 ) );
-    b = FS_BitwiseAndNot_f32( b, FS_Casti32_f32( (index << 30) >> 31 ) );
 
-    return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( hash << 31 ) );
+    // Bit-2 = Mul a by 2 or Root3
+    int32v aMul2 = index << 30;
+    a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
+    // b zero value if a mul 2
+    b = FS_BitwiseAndNot_f32( b, FS_Casti32_f32( aMul2 >> 31 ) );
+
+    // Bit-8 = Flip sign of a + b
+    return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( (index >> 3) << 31 ) );
 }
-#endif // 0 // K.jpg new gradients
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<( FS::SIMD_Level != FastSIMD::Level_AVX2 && FS::SIMD_Level != FastSIMD::Level_AVX512 ), int> = 0>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<(FS::SIMD_Level == FastSIMD::Level_AVX2)>* = nullptr>
+FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+{
+    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+
+    float32v gX = _mm256_permutevar8x32_ps( index, float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ) );
+    float32v gY = _mm256_permutevar8x32_ps( index, float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ) );
+
+    // Bit-8 = Flip sign of a + b
+    return FS_BitwiseXor_f32( FS_FMulAdd_f32( gX, fX, fY * gY ), FS_Casti32_f32( (index >> 3) << 31 ) );
+}
+
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<(FS::SIMD_Level == FastSIMD::Level_AVX512)>* = nullptr>
+FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+{
+    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+
+    float32v gX = _mm512_permutexvar_ps( index, float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0, -ROOT3, -ROOT3, -2, -2, -1, 1, 0, 0 ) );
+    float32v gY = _mm512_permutexvar_ps( index, float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2, -1, 1, 0, 0, -ROOT3, -ROOT3, -2, -2 ) );
+
+    return FS_FMulAdd_f32( gX, fX, fY * gY );
+}
+
+#undef ROOT3
+
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<!( FS::SIMD_Level & (FastSIMD::Level_AVX2 | FastSIMD::Level_AVX512) )>* = nullptr>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
     // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)

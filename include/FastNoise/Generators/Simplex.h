@@ -10,10 +10,10 @@ namespace FastNoise
         };            
     };
 
-    class OpenSimplex : public virtual Simplex
+    class OpenSimplex : public virtual Generator
     {
-        FASTNOISE_METADATA( Simplex )
-            using Simplex::Metadata::Metadata;
+        FASTNOISE_METADATA( Generator )
+            using Generator::Metadata::Metadata;
         };            
     };
 }
