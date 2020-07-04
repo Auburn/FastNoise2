@@ -45,8 +45,35 @@ namespace FastNoise
 
     class CellularDistance : public virtual Cellular
     {
+    public:
+        enum class ReturnType
+        {
+            Index0,
+            Index0Add1,
+            Index0Sub1,
+            Index0Mul1,
+            Index0Div1,
+        };
+
+        void SetDistanceIndex0( int value ) { mDistanceIndex0 = value; }
+        void SetDistanceIndex1( int value ) { mDistanceIndex1 = value; }
+        void SetReturnType( ReturnType value ) { mReturnType = value; }
+
+    protected:
+        static const int kMaxDistanceCount = 4;
+
+        ReturnType mReturnType = ReturnType::Index0;
+        int mDistanceIndex0 = 0;
+        int mDistanceIndex1 = 1;
+
         FASTNOISE_METADATA( Cellular )
-            using Cellular::Metadata::Metadata;
+
+            Metadata( const char* className ) : Cellular::Metadata( className )
+            {
+                this->AddVariable( "Distance Index 0", 0, &CellularDistance::SetDistanceIndex0, 0, kMaxDistanceCount - 1 );
+                this->AddVariable( "Distance Index 1", 1, &CellularDistance::SetDistanceIndex1, 0, kMaxDistanceCount - 1 );
+                this->AddVariableEnum( "Return Type", ReturnType::Index0, &CellularDistance::SetReturnType, "Index0", "Index0Add1", "Index0Sub1", "Index0Mul1", "Index0Div1" );
+            }
         };
     };
 

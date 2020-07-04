@@ -1,5 +1,8 @@
 #include "FastSIMD/InlInclude.h"
 
+#include <algorithm>
+#include <array>
+
 #include "Cellular.h"
 #include "CoherentHelpers.inl"
 
@@ -67,11 +70,11 @@ public:
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
 
-        for ( int xi = 0; xi < 3; xi++ )
+        for( int xi = 0; xi < 3; xi++ )
         {
             float32v ycf = ycfBase;
             int32v yc = ycBase;
-            for ( int yi = 0; yi < 3; yi++ )
+            for( int yi = 0; yi < 3; yi++ )
             {
                 int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
@@ -117,15 +120,15 @@ public:
         ycBase *= int32v( Primes::Y );
         zcBase *= int32v( Primes::Z );
     
-        for ( int xi = 0; xi < 3; xi++ )
+        for( int xi = 0; xi < 3; xi++ )
         {
             float32v ycf = ycfBase;
             int32v yc = ycBase;
-            for ( int yi = 0; yi < 3; yi++ )
+            for( int yi = 0; yi < 3; yi++ )
             {
                 float32v zcf = zcfBase;
                 int32v zc = zcBase;
-                for ( int zi = 0; zi < 3; zi++ )
+                for( int zi = 0; zi < 3; zi++ )
                 {
                     int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -166,7 +169,10 @@ public:
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
-        float32v distance( FLT_MAX );
+
+        int maxDistanceIndex = (mReturnType == ReturnType::Index0) ? mDistanceIndex0 : std::max( mDistanceIndex0, mDistanceIndex1 );
+        std::array<float32v, kMaxDistanceCount> distance;
+        distance.fill( float32v( INFINITY ) );
 
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
@@ -177,7 +183,7 @@ public:
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
 
-        for ( int xi = 0; xi < 3; xi++ )
+        for( int xi = 0; xi < 3; xi++ )
         {
             float32v ycf = ycfBase;
             int32v yc = ycBase;
@@ -193,7 +199,12 @@ public:
 
                 float32v newDistance = this->GetDistance( xd, yd );
 
-                distance = FS_Min_f32( newDistance, distance );
+                for( int i = maxDistanceIndex; i > 0; i-- )
+                {
+                    distance[i] = FS_Max_f32( FS_Min_f32( distance[i], newDistance ), distance[i - 1] );
+                }
+
+                distance[0] = FS_Min_f32( distance[0], newDistance );
 
                 ycf += float32v( 1 );
                 yc += int32v( Primes::Y );
@@ -202,18 +213,16 @@ public:
             xc += int32v( Primes::X );
         }
 
-        if ( mDistanceFunction == DistanceFunction::Euclidean )
-        {
-            distance *= FS_InvSqrt_f32( distance );
-        }
-
-        return distance;
+        return GetReturn( distance );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
         float32v jitter = float32v( kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
-        float32v distance( FLT_MAX );
+
+        int maxDistanceIndex = (mReturnType == ReturnType::Index0) ? mDistanceIndex0 : std::max( mDistanceIndex0, mDistanceIndex1 );
+        std::array<float32v, kMaxDistanceCount> distance;
+        distance.fill( float32v( INFINITY ) );
 
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
@@ -227,15 +236,15 @@ public:
         ycBase *= int32v( Primes::Y );
         zcBase *= int32v( Primes::Z );
 
-        for ( int xi = 0; xi < 3; xi++ )
+        for( int xi = 0; xi < 3; xi++ )
         {
             float32v ycf = ycfBase;
             int32v yc = ycBase;
-            for ( int yi = 0; yi < 3; yi++ )
+            for( int yi = 0; yi < 3; yi++ )
             {
                 float32v zcf = zcfBase;
                 int32v zc = zcBase;
-                for ( int zi = 0; zi < 3; zi++ )
+                for( int zi = 0; zi < 3; zi++ )
                 {
                     int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -249,7 +258,12 @@ public:
 
                     float32v newDistance = this->GetDistance( xd, yd, zd );
 
-                    distance = FS_Min_f32( newDistance, distance );
+                    for( int i = maxDistanceIndex; i > 0; i-- )
+                    {
+                        distance[i] = FS_Max_f32( FS_Min_f32( distance[i], newDistance ), distance[i - 1] );
+                    }
+
+                    distance[0] = FS_Min_f32( distance[0], newDistance );
 
                     zcf += float32v( 1 );
                     zc += int32v( Primes::Z );
@@ -261,12 +275,42 @@ public:
             xc += int32v( Primes::X );
         }
 
-        if ( mDistanceFunction == DistanceFunction::Euclidean )
+        return GetReturn( distance );
+    }
+
+protected:
+    FS_INLINE float32v GetReturn( std::array<float32v, kMaxDistanceCount>& distance ) const
+    {
+        if( mDistanceFunction == DistanceFunction::Euclidean )
         {
-            distance *= FS_InvSqrt_f32( distance );
+            distance[mDistanceIndex0] *= FS_InvSqrt_f32( distance[mDistanceIndex0] );
+            distance[mDistanceIndex1] *= FS_InvSqrt_f32( distance[mDistanceIndex1] );
         }
 
-        return distance;
+        switch( mReturnType )
+        {
+        default:
+        case ReturnType::Index0:
+        {
+            return distance[mDistanceIndex0];
+        }
+        case ReturnType::Index0Add1:
+        {
+            return distance[mDistanceIndex0] + distance[mDistanceIndex1];
+        }
+        case ReturnType::Index0Sub1:
+        {
+            return distance[mDistanceIndex0] - distance[mDistanceIndex1];
+        }
+        case ReturnType::Index0Mul1:
+        {
+            return distance[mDistanceIndex0] * distance[mDistanceIndex1];
+        }
+        case ReturnType::Index0Div1:
+        {
+            return distance[mDistanceIndex0] * FS_Reciprocal_f32( distance[mDistanceIndex1] );
+        }
+        }
     }
 };
 
@@ -289,11 +333,11 @@ public:
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
 
-        for ( int xi = 0; xi < 3; xi++ )
+        for( int xi = 0; xi < 3; xi++ )
         {
             float32v ycf = ycfBase;
             int32v yc = ycBase;
-            for ( int yi = 0; yi < 3; yi++ )
+            for( int yi = 0; yi < 3; yi++ )
             {
                 int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
@@ -339,15 +383,15 @@ public:
         ycBase *= int32v( Primes::Y );
         zcBase *= int32v( Primes::Z );
 
-        for ( int xi = 0; xi < 3; xi++ )
+        for( int xi = 0; xi < 3; xi++ )
         {
             float32v ycf = ycfBase;
             int32v yc = ycBase;
-            for ( int yi = 0; yi < 3; yi++ )
+            for( int yi = 0; yi < 3; yi++ )
             {
                 float32v zcf = zcfBase;
                 int32v zc = zcBase;
-                for ( int zi = 0; zi < 3; zi++ )
+                for( int zi = 0; zi < 3; zi++ )
                 {
                     int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
