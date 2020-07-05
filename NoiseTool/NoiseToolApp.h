@@ -38,6 +38,9 @@ namespace Magnum
         ImGuiIntegration::Context mImGuiContext{ NoCreate };
         Color3 mClearColor{ 0.122f };
         bool mBackFaceCulling = false;
+        int mMaxSIMDLevel = 0;
+        std::vector<const char*> mLevelNames;
+        std::vector<FastSIMD::eLevel> mLevelEnums;
 
         FastNoiseNodeEditor mNodeEditor;
 

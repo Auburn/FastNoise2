@@ -29,7 +29,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
 
     if( generator )
     {
-        auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>();
+        auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxSIMDLevel );
         genRGB->SetSource( generator );
 
         float frequency = editor.mNodeFrequency;
@@ -70,7 +70,7 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
 {
     std::unordered_map<int, Node::Ptr>& nodes = editor.mNodes;
     std::unique_ptr<FastNoise::NodeData> nodeData( new FastNoise::NodeData() );
-    std::shared_ptr<FastNoise::Generator> node( metadata->NodeFactory() );
+    std::shared_ptr<FastNoise::Generator> node( metadata->NodeFactory( editor.mMaxSIMDLevel ) );
     dependancies.insert( id );
 
     for( int* link : memberLinks )
@@ -152,27 +152,6 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( s
 
 FastNoiseNodeEditor::FastNoiseNodeEditor()
 {
-    std::string lSIMD = "FastSIMD detected SIMD Level: ";
-
-    switch( FastSIMD::CPUMaxSIMDLevel() )
-    {
-    default:
-    case FastSIMD::Level_Null:   lSIMD.append( "NULL" ); break;
-    case FastSIMD::Level_Scalar: lSIMD.append( "Scalar" ); break;
-    case FastSIMD::Level_SSE:    lSIMD.append( "SSE" ); break;
-    case FastSIMD::Level_SSE2:   lSIMD.append( "SSE2" ); break;
-    case FastSIMD::Level_SSE3:   lSIMD.append( "SSE3" ); break;
-    case FastSIMD::Level_SSSE3:  lSIMD.append( "SSSE3" ); break;
-    case FastSIMD::Level_SSE41:  lSIMD.append( "SSE4.1" ); break;
-    case FastSIMD::Level_SSE42:  lSIMD.append( "SSE4.2" ); break;
-    case FastSIMD::Level_AVX:    lSIMD.append( "AVX" ); break;
-    case FastSIMD::Level_AVX2:   lSIMD.append( "AVX2" ); break;
-    case FastSIMD::Level_AVX512: lSIMD.append( "AVX512" ); break;
-    case FastSIMD::Level_NEON:   lSIMD.append( "NEON" ); break;
-    }
-
-    Debug{} << lSIMD.c_str();
-
 #ifdef IMGUI_HAS_DOCK
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 #endif
@@ -197,7 +176,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
         ImGui::SameLine();
         edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );
-        ImGui::PopItemWidth();
+        ImGui::PopItemWidth();        
 
         if( edited )
         {
@@ -206,6 +185,11 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
                 node.second->GeneratePreview( false );
             }
         }
+
+        std::string simdTxt = "Current SIMD Level: ";
+        simdTxt += GetSIMDLevelName( mActualSIMDLevel );
+        ImGui::SameLine( ImGui::GetWindowContentRegionWidth() - ImGui::CalcTextSize( simdTxt.c_str() ).x );
+        ImGui::TextUnformatted( simdTxt.c_str() );
 
         imnodes::BeginNodeEditor();
 
@@ -343,6 +327,16 @@ void FastNoiseNodeEditor::UpdateSelected()
                 }
             }
         }        
+    }
+}
+
+void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
+{
+    mMaxSIMDLevel = lvl;
+
+    for( auto& node : mNodes )
+    {
+        node.second->GeneratePreview();
     }
 }
 
@@ -621,7 +615,12 @@ std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::GenerateSelectedPrevi
     if( find != mNodes.end() )
     {
         serialised = find->second->serialised.c_str();
-        generator = FastNoise::NewFromEncodedNodeTree( serialised );
+        generator = FastNoise::NewFromEncodedNodeTree( serialised, mMaxSIMDLevel );
+
+        if( generator )
+        {
+            mActualSIMDLevel = generator->GetSIMDLevel();
+        }
     }
 
     mNoiseTexture.ReGenerate( generator, serialised );
@@ -638,5 +637,25 @@ void FastNoiseNodeEditor::ChangeSelectedNode( int newId )
     if( generator )
     {
         mMeshNoisePreview.ReGenerate( generator );
+    }
+}
+
+const char* FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::eLevel lvl )
+{
+    switch( lvl )
+    {
+    default:
+    case FastSIMD::Level_Null:   return "NULL";
+    case FastSIMD::Level_Scalar: return "Scalar";
+    case FastSIMD::Level_SSE:    return "SSE";
+    case FastSIMD::Level_SSE2:   return "SSE2";
+    case FastSIMD::Level_SSE3:   return "SSE3";
+    case FastSIMD::Level_SSSE3:  return "SSSE3";
+    case FastSIMD::Level_SSE41:  return "SSE4.1";
+    case FastSIMD::Level_SSE42:  return "SSE4.2";
+    case FastSIMD::Level_AVX:    return "AVX";
+    case FastSIMD::Level_AVX2:   return "AVX2";
+    case FastSIMD::Level_AVX512: return "AVX512";
+    case FastSIMD::Level_NEON:   return "NEON";
     }
 }

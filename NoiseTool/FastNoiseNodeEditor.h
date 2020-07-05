@@ -17,12 +17,11 @@ namespace Magnum
     {
     public:
         FastNoiseNodeEditor();
-        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
-        void CheckLinks();
-        void DoContextMenu();
-        void DoNodes();
-        void UpdateSelected();
+        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );        
+        void SetSIMDLevel( FastSIMD::eLevel lvl );
         int AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
+
+        static const char* GetSIMDLevelName( FastSIMD::eLevel lvl );
 
     private:
         struct Node
@@ -50,6 +49,10 @@ namespace Magnum
 
         std::shared_ptr<FastNoise::Generator> GenerateSelectedPreview();
         void ChangeSelectedNode( int newId );
+        void CheckLinks();
+        void DoContextMenu();
+        void DoNodes();
+        void UpdateSelected();
 
         std::unordered_map<int, Node::Ptr> mNodes;
         int mCurrentNodeId = 0;
@@ -62,5 +65,8 @@ namespace Magnum
         int mSelectedNode = 0;
         float mNodeFrequency = 0.02f;
         int mNodeSeed = 1337;
+
+        FastSIMD::eLevel mMaxSIMDLevel = FastSIMD::Level_Null;
+        FastSIMD::eLevel mActualSIMDLevel = FastSIMD::Level_Null;
     };
 }

@@ -83,7 +83,7 @@ std::shared_ptr<FastNoise::Generator> FastNoise::MetadataManager::DeserialiseNod
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
 
-    return DeserialiseNodeData( dataStream, startIdx );
+    return DeserialiseNodeData( dataStream, startIdx, level );
 }
 
 template<typename T>

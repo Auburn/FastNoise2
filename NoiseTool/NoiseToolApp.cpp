@@ -26,7 +26,22 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
        you'll need this exact behavior for the rest of your scene. If not, set
        this only for the drawFrame() call. */
     GL::Renderer::setBlendEquation( GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add );
-    GL::Renderer::setBlendFunction( GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha );    
+    GL::Renderer::setBlendFunction( GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha );
+
+    Debug{} << "FastSIMD detected max CPU SIMD Level:" << FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::CPUMaxSIMDLevel() );
+
+    mLevelNames = { "Auto" };
+    mLevelEnums = { FastSIMD::Level_Null };
+
+    for( int i = 1; i > 0; i = i << 1 )
+    {
+        FastSIMD::eLevel lvl = (FastSIMD::eLevel)i;
+        if( lvl & FastNoise::SUPPORTED_SIMD_LEVELS & FastSIMD::COMPILED_SIMD_LEVELS )
+        {
+            mLevelNames.emplace_back( FastNoiseNodeEditor::GetSIMDLevelName( lvl ) );
+            mLevelEnums.emplace_back( lvl );
+        }
+    }
 }
 
 void NoiseToolApp::drawEvent()
@@ -49,6 +64,12 @@ void NoiseToolApp::drawEvent()
 
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
+
+        if( ImGui::Combo( "SIMD Level", &mMaxSIMDLevel, mLevelNames.data(), mLevelEnums.size() ) )
+        {
+            FastSIMD::eLevel newLevel = mLevelEnums[mMaxSIMDLevel];
+            mNodeEditor.SetSIMDLevel( newLevel );
+        }
     }
 
     // Update camera pos
