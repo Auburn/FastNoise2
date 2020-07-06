@@ -146,7 +146,9 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
         return simdLevel; // no OSXSAVE
     if ( (abcd[2] & (1 << 28)) == 0 )
         return simdLevel; // no AVX
-    if ( (xgetbv( 0 ) & 6) != 6 )
+
+    uint32_t osbv = xgetbv( 0 );
+    if ( (osbv & 6) != 6 )
         return simdLevel; // AVX not enabled in O.S.
     simdLevel = Level_AVX;
     // 7: AVX supported
@@ -157,6 +159,8 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
     simdLevel = Level_AVX2;
     // 8: AVX2 supported
 
+    if( (osbv & (0xE0)) != 0xE0 )
+        return simdLevel; // AVX512 not enabled in O.S.
     if ( (abcd[1] & (1 << 16)) == 0 )
         return simdLevel; // no AVX512
     cpuid( abcd, 0xD ); // call cpuid leaf 0xD for feature flags
