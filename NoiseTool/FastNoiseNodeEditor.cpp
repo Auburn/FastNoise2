@@ -66,7 +66,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
     }
 }
 
-std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( std::unordered_set<int>& dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas )
+std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas )
 {
     std::unordered_map<int, Node::Ptr>& nodes = editor.mNodes;
     std::unique_ptr<FastNoise::NodeData> nodeData( new FastNoise::NodeData() );

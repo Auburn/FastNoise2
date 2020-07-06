@@ -30,7 +30,7 @@ namespace Magnum
 
             Node( FastNoiseNodeEditor&, const FastNoise::Metadata* );
             void GeneratePreview( bool nodeTreeChanged = true );
-            std::shared_ptr<FastNoise::Generator> GetGenerator( std::unordered_set<int>& dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas );
+            std::shared_ptr<FastNoise::Generator> GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas );
 
             FastNoiseNodeEditor& editor;
 
