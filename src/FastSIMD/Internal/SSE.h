@@ -468,7 +468,7 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T>
         FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Round_f32( float32v a )
         {
-#if 0
+#if 1
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128 nearest2 = _mm_castsi128_ps( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 2 ) );
 #else
@@ -476,7 +476,7 @@ namespace FastSIMD
 #endif
             __m128 aTrunc = _mm_cvtepi32_ps( _mm_cvttps_epi32( a ) );       // truncate a
             __m128 rmd = _mm_sub_ps( a, aTrunc );                           // get remainder
-            __m128 rmd2 = _mm_mul_ps( rmd, nearest2 );                      // mul remainder by near 2 will yield the needed offset
+            __m128 rmd2 = _mm_mul_ps( rmd, nearest2 );                   // mul remainder by near 2 will yield the needed offset
             __m128 rmd2Trunc = _mm_cvtepi32_ps( _mm_cvttps_epi32( rmd2 ) ); // after being truncated of course
             return _mm_add_ps( aTrunc, rmd2Trunc );
 #else
