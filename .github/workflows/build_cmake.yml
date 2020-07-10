@@ -90,6 +90,29 @@ jobs:
           )
         endif()
 
+    - name: Download ccache
+      id: ccache
+      shell: cmake -P {0}
+      run: |
+        set(ccache_url "https://github.com/cristianadam/ccache/releases/download/v$ENV{CCACHE_VERSION}/${{ runner.os }}.tar.xz")
+        file(DOWNLOAD "${ccache_url}" ./ccache.tar.xz SHOW_PROGRESS)
+        execute_process(COMMAND ${CMAKE_COMMAND} -E tar xvf ./ccache.tar.xz)
+
+    - name: Prepare ccache timestamp
+      id: ccache_cache_timestamp
+      shell: cmake -P {0}
+      run: |
+        string(TIMESTAMP current_date "%Y-%m-%d-%H;%M;%S" UTC)
+        message("::set-output name=timestamp::${current_date}")
+
+    - name: ccache cache files
+      uses: actions/cache@v1.1.0
+      with:
+        path: .ccache
+        key: ${{ matrix.config.name }}-ccache-${{ steps.ccache_cache_timestamp.outputs.timestamp }}
+        restore-keys: |
+          ${{ matrix.config.name }}-ccache-
+
     - name: Configure
       shell: cmake -P {0}
       run: |
@@ -190,6 +213,10 @@ jobs:
         if (NOT result EQUAL 0)
           message(FATAL_ERROR "Running tests failed!")
         endif()
+
+
+    - name: Install Strip
+      run: ${{ steps.cmake_and_ninja.outputs.cmake_dir }}/cmake --install build --prefix instdir --strip
 
   release:
     if: contains(github.ref, 'tags/v')
