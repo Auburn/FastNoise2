@@ -411,94 +411,100 @@ namespace FastSIMD
 
 #if FASTSIMD_COMPILE_AVX512
     typedef AVX512_T<Level_AVX512> AVX512;
-#endif
 
 #if FASTSIMD_USE_FMA
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v MaskedAdd_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::float32v c )
+    template<>
+    FS_INLINE AVX512::float32v FMulAdd_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::float32v c )
     {
         return _mm512_fmadd_ps( a, b, c );
+    }
+
+    template<>
+    FS_INLINE AVX512::float32v FNMulAdd_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::float32v c )
+    {
+        return _mm512_fnmadd_ps( a, b, c );
     }
 #endif
 
     // Masked float
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v MaskedAdd_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::float32v MaskedAdd_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::mask32v m )
     {
         return _mm512_mask_add_ps( a, m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v MaskedSub_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::float32v MaskedSub_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::mask32v m )
     {
         return _mm512_mask_sub_ps( a, m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v MaskedMul_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::float32v MaskedMul_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::mask32v m )
     {
         return _mm512_mask_mul_ps( a, m, a, b );
     }
 
     // Masked int32
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::int32v MaskedAdd_i32( typename AVX512_T<L>::int32v a, typename AVX512_T<L>::int32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::int32v MaskedAdd_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
         return _mm512_mask_add_epi32( a, m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::int32v MaskedSub_i32( typename AVX512_T<L>::int32v a, typename AVX512_T<L>::int32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::int32v MaskedSub_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
         return _mm512_mask_sub_epi32( a, m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::int32v MaskedMul_i32( typename AVX512_T<L>::int32v a, typename AVX512_T<L>::int32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::int32v MaskedMul_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
         return _mm512_mask_mul_epi32( a, m, a, b );
     }
 
     // NMasked float
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v NMaskedAdd_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::float32v NMaskedAdd_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::mask32v m )
     {
         return _mm512_mask_add_ps( a, ~m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v NMaskedSub_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::float32v NMaskedSub_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::mask32v m )
     {
         return _mm512_mask_sub_ps( a, ~m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::float32v NMaskedMul_f32( typename AVX512_T<L>::float32v a, typename AVX512_T<L>::float32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::float32v NMaskedMul_f32<AVX512>( AVX512::float32v a, AVX512::float32v b, AVX512::mask32v m )
     {
         return _mm512_mask_mul_ps( a, ~m, a, b );
     }
 
     // NMasked int32
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::int32v NMaskedAdd_i32( typename AVX512_T<L>::int32v a, typename AVX512_T<L>::int32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::int32v NMaskedAdd_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
         return _mm512_mask_add_epi32( a, ~m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::int32v NMaskedSub_i32( typename AVX512_T<L>::int32v a, typename AVX512_T<L>::int32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::int32v NMaskedSub_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
         return _mm512_mask_sub_epi32( a, ~m, a, b );
     }
 
-    template<eLevel L>
-    FS_INLINE typename AVX512_T<L>::int32v NMaskedMul_i32( typename AVX512_T<L>::int32v a, typename AVX512_T<L>::int32v b, typename AVX512_T<L>::mask32v m )
+    template<>
+    FS_INLINE AVX512::int32v NMaskedMul_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
         return _mm512_mask_mul_epi32( a, ~m, a, b );
     }
+#endif
     
 }

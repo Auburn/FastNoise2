@@ -255,6 +255,13 @@
 // int32v FS_BitwiseAndNot_i32( int32v a, int32v b )
 #define FS_BitwiseAndNot_i32( ... ) FS::BitwiseAndNot_i32( __VA_ARGS__ )
 
+// TEXT
+// val: TEXT
+// returns: TEXT
+// I
+// mask32v FS_BitwiseAndNot_m32( mask32v a, mask32v b )
+#define FS_BitwiseAndNot_m32( ... ) FastSIMD::BitwiseAndNot_m32<FS>( __VA_ARGS__ )
+
 
 // Abs
 
@@ -322,6 +329,11 @@
 // float32v FS_FMulAdd_f32( float32v a, float32v b, float32v c )
 // returns: (a * b) + c
 #define FS_FMulAdd_f32( ... ) FastSIMD::FMulAdd_f32<FS>( __VA_ARGS__ )
+
+// I
+// float32v FS_FNMulAdd_f32( float32v a, float32v b, float32v c )
+// returns: -(a * b) + c
+#define FS_FNMulAdd_f32( ... ) FastSIMD::FNMulAdd_f32<FS>( __VA_ARGS__ )
 
 
 // Masked float
@@ -419,24 +431,18 @@ namespace FastSIMD
         }
     };
 
-#define FS_GetSIMDClass( CLASS, basePtr ) FastSIMD::GetSIMDClass<CLASS, FS_CLASS( CLASS ), FS>( basePtr )
-
-    template<typename CLS, typename FS_CLS, typename FS, typename PTR>
-    FS_CLS* GetSIMDClass( const PTR& base )
-    {
-        if ( base && base->GetSIMDLevel() == FS::SIMD_Level )
-        {
-            return static_cast<FS_CLS*>(base->GetSIMDClass());
-        }
-        return nullptr;
-    }
-
     //FMA
 
     template<typename FS>
     FS_INLINE typename FS::float32v FMulAdd_f32( typename FS::float32v a, typename FS::float32v b, typename FS::float32v c )
     {
         return (a * b) + c;
+    }
+
+    template<typename FS>
+    FS_INLINE typename FS::float32v FNMulAdd_f32( typename FS::float32v a, typename FS::float32v b, typename FS::float32v c )
+    {
+        return -(a * b) + c;
     }
 
     // Masked float
@@ -543,22 +549,17 @@ namespace FastSIMD
         return MaskedAdd_i32<FS>( a, typename FS::int32v( -1 ), m );
     }
 
+    // Bitwise
 
-    template<FastSIMD::eLevel FS, FastSIMD::eLevel First, FastSIMD::eLevel... Lvls>
-    struct MultiSpecialisation
+    template<typename FS>
+    FS_INLINE std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::mask32v> BitwiseAndNot_m32( typename FS::mask32v a, typename FS::mask32v b )
     {
-        static const FastSIMD::eLevel Level = MultiSpecialisation<Lvls...>::Level;
-    };
+        return FS::BitwiseAndNot_i32( a, b );
+    }
 
-    template<FastSIMD::eLevel FS, FastSIMD::eLevel... Types>
-    struct MultiSpecialisation<FS, FS, Types...>
+    template<typename FS>
+    FS_INLINE std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::mask32v> BitwiseAndNot_m32( typename FS::mask32v a, typename FS::mask32v b )
     {
-        static const FastSIMD::eLevel Level = FS;
-    };
-
-    template<FastSIMD::eLevel FS, FastSIMD::eLevel First>
-    struct MultiSpecialisation<FS, First>
-    {
-        static const FastSIMD::eLevel Level = First;
-    };
+        return a & (~b);
+    }
 }

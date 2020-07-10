@@ -183,8 +183,8 @@ class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, 
             float32v score0yr = FS_Abs_f32( d0yr );
             float32v score0zr = FS_Abs_f32( d0zr );
             mask32v dir0xr = FS_LessEqualThan_f32( FS_Max_f32( score0yr, score0zr ), score0xr );
-            mask32v dir0yr = (~dir0xr) & FS_LessEqualThan_f32( FS_Max_f32( score0zr, score0xr ), score0yr ); // Can use AndNot
-            mask32v dir0zr = ~(dir0xr | dir0yr);
+            mask32v dir0yr = FS_BitwiseAndNot_m32( FS_LessEqualThan_f32( FS_Max_f32( score0zr, score0xr ), score0yr ), dir0xr );
+            mask32v dir0zr = ~(dir0xr );
             float32v v1xr = FS_MaskedAdd_f32( v0xr, FS_BitwiseOr_f32( float32v( 1 ), FS_BitwiseAnd_f32( d0xr, float32v( -1 ) ) ), dir0xr );
             float32v v1yr = FS_MaskedAdd_f32( v0yr, FS_BitwiseOr_f32( float32v( 1 ), FS_BitwiseAnd_f32( d0yr, float32v( -1 ) ) ), dir0yr );
             float32v v1zr = FS_MaskedAdd_f32( v0zr, FS_BitwiseOr_f32( float32v( 1 ), FS_BitwiseAnd_f32( d0zr, float32v( -1 ) ) ), dir0zr );
@@ -195,12 +195,13 @@ class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, 
             int32v hv0xr = FS_Convertf32_i32( v0xr ) * int32v( Primes::X );
             int32v hv0yr = FS_Convertf32_i32( v0yr ) * int32v( Primes::Y );
             int32v hv0zr = FS_Convertf32_i32( v0zr ) * int32v( Primes::Z );
+
             int32v hv1xr = FS_Convertf32_i32( v1xr ) * int32v( Primes::X );
             int32v hv1yr = FS_Convertf32_i32( v1yr ) * int32v( Primes::Y );
             int32v hv1zr = FS_Convertf32_i32( v1zr ) * int32v( Primes::Z );
 
-            float32v t0 = FS_FMulAdd_f32( -d0zr, d0zr, FS_FMulAdd_f32( -d0yr, d0yr, FS_FMulAdd_f32( -d0xr, d0xr, float32v( 0.6f ) ) ) ); // Use FNMulAdd
-            float32v t1 = FS_FMulAdd_f32( -d1zr, d1zr, FS_FMulAdd_f32( -d1yr, d1yr, FS_FMulAdd_f32( -d1xr, d1xr, float32v( 0.6f ) ) ) );
+            float32v t0 = FS_FNMulAdd_f32( d0zr, d0zr, FS_FNMulAdd_f32( d0yr, d0yr, FS_FNMulAdd_f32( d0xr, d0xr, float32v( 0.6f ) ) ) );
+            float32v t1 = FS_FNMulAdd_f32( d1zr, d1zr, FS_FNMulAdd_f32( d1yr, d1yr, FS_FNMulAdd_f32( d1xr, d1xr, float32v( 0.6f ) ) ) );
             t0 = FS_Max_f32( t0, float32v( 0 ) );
             t1 = FS_Max_f32( t1, float32v( 0 ) );
             t0 = t0 * t0;

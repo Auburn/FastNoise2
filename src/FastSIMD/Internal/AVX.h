@@ -419,9 +419,9 @@ namespace FastSIMD
 #if FASTSIMD_COMPILE_AVX
     typedef AVX_T<Level_AVX>  AVX;
 #endif
+
 #if FASTSIMD_COMPILE_AVX2
     typedef AVX_T<Level_AVX2> AVX2;
-#endif
 
 #if FASTSIMD_USE_FMA
     template<>
@@ -429,6 +429,13 @@ namespace FastSIMD
     {
         return _mm256_fmadd_ps( a, b, c );
     }
+
+    template<>
+    FS_INLINE AVX2::float32v FNMulAdd_f32<AVX2>( AVX2::float32v a, AVX2::float32v b, AVX2::float32v c )
+    {
+        return _mm256_fnmadd_ps( a, b, c );
+    }
+#endif
 #endif
     
 }
