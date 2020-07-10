@@ -8,6 +8,8 @@
 #include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 
+#include "ImGuiExtra.h"
+
 using namespace Magnum;
 
 NoiseTexture::NoiseTexture()
@@ -61,6 +63,7 @@ void NoiseTexture::Draw()
         ImGui::SameLine();
 
         edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "3D Slice\0" );
+        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 2 );
         ImGui::SameLine();
 
         ImGui::PopItemWidth();

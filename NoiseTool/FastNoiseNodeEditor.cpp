@@ -10,6 +10,8 @@
 #include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 
+#include "ImGuiExtra.h"
+
 using namespace Magnum;
 
 FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, const FastNoise::Metadata* meta ) :
@@ -471,7 +473,8 @@ void FastNoiseNodeEditor::DoNodes()
                 break;
             case FastNoise::Metadata::MemberVariable::EEnum:
                 {
-                    if( ImGui::Combo( nodeVar.name, &node.second->memberValues[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) )
+                    if( ImGui::Combo( nodeVar.name, &node.second->memberValues[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) ||
+                        ImGuiExtra::ScrollCombo( &node.second->memberValues[i].i, (int)nodeVar.enumNames.size() ) )
                     {
                         node.second->GeneratePreview();
                     }

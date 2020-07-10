@@ -5,6 +5,7 @@
 #include <Magnum/GL/Renderer.h>
 
 #include "NoiseToolApp.h"
+#include "ImGuiExtra.h"
 
 using namespace Magnum;
 
@@ -65,8 +66,9 @@ void NoiseToolApp::drawEvent()
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
 
-        if( ImGui::Combo( "SIMD Level", &mMaxSIMDLevel, mLevelNames.data(), mLevelEnums.size() ) )
-        {
+        if( ImGui::Combo( "SIMD Level", &mMaxSIMDLevel, mLevelNames.data(), (int)mLevelEnums.size() ) ||
+            ImGuiExtra::ScrollCombo( &mMaxSIMDLevel, (int)mLevelEnums.size() ) )
+        {   
             FastSIMD::eLevel newLevel = mLevelEnums[mMaxSIMDLevel];
             mNodeEditor.SetSIMDLevel( newLevel );
         }
