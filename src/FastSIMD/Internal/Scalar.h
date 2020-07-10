@@ -10,16 +10,6 @@ namespace FastSIMD
     {
         FASTSIMD_INTERNAL_TYPE_SET( Scalar_Float, float );
 
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 1;
-        }
-
-        FS_INLINE static Scalar_Float Zero()
-        {
-            return 0.0f;
-        }
-
         FS_INLINE static Scalar_Float Incremented()
         {
             return 0.0f;
@@ -53,16 +43,6 @@ namespace FastSIMD
     struct Scalar_Int
     {
         FASTSIMD_INTERNAL_TYPE_SET( Scalar_Int, int32_t );
-
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 1;
-        }
-
-        FS_INLINE static Scalar_Int Zero()
-        {
-            return 0;
-        }
 
         FS_INLINE static Scalar_Int Incremented()
         {
@@ -137,7 +117,10 @@ namespace FastSIMD
     class Scalar
     {
     public:
-        static const FastSIMD::eLevel SIMD_Level = FastSIMD::Level_Scalar;
+        static constexpr eLevel SIMD_Level = FastSIMD::Level_Scalar;
+
+        template<size_t ElementSize = 8>
+        static constexpr size_t VectorSize = 32 / ElementSize;
 
         typedef Scalar_Float float32v;
         typedef Scalar_Int   int32v;
@@ -361,7 +344,7 @@ namespace FastSIMD
 
         FS_INLINE static float32v Round_f32( float32v a )
         {
-            return roundf( a );
+            return nearbyintf( a );
         }
 
         // Mask

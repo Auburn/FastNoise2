@@ -10,16 +10,6 @@ namespace FastSIMD
     {
         FASTSIMD_INTERNAL_TYPE_SET( AVX_f32x8, __m256 );
 
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 8;
-        }
-
-        FS_INLINE static AVX_f32x8 Zero()
-        {
-            return _mm256_setzero_ps();
-        }
-
         FS_INLINE static AVX_f32x8 Incremented()
         {
             return _mm256_set_ps( 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.0f );
@@ -76,16 +66,6 @@ namespace FastSIMD
     struct AVX2_i32x8
     {
         FASTSIMD_INTERNAL_TYPE_SET( AVX2_i32x8, __m256i );
-
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 8;
-        }
-
-        FS_INLINE static AVX2_i32x8 Zero()
-        {
-            return _mm256_setzero_si256();
-        }
 
         FS_INLINE static AVX2_i32x8 Incremented()
         {
@@ -174,8 +154,10 @@ namespace FastSIMD
     public:
         static_assert(LEVEL_T >= Level_AVX && LEVEL_T <= Level_AVX2, "Cannot create template with unsupported SIMD level");
 
-        static const eLevel SIMD_Level = LEVEL_T;
-        static const size_t VectorSize = 256 / 8;
+        static constexpr eLevel SIMD_Level = LEVEL_T;
+
+        template<size_t ElementSize = 8>
+        static constexpr size_t VectorSize = 256 / ElementSize;
 
         typedef AVX_f32x8  float32v;
         typedef AVX2_i32x8 int32v;

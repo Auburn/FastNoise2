@@ -11,16 +11,6 @@ namespace FastSIMD
     {
         FASTSIMD_INTERNAL_TYPE_SET( AVX512_f32x16, __m512 );
 
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 16;
-        }
-
-        FS_INLINE static AVX512_f32x16 Zero()
-        {
-            return _mm512_setzero_ps();
-        }
-
         FS_INLINE static AVX512_f32x16 Incremented()
         {
             return _mm512_set_ps( 15.0f, 14.0f, 13.0f, 12.0f, 11.0f, 10.0f, 9.0f, 8.0f, 7.0f, 6.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.0f );
@@ -77,16 +67,6 @@ namespace FastSIMD
     struct AVX512_i32x16
     {
         FASTSIMD_INTERNAL_TYPE_SET( AVX512_i32x16, __m512i );
-
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 16;
-        }
-
-        FS_INLINE static AVX512_i32x16 Zero()
-        {
-            return _mm512_setzero_si512();
-        }
 
         FS_INLINE static AVX512_i32x16 Incremented()
         {
@@ -175,8 +155,10 @@ namespace FastSIMD
     public:
         static_assert(LEVEL_T == Level_AVX512, "Cannot create template with unsupported SIMD level");
 
-        static const eLevel SIMD_Level = LEVEL_T;
-        static const size_t VectorSize = 512 / 8;
+        static constexpr eLevel SIMD_Level = LEVEL_T;
+
+        template<size_t ElementSize = 8>
+        static constexpr size_t VectorSize = 512 / ElementSize;
 
         typedef AVX512_f32x16  float32v;
         typedef AVX512_i32x16  int32v;
@@ -463,7 +445,7 @@ namespace FastSIMD
     template<>
     FS_INLINE AVX512::int32v MaskedMul_i32<AVX512>( AVX512::int32v a, AVX512::int32v b, AVX512::mask32v m )
     {
-        return _mm512_mask_mul_epi32( a, m, a, b );
+        return _mm512_mask_mullo_epi32( a, m, a, b );
     }
 
     // NMasked float

@@ -19,7 +19,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
     // Bit-4 = Choose X Y ordering
-    int32v xy = (index << 29) >> 31;
+    mask32v xy = (index << 29) >> 31;
     float32v a = FS_Select_f32( xy, fY, fX );
     float32v b = FS_Select_f32( xy, fX, fY );
 
@@ -27,10 +27,10 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     b = FS_BitwiseXor_f32( b, FS_Casti32_f32( index << 31 ) );
 
     // Bit-2 = Mul a by 2 or Root3
-    int32v aMul2 = (index << 30) >> 31;
+    mask32v aMul2 = (index << 30) >> 31;
     a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
     // b zero value if a mul 2
-    b = FS_BitwiseAndNot_f32( b, FS_Casti32_f32( aMul2 ) );
+    b = FS_NMask_f32( b, aMul2 );
 
     // Bit-8 = Flip sign of a + b
     return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( (index >> 3) << 31 ) );

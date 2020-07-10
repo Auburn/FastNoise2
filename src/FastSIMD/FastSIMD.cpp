@@ -147,7 +147,7 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
     if ( (abcd[2] & (1 << 28)) == 0 )
         return simdLevel; // no AVX
 
-    uint32_t osbv = xgetbv( 0 );
+    uint64_t osbv = xgetbv( 0 );
     if ( (osbv & 6) != 6 )
         return simdLevel; // AVX not enabled in O.S.
     simdLevel = Level_AVX;
@@ -187,7 +187,7 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 }
 
 
-template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ) == 0, int> = 0>
+template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ) == 0>* = nullptr>
 CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
 {
     if constexpr( SIMD_LEVEL == FastSIMD::Level_Null )
@@ -198,7 +198,7 @@ CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
     return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL> >( maxSIMDLevel );
 }
 
-template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ) != 0, int> = 0>
+template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL, std::enable_if_t<( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ) != 0>* = nullptr>
 CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
 {
     CLASS_T* newClass = SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL> >( maxSIMDLevel );

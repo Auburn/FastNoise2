@@ -1,6 +1,6 @@
 #pragma once
 
-#include <inttypes.h>
+#include <cinttypes>
 
 #include "FastSIMD/FastSIMD.h"
 #include "FastSIMD/FunctionList.h"

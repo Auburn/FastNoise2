@@ -67,7 +67,7 @@ public:
 
     OutputMinMax GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
     {
-        assert( xSize >= int32v::Size() );
+        assert( xSize >= (int32_t)FS_Size_32() );
 
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -80,12 +80,12 @@ public:
         int32v xSizeV( xSize );
         int32v xMax = xSizeV + xIdx + int32v( -1 );
 
-        int32_t totalValues = xSize * ySize;
-        int32_t index = 0;
+        size_t totalValues = xSize * ySize;
+        size_t index = 0;
 
         xIdx += int32v::FS_Incremented();
 
-        while( index < totalValues - float32v::FS_Size() )
+        while( index < totalValues - FS_Size_32() )
         {
             float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
             float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
@@ -98,8 +98,8 @@ public:
             max = FS_Max_f32( max, gen );
 #endif
 
-            index += float32v::FS_Size();
-            xIdx += int32v( int32v::FS_Size() );
+            index += FS_Size_32();
+            xIdx += int32v( FS_Size_32() );
 
             mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
             yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
@@ -116,7 +116,7 @@ public:
 
     OutputMinMax GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed ) const final
     {
-        assert( xSize >= int32v::Size() );
+        assert( xSize >= (int32_t)FS_Size_32() );
 
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -132,12 +132,12 @@ public:
         int32v ySizeV( ySize );
         int32v yMax = ySizeV + yIdx + int32v( -1 );
 
-        int32_t totalValues = xSize * ySize * zSize;
-        int32_t index = 0;
+        size_t totalValues = xSize * ySize * zSize;
+        size_t index = 0;
 
         xIdx += int32v::FS_Incremented();
 
-        while( index < totalValues - float32v::FS_Size() )
+        while( index < totalValues - FS_Size_32() )
         {
             float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
             float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
@@ -151,8 +151,8 @@ public:
             max = FS_Max_f32( max, gen );
 #endif
 
-            index += float32v::FS_Size();
-            xIdx += int32v( int32v::FS_Size() );
+            index += FS_Size_32();
+            xIdx += int32v( FS_Size_32() );
 
             mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
             yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
@@ -177,8 +177,8 @@ public:
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
-        int32_t index = 0;
-        while( index < int64_t(count) - float32v::FS_Size() )
+        size_t index = 0;
+        while( index < count - FS_Size_32() )
         {
             float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
             float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
@@ -190,7 +190,7 @@ public:
             min = FS_Min_f32( min, gen );
             max = FS_Max_f32( max, gen );
 #endif
-            index += float32v::FS_Size();
+            index += FS_Size_32();
         }
 
         float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
@@ -207,7 +207,7 @@ public:
         float32v max( -INFINITY );
 
         int32_t index = 0;
-        while( index < int64_t(count) - float32v::FS_Size() )
+        while( index < int64_t(count) - FS_Size_32() )
         {
             float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
             float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
@@ -220,7 +220,7 @@ public:
             min = FS_Min_f32( min, gen );
             max = FS_Max_f32( max, gen );
 #endif
-            index += float32v::FS_Size();
+            index += FS_Size_32();
         }
 
         float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
@@ -233,12 +233,12 @@ public:
     }
 
 private:
-    static FS_INLINE OutputMinMax DoRemaining( float* noiseOut, int32_t totalValues, int32_t index, float32v min, float32v max, float32v finalGen )
+    static FS_INLINE OutputMinMax DoRemaining( float* noiseOut, size_t totalValues, size_t index, float32v min, float32v max, float32v finalGen )
     {
         OutputMinMax minMax;
-        int32_t remaining = totalValues - index;
+        size_t remaining = totalValues - index;
 
-        if( remaining == float32v::FS_Size() )
+        if( remaining == FS_Size_32() )
         {
             FS_Store_f32( &noiseOut[index], finalGen );
 
@@ -249,21 +249,21 @@ private:
         }
         else
         {
-            memcpy( &noiseOut[index], &finalGen, size_t( remaining ) * sizeof( int32_t ) );
+            memcpy( &noiseOut[index], &finalGen, remaining * sizeof( int32_t ) );
 
 #if FASTNOISE_CALC_MIN_MAX
             do
             {
                 minMax << noiseOut[index];
-
-            } while( ++index < totalValues );
+            }
+            while( ++index < totalValues );
 #endif
         }
 
 #if FASTNOISE_CALC_MIN_MAX
         float* minP = reinterpret_cast<float*>(&min);
         float* maxP = reinterpret_cast<float*>(&max);
-        for( size_t i = 0; i < float32v::Size(); i++ )
+        for( size_t i = 0; i < FS_Size_32(); i++ )
         {
             minMax << OutputMinMax{ minP[i], maxP[i] };
         }

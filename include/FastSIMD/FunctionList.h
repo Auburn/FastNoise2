@@ -13,26 +13,22 @@
 #define FS_INLINE __attribute__((always_inline))
 #endif
 
-#define FS_ENABLE_IF( CONDITION, TYPE ) typename std::enable_if<(CONDITION), TYPE >::type 
-
 #define FS_MULTI_SPECIALISATION( ... ) FastSIMD::MultiSpecialisation<FS_SIMD_CLASS::SIMD_Level, __VA_ARGS__ >::Level
+
+
+// Compile time constant
+// returns: Number of 32 width elements that will fit into the vector
+// I
+// size_t FS_Size_32()
+#define FS_Size_32() FS::template VectorSize<32>
+
 
 // Vector builders
 
-// Compile time constant
-// returns: Number of float32 that will fit into the vector
+// example: int32v::FS_Incremented()
+// returns: Vector with values incrementing from 0 based on element index {0, 1, 2, 3...}
 // I
-// int FS_VectorSize_f32()
-#define FS_Size() Size()
-
-// returns: Vector with all values set to 0
-// I
-// int32v FS_VecZero_i32()
-#define FS_Zero() Zero()
-
-// returns: Vector with values incrementing from 0 based on index {0, 1, 2, 3...}
-// I
-// int32v FS_VecIncremented_i32()
+// auto FS_Incremented()
 #define FS_Incremented() Incremented()
 
 
@@ -322,6 +318,16 @@
 // returns: m ? a : 0
 #define FS_Mask_f32( ... ) FS::Mask_f32( __VA_ARGS__ )
 
+// I
+// int32v FS_NMask_i32( int32v a, mask32v m )
+// returns: m ? 0 : a
+#define FS_NMask_i32( ... ) FS::NMask_i32( __VA_ARGS__ )
+
+// I
+// float32v FS_NMask_f32( float32v a, mask32v m )
+// returns: m ? 0 : a
+#define FS_NMask_f32( ... ) FS::NMask_f32( __VA_ARGS__ )
+
 
 // FMA
 
@@ -525,26 +531,25 @@ namespace FastSIMD
         return a * FS::NMask_i32( b, m );
     }
 
-    template<typename FS>
-    FS_INLINE std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    template<typename FS, std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>>* = nullptr>
+    FS_INLINE typename FS::int32v MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return a - m;
     }
 
-    template<typename FS>
-    FS_INLINE std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    template<typename FS, std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>>* = nullptr>
+    FS_INLINE typename FS::int32v MaskedIncrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return MaskedSub_i32<FS>( a, typename FS::int32v( -1 ), m );
     }
-
-    template<typename FS>
-    FS_INLINE std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    template<typename FS, std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>>* = nullptr>
+    FS_INLINE typename FS::int32v MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return a + m;
     }
 
-    template<typename FS>
-    FS_INLINE std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::int32v> MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
+    template<typename FS, std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>>* = nullptr>
+    FS_INLINE typename FS::int32v MaskedDecrement_i32( typename FS::int32v a, typename FS::mask32v m )
     {
         return MaskedAdd_i32<FS>( a, typename FS::int32v( -1 ), m );
     }

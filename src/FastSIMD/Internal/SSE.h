@@ -10,16 +10,6 @@ namespace FastSIMD
     {
         FASTSIMD_INTERNAL_TYPE_SET( SSE_f32x4, __m128 );
 
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 4;
-        }
-
-        FS_INLINE static SSE_f32x4 Zero()
-        {
-            return _mm_setzero_ps();
-        }
-
         FS_INLINE static SSE_f32x4 Incremented()
         {
             return _mm_set_ps( 3.0f, 2.0f, 1.0f, 0.0f );
@@ -78,16 +68,6 @@ namespace FastSIMD
     {
         FASTSIMD_INTERNAL_TYPE_SET( SSE_i32x4, __m128i );
 
-        constexpr FS_INLINE static uint8_t Size()
-        {
-            return 4;
-        }
-
-        FS_INLINE static SSE_i32x4 Zero()
-        {
-            return _mm_setzero_si128();
-        }
-
         FS_INLINE static SSE_i32x4 Incremented()
         {
             return _mm_set_epi32( 3, 2, 1, 0 );
@@ -115,17 +95,17 @@ namespace FastSIMD
             return *this;
         }
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE FS_ENABLE_IF( L < Level_SSE41, SSE_i32x4<L>& ) operator*=( const SSE_i32x4<L>& rhs )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE SSE_i32x4& operator*=( const SSE_i32x4& rhs )
         {
             __m128i tmp1 = _mm_mul_epu32( *this, rhs ); /* mul 2,0*/
             __m128i tmp2 = _mm_mul_epu32( _mm_srli_si128( *this, 4 ), _mm_srli_si128( rhs, 4 ) ); /* mul 3,1 */
             *this = _mm_unpacklo_epi32( _mm_shuffle_epi32( tmp1, _MM_SHUFFLE( 0, 0, 2, 0 ) ), _mm_shuffle_epi32( tmp2, _MM_SHUFFLE( 0, 0, 2, 0 ) ) ); /* shuffle results to [63..0] and pack */
             return *this;
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE FS_ENABLE_IF( L >= Level_SSE41, SSE_i32x4<L>& ) operator*=( const SSE_i32x4<L>& rhs )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE SSE_i32x4& operator*=( const SSE_i32x4& rhs )
         {
             *this = _mm_mullo_epi32( *this, rhs );
             return *this;
@@ -185,8 +165,10 @@ namespace FastSIMD
     public:
         static_assert(LEVEL_T >= Level_SSE && LEVEL_T <= Level_SSE42, "Cannot create template with unsupported SIMD level");
 
-        static const eLevel SIMD_Level = LEVEL_T;
-        static const size_t VectorSize = 128 / 8;
+        static constexpr eLevel SIMD_Level = LEVEL_T;
+
+        template<size_t ElementSize = 8>
+        static constexpr size_t VectorSize = 128 / ElementSize;
 
         typedef SSE_f32x4          float32v;
         typedef SSE_i32x4<LEVEL_T> int32v;
@@ -284,28 +266,28 @@ namespace FastSIMD
 
         // Select
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Select_f32( mask32v m, float32v a, float32v b )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Select_f32( mask32v m, float32v a, float32v b )
         {
             __m128 mf = _mm_castsi128_ps( m );
 
             return  _mm_or_ps( _mm_and_ps( mf, a ), _mm_andnot_ps( mf, b ) );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Select_f32( mask32v m, float32v a, float32v b )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Select_f32( mask32v m, float32v a, float32v b )
         {
             return  _mm_blendv_ps( b, a, _mm_castsi128_ps( m ) );
         }
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, int32v ) Select_i32( mask32v m, int32v a, int32v b )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static int32v Select_i32( mask32v m, int32v a, int32v b )
         {
             return  _mm_or_si128( _mm_and_si128( m, a ), _mm_andnot_si128( m, b ) );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, int32v ) Select_i32( mask32v m, int32v a, int32v b )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static int32v Select_i32( mask32v m, int32v a, int32v b )
         {
             return _mm_castps_si128( _mm_blendv_ps( _mm_castsi128_ps( b ), _mm_castsi128_ps( a ), _mm_castsi128_ps( m ) ) );
         }
@@ -322,26 +304,26 @@ namespace FastSIMD
             return _mm_max_ps( a, b );
         }
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, int32v ) Min_i32( int32v a, int32v b )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static int32v Min_i32( int32v a, int32v b )
         {
             return Select_i32( LessThan_i32( a, b ), a, b );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, int32v ) Min_i32( int32v a, int32v b )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static int32v Min_i32( int32v a, int32v b )
         {
             return _mm_min_epi32( a, b );
         }
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, int32v ) Max_i32( int32v a, int32v b )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static int32v Max_i32( int32v a, int32v b )
         {
             return Select_i32( GreaterThan_i32( a, b ), a, b );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, int32v ) Max_i32( int32v a, int32v b )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static int32v Max_i32( int32v a, int32v b )
         {
             return _mm_max_epi32( a, b );
         }
@@ -395,15 +377,15 @@ namespace FastSIMD
             return _mm_and_ps( a, _mm_castsi128_ps( intMax ) );
         }
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSSE3, int32v ) Abs_i32( int32v a )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSSE3)>* = nullptr>
+        FS_INLINE static int32v Abs_i32( int32v a )
         {
             __m128i signMask = _mm_srai_epi32( a, 31 );
             return _mm_sub_epi32( _mm_xor_si128( a, signMask ), signMask );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSSE3, int32v ) Abs_i32( int32v a )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSSE3)>* = nullptr>
+        FS_INLINE static int32v Abs_i32( int32v a )
         {
             return _mm_abs_epi32( a );
         }
@@ -427,8 +409,8 @@ namespace FastSIMD
 
         // Floor, Ceil, Round: http://dss.stephanierct.com/DevBlog/?p=8
 
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Floor_f32( float32v a )
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Floor_f32( float32v a )
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128 f1 = _mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
@@ -439,15 +421,15 @@ namespace FastSIMD
 
             return _mm_sub_ps( fval, _mm_and_ps( _mm_cmplt_ps( a, fval ), f1 ) );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Floor_f32( float32v a )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Floor_f32( float32v a )
         {
             return _mm_round_ps( a, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Ceil_f32( float32v a )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Ceil_f32( float32v a )
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128 f1 = _mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
@@ -458,17 +440,16 @@ namespace FastSIMD
             __m128 cmp = _mm_cmplt_ps( fval, a );
             return _mm_add_ps( fval, _mm_and_ps( cmp, f1 ) );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Ceil_f32( float32v a )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Ceil_f32( float32v a )
         {
             return _mm_round_ps( a, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC );
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L < Level_SSE41, float32v ) Round_f32( float32v a )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Round_f32( float32v a )
         {
-#if 1
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128 nearest2 = _mm_castsi128_ps( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 2 ) );
 #else
@@ -479,13 +460,10 @@ namespace FastSIMD
             __m128 rmd2 = _mm_mul_ps( rmd, nearest2 );                   // mul remainder by near 2 will yield the needed offset
             __m128 rmd2Trunc = _mm_cvtepi32_ps( _mm_cvttps_epi32( rmd2 ) ); // after being truncated of course
             return _mm_add_ps( aTrunc, rmd2Trunc );
-#else
-            return _mm_cvtepi32_ps( _mm_cvttps_epi32( a ) );
-#endif
         }
-
-        template<eLevel L = LEVEL_T>
-        FS_INLINE static FS_ENABLE_IF( L >= Level_SSE41, float32v ) Round_f32( float32v a )
+        
+        template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
+        FS_INLINE static float32v Round_f32( float32v a )
         {
             return _mm_round_ps( a, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC );
         }

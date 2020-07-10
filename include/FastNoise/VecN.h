@@ -3,6 +3,8 @@
 #include <tuple>
 #include <stdexcept>
 
+#include "FastSIMD/FunctionList.h"
+
 template<typename T, size_t Size>
 class VecN;
 
