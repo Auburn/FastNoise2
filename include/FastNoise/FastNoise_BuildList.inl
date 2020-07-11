@@ -91,6 +91,7 @@ FASTSIMD_BUILD_CLASS( DomainWarpFractalIndependant )
 #include "Generators/Modifiers.inl"
 #endif
 FASTSIMD_BUILD_CLASS( DomainScale )
+FASTSIMD_BUILD_CLASS( DomainOffset )
 FASTSIMD_BUILD_CLASS( Remap )
 FASTSIMD_BUILD_CLASS( ConvertRGBA8 )
 

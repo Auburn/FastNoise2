@@ -7,7 +7,7 @@ namespace FastNoise
     {
     public:
         void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetScale( float value ) { mScale = value; };
+        void SetScale( float value ) { mScale = value; }
 
     protected:
         GeneratorSource mSource;
@@ -19,6 +19,36 @@ namespace FastNoise
             {
                 this->AddGeneratorSource( "Source", &DomainScale::SetSource );
                 this->AddVariable( "Scale", 1.0f, &DomainScale::SetScale );
+            }
+        };    
+    };
+
+    class DomainOffset : public virtual Generator
+    {
+    public:
+        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetOffsetX( float value ) { mOffsetX = value; }
+        void SetOffsetX( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetX, gen ); }
+        void SetOffsetY( float value ) { mOffsetY = value; }
+        void SetOffsetY( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetY, gen ); }
+        void SetOffsetZ( float value ) { mOffsetZ = value; }
+        void SetOffsetZ( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetZ, gen ); }
+        void SetOffsetW( float value ) { mOffsetW = value; }
+        void SetOffsetW( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetW, gen ); }
+
+    protected:
+        GeneratorSource mSource;
+        HybridSource mOffsetX, mOffsetY, mOffsetZ, mOffsetW;
+
+        FASTNOISE_METADATA( Generator )
+        
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddGeneratorSource( "Source", &DomainOffset::SetSource );
+                this->AddHybridSource( "OffsetX", 0.0f, &DomainOffset::SetOffsetX, &DomainOffset::SetOffsetX );
+                this->AddHybridSource( "OffsetY", 0.0f, &DomainOffset::SetOffsetY, &DomainOffset::SetOffsetY );
+                this->AddHybridSource( "OffsetZ", 0.0f, &DomainOffset::SetOffsetZ, &DomainOffset::SetOffsetZ );
+                this->AddHybridSource( "OffsetW", 0.0f, &DomainOffset::SetOffsetW, &DomainOffset::SetOffsetW );
             }
         };    
     };
