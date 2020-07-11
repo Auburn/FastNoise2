@@ -43,8 +43,8 @@ namespace FastSIMD
     template<typename T>
     T* New( eLevel maxSIMDLevel = Level_Null );
 
-    template<typename CLASS_T, eLevel SIMD_LEVEL>
-    CLASS_T* ClassFactory();
+    template<typename T, eLevel SIMD_LEVEL>
+    T* ClassFactory();
 
 #define FASTSIMD_LEVEL_SUPPORT( ... ) \
     static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = __VA_ARGS__

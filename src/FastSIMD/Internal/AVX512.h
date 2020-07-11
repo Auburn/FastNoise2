@@ -251,7 +251,7 @@ namespace FastSIMD
 
         FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
         {
-            return _mm512_cmplt_epi32_mask( b, a );
+            return _mm512_cmplt_epi32_mask( a, b );
         }
 
         // Select

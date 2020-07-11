@@ -1,7 +1,6 @@
 #pragma once
 
 #include "FastSIMD.h"
-#include <type_traits>
 
 namespace FastSIMD
 {

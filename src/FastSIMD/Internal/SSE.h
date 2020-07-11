@@ -450,6 +450,10 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
         FS_INLINE static float32v Round_f32( float32v a )
         {
+            __m128 aSign = _mm_and_ps( a, _mm_castsi128_ps( int32v( 0x80000000 ) ) );
+
+            return _mm_cvtepi32_ps( _mm_cvttps_epi32( a + float32v(_mm_or_ps( aSign, float32v( 0.5f ) ) ) ) );
+
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
             const __m128 nearest2 = _mm_castsi128_ps( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 2 ) );
 #else
