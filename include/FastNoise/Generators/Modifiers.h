@@ -45,12 +45,32 @@ namespace FastNoise
             Metadata( const char* className ) : Generator::Metadata( className )
             {
                 this->AddGeneratorSource( "Source", &DomainOffset::SetSource );
-                this->AddHybridSource( "OffsetX", 0.0f, &DomainOffset::SetOffsetX, &DomainOffset::SetOffsetX );
-                this->AddHybridSource( "OffsetY", 0.0f, &DomainOffset::SetOffsetY, &DomainOffset::SetOffsetY );
-                this->AddHybridSource( "OffsetZ", 0.0f, &DomainOffset::SetOffsetZ, &DomainOffset::SetOffsetZ );
-                this->AddHybridSource( "OffsetW", 0.0f, &DomainOffset::SetOffsetW, &DomainOffset::SetOffsetW );
+                this->AddHybridSource( "Offset X", 0.0f, &DomainOffset::SetOffsetX, &DomainOffset::SetOffsetX );
+                this->AddHybridSource( "Offset Y", 0.0f, &DomainOffset::SetOffsetY, &DomainOffset::SetOffsetY );
+                this->AddHybridSource( "Offset Z", 0.0f, &DomainOffset::SetOffsetZ, &DomainOffset::SetOffsetZ );
+                this->AddHybridSource( "Offset W", 0.0f, &DomainOffset::SetOffsetW, &DomainOffset::SetOffsetW );
             }
         };    
+    };
+
+    class SeedOffset : public virtual Generator
+    {
+    public:
+        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetOffset( int32_t value ) { mOffset = value; }
+
+    protected:
+        GeneratorSource mSource;
+        int32_t mOffset = 1;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+        {
+            this->AddGeneratorSource( "Source", &SeedOffset::SetSource );
+            this->AddVariable( "Seed Offset", 1, &SeedOffset::SetOffset );
+        }
+    };
     };
 
     class Remap : public virtual Generator

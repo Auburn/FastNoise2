@@ -40,6 +40,19 @@ public:
 };
 
 template<typename FS>
+class FS_T<FastNoise::SeedOffset, FS> : public virtual FastNoise::SeedOffset, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        return this->GetSourceValue( mSource, seed + int32v( mOffset ), pos... );
+    }
+};
+
+template<typename FS>
 class FS_T<FastNoise::Remap, FS> : public virtual FastNoise::Remap, public FS_T<FastNoise::Generator, FS>
 {
 public:

@@ -86,6 +86,40 @@ namespace FastNoise
         FASTNOISE_METADATA( OperatorSourceLHS )
             using OperatorSourceLHS::Metadata::Metadata;
         };    
+    };    
+
+    class MinSmooth : public virtual OperatorSourceLHS
+    {
+    public:
+        void SetSmoothness( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
+        void SetSmoothness( float value ) { mSmoothness = value; }
+
+    protected:
+        HybridSource mSmoothness = 0.1f;
+
+        FASTNOISE_METADATA( OperatorSourceLHS )
+            Metadata( const char* className ) : OperatorSourceLHS::Metadata( className )
+            {
+                this->AddHybridSource( "Smoothness", 0.1f, &MinSmooth::SetSmoothness, &MinSmooth::SetSmoothness );
+            }
+        };    
+    };
+
+    class MaxSmooth : public virtual OperatorSourceLHS
+    {
+    public:
+        void SetSmoothness( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
+        void SetSmoothness( float value ) { mSmoothness = value; }
+
+    protected:
+        HybridSource mSmoothness = 0.1f;
+
+        FASTNOISE_METADATA( OperatorSourceLHS )
+            Metadata( const char* className ) : OperatorSourceLHS::Metadata( className )
+            {
+                this->AddHybridSource( "Smoothness", 0.1f, &MaxSmooth::SetSmoothness, &MaxSmooth::SetSmoothness );
+            }
+        };    
     };
 
     class Fade : public virtual Generator

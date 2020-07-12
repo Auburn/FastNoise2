@@ -82,6 +82,48 @@ public:
 };
 
 template<typename FS>
+class FS_T<FastNoise::MinSmooth, FS> : public virtual FastNoise::MinSmooth, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+    
+    template<typename... P> 
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v a = this->GetSourceValue( mLHS, seed, pos... );
+        float32v b = this->GetSourceValue( mRHS, seed, pos... );
+        float32v smoothness = FS_Max_f32( float32v( 1.175494351e-38f ), FS_Abs_f32( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
+
+        float32v h = FS_Max_f32( smoothness - FS_Abs_f32( a - b ), float32v( 0.0f ) );
+
+        h *= FS_Reciprocal_f32( smoothness );
+
+        return FS_FNMulAdd_f32( float32v( 1.0f / 6.0f ), h * h * h * smoothness, FS_Min_f32( a, b ) );
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::MaxSmooth, FS> : public virtual FastNoise::MaxSmooth, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+    
+    template<typename... P> 
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v a = -this->GetSourceValue( mLHS, seed, pos... );
+        float32v b = -this->GetSourceValue( mRHS, seed, pos... );
+        float32v smoothness = FS_Max_f32( float32v( 1.175494351e-38f ), FS_Abs_f32( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
+
+        float32v h = FS_Max_f32( smoothness - FS_Abs_f32( a - b ), float32v( 0.0f ) );
+
+        h *= FS_Reciprocal_f32( smoothness );
+
+        return -FS_FNMulAdd_f32( float32v( 1.0f / 6.0f ), h * h * h * smoothness, FS_Min_f32( a, b ) );
+    }
+};
+
+template<typename FS>
 class FS_T<FastNoise::Fade, FS> : public virtual FastNoise::Fade, public FS_T<FastNoise::Generator, FS>
 {
 public:

@@ -185,9 +185,9 @@ class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, 
             mask32v dir0xr = FS_LessEqualThan_f32( FS_Max_f32( score0yr, score0zr ), score0xr );
             mask32v dir0yr = FS_BitwiseAndNot_m32( FS_LessEqualThan_f32( FS_Max_f32( score0zr, score0xr ), score0yr ), dir0xr );
             mask32v dir0zr = ~(dir0xr | dir0yr);
-            float32v v1xr = FS_MaskedAdd_f32( v0xr, FS_BitwiseOr_f32( float32v( 1 ), FS_BitwiseAnd_f32( d0xr, float32v( -1 ) ) ), dir0xr );
-            float32v v1yr = FS_MaskedAdd_f32( v0yr, FS_BitwiseOr_f32( float32v( 1 ), FS_BitwiseAnd_f32( d0yr, float32v( -1 ) ) ), dir0yr );
-            float32v v1zr = FS_MaskedAdd_f32( v0zr, FS_BitwiseOr_f32( float32v( 1 ), FS_BitwiseAnd_f32( d0zr, float32v( -1 ) ) ), dir0zr );
+            float32v v1xr = FS_MaskedAdd_f32( v0xr, FS_BitwiseOr_f32( float32v( 1.0f ), FS_BitwiseAnd_f32( d0xr, float32v( -1.0f ) ) ), dir0xr );
+            float32v v1yr = FS_MaskedAdd_f32( v0yr, FS_BitwiseOr_f32( float32v( 1.0f ), FS_BitwiseAnd_f32( d0yr, float32v( -1.0f ) ) ), dir0yr );
+            float32v v1zr = FS_MaskedAdd_f32( v0zr, FS_BitwiseOr_f32( float32v( 1.0f ), FS_BitwiseAnd_f32( d0zr, float32v( -1.0f ) ) ), dir0zr );
             float32v d1xr = xr - v1xr;
             float32v d1yr = yr - v1yr;
             float32v d1zr = zr - v1zr;
@@ -207,10 +207,10 @@ class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, 
             t0 = t0 * t0;
             t1 = t1 * t1;
 
-            float32v v0 = t0 * t0 * GetGradientDot( HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
-            float32v v1 = t1 * t1 * GetGradientDot( HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
+            float32v v0 = t0 * GetGradientDot( HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
+            float32v v1 = t1 * GetGradientDot( HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
 
-            val += v0 + v1;
+            val = FS_FMulAdd_f32( v0, t0, FS_FMulAdd_f32( v1, t1, val ) );
 
             if( i == 0 )
             {

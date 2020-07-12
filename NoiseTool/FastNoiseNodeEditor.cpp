@@ -42,7 +42,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
     }
     else
     {
-        std::fill( noiseData.begin(), noiseData.end(), 0 );
+        std::fill( noiseData.begin(), noiseData.end(), 0.0f );
         serialised.clear();
     }
 
