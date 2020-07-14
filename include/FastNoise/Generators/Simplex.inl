@@ -47,7 +47,7 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v n1 = t1 * t1 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
         float32v n2 = t2 * t2 * GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
 
-        return float32v( 75.3929901123046875f ) * (n0 + n1 + n2);
+        return float32v( 38.283687591552734375f ) * (n0 + n1 + n2);
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final

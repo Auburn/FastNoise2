@@ -25,9 +25,9 @@ public:
         xs = InterpQuintic( xs );
         ys = InterpQuintic( ys );
 
-        return Lerp(
-               Lerp( GetGradientDot( HashPrimes( seed, x0, y0 ), xf0, yf0 ), GetGradientDot( HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs),
-               Lerp( GetGradientDot( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDot( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs), ys);
+        return float32v( 0.579106986522674560546875f ) * Lerp(
+               Lerp( GetGradientDot( HashPrimes( seed, x0, y0 ), xf0, yf0 ), GetGradientDot( HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs ),
+               Lerp( GetGradientDot( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDot( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs ), ys );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
@@ -54,11 +54,11 @@ public:
         ys = InterpQuintic( ys );
         zs = InterpQuintic( zs );
 
-        return Lerp( Lerp(
-               Lerp( GetGradientDot( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDot( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs),
-               Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDot( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs), ys),
-               Lerp(
-               Lerp( GetGradientDot( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDot( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs),
-               Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDot( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs), ys), zs);
+        return float32v( 0.964921414852142333984375f ) * Lerp( Lerp(
+               Lerp( GetGradientDot( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDot( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
+               Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDot( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
+               Lerp( 
+               Lerp( GetGradientDot( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDot( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),    
+               Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDot( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
     }
 };

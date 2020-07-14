@@ -11,15 +11,22 @@ namespace Primes
     static constexpr int32_t Lookup[] = { X,Y,Z,W };
 }
 
+#define ROOT2 1.4142135623730950488f
 #define ROOT3 1.7320508075688772935f
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level < FastSIMD::Level_SSE41>* = nullptr>
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
 FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 {
     int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
     // Bit-4 = Choose X Y ordering
-    mask32v xy = (index << 29) >> 31;
+    mask32v xy = index << 29;
+
+    if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+    {
+        xy >>= 31;
+    }
+
     float32v a = FS_Select_f32( xy, fY, fX );
     float32v b = FS_Select_f32( xy, fX, fY );
 
@@ -31,29 +38,6 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
     // b zero value if a mul 2
     b = FS_NMask_f32( b, aMul2 );
-
-    // Bit-8 = Flip sign of a + b
-    return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( (index >> 3) << 31 ) );
-}
-
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_SSE41>* = nullptr>
-FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
-{
-    int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
-
-    // Bit-4 = Choose X Y ordering
-    int32v xy = index << 29;
-    float32v a = FS_Select_f32( xy, fY, fX );
-    float32v b = FS_Select_f32( xy, fX, fY );
-
-    // Bit-1 = b flip sign
-    b = FS_BitwiseXor_f32( b, FS_Casti32_f32( index << 31 ) );
-
-    // Bit-2 = Mul a by 2 or Root3
-    int32v aMul2 = index << 30;
-    a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
-    // b zero value if a mul 2
-    b = FS_BitwiseAndNot_f32( b, FS_Casti32_f32( aMul2 >> 31 ) );
 
     // Bit-8 = Flip sign of a + b
     return FS_BitwiseXor_f32( a + b, FS_Casti32_f32( (index >> 3) << 31 ) );
@@ -82,38 +66,36 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     return FS_FMulAdd_f32( gX, fX, fY * gY );
 }
 
-#undef ROOT3
 
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
-FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+__declspec(noinline) float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
-    // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
-    // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
+    // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
+    // ( 1, 1+R2 ) ( 1, -1-R2 ) ( -1, 1+R2 ) ( -1, -1-R2 )
 
-    int32v bit1 = (hash << 31);
-    int32v bit2 = (hash >> 1) << 31;
-    int32v bit4 = (hash << 29);
+    int32v  bit1 = (hash << 31);
+    int32v  bit2 = (hash >> 1) << 31;
+    mask32v bit4 = (hash << 29);
 
-    fX = FS_BitwiseXor_f32( fX, FS_Casti32_f32( bit1 ^ bit2 ));
-    fY = FS_BitwiseXor_f32( fY, FS_Casti32_f32( bit2 ));
+    if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+    {
+        bit4 >>= 31;
+    }
 
-    int32v zeroX = bit1;
-    int32v zeroY = ~zeroX;
-
-    fX = FS_BitwiseAnd_f32( fX, FS_Casti32_f32( (zeroX | bit4) >> 31 ));
-    fY = FS_BitwiseAnd_f32( fY, FS_Casti32_f32( (zeroY | bit4) >> 31 ));
-
-    return fX + fY;
+    fX = FS_BitwiseXor_f32( fX, FS_Casti32_f32( bit1 ) );
+    fY = FS_BitwiseXor_f32( fY, FS_Casti32_f32( bit2 ) );
+    
+    float32v a = FS_Select_f32( bit4, fY, fX );
+    float32v b = FS_Select_f32( bit4, fX, fY );
+    
+    return FS_FMulAdd_f32( float32v( 1.0f + ROOT2 ), a, b );
 }
 
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
-    // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
-    // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
-
-    float32v gX = _mm256_permutevar8x32_ps( float32v( 0, -1, 0, 1, 1, -1, -1, 1 ), hash );
-    float32v gY = _mm256_permutevar8x32_ps( float32v( 1, 0, -1, 0, 1, 1, -1, -1 ), hash );
+    float32v gX = _mm256_permutevar8x32_ps( float32v( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ), hash );
+    float32v gY = _mm256_permutevar8x32_ps( float32v( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ), hash );
 
     return FS_FMulAdd_f32( gX, fX, fY * gY );
 }
@@ -121,14 +103,14 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX512> * = nullptr>
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
-    // ( 0, 1) (-1, 0) ( 0,-1) ( 1, 0)
-    // ( 1, 1) (-1, 1) (-1,-1) ( 1,-1)
+    float32v gX = _mm512_permutexvar_ps( hash, float32v( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1, 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ) );
+    float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2, 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ) );
 
-    float32v gX = _mm512_permutexvar_ps( hash, float32v( 0, -1, 0, 1, 1, -1, -1, 1, 0, -1, 0, 1, 1, -1, -1, 1 ) );
-    float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 0, -1, 0, 1, 1, -1, -1, 1, 0, -1, 0, 1, 1, -1, -1 ) );
-
-    return FS_FMulAdd_f32(gX, fX, fY * gY);
+    return FS_FMulAdd_f32( gX, fX, fY * gY );
 }
+
+#undef ROOT2
+#undef ROOT3
 
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level != FastSIMD::Level_AVX512 > * = nullptr >
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
