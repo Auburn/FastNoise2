@@ -68,7 +68,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
 
 
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
-__declspec(noinline) float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
 {
     // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
     // ( 1, 1+R2 ) ( 1, -1-R2 ) ( -1, 1+R2 ) ( -1, -1-R2 )
