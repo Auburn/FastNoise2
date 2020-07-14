@@ -55,7 +55,7 @@ private:
 
 };
 
-const std::size_t TestCount = 1073741824;
+const std::size_t TestCount = 1073741824 / 16;
 const std::size_t NonVecMask = ~15;
 
 int  * rndInts0;

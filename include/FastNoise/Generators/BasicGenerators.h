@@ -37,6 +37,23 @@ namespace FastNoise
         };
     };
 
+    class SineWave : public virtual Generator
+    {
+    public:
+        void SetScale( float value ) { mScale = value; }
+
+    protected:
+        float mScale = 1.0f;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddVariable( "Scale", 1.0f, &SineWave::SetScale );
+            }
+        };
+    };
+
     class PositionOutput : public virtual Generator
     {
     public:

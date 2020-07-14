@@ -34,6 +34,21 @@ public:
 };
 
 template<typename FS>
+class FS_T<FastNoise::SineWave, FS> : public virtual FastNoise::SineWave, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v multiplier = FS_Reciprocal_f32( float32v( mScale ) );
+
+        return (FS_Sin_f32( pos * multiplier ) * ...);
+    }
+};
+
+template<typename FS>
 class FS_T<FastNoise::PositionOutput, FS> : public virtual FastNoise::PositionOutput, public FS_T<FastNoise::Generator, FS>
 {
 public:

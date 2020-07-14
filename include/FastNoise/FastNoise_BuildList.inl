@@ -20,6 +20,7 @@ using namespace FastNoise;
 #endif
 FASTSIMD_BUILD_CLASS( Constant )
 FASTSIMD_BUILD_CLASS( Checkerboard )
+FASTSIMD_BUILD_CLASS( SineWave )
 FASTSIMD_BUILD_CLASS( PositionOutput )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY

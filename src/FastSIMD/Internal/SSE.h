@@ -271,7 +271,7 @@ namespace FastSIMD
         {
             __m128 mf = _mm_castsi128_ps( m );
 
-            return  _mm_or_ps( _mm_and_ps( mf, a ), _mm_andnot_ps( mf, b ) );
+            return _mm_xor_ps( b, _mm_and_ps( mf, _mm_xor_ps( a, b ) ) );
         }
         
         template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
@@ -283,7 +283,7 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
         FS_INLINE static int32v Select_i32( mask32v m, int32v a, int32v b )
         {
-            return  _mm_or_si128( _mm_and_si128( m, a ), _mm_andnot_si128( m, b ) );
+            return _mm_xor_si128( b, _mm_and_si128( m, _mm_xor_si128( a, b ) ) );
         }
         
         template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>

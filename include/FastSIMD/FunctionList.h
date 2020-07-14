@@ -305,6 +305,17 @@
 // returns: round(a)
 #define FS_Round_f32( ... ) FS::Round_f32( __VA_ARGS__ )
 
+// Trig
+
+// I
+// float32v FS_Cos_f32( float32v a )
+// returns: approx cos(a)
+#define FS_Cos_f32( ... ) FastSIMD::Cos_f32<FS>( __VA_ARGS__ )
+
+// I
+// float32v FS_Sin_f32( float32v a )
+// returns: approx sin(a)
+#define FS_Sin_f32( ... ) FastSIMD::Sin_f32<FS>( __VA_ARGS__ )
 
 // Mask
 
@@ -556,15 +567,48 @@ namespace FastSIMD
 
     // Bitwise
 
-    template<typename FS>
-    FS_INLINE std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::mask32v> BitwiseAndNot_m32( typename FS::mask32v a, typename FS::mask32v b )
+    template<typename FS, std::enable_if_t<std::is_same_v<typename FS::int32v, typename FS::mask32v>>* = nullptr>
+    FS_INLINE  typename FS::mask32v BitwiseAndNot_m32( typename FS::mask32v a, typename FS::mask32v b )
     {
         return FS::BitwiseAndNot_i32( a, b );
     }
 
-    template<typename FS>
-    FS_INLINE std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>, typename FS::mask32v> BitwiseAndNot_m32( typename FS::mask32v a, typename FS::mask32v b )
+    template<typename FS, std::enable_if_t<!std::is_same_v<typename FS::int32v, typename FS::mask32v>>* = nullptr>
+    FS_INLINE typename FS::mask32v BitwiseAndNot_m32( typename FS::mask32v a, typename FS::mask32v b )
     {
         return a & (~b);
+    }
+
+    // Trig
+
+    template<typename FS>
+    FS_INLINE typename FS::float32v Cos_f32( typename FS::float32v value )
+    {
+        typedef typename FS::int32v int32v;
+        typedef typename FS::float32v float32v;
+        typedef typename FS::mask32v mask32v;
+
+        value = FS_Abs_f32( value );
+        value -= FS_Floor_f32( value * float32v( 0.1591549f ) ) * float32v( 6.283185f );
+
+        mask32v geHalfPi  = FS_GreaterEqualThan_f32( value, float32v( 1.570796f ) );
+        mask32v geHalfPi3 = FS_GreaterEqualThan_f32( value, float32v( 4.7123889f ) );
+
+        float32v cosAngle;
+        cosAngle = FS_BitwiseXor_f32( value, FS_Mask_f32( FS_BitwiseXor_f32( value, float32v( 3.141593f ) - value ), geHalfPi ) );
+        cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), FS_GreaterEqualThan_f32( value, float32v( 3.141593f ) ) ) );
+        cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_BitwiseXor_f32( cosAngle, float32v( 6.283185f ) - value ), geHalfPi3 ) );
+
+        cosAngle *= cosAngle;
+
+        cosAngle = FS_FMulAdd_f32( cosAngle, FS_FMulAdd_f32( cosAngle, float32v( 0.03679168f ), float32v( -0.49558072f ) ), float32v( 0.99940307f ) );
+
+        return FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), FS_BitwiseAndNot_m32( geHalfPi, geHalfPi3 ) ) );
+    }
+
+    template<typename FS>
+    FS_INLINE typename FS::float32v Sin_f32( typename FS::float32v value )
+    {
+        return Cos_f32<FS>( typename FS::float32v( 1.570796f ) - value );
     }
 }
