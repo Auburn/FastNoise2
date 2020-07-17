@@ -19,16 +19,10 @@ using namespace FastNoise;
 #include "Generators/BasicGenerators.inl"
 #endif
 FASTSIMD_BUILD_CLASS( Constant )
+FASTSIMD_BUILD_CLASS( White )
 FASTSIMD_BUILD_CLASS( Checkerboard )
 FASTSIMD_BUILD_CLASS( SineWave )
 FASTSIMD_BUILD_CLASS( PositionOutput )
-
-#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/White.h"
-#else
-#include "Generators/White.inl"
-#endif
-FASTSIMD_BUILD_CLASS( White )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Value.h"

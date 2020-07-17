@@ -6,7 +6,6 @@
 #include "FastNoise_Config.h"
 
 #include "Generators/BasicGenerators.h"
-#include "Generators/White.h"
 #include "Generators/Value.h"
 #include "Generators/Perlin.h"
 #include "Generators/Simplex.h"

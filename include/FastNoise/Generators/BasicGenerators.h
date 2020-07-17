@@ -20,6 +20,13 @@ namespace FastNoise
         };
     };
 
+    class White : public virtual Generator
+    {
+        FASTNOISE_METADATA( Generator )
+            using Generator::Metadata::Metadata;
+        };
+    };  
+
     class Checkerboard : public virtual Generator
     {
     public:
