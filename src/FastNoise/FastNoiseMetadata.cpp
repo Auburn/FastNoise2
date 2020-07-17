@@ -149,7 +149,7 @@ FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const st
 
         if( isGenerator )
         {
-            SmartNode nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
+            SmartNode<> nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
 
             if( !nodeGen || !hybrid.setNodeFunc( generator.get(), nodeGen ) )
             {
