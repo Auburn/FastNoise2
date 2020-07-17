@@ -7,18 +7,14 @@ template<typename FS>
 class FS_T<FastNoise::White, FS> : public virtual FastNoise::White, public FS_T<FastNoise::Generator, FS>
 {
 public:
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
-    {
-        return GetValueCoord( seed, 
-            (FS_Castf32_i32( x ) ^ (FS_Castf32_i32( x ) >> 16)) * int32v( Primes::X ),
-            (FS_Castf32_i32( y ) ^ (FS_Castf32_i32( y ) >> 16)) * int32v( Primes::Y ));
-    }
+    FASTNOISE_IMPL_GEN_T;
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return GetValueCoord( seed, 
-            (FS_Castf32_i32( x ) ^ (FS_Castf32_i32( x ) >> 16)) * int32v( Primes::X ),
-            (FS_Castf32_i32( y ) ^ (FS_Castf32_i32( y ) >> 16)) * int32v( Primes::Y ),
-            (FS_Castf32_i32( z ) ^ (FS_Castf32_i32( z ) >> 16)) * int32v( Primes::Z ));
+        size_t idx = 0;
+        ((pos = FS_Casti32_f32( (FS_Castf32_i32( pos ) ^ (FS_Castf32_i32( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
+
+        return GetValueCoord( seed, FS_Castf32_i32( pos )... );
     }
 };

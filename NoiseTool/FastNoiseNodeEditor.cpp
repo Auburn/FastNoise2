@@ -354,6 +354,17 @@ void FormatClassName( std::string& string, const char* name )
     }
 }
 
+void FormatMemberName( std::string& string, const char* name, int dimension )
+{
+    string = name;
+    if( dimension >= 0 )
+    {
+        const char dimensionNames[] = { 'X', 'Y', 'Z', 'W' };
+
+        string.insert( 0, { dimensionNames[dimension], ' ' } );
+    }
+}
+
 template<typename T>
 bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
 {
@@ -374,15 +385,15 @@ bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
 
 void FastNoiseNodeEditor::DoNodes()
 {
-    std::string className;
+    std::string formatName;
 
     for( auto& node : mNodes )
     {
         imnodes::BeginNode( node.first );
 
         imnodes::BeginNodeTitleBar();
-        FormatClassName( className, node.second->metadata->name );
-        ImGui::TextUnformatted( className.c_str() );
+        FormatClassName( formatName, node.second->metadata->name );
+        ImGui::TextUnformatted( formatName.c_str() );
         imnodes::EndNodeTitleBar();
 
         // Right click node title to change node type
@@ -399,8 +410,8 @@ void FastNoiseNodeEditor::DoNodes()
                     continue;
                 }
 
-                FormatClassName( className, metadata->name );
-                if( ImGui::MenuItem( className.c_str() ) )
+                FormatClassName( formatName, metadata->name );
+                if( ImGui::MenuItem( formatName.c_str() ) )
                 {
                     node.second->metadata = metadata;
                     node.second->GeneratePreview();
@@ -420,7 +431,8 @@ void FastNoiseNodeEditor::DoNodes()
         for( auto& memberNode : node.second->metadata->memberNodes )
         {
             imnodes::BeginInputAttribute( attributeId++ );
-            ImGui::TextUnformatted( memberNode.name );
+            FormatMemberName( formatName, memberNode.name, memberNode.dimensionIdx );
+            ImGui::TextUnformatted( formatName.c_str() );
             imnodes::EndInputAttribute();
         }
 
@@ -437,7 +449,9 @@ void FastNoiseNodeEditor::DoNodes()
                 floatFormat = "";
             }
 
-            if( ImGui::DragFloat( node.second->metadata->memberHybrids[i].name, &node.second->memberHybrids[i].second, 0.02f, 0, 0, floatFormat ) )
+            FormatMemberName( formatName, node.second->metadata->memberHybrids[i].name, node.second->metadata->memberHybrids[i].dimensionIdx );
+
+            if( ImGui::DragFloat( formatName.c_str(), &node.second->memberHybrids[i].second, 0.02f, 0, 0, floatFormat ) )
             {
                 node.second->GeneratePreview();
             }
@@ -453,11 +467,13 @@ void FastNoiseNodeEditor::DoNodes()
         {
             auto& nodeVar = node.second->metadata->memberVariables[i];
 
+            FormatMemberName( formatName, nodeVar.name, nodeVar.dimensionIdx );
+
             switch ( nodeVar.type )
             {
             case FastNoise::Metadata::MemberVariable::EFloat:
                 {
-                    if( ImGui::DragFloat( nodeVar.name, &node.second->memberValues[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
+                    if( ImGui::DragFloat( formatName.c_str(), &node.second->memberValues[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
                     {
                         node.second->GeneratePreview();
                     }
@@ -465,7 +481,7 @@ void FastNoiseNodeEditor::DoNodes()
                 break;
             case FastNoise::Metadata::MemberVariable::EInt:
                 {
-                    if( ImGui::DragInt( nodeVar.name, &node.second->memberValues[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
+                    if( ImGui::DragInt( formatName.c_str(), &node.second->memberValues[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
                     {
                         node.second->GeneratePreview();
                     }
@@ -473,7 +489,7 @@ void FastNoiseNodeEditor::DoNodes()
                 break;
             case FastNoise::Metadata::MemberVariable::EEnum:
                 {
-                    if( ImGui::Combo( nodeVar.name, &node.second->memberValues[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) ||
+                    if( ImGui::Combo( formatName.c_str(), &node.second->memberValues[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) ||
                         ImGuiExtra::ScrollCombo( &node.second->memberValues[i].i, (int)nodeVar.enumNames.size() ) )
                     {
                         node.second->GeneratePreview();

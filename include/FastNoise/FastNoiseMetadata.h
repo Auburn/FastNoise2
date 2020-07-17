@@ -8,6 +8,8 @@
 namespace FastNoise
 {
     class Generator;
+    template<typename T>
+    struct PerDimensionVariable;
 
     struct Metadata
     {
@@ -51,6 +53,7 @@ namespace FastNoise
 
             const char* name;
             eType type;
+            int dimensionIdx = -1;
             ValueUnion valueDefault, valueMin, valueMax;
             std::vector<const char*> enumNames;
 
@@ -110,9 +113,30 @@ namespace FastNoise
             memberVariables.push_back( member );
         }
 
+        template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
+        void AddPerDimensionVariable( const char* name, T defaultV, U&& func, T minV = 0, T maxV = 0 )
+        {
+            for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<T>::varArray ) / sizeof( *PerDimensionVariable<T>::varArray ); idx++ )
+            {
+                MemberVariable member;
+                member.name = name;
+                member.valueDefault = defaultV;
+                member.valueMin = minV;
+                member.valueMax = maxV;
+
+                member.type = std::is_same_v<T, float> ? MemberVariable::EFloat : MemberVariable::EInt;
+                member.dimensionIdx = idx;
+
+                member.setFunc = [func, idx]( Generator* g, MemberVariable::ValueUnion v ) { func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx] = v; };
+
+                memberVariables.push_back( member );
+            }
+        }
+
         struct MemberNode
         {
             const char* name;
+            int dimensionIdx = -1;
 
             std::function<bool(Generator*, const std::shared_ptr<Generator>&)> setFunc;
         };
@@ -136,10 +160,37 @@ namespace FastNoise
             memberNodes.push_back( member );
         }
 
+        template<typename U>
+        void AddPerDimensionGeneratorSource( const char* name, U&& func )
+        {
+            using GeneratorSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
+            using T = typename GeneratorSourceT::Type;
+
+            for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<GeneratorSourceT>::varArray ) / sizeof( *PerDimensionVariable<GeneratorSourceT>::varArray ); idx++ )
+            {
+                MemberNode member;
+                member.name = name;
+                member.dimensionIdx = idx;
+
+                member.setFunc = [func, idx]( Generator* g, const std::shared_ptr<Generator>& s )
+                {
+                    std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>(s);
+                    if( downCast )
+                    {
+                        g->SetSourceMemberVariable( func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx], downCast );
+                    }
+                    return (bool)downCast;
+                };
+
+                memberNodes.push_back( member );
+            }
+        }
+
         struct MemberHybrid
         {
             const char* name;
             float valueDefault = 0.0f;
+            int dimensionIdx = -1;
 
             std::function<void( Generator*, float )> setValueFunc;
             std::function<bool( Generator*, const std::shared_ptr<Generator>& )> setNodeFunc;
@@ -164,10 +215,39 @@ namespace FastNoise
 
             member.setValueFunc = [funcValue]( Generator* g, float v )
             {
-                (dynamic_cast<U*>(g)->*funcValue)(v);
+                (dynamic_cast<U*>(g)->*funcValue)( v );
             };
 
             memberHybrids.push_back( member );
+        }
+
+        template<typename U>
+        void AddPerDimensionHybridSource( const char* name, float defaultV, U&& func )
+        {
+            using HybridSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
+            using T             = typename HybridSourceT::Type;
+
+            for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<HybridSourceT>::varArray ) / sizeof( *PerDimensionVariable<HybridSourceT>::varArray ); idx++ )
+            {
+                MemberHybrid member;
+                member.name = name;
+                member.valueDefault = defaultV;
+                member.dimensionIdx = idx;
+
+                member.setNodeFunc = [func, idx]( Generator* g, const std::shared_ptr<Generator>& s )
+                {
+                    std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
+                    if( downCast )
+                    {
+                        g->SetSourceMemberVariable( func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx], downCast );
+                    }
+                    return (bool)downCast;
+                };
+
+                member.setValueFunc = [func, idx]( Generator* g, float v ) { func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx] = v; };
+
+                memberHybrids.push_back( member );
+            }
         }
 
         const char* name;

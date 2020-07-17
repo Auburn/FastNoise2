@@ -27,28 +27,23 @@ namespace FastNoise
     {
     public:
         void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetOffsetX( float value ) { mOffsetX = value; }
-        void SetOffsetX( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetX, gen ); }
-        void SetOffsetY( float value ) { mOffsetY = value; }
-        void SetOffsetY( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetY, gen ); }
-        void SetOffsetZ( float value ) { mOffsetZ = value; }
-        void SetOffsetZ( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetZ, gen ); }
-        void SetOffsetW( float value ) { mOffsetW = value; }
-        void SetOffsetW( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffsetW, gen ); }
+
+        template<Dim D>
+        void SetOffset( float value ) { mOffset[(int)D] = value; }
+
+        template<Dim D>
+        void SetOffset( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffset[(int)D], gen ); }
 
     protected:
         GeneratorSource mSource;
-        HybridSource mOffsetX, mOffsetY, mOffsetZ, mOffsetW;
+        PerDimensionVariable<HybridSource> mOffset;
 
         FASTNOISE_METADATA( Generator )
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
                 this->AddGeneratorSource( "Source", &DomainOffset::SetSource );
-                this->AddHybridSource( "Offset X", 0.0f, &DomainOffset::SetOffsetX, &DomainOffset::SetOffsetX );
-                this->AddHybridSource( "Offset Y", 0.0f, &DomainOffset::SetOffsetY, &DomainOffset::SetOffsetY );
-                this->AddHybridSource( "Offset Z", 0.0f, &DomainOffset::SetOffsetZ, &DomainOffset::SetOffsetZ );
-                this->AddHybridSource( "Offset W", 0.0f, &DomainOffset::SetOffsetW, &DomainOffset::SetOffsetW );
+                this->AddPerDimensionHybridSource( "Offset", 0.0f, []( DomainOffset* p ) { return std::ref( p->mOffset ); } );
             }
         };    
     };

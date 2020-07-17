@@ -52,22 +52,15 @@ template<typename FS>
 class FS_T<FastNoise::PositionOutput, FS> : public virtual FastNoise::PositionOutput, public FS_T<FastNoise::Generator, FS>
 {
 public:
-    //FASTNOISE_IMPL_GEN_T;
+    FASTNOISE_IMPL_GEN_T;
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v out = (x + float32v( mOffsetX )) * float32v( mMultiplierX );
-        out += (y + float32v( mOffsetY )) * float32v( mMultiplierY );
+        size_t offsetIdx = 0;
+        size_t multiplierIdx = 0;
 
-        return out;
-    }
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
-    {
-        float32v out = (x + float32v( mOffsetX )) * float32v( mMultiplierX );
-        out += (y + float32v( mOffsetY )) * float32v( mMultiplierY );
-        out += (y + float32v( mOffsetZ )) * float32v( mMultiplierZ );
-
-        return out;
+        (((pos += float32v( mOffset[offsetIdx++] )) *= float32v( mMultiplier[multiplierIdx++] )), ...);
+        return (pos + ...);
     }
 };

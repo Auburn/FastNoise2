@@ -171,7 +171,7 @@ FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos )
     hash ^= (primedPos ^ ...);
     
     hash = hash * int32v( 0x27d4eb2d );
-    return FS_Converti32_f32( hash ) * float32v( (float)(1.0 / INT_MAX) );
+    return FS_Converti32_f32( hash ) * float32v( 1.0f / (float)INT_MAX );
 }
 
 template<typename FS = FS_SIMD_CLASS>

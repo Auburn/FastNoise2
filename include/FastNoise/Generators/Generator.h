@@ -8,6 +8,12 @@
 
 namespace FastNoise
 {
+    enum class Dim
+    {
+        X, Y, Z, W,
+        Count
+    };
+
     struct OutputMinMax
     {
         float min = INFINITY;
@@ -31,6 +37,8 @@ namespace FastNoise
     template<typename T>
     struct BaseSource
     {
+        using Type = T;
+
         std::shared_ptr<T> base;
         void* simdGeneratorPtr = nullptr;
 
@@ -56,6 +64,7 @@ namespace FastNoise
     class Generator
     {
     public:
+        friend Metadata;
         using Metadata = FastNoise::Metadata;
 
         virtual ~Generator() = default;
@@ -101,4 +110,30 @@ namespace FastNoise
     using GeneratorSource = GeneratorSourceT<Generator>;
     using HybridSource = HybridSourceT<Generator>;
 
+    template<typename T>
+    struct PerDimensionVariable
+    {
+        using Type = T;
+
+        T varArray[(int)Dim::Count];
+
+        template<typename U = T>
+        PerDimensionVariable( U value = 0 )
+        {
+            for( T& element : varArray )
+            {
+                element = value;
+            }
+        }
+
+        T& operator[]( size_t i )
+        {
+            return varArray[i];
+        }
+
+        const T& operator[]( size_t i ) const
+        {
+            return varArray[i];
+        }
+    };
 }
