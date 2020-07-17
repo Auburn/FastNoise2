@@ -93,7 +93,7 @@ void NoiseTexture::SetPreviewTexture( ImageView2D& imageView )
         .setSubImage( 0, {}, imageView );
 }
 
-void NoiseTexture::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, const char* serialised )
+void NoiseTexture::ReGenerate( FastNoise::SmartNodeArg<> generator, const char* serialised )
 {
     mBuildData.generator = generator;
     mBuildData.iteration++;

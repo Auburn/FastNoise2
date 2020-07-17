@@ -20,7 +20,7 @@ namespace Magnum
         MeshNoisePreview();
         ~MeshNoisePreview();
 
-        void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator );
+        void ReGenerate( FastNoise::SmartNodeArg<> generator );
 
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
 
@@ -101,7 +101,7 @@ namespace Magnum
 
             struct BuildData
             {
-                std::shared_ptr<FastNoise::Generator> generator;
+                FastNoise::SmartNode<> generator;
                 Vector3i pos;
                 Color3 color;
                 float frequency, isoSurface;

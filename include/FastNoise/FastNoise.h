@@ -19,14 +19,14 @@
 namespace FastNoise
 {
     template<typename T>
-    inline std::shared_ptr<T> New( FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
+    inline SmartNode<T> New( FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
     {
         static_assert( std::is_base_of_v<Generator, T>, "Use FastSIMD::New() to create non FastNoise classes" );
 
-        return std::shared_ptr<T>( FastSIMD::New<T>( maxLevel ) );
+        return SmartNode<T>( FastSIMD::New<T>( maxLevel ) );
     }
 
-    inline std::shared_ptr<Generator> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
+    inline SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
     {
         return MetadataManager::DeserialiseNodeData( encodedNodeTreeString, maxLevel );
     }

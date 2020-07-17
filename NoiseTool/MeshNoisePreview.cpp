@@ -36,7 +36,7 @@ MeshNoisePreview::~MeshNoisePreview()
     }
 }
 
-void MeshNoisePreview::ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator )
+void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
 {
     mLoadRange = 200.0f;
     mBuildData.generator = generator;

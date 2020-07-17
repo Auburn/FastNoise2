@@ -15,7 +15,7 @@ namespace FastNoise
             Natural,
         };
 
-        void SetJitterModifier( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
+        void SetJitterModifier( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
         void SetJitterModifier( float value ) { mJitterModifier = value; }
         void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }
 
@@ -80,7 +80,7 @@ namespace FastNoise
     class CellularLookup : public virtual Cellular
     {
     public:
-        void SetLookup( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
+        void SetLookup( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
         void SetLookupFrequency( float freq ) { mLookupFreq = freq; }
 
     protected:

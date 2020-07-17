@@ -19,13 +19,13 @@ namespace Magnum
         ~NoiseTexture();
 
         void Draw();
-        void ReGenerate( const std::shared_ptr<FastNoise::Generator>& generator, const char* serialised );
+        void ReGenerate( FastNoise::SmartNodeArg<> generator, const char* serialised );
 
 
     private:
         struct BuildData
         {
-            std::shared_ptr<FastNoise::Generator> generator;
+            FastNoise::SmartNode<> generator;
             Vector2i size;
             Vector3 offset;
             float frequency;

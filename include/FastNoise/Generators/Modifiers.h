@@ -6,7 +6,7 @@ namespace FastNoise
     class DomainScale : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetScale( float value ) { mScale = value; }
 
     protected:
@@ -26,13 +26,13 @@ namespace FastNoise
     class DomainOffset : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
 
         template<Dim D>
         void SetOffset( float value ) { mOffset[(int)D] = value; }
 
         template<Dim D>
-        void SetOffset( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mOffset[(int)D], gen ); }
+        void SetOffset( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mOffset[(int)D], gen ); }
 
     protected:
         GeneratorSource mSource;
@@ -51,7 +51,7 @@ namespace FastNoise
     class SeedOffset : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetOffset( int32_t value ) { mOffset = value; }
 
     protected:
@@ -71,7 +71,7 @@ namespace FastNoise
     class Remap : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetRemap( float fromMin, float fromMax, float toMin, float toMax ) { mFromMin = fromMin; mFromMax = fromMax; mToMin = toMin; mToMax = toMax; }
 
     protected:
@@ -117,7 +117,7 @@ namespace FastNoise
     class ConvertRGBA8 : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetMinMax( float min, float max ) { mMin = min; mMax = max; }
 
     protected:

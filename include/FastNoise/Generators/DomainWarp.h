@@ -6,8 +6,8 @@ namespace FastNoise
     class DomainWarp : public virtual Generator
     {
     public:
-        void SetSource( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetWarpAmplitude( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mWarpAmplitude, gen ); }
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetWarpAmplitude( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mWarpAmplitude, gen ); }
         void SetWarpAmplitude( float value ) { mWarpAmplitude = value; } 
         void SetWarpFrequency( float value ) { mWarpFrequency = value; }
 

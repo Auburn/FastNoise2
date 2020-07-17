@@ -6,8 +6,8 @@ namespace FastNoise
     class OperatorSourceLHS : public virtual Generator
     {
     public:
-        void SetLHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLHS, gen ); }
-        void SetRHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mRHS, gen ); }
+        void SetLHS( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLHS, gen ); }
+        void SetRHS( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mRHS, gen ); }
         void SetRHS( float value ) { mRHS = value; }
 
     protected:
@@ -27,9 +27,9 @@ namespace FastNoise
     class OperatorHybridLHS : public virtual Generator
     {
     public:
-        void SetLHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mLHS, gen ); }
+        void SetLHS( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLHS, gen ); }
         void SetLHS( float value ) { mLHS = value; }
-        void SetRHS( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mRHS, gen ); }
+        void SetRHS( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mRHS, gen ); }
         void SetRHS( float value ) { mRHS = value; }
 
     protected:
@@ -91,7 +91,7 @@ namespace FastNoise
     class MinSmooth : public virtual OperatorSourceLHS
     {
     public:
-        void SetSmoothness( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
+        void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
         void SetSmoothness( float value ) { mSmoothness = value; }
 
     protected:
@@ -108,7 +108,7 @@ namespace FastNoise
     class MaxSmooth : public virtual OperatorSourceLHS
     {
     public:
-        void SetSmoothness( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
+        void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
         void SetSmoothness( float value ) { mSmoothness = value; }
 
     protected:
@@ -125,10 +125,10 @@ namespace FastNoise
     class Fade : public virtual Generator
     {
     public:
-        void SetA( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mA, gen ); }
-        void SetB( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mB, gen ); }
+        void SetA( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mA, gen ); }
+        void SetB( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mB, gen ); }
 
-        void SetFade( const std::shared_ptr<Generator>& gen ) { this->SetSourceMemberVariable( mFade, gen ); }
+        void SetFade( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mFade, gen ); }
         void SetFade( float value ) { mFade = value; }
 
     protected:

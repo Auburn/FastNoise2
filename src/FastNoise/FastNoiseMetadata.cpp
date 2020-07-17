@@ -78,7 +78,7 @@ bool FastNoise::MetadataManager::SerialiseNodeData( const NodeData* nodeData, st
     return true; 
 }
 
-std::shared_ptr<FastNoise::Generator> FastNoise::MetadataManager::DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
+FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
 {
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
@@ -100,7 +100,7 @@ bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& 
     return true;
 }
 
-std::shared_ptr<FastNoise::Generator> FastNoise::MetadataManager::DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level )
+FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level )
 {
     uint16_t nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
@@ -115,7 +115,7 @@ std::shared_ptr<FastNoise::Generator> FastNoise::MetadataManager::DeserialiseNod
         return nullptr;
     }
 
-    std::shared_ptr<Generator> generator( metadata->NodeFactory( level ) );
+    SmartNode<> generator( metadata->NodeFactory( level ) );
 
     for( const auto& var : metadata->memberVariables )
     {
@@ -131,7 +131,7 @@ std::shared_ptr<FastNoise::Generator> FastNoise::MetadataManager::DeserialiseNod
 
     for( const auto& node : metadata->memberNodes )
     {
-        std::shared_ptr<Generator> nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
+        SmartNode<> nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
 
         if( !nodeGen || !node.setFunc( generator.get(), nodeGen ) )
         {
@@ -149,7 +149,7 @@ std::shared_ptr<FastNoise::Generator> FastNoise::MetadataManager::DeserialiseNod
 
         if( isGenerator )
         {
-            std::shared_ptr<Generator> nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
+            SmartNode nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
 
             if( !nodeGen || !hybrid.setNodeFunc( generator.get(), nodeGen ) )
             {

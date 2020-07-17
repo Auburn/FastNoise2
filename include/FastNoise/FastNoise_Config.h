@@ -10,5 +10,11 @@ namespace FastNoise
         FastSIMD::Level_SSE2   |
         FastSIMD::Level_SSE41  |
         FastSIMD::Level_AVX2   |
-        FastSIMD::Level_AVX512 ; 
+        FastSIMD::Level_AVX512 ;
+
+    template<typename T = class Generator>
+    using SmartNode = std::shared_ptr<T>;
+
+    template<typename T = class Generator>
+    using SmartNodeArg = const SmartNode<T>&;
 }

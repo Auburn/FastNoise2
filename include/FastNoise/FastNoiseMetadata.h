@@ -3,6 +3,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "FastNoise_Config.h"
 #include "FastSIMD/FastSIMD.h"
 
 namespace FastNoise
@@ -138,18 +139,18 @@ namespace FastNoise
             const char* name;
             int dimensionIdx = -1;
 
-            std::function<bool(Generator*, const std::shared_ptr<Generator>&)> setFunc;
+            std::function<bool(Generator*, SmartNodeArg<>)> setFunc;
         };
 
         template<typename T, typename U>
-        void AddGeneratorSource( const char* name, void(U::* func)(const std::shared_ptr<T>&) )
+        void AddGeneratorSource( const char* name, void(U::* func)(SmartNodeArg<T>) )
         {
             MemberNode member;
             member.name = name;
 
-            member.setFunc = [func]( Generator* g, const std::shared_ptr<Generator>& s )
+            member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
             {
-                std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
+                SmartNode<T> downCast = std::dynamic_pointer_cast<T>( s );
                 if( downCast )
                 {
                     (dynamic_cast<U*>(g)->*func)( downCast );
@@ -172,9 +173,9 @@ namespace FastNoise
                 member.name = name;
                 member.dimensionIdx = idx;
 
-                member.setFunc = [func, idx]( Generator* g, const std::shared_ptr<Generator>& s )
+                member.setFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>(s);
+                    SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                     if( downCast )
                     {
                         g->SetSourceMemberVariable( func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx], downCast );
@@ -193,19 +194,19 @@ namespace FastNoise
             int dimensionIdx = -1;
 
             std::function<void( Generator*, float )> setValueFunc;
-            std::function<bool( Generator*, const std::shared_ptr<Generator>& )> setNodeFunc;
+            std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
         template<typename T, typename U>
-        void AddHybridSource( const char* name, float defaultValue, void(U::* funcNode)(const std::shared_ptr<T>&), void(U::* funcValue)(float) )
+        void AddHybridSource( const char* name, float defaultValue, void(U::* funcNode)(SmartNodeArg<T>), void(U::* funcValue)(float) )
         {
             MemberHybrid member;
             member.name = name;
             member.valueDefault = defaultValue;
 
-            member.setNodeFunc = [funcNode]( Generator* g, const std::shared_ptr<Generator>& s )
+            member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
-                std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
+                SmartNode<T> downCast = std::dynamic_pointer_cast<T>( s );
                 if( downCast )
                 {
                     (dynamic_cast<U*>(g)->*funcNode)( downCast );
@@ -234,9 +235,9 @@ namespace FastNoise
                 member.valueDefault = defaultV;
                 member.dimensionIdx = idx;
 
-                member.setNodeFunc = [func, idx]( Generator* g, const std::shared_ptr<Generator>& s )
+                member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    std::shared_ptr<T> downCast = std::dynamic_pointer_cast<T>( s );
+                    SmartNode<T> downCast = std::dynamic_pointer_cast<T>( s );
                     if( downCast )
                     {
                         g->SetSourceMemberVariable( func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx], downCast );
@@ -296,8 +297,8 @@ namespace FastNoise
         static std::string SerialiseNodeData( const NodeData* nodeData );
         static bool SerialiseNodeData( const NodeData* nodeData, std::vector<uint8_t>& dataStream );
 
-        static std::shared_ptr<Generator> DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
-        static std::shared_ptr<Generator> DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
+        static SmartNode<> DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
+        static SmartNode<> DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
 
     private:
         MetadataManager() = delete;

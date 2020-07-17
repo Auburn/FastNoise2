@@ -30,7 +30,7 @@ namespace Magnum
 
             Node( FastNoiseNodeEditor&, const FastNoise::Metadata* );
             void GeneratePreview( bool nodeTreeChanged = true );
-            std::shared_ptr<FastNoise::Generator> GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas );
+            FastNoise::SmartNode<> GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas );
 
             FastNoiseNodeEditor& editor;
 
@@ -47,7 +47,7 @@ namespace Magnum
             GL::Texture2D noiseTexture;
         };
 
-        std::shared_ptr<FastNoise::Generator> GenerateSelectedPreview();
+        FastNoise::SmartNode<> GenerateSelectedPreview();
         void ChangeSelectedNode( int newId );
         void CheckLinks();
         void DoContextMenu();

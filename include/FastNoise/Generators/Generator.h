@@ -3,7 +3,6 @@
 #include <cmath>
 #include <memory>
 
-#include "FastNoise/FastNoise_Config.h"
 #include "FastNoise/FastNoiseMetadata.h"
 
 namespace FastNoise
@@ -39,7 +38,7 @@ namespace FastNoise
     {
         using Type = T;
 
-        std::shared_ptr<T> base;
+        SmartNode<T> base;
         void* simdGeneratorPtr = nullptr;
 
     protected:
@@ -93,7 +92,7 @@ namespace FastNoise
 
     protected:
         template<typename T>
-        void SetSourceMemberVariable( BaseSource<T>& memberVariable, const std::shared_ptr<T>& gen )
+        void SetSourceMemberVariable( BaseSource<T>& memberVariable, SmartNodeArg<T> gen )
         {
             static_assert( std::is_base_of_v<Generator, T> );
             assert( gen.get() );

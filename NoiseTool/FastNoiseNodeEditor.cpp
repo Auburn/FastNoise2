@@ -68,11 +68,11 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
     }
 }
 
-std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::Node::GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas )
+FastNoise::SmartNode<> FastNoiseNodeEditor::Node::GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas )
 {
     std::unordered_map<int, Node::Ptr>& nodes = editor.mNodes;
     std::unique_ptr<FastNoise::NodeData> nodeData( new FastNoise::NodeData() );
-    std::shared_ptr<FastNoise::Generator> node( metadata->NodeFactory( editor.mMaxSIMDLevel ) );
+    FastNoise::SmartNode<> node( metadata->NodeFactory( editor.mMaxSIMDLevel ) );
     dependancies.insert( id );
 
     for( int* link : memberLinks )
@@ -624,11 +624,11 @@ void FastNoiseNodeEditor::DoContextMenu()
     ImGui::PopStyleVar();
 }
 
-std::shared_ptr<FastNoise::Generator> FastNoiseNodeEditor::GenerateSelectedPreview()
+FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
 {
     auto find = mNodes.find( mSelectedNode );
 
-    std::shared_ptr<FastNoise::Generator> generator;
+    FastNoise::SmartNode<> generator;
     const char* serialised = "";
 
     if( find != mNodes.end() )
@@ -651,7 +651,7 @@ void FastNoiseNodeEditor::ChangeSelectedNode( int newId )
 {
     mSelectedNode = newId;
 
-    std::shared_ptr<FastNoise::Generator> generator = GenerateSelectedPreview();
+    FastNoise::SmartNode<> generator = GenerateSelectedPreview();
 
     if( generator )
     {
