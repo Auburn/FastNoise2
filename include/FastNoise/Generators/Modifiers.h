@@ -48,6 +48,62 @@ namespace FastNoise
         };    
     };
 
+
+    class DomainRotate : public virtual Generator
+    {
+    public:
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+
+        void SetYaw(   float value ) { mYawCos   = cosf( value ); mYawSin   = sinf( value ); CalculateRotation(); }
+        void SetPitch( float value ) { mPitchCos = cosf( value ); mPitchSin = sinf( value ); CalculateRotation(); }
+        void SetRoll(  float value ) { mRollCos  = cosf( value ); mRollSin  = sinf( value ); CalculateRotation(); }
+
+    protected:
+        GeneratorSource mSource;
+        float mYawCos   = 1.0f;
+        float mYawSin   = 0.0f;
+        float mPitchCos = 1.0f;
+        float mPitchSin = 0.0f;
+        float mRollCos  = 1.0f;
+        float mRollSin  = 0.0f;
+
+        float mXa = 1.0f;
+        float mXb = 0.0f;
+        float mXc = 0.0f;
+        float mYa = 0.0f;
+        float mYb = 1.0f;
+        float mYc = 0.0f;
+        float mZa = 0.0f;
+        float mZb = 0.0f;
+        float mZc = 1.0f;
+
+        void CalculateRotation()
+        {
+            mXa = mYawCos * mPitchCos;
+            mXb = mYawCos * mPitchSin * mRollSin - mYawSin * mRollCos;
+            mXc = mYawCos * mPitchSin * mRollCos + mYawSin * mRollSin;
+
+            mYa = mYawSin * mPitchCos;
+            mYb = mYawSin * mPitchSin * mRollSin + mYawCos * mRollCos;
+            mYc = mYawSin * mPitchSin * mRollCos - mYawCos * mRollSin;
+
+            mZa = -mPitchSin;
+            mZb = mPitchCos * mRollSin;
+            mZc = mPitchCos * mRollCos;
+        }
+
+        FASTNOISE_METADATA( Generator )
+        
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddGeneratorSource( "Source", &DomainRotate::SetSource );
+                this->AddVariable( "Yaw",   0.0f, &DomainRotate::SetYaw );
+                this->AddVariable( "Pitch", 0.0f, &DomainRotate::SetPitch );
+                this->AddVariable( "Roll",  0.0f, &DomainRotate::SetRoll );
+            }
+        };    
+    };
+
     class SeedOffset : public virtual Generator
     {
     public:

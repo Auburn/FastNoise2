@@ -101,7 +101,7 @@ namespace FastNoise
         }
 
         template<typename T, typename U, typename = std::enable_if_t<std::is_enum_v<T>>, typename... NAMES>
-        void AddVariableEnum( const char* name, T defaultV, void(U::* func)( T ), NAMES... names )
+        void AddVariableEnum( const char* name, T defaultV, void( U::* func )( T ), NAMES... names )
         {
             MemberVariable member;
             member.name = name;
@@ -143,7 +143,7 @@ namespace FastNoise
         };
 
         template<typename T, typename U>
-        void AddGeneratorSource( const char* name, void(U::* func)(SmartNodeArg<T>) )
+        void AddGeneratorSource( const char* name, void( U::* func )( SmartNodeArg<T> ) )
         {
             MemberNode member;
             member.name = name;
@@ -198,7 +198,7 @@ namespace FastNoise
         };
 
         template<typename T, typename U>
-        void AddHybridSource( const char* name, float defaultValue, void(U::* funcNode)(SmartNodeArg<T>), void(U::* funcValue)(float) )
+        void AddHybridSource( const char* name, float defaultValue, void( U::* funcNode )( SmartNodeArg<T> ), void( U::* funcValue )( float ) )
         {
             MemberHybrid member;
             member.name = name;

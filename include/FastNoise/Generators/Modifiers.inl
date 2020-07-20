@@ -35,6 +35,31 @@ public:
 };
 
 template<typename FS>
+class FS_T<FastNoise::DomainRotate, FS> : public virtual FastNoise::DomainRotate, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    {
+        if( mPitchSin == 0.0f && mRollSin == 0.0f )
+        {
+            return this->GetSourceValue( mSource, seed,
+                FS_FNMulAdd_f32( y, float32v( mYawSin ), x * float32v( mYawCos ) ),
+                FS_FMulAdd_f32( x, float32v( mYawSin ), y * float32v( mYawCos ) ) );
+        }
+
+        return Gen( seed, x, y, float32v( 0 ) );
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    {
+        return this->GetSourceValue( mSource, seed,
+            FS_FMulAdd_f32( x, float32v( mXa ), FS_FMulAdd_f32( y, float32v( mXb ), z * float32v( mXc ) ) ),
+            FS_FMulAdd_f32( x, float32v( mYa ), FS_FMulAdd_f32( y, float32v( mYb ), z * float32v( mYc ) ) ),
+            FS_FMulAdd_f32( x, float32v( mZa ), FS_FMulAdd_f32( y, float32v( mZb ), z * float32v( mZc ) ) ) );
+    }
+};
+
+template<typename FS>
 class FS_T<FastNoise::SeedOffset, FS> : public virtual FastNoise::SeedOffset, public FS_T<FastNoise::Generator, FS>
 {
 public:

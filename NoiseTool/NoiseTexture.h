@@ -43,7 +43,7 @@ namespace Magnum
         {
             TextureData() = default;
 
-            TextureData( uint32_t iter, Vector2i s, FastNoise::OutputMinMax mm, const std::vector<float>& v ) : minMax( mm ), size( s ), iteration( iter )
+            TextureData( uint64_t iter, Vector2i s, FastNoise::OutputMinMax mm, const std::vector<float>& v ) : minMax( mm ), size( s ), iteration( iter )
             {
                 if( v.empty() )
                 {
