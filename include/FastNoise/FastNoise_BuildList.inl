@@ -23,6 +23,7 @@ FASTSIMD_BUILD_CLASS( White )
 FASTSIMD_BUILD_CLASS( Checkerboard )
 FASTSIMD_BUILD_CLASS( SineWave )
 FASTSIMD_BUILD_CLASS( PositionOutput )
+FASTSIMD_BUILD_CLASS( DistanceToOrigin )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Value.h"

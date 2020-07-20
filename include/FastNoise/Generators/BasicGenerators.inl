@@ -81,3 +81,16 @@ public:
         return (pos + ...);
     }
 };
+
+template<typename FS>
+class FS_T<FastNoise::DistanceToOrigin, FS> : public virtual FastNoise::DistanceToOrigin, public FS_T<FastNoise::Generator, FS>
+{
+public:
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        return CalcDistance( mDistanceFunction, pos... );
+    }
+};

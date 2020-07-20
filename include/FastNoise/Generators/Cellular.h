@@ -7,14 +7,6 @@ namespace FastNoise
     class Cellular : public virtual Generator
     {
     public:
-        enum class DistanceFunction
-        {
-            Euclidean,
-            EuclideanSquared,
-            Manhattan,
-            Natural,
-        };
-
         void SetJitterModifier( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
         void SetJitterModifier( float value ) { mJitterModifier = value; }
         void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }

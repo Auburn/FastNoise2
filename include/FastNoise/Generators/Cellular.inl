@@ -9,46 +9,6 @@
 template<typename FS>
 class FS_T<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public FS_T<FastNoise::Generator, FS>
 {
-protected:
-    template<typename... P>
-    FS_INLINE float32v GetDistance( float32v dX, P... d ) const
-    {
-        switch ( mDistanceFunction )
-        {
-            default:
-            case DistanceFunction::Euclidean:
-            {
-                float32v distSqr = dX * dX;
-                (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
-
-                return FS_InvSqrt_f32( distSqr ) * distSqr;
-            }
-
-            case DistanceFunction::EuclideanSquared:
-            {
-                float32v distSqr = dX * dX;
-                (void( distSqr = FS_FMulAdd_f32( d, d, distSqr ) ), ...);
-
-                return distSqr;
-            }
-
-            case DistanceFunction::Manhattan:
-            {
-                float32v dist = FS_Abs_f32( dX );
-                dist += (FS_Abs_f32( d ) + ...);
-
-                return dist;
-            }
-
-            case DistanceFunction::Natural:
-            {
-                float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
-                (void( both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
-
-                return both;
-            }
-        }
-    }
 };
 
 template<typename FS>
@@ -85,7 +45,7 @@ public:
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
                 float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
-                float32v newDistance = this->GetDistance( xd, yd );
+                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
                 mask32v closer = FS_LessThan_f32( newDistance, distance );
 
@@ -141,7 +101,7 @@ public:
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
                 
                     float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
-                    float32v newDistance = this->GetDistance( xd, yd, zd );
+                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
                 
                     mask32v closer = FS_LessThan_f32( newDistance, distance );
                 
@@ -197,7 +157,7 @@ public:
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-                float32v newDistance = this->GetDistance( xd, yd );
+                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
                 for( int i = maxDistanceIndex; i > 0; i-- )
                 {
@@ -256,7 +216,7 @@ public:
                     yd = FS_FMulAdd_f32( yd, invMag, ycf );
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
 
-                    float32v newDistance = this->GetDistance( xd, yd, zd );
+                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     for( int i = maxDistanceIndex; i > 0; i-- )
                     {
@@ -347,7 +307,7 @@ public:
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-                float32v newDistance = this->GetDistance( xd, yd );
+                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
                 mask32v closer = FS_LessThan_f32( newDistance, distance );
                 distance = FS_Min_f32( newDistance, distance );
@@ -403,7 +363,7 @@ public:
                     yd = FS_FMulAdd_f32( yd, invMag, ycf );
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
 
-                    float32v newDistance = this->GetDistance( xd, yd, zd );
+                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     mask32v closer = FS_LessThan_f32( newDistance, distance );
                     distance = FS_Min_f32( newDistance, distance );

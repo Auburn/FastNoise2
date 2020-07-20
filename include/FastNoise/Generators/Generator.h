@@ -13,6 +13,14 @@ namespace FastNoise
         Count
     };
 
+    enum class DistanceFunction
+    {
+        Euclidean,
+        EuclideanSquared,
+        Manhattan,
+        Natural,
+    };
+
     struct OutputMinMax
     {
         float min = INFINITY;

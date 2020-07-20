@@ -185,3 +185,43 @@ FS_INLINE float32v InterpQuintic( float32v t )
 {
     return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
 }
+
+template<typename FS = FS_SIMD_CLASS, typename... P>
+FS_INLINE float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
+{
+    switch( distFunc )
+    {
+    default:
+    case DistanceFunction::Euclidean:
+    {
+        float32v distSqr = dX * dX;
+        ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
+
+        return FS_InvSqrt_f32( distSqr ) * distSqr;
+    }
+
+    case DistanceFunction::EuclideanSquared:
+    {
+        float32v distSqr = dX * dX;
+        ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
+
+        return distSqr;
+    }
+
+    case DistanceFunction::Manhattan:
+    {
+        float32v dist = FS_Abs_f32( dX );
+        dist += (FS_Abs_f32( d ) + ...);
+
+        return dist;
+    }
+
+    case DistanceFunction::Natural:
+    {
+        float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
+        ((both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
+
+        return both;
+    }
+    }
+}

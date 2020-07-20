@@ -80,4 +80,21 @@ namespace FastNoise
             }
         };
     };
+
+    class DistanceToOrigin : public virtual Generator
+    {
+    public:
+        void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }
+
+    protected:
+        DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
+            }
+        };
+    };
 }
