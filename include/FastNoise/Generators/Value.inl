@@ -16,8 +16,8 @@ class FS_T<FastNoise::Value, FS> : public virtual FastNoise::Value, public FS_T<
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
 
-        xs = InterpQuintic( x - xs );
-        ys = InterpQuintic( y - ys );
+        xs = InterpHermite( x - xs );
+        ys = InterpHermite( y - ys );
 
         return Lerp(
             Lerp( GetValueCoord( seed, x0, y0 ), GetValueCoord( seed, x1, y0 ), xs ),
@@ -37,9 +37,9 @@ class FS_T<FastNoise::Value, FS> : public virtual FastNoise::Value, public FS_T<
         int32v y1 = y0 + int32v( Primes::Y );
         int32v z1 = z0 + int32v( Primes::Z );
 
-        xs = InterpQuintic( x - xs );
-        ys = InterpQuintic( y - ys );
-        zs = InterpQuintic( z - zs );
+        xs = InterpHermite( x - xs );
+        ys = InterpHermite( y - ys );
+        zs = InterpHermite( z - zs );
 
         return Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0 ), GetValueCoord( seed, x1, y0, z0 ), xs ),

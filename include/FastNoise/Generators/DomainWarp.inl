@@ -38,8 +38,8 @@ public:
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
 
-        xs = InterpQuintic( x - xs );
-        ys = InterpQuintic( y - ys );
+        xs = InterpHermite( x - xs );
+        ys = InterpHermite( y - ys );
 
     #define GRADIENT_COORD( _x, _y )\
         int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
@@ -72,9 +72,9 @@ public:
         int32v y1 = y0 + int32v( Primes::Y );
         int32v z1 = z0 + int32v( Primes::Z );
 
-        xs = InterpQuintic( x - xs );
-        ys = InterpQuintic( y - ys );
-        zs = InterpQuintic( z - zs );
+        xs = InterpHermite( x - xs );
+        ys = InterpHermite( y - ys );
+        zs = InterpHermite( z - zs );
 
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\

@@ -3,9 +3,9 @@
 
 namespace Primes
 {
-    static constexpr int32_t X = 1619;
-    static constexpr int32_t Y = 31337;
-    static constexpr int32_t Z = 6971;
+    static constexpr int32_t X = 501125321;
+    static constexpr int32_t Y = 1136930381;
+    static constexpr int32_t Z = 1720413743;
     static constexpr int32_t W = 1013;
 
     static constexpr int32_t Lookup[] = { X,Y,Z,W };
@@ -150,7 +150,7 @@ FS_INLINE int32v HashPrimes( int32v seed, P... primedPos )
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
 
-    hash = hash * int32v( 0x27d4eb2d );
+    hash *= int32v( 0x27d4eb2d );
     return (hash >> 15) ^ hash;
 }
 
@@ -160,7 +160,7 @@ FS_INLINE int32v HashPrimesHB( int32v seed, P... primedPos )
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
     
-    hash = hash * int32v( 0x27d4eb2d );
+    hash *= int32v( 0x27d4eb2d );
     return hash;
 }  
 
@@ -170,7 +170,7 @@ FS_INLINE float32v GetValueCoord( int32v seed, P... primedPos )
     int32v hash = seed;
     hash ^= (primedPos ^ ...);
     
-    hash = hash * int32v( 0x27d4eb2d );
+    hash *= int32v( 0x27d4eb2d );
     return FS_Converti32_f32( hash ) * float32v( 1.0f / (float)INT_MAX );
 }
 
@@ -181,13 +181,19 @@ FS_INLINE float32v Lerp( float32v a, float32v b, float32v t )
 }
 
 template<typename FS = FS_SIMD_CLASS>
+FS_INLINE float32v InterpHermite( float32v t )
+{
+    return t * t * FS_FNMulAdd_f32( t, float32v( 2 ), float32v( 3 ));
+}
+
+template<typename FS = FS_SIMD_CLASS>
 FS_INLINE float32v InterpQuintic( float32v t )
 {
     return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
 }
 
 template<typename FS = FS_SIMD_CLASS, typename... P>
-FS_INLINE float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
+FS_INLINE float32v CalcDistance( FastNoise::DistanceFunction distFunc, float32v dX, P... d )
 {
     switch( distFunc )
     {
