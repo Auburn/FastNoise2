@@ -6,7 +6,7 @@ namespace Primes
     static constexpr int32_t X = 501125321;
     static constexpr int32_t Y = 1136930381;
     static constexpr int32_t Z = 1720413743;
-    static constexpr int32_t W = 1013;
+    static constexpr int32_t W = 1066037191;
 
     static constexpr int32_t Lookup[] = { X,Y,Z,W };
 }
