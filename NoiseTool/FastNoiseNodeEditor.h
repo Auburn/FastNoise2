@@ -19,34 +19,53 @@ namespace Magnum
         FastNoiseNodeEditor();
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );        
         void SetSIMDLevel( FastSIMD::eLevel lvl );
-        int AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
 
         static const char* GetSIMDLevelName( FastSIMD::eLevel lvl );
 
     private:
         struct Node
         {
-            using Ptr = std::unique_ptr<Node>;
-
-            Node( FastNoiseNodeEditor&, const FastNoise::Metadata* );
+            Node() : editor( *(FastNoiseNodeEditor*)nullptr ) { }
+            Node( FastNoiseNodeEditor&, FastNoise::NodeData* nodeData, const FastNoise::Metadata* metadata );
             void GeneratePreview( bool nodeTreeChanged = true );
-            FastNoise::SmartNode<> GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas );
+            std::vector<int> GetNodeIDLinks();
+            void SetNodeLink( int attributeId, FastNoise::NodeData* nodeData );
+
+            static int GetNodeID( const FastNoise::NodeData* nodeData )
+            {
+                return (int)((intptr_t)nodeData / sizeof( FastNoise::NodeData )) & (INT_MAX >> 3);
+            }
+
+            int GetNodeID()
+            {
+                return GetNodeID( data.get() );
+            }
+
+            static int GetNodeID( int attributeId )
+            {
+                return (int)((unsigned int)attributeId >> 4);
+            }
+
+            int GetStartingAttributeID()
+            {
+                return GetNodeID() << 4;
+            }
+
+            static int GetOutputAttributeId( int nodeId )
+            {
+                return (nodeId << 4) | 15;
+            }
+
 
             FastNoiseNodeEditor& editor;
-
-            int id;
-            const FastNoise::Metadata* metadata;
+            std::unique_ptr<FastNoise::NodeData> data;
             std::string serialised;
-
-            std::vector<int*> memberLinks;
-            std::vector<int> memberNodes;
-            std::vector<std::pair<int, float>> memberHybrids;
-            std::vector<FastNoise::Metadata::MemberVariable::ValueUnion> memberValues;
 
             static const int NoiseSize = 224;
             GL::Texture2D noiseTexture;
         };
 
+        Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
         FastNoise::SmartNode<> GenerateSelectedPreview();
         void ChangeSelectedNode( int newId );
         void CheckLinks();
@@ -54,10 +73,9 @@ namespace Magnum
         void DoNodes();
         void UpdateSelected();
 
-        std::unordered_map<int, Node::Ptr> mNodes;
-        int mCurrentNodeId = 0;
+        std::unordered_map<int, Node> mNodes;
+        FastNoise::NodeData* mDroppedLinkNodeId = nullptr;
         bool mDroppedLink = false;
-        int mDroppedLinkNodeId = 0;
 
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;

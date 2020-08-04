@@ -2,15 +2,17 @@
 #include "Base64.h"
 
 #include <cassert>
+#include <unordered_set>
 
 std::vector<const FastNoise::Metadata*> FastNoise::MetadataManager::sMetadataClasses;
 
 
-std::string FastNoise::MetadataManager::SerialiseNodeData( const NodeData* nodeData )
+std::string FastNoise::MetadataManager::SerialiseNodeData( NodeData* nodeData, bool fixUp )
 {
     std::vector<uint8_t> serialData;
+    std::unordered_set<const NodeData*> dependancies;
 
-    if( !SerialiseNodeData( nodeData, serialData ) )
+    if( !SerialiseNodeData( nodeData, serialData, dependancies, fixUp ) )
     {
         return "";
     }
@@ -26,7 +28,7 @@ void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
     }
 }
 
-bool FastNoise::MetadataManager::SerialiseNodeData( const NodeData* nodeData, std::vector<uint8_t>& dataStream )
+bool FastNoise::MetadataManager::SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp )
 {
     const Metadata* metadata = nodeData->metadata;
 
@@ -39,6 +41,26 @@ bool FastNoise::MetadataManager::SerialiseNodeData( const NodeData* nodeData, st
         return false;
     }
 
+    if( fixUp )
+    {
+        dependancies.insert( nodeData );
+
+        for( auto& node : nodeData->nodes )
+        {
+            if( dependancies.find( node ) != dependancies.end() )
+            {
+                node = nullptr;
+            }
+        }
+        for( auto& hybrid : nodeData->hybrids )
+        {
+            if( dependancies.find( hybrid.first ) != dependancies.end() )
+            {
+                hybrid.first = nullptr;
+            }
+        }
+    }
+
     AddToDataStream( dataStream, metadata->id );
 
     for( size_t i = 0; i < metadata->memberVariables.size(); i++ )
@@ -48,9 +70,20 @@ bool FastNoise::MetadataManager::SerialiseNodeData( const NodeData* nodeData, st
 
     for( size_t i = 0; i < metadata->memberNodes.size(); i++ )
     {
-        if( !nodeData->nodes[i] || !SerialiseNodeData( nodeData->nodes[i], dataStream ) )
+        if( fixUp && nodeData->nodes[i] )
         {
-            //assert( nodeData->nodes[i] ); // Null node
+            std::unique_ptr<Generator> gen( metadata->NodeFactory() );
+            SmartNode<> node( nodeData->nodes[i]->metadata->NodeFactory() );
+
+            if( !metadata->memberNodes[i].setFunc( gen.get(), node ) )
+            {
+                nodeData->nodes[i] = nullptr;
+                return false;
+            }
+        }
+
+        if( !nodeData->nodes[i] || !SerialiseNodeData( nodeData->nodes[i], dataStream, dependancies, fixUp ) )
+        {
             return false;
         }
     }
@@ -67,8 +100,20 @@ bool FastNoise::MetadataManager::SerialiseNodeData( const NodeData* nodeData, st
         }
         else
         {
+            if( fixUp )
+            {
+                std::unique_ptr<Generator> gen( metadata->NodeFactory() );
+                std::shared_ptr<Generator> node( nodeData->hybrids[i].first->metadata->NodeFactory() );
+
+                if( !metadata->memberHybrids[i].setNodeFunc( gen.get(), node ) )
+                {
+                    nodeData->hybrids[i].first = nullptr;
+                    return false;
+                }
+            }
+
             AddToDataStream( dataStream, (uint8_t)1 );
-            if( !SerialiseNodeData( nodeData->hybrids[i].first, dataStream ) )
+            if( !SerialiseNodeData( nodeData->hybrids[i].first, dataStream, dependancies, fixUp ) )
             {
                 return false;
             }

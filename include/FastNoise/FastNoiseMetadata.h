@@ -2,6 +2,7 @@
 #include <functional>
 #include <memory>
 #include <type_traits>
+#include <unordered_set>
 
 #include "FastNoise_Config.h"
 #include "FastSIMD/FastSIMD.h"
@@ -265,8 +266,8 @@ namespace FastNoise
     {
         const Metadata* metadata = nullptr;
         std::vector<Metadata::MemberVariable::ValueUnion> variables;
-        std::vector<const NodeData*> nodes;
-        std::vector<std::pair<const NodeData*, float>> hybrids;
+        std::vector<NodeData*> nodes;
+        std::vector<std::pair<NodeData*, float>> hybrids;
     };
 
     class MetadataManager
@@ -294,8 +295,8 @@ namespace FastNoise
             return nullptr;
         }
 
-        static std::string SerialiseNodeData( const NodeData* nodeData );
-        static bool SerialiseNodeData( const NodeData* nodeData, std::vector<uint8_t>& dataStream );
+        static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
+        static bool SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp );
 
         static SmartNode<> DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
         static SmartNode<> DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );

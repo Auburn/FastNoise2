@@ -14,20 +14,35 @@
 
 using namespace Magnum;
 
-FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, const FastNoise::Metadata* meta ) :
+FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, FastNoise::NodeData* nodeData, const FastNoise::Metadata* metadata ) :
     editor( e ),
-    metadata( meta )
+    data( nodeData )
 {
+    data->metadata = metadata;            
 
+    for( auto& value : metadata->memberVariables )
+    {
+        data->variables.push_back( value.valueDefault );
+    }
+
+    for( auto& value : metadata->memberNodes )
+    {
+        data->nodes.push_back( nullptr );
+    }
+
+    for( auto& value : metadata->memberHybrids )
+    {
+        data->hybrids.emplace_back( nullptr, value.valueDefault );
+    }
+    GeneratePreview();
 }
 
 void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
 {
     static std::array<float, NoiseSize * NoiseSize> noiseData;
 
-    std::unordered_set<int> dependancies;
-    std::vector<std::unique_ptr<FastNoise::NodeData>> nodeDatas;
-    auto generator = GetGenerator( dependancies, nodeDatas );
+    serialised = FastNoise::MetadataManager::SerialiseNodeData( data.get(), true );
+    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str() );
 
     if( generator )
     {
@@ -36,9 +51,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
 
         float frequency = editor.mNodeFrequency;
 
-        genRGB->GenUniformGrid2D( noiseData.data(), 0, 0, NoiseSize, NoiseSize, frequency, editor.mNodeSeed );
-
-        serialised = FastNoise::MetadataManager::SerialiseNodeData( nodeDatas.back().get() );
+        genRGB->GenUniformGrid2D( noiseData.data(), NoiseSize / -2, NoiseSize / -2, NoiseSize, NoiseSize, frequency, editor.mNodeSeed );
     }
     else
     {
@@ -51,105 +64,56 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
     noiseTexture.setStorage( 1, GL::TextureFormat::RGBA8, noiseImage.size() )
         .setSubImage( 0, {}, noiseImage );
 
+    int myNodeId = GetNodeID();
+
     for( auto& node : editor.mNodes )
     {
-        for( int* link : node.second->memberLinks )
+        for( int link : node.second.GetNodeIDLinks() )
         {
-            if( *link >> 8 == id )
+            if( link == myNodeId )
             {
-                node.second->GeneratePreview( nodeTreeChanged );
+                node.second.GeneratePreview( nodeTreeChanged );
             }
         }
     }
 
-    if( editor.mSelectedNode == id && nodeTreeChanged )
+    if( editor.mSelectedNode == myNodeId && nodeTreeChanged )
     {
-        editor.ChangeSelectedNode( id );
+        editor.ChangeSelectedNode( myNodeId );
     }
 }
 
-FastNoise::SmartNode<> FastNoiseNodeEditor::Node::GetGenerator( std::unordered_set<int> dependancies, std::vector<std::unique_ptr<FastNoise::NodeData>>& nodeDatas )
+
+std::vector<int> FastNoiseNodeEditor::Node::GetNodeIDLinks()
 {
-    std::unordered_map<int, Node::Ptr>& nodes = editor.mNodes;
-    std::unique_ptr<FastNoise::NodeData> nodeData( new FastNoise::NodeData() );
-    FastNoise::SmartNode<> node( metadata->NodeFactory( editor.mMaxSIMDLevel ) );
-    dependancies.insert( id );
+    std::vector<int> links;
 
-    for( int* link : memberLinks )
+    for( const FastNoise::NodeData* link : data->nodes )
     {
-        if( dependancies.find( *link >> 8 ) != dependancies.end() )
-        {
-            *link = -1;
-        }
+        links.emplace_back( GetNodeID( link ) );
     }
 
-    for( size_t i = 0; i < metadata->memberHybrids.size(); i++ )
+    for( auto& link : data->hybrids )
     {
-        FastNoise::NodeData* sourceData = nullptr;
-        auto source = nodes.find( memberHybrids[i].first >> 8 );
-
-        if( source != nodes.end() )
-        {
-            auto sourceGen = source->second->GetGenerator( dependancies, nodeDatas );
-            if( sourceGen )
-            {
-                sourceData = nodeDatas.back().get();
-            }
-            else
-            {
-                return nullptr;
-            }
-
-            if( !metadata->memberHybrids[i].setNodeFunc( node.get(), sourceGen ) )
-            {
-                sourceData = nullptr;
-                memberHybrids[i].first = -1;
-            }
-        }
-
-        if( !sourceData )
-        {
-            metadata->memberHybrids[i].setValueFunc( node.get(), memberHybrids[i].second );
-        }
-        nodeData->hybrids.emplace_back( sourceData, memberHybrids[i].second );
+        links.emplace_back( GetNodeID( link.first ) );
     }
+    
+    return links;
+}
 
-    for( size_t i = 0; i < metadata->memberNodes.size(); i++ )
+void FastNoiseNodeEditor::Node::SetNodeLink( int attributeId, FastNoise::NodeData* nodeData )
+{
+    attributeId &= 15;
+    
+    if( attributeId < (int)data->nodes.size() )
     {
-        auto source = nodes.find( memberNodes[i] >> 8 );
-
-        if( source == nodes.end() )
-        {
-            memberNodes[i] = -1;
-            return nullptr;
-        }
-
-        auto sourceGen = source->second->GetGenerator( dependancies, nodeDatas );
-        if( sourceGen )
-        {
-            nodeData->nodes.push_back( nodeDatas.back().get() );                  
-        }
-        else
-        {
-            return nullptr;
-        }
-
-        if( !metadata->memberNodes[i].setFunc( node.get(), sourceGen ) )        
-        {
-            memberNodes[i] = -1;
-            return nullptr;
-        }        
+        data->nodes[attributeId] = nodeData;            
     }
-
-    for( size_t i = 0; i < metadata->memberVariables.size(); i++ )
+    else
     {
-        metadata->memberVariables[i].setFunc( node.get(), memberValues[i] );
-        nodeData->variables.push_back( memberValues[i] );
+        attributeId -= (int)data->nodes.size();
+        data->hybrids[attributeId].first = nodeData;
     }
-
-    nodeData->metadata = metadata;
-    nodeDatas.push_back( std::move( nodeData ) );
-    return node;
 }
 
 FastNoiseNodeEditor::FastNoiseNodeEditor()
@@ -184,7 +148,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         {
             for( auto& node : mNodes )
             {
-                node.second->GeneratePreview( false );
+                node.second.GeneratePreview( false );
             }
         }
 
@@ -217,13 +181,13 @@ void FastNoiseNodeEditor::CheckLinks()
     bool createdFromSnap;
     if( imnodes::IsLinkCreated( &startAttr, &endAttr, &createdFromSnap) )
     {
-        for( auto& n : mNodes )
+        for( auto& node : mNodes )
         {
-            int attrId = n.first << 8;
+            int attrId = node.second.GetStartingAttributeID();
 
-            for( int* id : n.second->memberLinks )
+            for( int link : node.second.GetNodeIDLinks() )
             {
-                int linkId = -1;
+                int linkId = 0;
                 if( attrId == startAttr )
                 {
                     linkId = endAttr;
@@ -233,14 +197,14 @@ void FastNoiseNodeEditor::CheckLinks()
                     linkId = startAttr;
                 }
 
-                if( linkId != -1 )
+                if( linkId )
                 {
-                    if( createdFromSnap && *id != -1 )
+                    if( createdFromSnap && link )
                     {
                         break;
                     }
-                    *id = linkId;
-                    n.second->GeneratePreview();
+                    node.second.SetNodeLink( attrId, mNodes.at( Node::GetNodeID( linkId ) ).data.get() );
+                    node.second.GeneratePreview();
                     break;
                 }
                 attrId++;
@@ -251,11 +215,13 @@ void FastNoiseNodeEditor::CheckLinks()
     int linkStart;
     if( imnodes::IsLinkDropped( &linkStart, false ) )
     {
-        auto find = mNodes.find( linkStart >> 8 );
-        if( find != mNodes.end() && linkStart - (find->first << 8) == (int)find->second->memberLinks.size() )
+        int nodeId = Node::GetNodeID( linkStart );
+
+        auto find = mNodes.find( nodeId );
+        if( find != mNodes.end() && (linkStart & 15) == 15 )
         {
+            mDroppedLinkNodeId = find->second.data.get();
             mDroppedLink = true;
-            mDroppedLinkNodeId = linkStart;
         }
     }
 }
@@ -281,13 +247,13 @@ void FastNoiseNodeEditor::UpdateSelected()
         for( auto& node : mNodes )
         {
             bool changed = false;
-            int attributeId = node.first << 8;
+            int attributeId = node.second.GetStartingAttributeID();
 
-            for( int* link : node.second->memberLinks )
+            for( int link : node.second.GetNodeIDLinks() )
             {
                 if( attributeId == deleteID )
                 {
-                    *link = -1;
+                    node.second.SetNodeLink( attributeId, nullptr );
                     changed = true;
                 }
                 attributeId++;
@@ -295,7 +261,7 @@ void FastNoiseNodeEditor::UpdateSelected()
 
             if( changed )
             {
-                node.second->GeneratePreview();
+                node.second.GeneratePreview();
             }
         }
     }
@@ -313,19 +279,21 @@ void FastNoiseNodeEditor::UpdateSelected()
             for( auto& node : mNodes )
             {
                 bool changed = false;
+                int attrId = node.second.GetStartingAttributeID();
 
-                for( int* link : node.second->memberLinks )
+                for( int link : node.second.GetNodeIDLinks() )
                 {
-                    if( *link >> 8 == deleteID )
+                    if( link == deleteID )
                     {
-                        *link = -1;
+                        node.second.SetNodeLink( attrId, nullptr );
                         changed = true;
                     }
+                    attrId++;
                 }
 
                 if( changed )
                 {
-                    node.second->GeneratePreview();
+                    node.second.GeneratePreview();
                 }
             }
         }        
@@ -338,7 +306,7 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
 
     for( auto& node : mNodes )
     {
-        node.second->GeneratePreview();
+        node.second.GeneratePreview();
     }
 }
 
@@ -392,7 +360,7 @@ void FastNoiseNodeEditor::DoNodes()
         imnodes::BeginNode( node.first );
 
         imnodes::BeginNodeTitleBar();
-        FormatClassName( formatName, node.second->metadata->name );
+        FormatClassName( formatName, node.second.data->metadata->name );
         ImGui::TextUnformatted( formatName.c_str() );
         imnodes::EndNodeTitleBar();
 
@@ -400,12 +368,14 @@ void FastNoiseNodeEditor::DoNodes()
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
         if( ImGui::BeginPopupContextItem() )
         {
-            for( auto& metadata : FastNoise::MetadataManager::GetMetadataClasses() )
+            for( auto metadata : FastNoise::MetadataManager::GetMetadataClasses() )
             {
-                if( metadata == node.second->metadata ||
-                    !MatchingMembers( metadata->memberVariables, node.second->metadata->memberVariables ) ||
-                    !MatchingMembers( metadata->memberNodes, node.second->metadata->memberNodes ) || 
-                    !MatchingMembers( metadata->memberHybrids, node.second->metadata->memberHybrids ) )
+                auto& nodeMetadata = node.second.data->metadata;
+
+                if( metadata == nodeMetadata ||
+                    !MatchingMembers( metadata->memberVariables, nodeMetadata->memberVariables ) ||
+                    !MatchingMembers( metadata->memberNodes, nodeMetadata->memberNodes ) ||
+                    !MatchingMembers( metadata->memberHybrids, nodeMetadata->memberHybrids ) )
                 {
                     continue;
                 }
@@ -413,8 +383,8 @@ void FastNoiseNodeEditor::DoNodes()
                 FormatClassName( formatName, metadata->name );
                 if( ImGui::MenuItem( formatName.c_str() ) )
                 {
-                    node.second->metadata = metadata;
-                    node.second->GeneratePreview();
+                    nodeMetadata = metadata;
+                    node.second.GeneratePreview();
                 }
             }
 
@@ -426,9 +396,11 @@ void FastNoiseNodeEditor::DoNodes()
 
         imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkCreationOnSnap );
         imnodes::PushAttributeFlag( imnodes::AttributeFlags_EnableLinkDetachWithDragClick );
-        int attributeId = node.first << 8;
+        int attributeId = node.second.GetStartingAttributeID();
+        auto& nodeMetadata = node.second.data->metadata;
+        auto& nodeData = node.second.data;
 
-        for( auto& memberNode : node.second->metadata->memberNodes )
+        for( auto& memberNode : nodeMetadata->memberNodes )
         {
             imnodes::BeginInputAttribute( attributeId++ );
             FormatMemberName( formatName, memberNode.name, memberNode.dimensionIdx );
@@ -436,11 +408,11 @@ void FastNoiseNodeEditor::DoNodes()
             imnodes::EndInputAttribute();
         }
 
-        for( size_t i = 0; i < node.second->metadata->memberHybrids.size(); i++ )
+        for( size_t i = 0; i < node.second.data->metadata->memberHybrids.size(); i++ )
         {
             imnodes::BeginInputAttribute( attributeId++ );
 
-            bool isLinked = node.second->memberHybrids[i].first != -1;
+            bool isLinked = node.second.data->hybrids[i].first;
             const char* floatFormat = "%.3f";
 
             if( isLinked )
@@ -449,11 +421,11 @@ void FastNoiseNodeEditor::DoNodes()
                 floatFormat = "";
             }
 
-            FormatMemberName( formatName, node.second->metadata->memberHybrids[i].name, node.second->metadata->memberHybrids[i].dimensionIdx );
+            FormatMemberName( formatName, nodeMetadata->memberHybrids[i].name, nodeMetadata->memberHybrids[i].dimensionIdx );
 
-            if( ImGui::DragFloat( formatName.c_str(), &node.second->memberHybrids[i].second, 0.02f, 0, 0, floatFormat ) )
+            if( ImGui::DragFloat( formatName.c_str(), &nodeData->hybrids[i].second, 0.02f, 0, 0, floatFormat ) )
             {
-                node.second->GeneratePreview();
+                node.second.GeneratePreview();
             }
 
             if( isLinked )
@@ -463,9 +435,9 @@ void FastNoiseNodeEditor::DoNodes()
             imnodes::EndInputAttribute();
         }
 
-        for( size_t i = 0; i < node.second->metadata->memberVariables.size(); i++ )
+        for( size_t i = 0; i < nodeMetadata->memberVariables.size(); i++ )
         {
-            auto& nodeVar = node.second->metadata->memberVariables[i];
+            auto& nodeVar = nodeMetadata->memberVariables[i];
 
             FormatMemberName( formatName, nodeVar.name, nodeVar.dimensionIdx );
 
@@ -473,26 +445,26 @@ void FastNoiseNodeEditor::DoNodes()
             {
             case FastNoise::Metadata::MemberVariable::EFloat:
                 {
-                    if( ImGui::DragFloat( formatName.c_str(), &node.second->memberValues[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
+                    if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
                     {
-                        node.second->GeneratePreview();
+                        node.second.GeneratePreview();
                     }
                 }
                 break;
             case FastNoise::Metadata::MemberVariable::EInt:
                 {
-                    if( ImGui::DragInt( formatName.c_str(), &node.second->memberValues[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
+                    if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
                     {
-                        node.second->GeneratePreview();
+                        node.second.GeneratePreview();
                     }
                 }
                 break;
             case FastNoise::Metadata::MemberVariable::EEnum:
                 {
-                    if( ImGui::Combo( formatName.c_str(), &node.second->memberValues[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) ||
-                        ImGuiExtra::ScrollCombo( &node.second->memberValues[i].i, (int)nodeVar.enumNames.size() ) )
+                    if( ImGui::Combo( formatName.c_str(), &nodeData->variables[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) ||
+                        ImGuiExtra::ScrollCombo( &nodeData->variables[i].i, (int)nodeVar.enumNames.size() ) )
                     {
-                        node.second->GeneratePreview();
+                        node.second.GeneratePreview();
                     }
                 }
                 break;
@@ -501,15 +473,15 @@ void FastNoiseNodeEditor::DoNodes()
 
         ImGui::PopItemWidth();
         imnodes::PopAttributeFlag();
-        imnodes::BeginOutputAttribute( attributeId, imnodes::PinShape_QuadFilled );
+        imnodes::BeginOutputAttribute( Node::GetOutputAttributeId( node.second.GetNodeID() ), imnodes::PinShape_QuadFilled );
 
         Vector2 noiseSize = { (float)Node::NoiseSize, (float)Node::NoiseSize };
-        if( mSelectedNode == node.first && !node.second->serialised.empty() )
+        if( mSelectedNode == node.first && !node.second.serialised.empty() )
         {
             ImVec2 cursorPos = ImGui::GetCursorScreenPos();
             ImGui::RenderFrame( cursorPos - ImVec2( 1, 1 ), cursorPos + ImVec2( noiseSize ) + ImVec2( 1, 1 ), IM_COL32( 255, 0, 0, 200 ), false );
         }
-        ImGuiIntegration::image( node.second->noiseTexture, noiseSize );
+        ImGuiIntegration::image( node.second.noiseTexture, noiseSize );
 
         if( ImGui::IsItemClicked( ImGuiMouseButton_Left ) )
         {
@@ -524,55 +496,34 @@ void FastNoiseNodeEditor::DoNodes()
     // Do current node links
     for( auto& node : mNodes )
     {
-        int attributeId = node.first << 8;
+        int attributeId = node.second.GetStartingAttributeID();
 
-        for( int* link : node.second->memberLinks )
+        for( int link : node.second.GetNodeIDLinks() )
         {
-            if( *link != -1 )
+            if( link )
             {
-                imnodes::Link( attributeId, *link, attributeId );
+                imnodes::Link( attributeId, Node::GetOutputAttributeId( link ), attributeId );
             }
             attributeId++;
         }
     }
 }
 
-int FastNoiseNodeEditor::AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata )
+FastNoiseNodeEditor::Node& FastNoiseNodeEditor::AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata )
 {
-    const int nodeId = ++mCurrentNodeId;
-    imnodes::SetNodeScreenSpacePos( nodeId, startPos );
+    FastNoise::NodeData* nodeData = new FastNoise::NodeData();
+    
+    int newNodeId = Node::GetNodeID( nodeData );
+    auto& newNode = mNodes.emplace( std::piecewise_construct, std::forward_as_tuple( newNodeId ), std::forward_as_tuple( *this, nodeData, metadata ) );
 
-    mNodes.emplace( nodeId, new Node( *this, metadata ) );
-                
-    Node::Ptr& node = mNodes[nodeId];
-    node->id = nodeId;
+    imnodes::SetNodeScreenSpacePos( newNodeId, startPos );
 
-    for( auto& value : metadata->memberVariables )
+    if( mNodes.size() == 1 )
     {
-        node->memberValues.push_back( value.valueDefault );
+        ChangeSelectedNode( newNodeId );
     }
 
-    node->memberNodes.reserve( metadata->memberNodes.size() );
-    for( auto& value : metadata->memberNodes )
-    {
-        node->memberNodes.push_back( -1 );
-        node->memberLinks.push_back( &node->memberNodes.back() );
-    }
-
-    node->memberHybrids.reserve( metadata->memberHybrids.size() );
-    for( auto& value : metadata->memberHybrids )
-    {
-        node->memberHybrids.emplace_back( -1, value.valueDefault );
-        node->memberLinks.push_back( &node->memberHybrids.back().first );
-    }
-    node->GeneratePreview();
-
-    if( nodeId == 1 )
-    {
-        ChangeSelectedNode( nodeId );
-    }
-
-    return nodeId;
+    return newNode.first->second;
 }
 
 void FastNoiseNodeEditor::DoContextMenu()
@@ -612,10 +563,10 @@ void FastNoiseNodeEditor::DoContextMenu()
             FormatClassName( className, metadata->name );
             if( (!metadata->memberNodes.empty() || !metadata->memberHybrids.empty()) && ImGui::MenuItem( className.c_str() ) )
             {
-                auto& newNode = mNodes[AddNode( startPos, metadata )];
+                auto& newNode = AddNode( startPos, metadata );
 
-                *newNode->memberLinks[0] = mDroppedLinkNodeId;
-                newNode->GeneratePreview();
+                newNode.SetNodeLink( 0, mDroppedLinkNodeId );
+                newNode.GeneratePreview();
             }
         }
 
@@ -633,7 +584,7 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
 
     if( find != mNodes.end() )
     {
-        serialised = find->second->serialised.c_str();
+        serialised = find->second.serialised.c_str();
         generator = FastNoise::NewFromEncodedNodeTree( serialised, mMaxSIMDLevel );
 
         if( generator )
