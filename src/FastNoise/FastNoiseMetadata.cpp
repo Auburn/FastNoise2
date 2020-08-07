@@ -4,10 +4,33 @@
 #include <cassert>
 #include <unordered_set>
 
-std::vector<const FastNoise::Metadata*> FastNoise::MetadataManager::sMetadataClasses;
+std::vector<const FastNoise::Metadata*> FastNoise::Metadata::sMetadataClasses;
 
+FastNoise::NodeData::NodeData( const Metadata* data )
+{
+    metadata = data;
 
-std::string FastNoise::MetadataManager::SerialiseNodeData( NodeData* nodeData, bool fixUp )
+    if( metadata )
+    {
+        for( const auto& value : metadata->memberVariables )
+        {
+            variables.push_back( value.valueDefault );
+        }
+
+        for( const auto& value : metadata->memberNodes )
+        {
+            (void)value;
+            nodes.push_back( nullptr );
+        }
+
+        for( const auto& value : metadata->memberHybrids )
+        {
+            hybrids.emplace_back( nullptr, value.valueDefault );
+        }
+    }
+}
+
+std::string FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, bool fixUp )
 {
     std::vector<uint8_t> serialData;
     std::unordered_set<const NodeData*> dependancies;
@@ -28,7 +51,7 @@ void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
     }
 }
 
-bool FastNoise::MetadataManager::SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp )
+bool FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp )
 {
     const Metadata* metadata = nodeData->metadata;
 
@@ -123,12 +146,12 @@ bool FastNoise::MetadataManager::SerialiseNodeData( NodeData* nodeData, std::vec
     return true; 
 }
 
-FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
+FastNoise::SmartNode<> FastNoise::Metadata::DeserialiseSmartNode( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
 {
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
 
-    return DeserialiseNodeData( dataStream, startIdx, level );
+    return DeserialiseSmartNode( dataStream, startIdx, level );
 }
 
 template<typename T>
@@ -145,7 +168,7 @@ bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& 
     return true;
 }
 
-FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level )
+FastNoise::SmartNode<> FastNoise::Metadata::DeserialiseSmartNode( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level )
 {
     uint16_t nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
@@ -176,7 +199,7 @@ FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const st
 
     for( const auto& node : metadata->memberNodes )
     {
-        SmartNode<> nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
+        SmartNode<> nodeGen = DeserialiseSmartNode( serialisedNodeData, serialIdx, level );
 
         if( !nodeGen || !node.setFunc( generator.get(), nodeGen ) )
         {
@@ -194,7 +217,7 @@ FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const st
 
         if( isGenerator )
         {
-            SmartNode<> nodeGen = DeserialiseNodeData( serialisedNodeData, serialIdx, level );
+            SmartNode<> nodeGen = DeserialiseSmartNode( serialisedNodeData, serialIdx, level );
 
             if( !nodeGen || !hybrid.setNodeFunc( generator.get(), nodeGen ) )
             {
@@ -215,6 +238,78 @@ FastNoise::SmartNode<> FastNoise::MetadataManager::DeserialiseNodeData( const st
     }
 
     return generator;
+}
+
+bool FastNoise::Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut )
+{
+    std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
+    size_t startIdx = 0;
+
+    return DeserialiseNodeData( dataStream, nodeDataOut, startIdx );
+}
+
+FastNoise::NodeData* FastNoise::Metadata::DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx )
+{
+    uint16_t nodeId;
+    if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
+    {
+        return nullptr;
+    }
+
+    const Metadata* metadata = GetMetadataClass( nodeId );
+
+    if( !metadata )
+    {
+        return nullptr;
+    }
+
+    NodeData* nodeData = nodeDataOut.emplace_back( new NodeData( metadata ) ).get();
+
+    for( auto& var : nodeData->variables )
+    {
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, var ) )
+        {
+            return nullptr;
+        }
+    }
+
+    for( auto& node : nodeData->nodes )
+    {
+        node = DeserialiseNodeData( serialisedNodeData, nodeDataOut, serialIdx );
+
+        if( !node )
+        {
+            return nullptr;
+        }
+    }
+
+    for( auto& hybrid : nodeData->hybrids )
+    {
+        uint8_t isGenerator;
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, isGenerator ) || isGenerator > 1 )
+        {
+            return nullptr;
+        }
+
+        if( isGenerator )
+        {
+            hybrid.first = DeserialiseNodeData( serialisedNodeData, nodeDataOut, serialIdx );
+
+            if( !hybrid.first )
+            {
+                return nullptr;
+            }
+        }
+        else
+        {
+            if( !GetFromDataStream( serialisedNodeData, serialIdx, hybrid.second ) )
+            {
+                return nullptr;
+            }
+        }
+    }
+
+    return nodeData;
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \

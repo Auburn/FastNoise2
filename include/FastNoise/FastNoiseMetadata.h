@@ -12,11 +12,35 @@ namespace FastNoise
     class Generator;
     template<typename T>
     struct PerDimensionVariable;
+    struct NodeData;
 
-    struct Metadata
+    class Metadata
     {
-        Metadata() = delete;
-        inline Metadata( const char* );
+    public:
+        Metadata( const char* className )
+        {
+            name = className;
+            id = AddMetadataClass( this );
+        }
+
+        static const std::vector<const Metadata*>& GetMetadataClasses()
+        {
+            return sMetadataClasses;
+        }
+
+        static const Metadata* GetMetadataClass( uint16_t nodeId )
+        {
+            if( nodeId < sMetadataClasses.size() )
+            {
+                return sMetadataClasses[nodeId];
+            }
+
+            return nullptr;
+        }
+
+        static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
+        static SmartNode<> DeserialiseSmartNode( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
+        static bool DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
         struct MemberVariable
         {
@@ -59,7 +83,7 @@ namespace FastNoise
             ValueUnion valueDefault, valueMin, valueMax;
             std::vector<const char*> enumNames;
 
-            std::function<void(Generator*, ValueUnion)> setFunc;
+            std::function<void( Generator*, ValueUnion )> setFunc;
         };
 
         //! Specialisation for Functor/Lambdas
@@ -78,7 +102,7 @@ namespace FastNoise
             member.valueMin = minV;
             member.valueMax = maxV;
 
-            member.type = std::is_same_v<T, float> ? MemberVariable::EFloat : MemberVariable::EInt;            
+            member.type = std::is_same_v<T, float> ? MemberVariable::EFloat : MemberVariable::EInt;
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { func( dynamic_cast<GetArg<U, 0>>(g), v ); };
 
@@ -86,7 +110,7 @@ namespace FastNoise
         }
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddVariable( const char* name, T defaultV, void( U::*func )( T ), T minV = 0, T maxV = 0 )
+        void AddVariable( const char* name, T defaultV, void(U::* func)(T), T minV = 0, T maxV = 0 )
         {
             MemberVariable member;
             member.name = name;
@@ -96,13 +120,13 @@ namespace FastNoise
 
             member.type = std::is_same_v<T, float> ? MemberVariable::EFloat : MemberVariable::EInt;
 
-            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { ( dynamic_cast<U*>(g)->*func )( v ); };
+            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { (dynamic_cast<U*>(g)->*func)(v); };
 
             memberVariables.push_back( member );
         }
 
         template<typename T, typename U, typename = std::enable_if_t<std::is_enum_v<T>>, typename... NAMES>
-        void AddVariableEnum( const char* name, T defaultV, void( U::* func )( T ), NAMES... names )
+        void AddVariableEnum( const char* name, T defaultV, void(U::* func)(T), NAMES... names )
         {
             MemberVariable member;
             member.name = name;
@@ -110,7 +134,7 @@ namespace FastNoise
             member.valueDefault = (int32_t)defaultV;
             member.enumNames = { names... };
 
-            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { (dynamic_cast<U*>(g)->*func)( (T)v.i ); };
+            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { (dynamic_cast<U*>(g)->*func)((T)v.i); };
 
             memberVariables.push_back( member );
         }
@@ -140,21 +164,21 @@ namespace FastNoise
             const char* name;
             int dimensionIdx = -1;
 
-            std::function<bool(Generator*, SmartNodeArg<>)> setFunc;
+            std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
         };
 
         template<typename T, typename U>
-        void AddGeneratorSource( const char* name, void( U::* func )( SmartNodeArg<T> ) )
+        void AddGeneratorSource( const char* name, void(U::* func)(SmartNodeArg<T>) )
         {
             MemberNode member;
             member.name = name;
 
             member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
             {
-                SmartNode<T> downCast = std::dynamic_pointer_cast<T>( s );
+                SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                 if( downCast )
                 {
-                    (dynamic_cast<U*>(g)->*func)( downCast );
+                    (dynamic_cast<U*>(g)->*func)(downCast);
                 }
                 return (bool)downCast;
             };
@@ -199,7 +223,7 @@ namespace FastNoise
         };
 
         template<typename T, typename U>
-        void AddHybridSource( const char* name, float defaultValue, void( U::* funcNode )( SmartNodeArg<T> ), void( U::* funcValue )( float ) )
+        void AddHybridSource( const char* name, float defaultValue, void(U::* funcNode)(SmartNodeArg<T>), void(U::* funcValue)(float) )
         {
             MemberHybrid member;
             member.name = name;
@@ -207,17 +231,17 @@ namespace FastNoise
 
             member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
-                SmartNode<T> downCast = std::dynamic_pointer_cast<T>( s );
+                SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                 if( downCast )
                 {
-                    (dynamic_cast<U*>(g)->*funcNode)( downCast );
+                    (dynamic_cast<U*>(g)->*funcNode)(downCast);
                 }
                 return (bool)downCast;
             };
 
             member.setValueFunc = [funcValue]( Generator* g, float v )
             {
-                (dynamic_cast<U*>(g)->*funcValue)( v );
+                (dynamic_cast<U*>(g)->*funcValue)(v);
             };
 
             memberHybrids.push_back( member );
@@ -227,7 +251,7 @@ namespace FastNoise
         void AddPerDimensionHybridSource( const char* name, float defaultV, U&& func )
         {
             using HybridSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
-            using T             = typename HybridSourceT::Type;
+            using T = typename HybridSourceT::Type;
 
             for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<HybridSourceT>::varArray ) / sizeof( *PerDimensionVariable<HybridSourceT>::varArray ); idx++ )
             {
@@ -238,7 +262,7 @@ namespace FastNoise
 
                 member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    SmartNode<T> downCast = std::dynamic_pointer_cast<T>( s );
+                    SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                     if( downCast )
                     {
                         g->SetSourceMemberVariable( func( dynamic_cast<GetArg<U, 0>>(g) ).get()[idx], downCast );
@@ -260,58 +284,32 @@ namespace FastNoise
         std::vector<MemberHybrid>   memberHybrids;
 
         virtual Generator* NodeFactory( FastSIMD::eLevel level = FastSIMD::Level_Null ) const = 0;
-    };
 
-    struct NodeData
-    {
-        const Metadata* metadata = nullptr;
-        std::vector<Metadata::MemberVariable::ValueUnion> variables;
-        std::vector<NodeData*> nodes;
-        std::vector<std::pair<NodeData*, float>> hybrids;
-    };
-
-    class MetadataManager
-    {
-    public:
-        static uint16_t AddMetadataClass( Metadata* newMetadata )
+    private:
+        static uint16_t AddMetadataClass( const Metadata* newMetadata )
         {
             sMetadataClasses.emplace_back( newMetadata );
 
             return (uint16_t)sMetadataClasses.size() - 1;
         }
 
-        static const std::vector<const Metadata*>& GetMetadataClasses()
-        {
-            return sMetadataClasses;
-        }
-
-        static const Metadata* GetMetadataClass( uint16_t nodeId )
-        {
-            if( nodeId < sMetadataClasses.size() )
-            {
-                return sMetadataClasses[nodeId];
-            }
-
-            return nullptr;
-        }
-
-        static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
         static bool SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp );
-
-        static SmartNode<> DeserialiseNodeData( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
-        static SmartNode<> DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
-
-    private:
-        MetadataManager() = delete;
+        static SmartNode<> DeserialiseSmartNode( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
+        static NodeData* DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx );
 
         static std::vector<const Metadata*> sMetadataClasses;
     };
 
-    Metadata::Metadata( const char* className )
+    struct NodeData
     {
-        name = className;
-        id = MetadataManager::AddMetadataClass( this );
-    }
+        NodeData( const Metadata* metadata );
+
+        const Metadata* metadata;
+        std::vector<Metadata::MemberVariable::ValueUnion> variables;
+        std::vector<NodeData*> nodes;
+        std::vector<std::pair<NodeData*, float>> hybrids;
+    };
+}
 
 #define FASTNOISE_METADATA( ... ) public:\
     FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );\
@@ -321,4 +319,4 @@ namespace FastNoise
 
 #define FASTNOISE_METADATA_ABSTRACT( ... ) public:\
     struct Metadata : __VA_ARGS__::Metadata{
-}
+

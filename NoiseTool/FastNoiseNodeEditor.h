@@ -25,11 +25,12 @@ namespace Magnum
     private:
         struct Node
         {
-            Node() : editor( *(FastNoiseNodeEditor*)nullptr ) { }
-            Node( FastNoiseNodeEditor&, FastNoise::NodeData* nodeData, const FastNoise::Metadata* metadata );
+            Node( FastNoiseNodeEditor&, FastNoise::NodeData* nodeData );
+            Node( FastNoiseNodeEditor&, std::unique_ptr<FastNoise::NodeData>&& nodeData );
             void GeneratePreview( bool nodeTreeChanged = true );
             std::vector<int> GetNodeIDLinks();
             void SetNodeLink( int attributeId, FastNoise::NodeData* nodeData );
+            void AutoPositionChildNodes( ImVec2 nodePos, float verticalSpacing = 380.0f );
 
             static int GetNodeID( const FastNoise::NodeData* nodeData )
             {
@@ -76,6 +77,10 @@ namespace Magnum
         std::unordered_map<int, Node> mNodes;
         FastNoise::NodeData* mDroppedLinkNodeId = nullptr;
         bool mDroppedLink = false;
+
+        ImVec2 mContextStartPos;
+        char mImportNodeString[1024];
+        bool mImportNodeModal = false;
 
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;

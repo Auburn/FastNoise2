@@ -29,10 +29,8 @@ namespace FastNoise
      * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
      * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
      */
-    class Base64
+    namespace Base64
     {
-    public:
-
         static std::string Encode( const std::vector<uint8_t>& data )
         {
             static constexpr char sEncodingTable[] = {

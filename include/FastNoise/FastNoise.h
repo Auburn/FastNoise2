@@ -28,6 +28,6 @@ namespace FastNoise
 
     inline SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
     {
-        return MetadataManager::DeserialiseNodeData( encodedNodeTreeString, maxLevel );
+        return Metadata::DeserialiseSmartNode( encodedNodeTreeString, maxLevel );
     }
 }
