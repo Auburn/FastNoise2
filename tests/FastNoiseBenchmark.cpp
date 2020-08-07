@@ -14,7 +14,7 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
         if( !memberNode.setFunc( generator.get(), source ) )
         {
             // If constant source is not valid try all other node types in order
-            for( const FastNoise::Metadata* tryMetadata : FastNoise::MetadataManager::GetMetadataClasses() )
+            for( const FastNoise::Metadata* tryMetadata : FastNoise::Metadata::GetMetadataClasses() )
             {
                 FastNoise::SmartNode<> trySource( tryMetadata->NodeFactory( level ) );
 
@@ -92,7 +92,7 @@ int main( int argc, char** argv )
             continue;
         }
 
-        for( const FastNoise::Metadata* metadata : FastNoise::MetadataManager::GetMetadataClasses() )
+        for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
         {
             benchName = "2D/";
             benchName += metadata->name;
