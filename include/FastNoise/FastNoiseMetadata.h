@@ -40,7 +40,7 @@ namespace FastNoise
 
         static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
         static SmartNode<> DeserialiseSmartNode( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
-        static bool DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
+        static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
         struct MemberVariable
         {
@@ -74,6 +74,11 @@ namespace FastNoise
                 operator int32_t()
                 {
                     return i;
+                }
+
+                bool operator ==( const ValueUnion& rhs ) const
+                {
+                    return i == rhs.i;
                 }
             };
 
@@ -276,8 +281,9 @@ namespace FastNoise
             }
         }
 
-        const char* name;
         uint16_t id;
+        const char* name;
+        std::vector<const char*> groups;
 
         std::vector<MemberVariable> memberVariables;
         std::vector<MemberNode>     memberNodes;
@@ -308,6 +314,14 @@ namespace FastNoise
         std::vector<Metadata::MemberVariable::ValueUnion> variables;
         std::vector<NodeData*> nodes;
         std::vector<std::pair<NodeData*, float>> hybrids;
+
+        bool operator ==( const NodeData& rhs ) const
+        {
+            return metadata == rhs.metadata &&
+                variables == rhs.variables &&
+                nodes == rhs.nodes &&
+                hybrids == rhs.hybrids;
+        }
     };
 }
 

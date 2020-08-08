@@ -6,14 +6,22 @@ namespace FastNoise
     class Simplex : public virtual Generator
     {
         FASTNOISE_METADATA( Generator )
-            using Generator::Metadata::Metadata;
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Coherent Noise" );
+            }
         };            
     };
 
     class OpenSimplex : public virtual Generator
     {
         FASTNOISE_METADATA( Generator )
-            using Generator::Metadata::Metadata;
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Coherent Noise" );
+            }
         };            
     };
 }

@@ -22,6 +22,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Coherent Noise" );
                 this->AddHybridSource( "Jitter Modifier", 1.0f, &Cellular::SetJitterModifier, &Cellular::SetJitterModifier );
                 this->AddVariableEnum( "Distance Function", DistanceFunction::EuclideanSquared, &Cellular::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
             }

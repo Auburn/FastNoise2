@@ -15,6 +15,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Basic Generators" );
                 this->AddVariable( "Value", 1.0f, &Constant::SetValue );
             }
         };
@@ -23,7 +24,11 @@ namespace FastNoise
     class White : public virtual Generator
     {
         FASTNOISE_METADATA( Generator )
-            using Generator::Metadata::Metadata;
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Basic Generators" );
+            }
         };
     };  
 
@@ -39,6 +44,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Basic Generators" );
                 this->AddVariable( "Size", 1.0f, &Checkerboard::SetSize );
             }
         };
@@ -56,6 +62,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Basic Generators" );
                 this->AddVariable( "Scale", 1.0f, &SineWave::SetScale );
             }
         };
@@ -75,6 +82,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Basic Generators" );
                 this->AddPerDimensionVariable( "Multiplier", 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); } );
                 this->AddPerDimensionVariable( "Offset",     0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); } );
             }
@@ -93,6 +101,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Basic Generators" );
                 this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
             }
         };

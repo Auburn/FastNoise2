@@ -17,7 +17,7 @@ namespace Magnum
     {
     public:
         FastNoiseNodeEditor();
-        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );        
+        void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
         void SetSIMDLevel( FastSIMD::eLevel lvl );
 
         static const char* GetSIMDLevelName( FastSIMD::eLevel lvl );
@@ -66,6 +66,34 @@ namespace Magnum
             GL::Texture2D noiseTexture;
         };
 
+        struct MetadataMenu
+        {
+            virtual ~MetadataMenu() {}
+            virtual bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr ) const = 0;
+            virtual const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr, bool root = true ) const = 0;
+        };
+
+        struct MetadataMenuItem : MetadataMenu
+        {
+            MetadataMenuItem( const FastNoise::Metadata* metadata ) : metadata( metadata ) {}
+
+            bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid ) const final;
+            const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const final;
+
+            const FastNoise::Metadata* metadata;
+        };
+
+        struct MetadataMenuGroup : MetadataMenu
+        {
+            MetadataMenuGroup( const char* name ) : name( name ) {}
+
+            bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid ) const final;
+            const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const final;
+
+            const char* name;
+            std::vector<const MetadataMenu*> items;
+        };
+
         Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
         FastNoise::SmartNode<> GenerateSelectedPreview();
         void ChangeSelectedNode( int newId );
@@ -79,6 +107,7 @@ namespace Magnum
         bool mDroppedLink = false;
 
         ImVec2 mContextStartPos;
+        std::vector<std::unique_ptr<MetadataMenu>> mContextMetadata;
         char mImportNodeString[1024];
         bool mImportNodeModal = false;
 

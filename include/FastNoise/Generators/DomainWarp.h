@@ -20,6 +20,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Domain Warp" );                
                 this->AddGeneratorSource( "Source", &DomainWarp::SetSource );
                 this->AddHybridSource( "Warp Amplitude", 1.0f, &DomainWarp::SetWarpAmplitude, &DomainWarp::SetWarpAmplitude );
                 this->AddVariable( "Warp Frequency", 0.5f, &DomainWarp::SetWarpFrequency );

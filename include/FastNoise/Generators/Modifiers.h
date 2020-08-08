@@ -17,6 +17,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &DomainScale::SetSource );
                 this->AddVariable( "Scale", 1.0f, &DomainScale::SetScale );
             }
@@ -42,6 +43,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &DomainOffset::SetSource );
                 this->AddPerDimensionHybridSource( "Offset", 0.0f, []( DomainOffset* p ) { return std::ref( p->mOffset ); } );
             }
@@ -96,6 +98,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &DomainRotate::SetSource );
                 this->AddVariable( "Yaw",   0.0f, &DomainRotate::SetYaw );
                 this->AddVariable( "Pitch", 0.0f, &DomainRotate::SetPitch );
@@ -117,11 +120,12 @@ namespace FastNoise
         FASTNOISE_METADATA( Generator )
 
             Metadata( const char* className ) : Generator::Metadata( className )
-        {
-            this->AddGeneratorSource( "Source", &SeedOffset::SetSource );
-            this->AddVariable( "Seed Offset", 1, &SeedOffset::SetOffset );
-        }
-    };
+            {
+                groups.push_back( "Modifiers" );
+                this->AddGeneratorSource( "Source", &SeedOffset::SetSource );
+                this->AddVariable( "Seed Offset", 1, &SeedOffset::SetOffset );
+            }
+        };
     };
 
     class Remap : public virtual Generator
@@ -141,6 +145,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &Remap::SetSource );
 
                 this->AddVariable( "From Min", -1.0f,
@@ -185,6 +190,7 @@ namespace FastNoise
         
             Metadata( const char* className ) : Generator::Metadata( className )
             {            
+                groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &ConvertRGBA8::SetSource );
 
                  this->AddVariable( "Min", -1.0f,

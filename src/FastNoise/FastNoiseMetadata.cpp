@@ -240,7 +240,7 @@ FastNoise::SmartNode<> FastNoise::Metadata::DeserialiseSmartNode( const std::vec
     return generator;
 }
 
-bool FastNoise::Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut )
+FastNoise::NodeData* FastNoise::Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut )
 {
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
@@ -263,7 +263,7 @@ FastNoise::NodeData* FastNoise::Metadata::DeserialiseNodeData( const std::vector
         return nullptr;
     }
 
-    NodeData* nodeData = nodeDataOut.emplace_back( new NodeData( metadata ) ).get();
+    std::unique_ptr<NodeData> nodeData( new NodeData( metadata ) );
 
     for( auto& var : nodeData->variables )
     {
@@ -309,7 +309,17 @@ FastNoise::NodeData* FastNoise::Metadata::DeserialiseNodeData( const std::vector
         }
     }
 
-    return nodeData;
+    auto find = std::find_if( nodeDataOut.begin(), nodeDataOut.end(), [newNode = nodeData.get()]( const auto& existingNode )
+    {
+        return *newNode == *existingNode;
+    } );
+
+    if( find == nodeDataOut.end() )
+    {
+        return nodeDataOut.emplace_back( std::move( nodeData ) ).get();        
+    }
+
+    return find->get();
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \

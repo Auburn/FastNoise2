@@ -38,6 +38,8 @@ namespace FastNoise
 
             Metadata( const char* className, const char* sourceName = "Source" ) : Generator::Metadata( className )
             {
+                groups.push_back( "Fractal" );
+
                 this->AddGeneratorSource( sourceName, &Fractal::SetSource );
                 this->AddHybridSource( "Gain", 0.5f, &Fractal::SetGain, &Fractal::SetGain );
                 this->AddVariable( "Octaves", 3, &Fractal::SetOctaveCount, 2, 16 );

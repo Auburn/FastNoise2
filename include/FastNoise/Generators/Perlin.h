@@ -6,7 +6,11 @@ namespace FastNoise
     class Perlin : public virtual Generator
     {
         FASTNOISE_METADATA( Generator )
-            using Generator::Metadata::Metadata;
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Coherent Noise" );
+            }
         };        
     };
 }

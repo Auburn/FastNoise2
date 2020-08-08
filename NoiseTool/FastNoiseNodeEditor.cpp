@@ -7,12 +7,73 @@
 
 #include <Magnum/PixelFormat.h>
 #include <Magnum/GL/TextureFormat.h>
-#include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 
 #include "ImGuiExtra.h"
 
 using namespace Magnum;
+
+void FormatClassName( std::string& string, const char* name )
+{
+    string = name;
+    for( int i = 1; i < string.size(); i++ )
+    {
+        if( isupper( string[i] ) && islower( string[i - 1] ) )
+        {
+            string.insert( i++, 1, ' ' );
+        }
+    }
+}
+
+void FormatClassName( std::string& string, const FastNoise::Metadata* metadata )
+{
+    string = metadata->name;
+    for( int i = 1; i < string.size(); i++ )
+    {
+        if( isupper( string[i] ) && islower( string[i - 1] ) )
+        {
+            string.insert( i++, 1, ' ' );
+        }
+    }
+
+    for( auto group : metadata->groups )
+    {
+        size_t start_pos = string.find( group );
+        if( start_pos != std::string::npos )
+        {
+            string.erase( start_pos, strlen( group ) + 1 );
+        }
+    }
+}
+
+void FormatMemberName( std::string& string, const char* name, int dimension )
+{
+    string = name;
+    if( dimension >= 0 )
+    {
+        const char dimensionNames[] = { 'X', 'Y', 'Z', 'W' };
+
+        string.insert( 0, { dimensionNames[dimension], ' ' } );
+    }
+}
+
+template<typename T>
+bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
+{
+    if( a.size() != b.size() )
+    {
+        return false;
+    }
+
+    for( size_t i = 0; i < a.size(); i++ )
+    {
+        if( strcmp( a[i].name, b[i].name ) != 0 )
+        {
+            return false;
+        }
+    }
+    return true;
+}
 
 FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, FastNoise::NodeData* nodeData ) :
     editor( e ),
@@ -109,6 +170,82 @@ void FastNoiseNodeEditor::Node::SetNodeLink( int attributeId, FastNoise::NodeDat
     }
 }
 
+void FastNoiseNodeEditor::Node::AutoPositionChildNodes( ImVec2 nodePos, float verticalSpacing )
+{
+    auto nodeLinks = GetNodeIDLinks();
+    nodeLinks.erase( std::remove( nodeLinks.begin(), nodeLinks.end(), 0 ), nodeLinks.end() );
+
+    if( nodeLinks.empty() )
+    {
+        return;
+    }
+
+    ImVec2 nodeSpacing = { 280, verticalSpacing };
+
+    nodePos.x -= nodeSpacing.x;
+    nodePos.y -= nodeSpacing.y * 0.5f * (nodeLinks.size() - 1);
+
+    for( int link : nodeLinks )
+    {
+        imnodes::SetNodeScreenSpacePos( link, nodePos );
+
+        editor.mNodes.at( link ).AutoPositionChildNodes( nodePos, verticalSpacing * 0.6f );
+        nodePos.y += nodeSpacing.y;
+    }
+}
+
+bool FastNoiseNodeEditor::MetadataMenuItem::CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid ) const
+{
+    return !isValid || isValid( metadata );
+}
+
+const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuItem::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const
+{
+    std::string format;
+    FormatClassName( format, metadata );
+    if( ImGui::MenuItem( format.c_str() ) )
+    {
+        return metadata;
+    }
+    return nullptr;
+}
+
+bool FastNoiseNodeEditor::MetadataMenuGroup::CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid ) const
+{
+    for( const auto& item : items )
+    {
+        if( item->CanDraw( isValid ) )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuGroup::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const
+{
+    const FastNoise::Metadata* returnPressed = nullptr;
+
+    if( root || ImGui::BeginMenu( name ) )
+    {
+        for( const auto& item : items )
+        {
+            if( item->CanDraw( isValid ) )
+            {
+                if( auto pressed = item->DrawUI( isValid, false ) )
+                {
+                    returnPressed = pressed;
+                }
+            }
+        }
+        if( !root )
+        {
+            ImGui::EndMenu();
+        }
+    }
+    return returnPressed;
+}
+
 FastNoiseNodeEditor::FastNoiseNodeEditor()
 {
 #ifdef IMGUI_HAS_DOCK
@@ -120,6 +257,36 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
 
     ImGui::StyleColorsDark();
     imnodes::StyleColorsDark();
+
+    // Create Metadata context menu tree
+    std::unordered_map<std::string, MetadataMenuGroup*> groupMap;
+    auto* root = new MetadataMenuGroup( "root" );
+    mContextMetadata.emplace_back( root );
+
+    for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
+    {
+        auto* metaDataGroup = root;
+
+        std::string groupTree;
+
+        for( const char* group : metadata->groups )
+        {
+            groupTree += group;
+            auto find = groupMap.find( groupTree );
+            if( find == groupMap.end() )
+            {
+                auto* newGroup = new MetadataMenuGroup( group );
+                mContextMetadata.emplace_back( newGroup );
+                metaDataGroup->items.emplace_back( newGroup );
+                find = groupMap.emplace( groupTree, newGroup ).first;
+            }
+
+            metaDataGroup = find->second;
+            groupTree += '\t';
+        }
+
+        metaDataGroup->items.emplace_back( mContextMetadata.emplace_back( new MetadataMenuItem( metadata ) ).get() );
+    }
 }
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
@@ -246,6 +413,7 @@ void FastNoiseNodeEditor::UpdateSelected()
 
             for( int link : node.second.GetNodeIDLinks() )
             {
+                (void)link;
                 if( attributeId == deleteID )
                 {
                     node.second.SetNodeLink( attributeId, nullptr );
@@ -305,47 +473,6 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
     }
 }
 
-void FormatClassName( std::string& string, const char* name )
-{
-    string = name;
-    for( int i = 1; i < string.size(); i++ )
-    {
-        if( isupper( string[i] ) && islower( string[i - 1] ) )
-        {
-            string.insert( i++, 1, ' ' );
-        }
-    }
-}
-
-void FormatMemberName( std::string& string, const char* name, int dimension )
-{
-    string = name;
-    if( dimension >= 0 )
-    {
-        const char dimensionNames[] = { 'X', 'Y', 'Z', 'W' };
-
-        string.insert( 0, { dimensionNames[dimension], ' ' } );
-    }
-}
-
-template<typename T>
-bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
-{
-    if( a.size() != b.size() )
-    {
-        return false;
-    }
-
-    for( size_t i = 0; i < a.size(); i++ )
-    {
-        if( strcmp( a[i].name, b[i].name ) != 0 )
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
 void FastNoiseNodeEditor::DoNodes()
 {
     std::string formatName;
@@ -363,24 +490,19 @@ void FastNoiseNodeEditor::DoNodes()
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
         if( ImGui::BeginPopupContextItem() )
         {
-            for( auto metadata : FastNoise::Metadata::GetMetadataClasses() )
+            auto& nodeMetadata = node.second.data->metadata;
+            auto newMetadata = mContextMetadata.front()->DrawUI( [nodeMetadata]( const FastNoise::Metadata* metadata )
+                {
+                    return metadata != nodeMetadata &&
+                        MatchingMembers( metadata->memberVariables, nodeMetadata->memberVariables ) &&
+                        MatchingMembers( metadata->memberNodes, nodeMetadata->memberNodes ) &&
+                        MatchingMembers( metadata->memberHybrids, nodeMetadata->memberHybrids );
+                } );
+
+            if( newMetadata )
             {
-                auto& nodeMetadata = node.second.data->metadata;
-
-                if( metadata == nodeMetadata ||
-                    !MatchingMembers( metadata->memberVariables, nodeMetadata->memberVariables ) ||
-                    !MatchingMembers( metadata->memberNodes, nodeMetadata->memberNodes ) ||
-                    !MatchingMembers( metadata->memberHybrids, nodeMetadata->memberHybrids ) )
-                {
-                    continue;
-                }
-
-                FormatClassName( formatName, metadata->name );
-                if( ImGui::MenuItem( formatName.c_str() ) )
-                {
-                    nodeMetadata = metadata;
-                    node.second.GeneratePreview();
-                }
+                nodeMetadata = newMetadata;
+                node.second.GeneratePreview();
             }
 
             ImGui::EndPopup();
@@ -521,30 +643,6 @@ FastNoiseNodeEditor::Node& FastNoiseNodeEditor::AddNode( ImVec2 startPos, const 
     return newNode.first->second;
 }
 
-void FastNoiseNodeEditor::Node::AutoPositionChildNodes( ImVec2 nodePos, float verticalSpacing )
-{
-    auto nodeLinks = GetNodeIDLinks();
-    nodeLinks.erase( std::remove( nodeLinks.begin(), nodeLinks.end(), 0 ), nodeLinks.end() );
-
-    if( nodeLinks.empty() )
-    {
-        return;
-    }
-
-    ImVec2 nodeSpacing = { 280, verticalSpacing };
-
-    nodePos.x -= nodeSpacing.x;
-    nodePos.y -= nodeSpacing.y * 0.5f * (nodeLinks.size() - 1);
-
-    for( int link : nodeLinks )
-    {
-        imnodes::SetNodeScreenSpacePos( link, nodePos );
-
-        editor.mNodes.at( link ).AutoPositionChildNodes( nodePos, verticalSpacing * 0.6f );
-        nodePos.y += nodeSpacing.y;
-    }
-}
-
 void FastNoiseNodeEditor::DoContextMenu()
 {
     std::string className;
@@ -557,18 +655,21 @@ void FastNoiseNodeEditor::DoContextMenu()
     {
         mContextStartPos = ImGui::GetMousePosOnOpeningCurrentPopup();
 
-        for( auto& metadata : FastNoise::Metadata::GetMetadataClasses() )
+        if( auto newMetadata = mContextMetadata.front()->DrawUI() )
         {
-            FormatClassName( className, metadata->name );
-            if( ImGui::MenuItem( className.c_str() ) )
-            {
-                AddNode( mContextStartPos, metadata );
-            }
+            AddNode( mContextStartPos, newMetadata );
         }
 
-        if( ImGui::MenuItem( "Import Encoded Node Tree" ) )
+        if( ImGui::BeginMenu( "Import" ) )
         {
-            openImportModal = true;
+            if( ImGui::MenuItem( "Encoded Node Tree" ) )
+            {
+                openImportModal = true;
+            }
+            ImGui::Separator();
+            ImGui::MenuItem( "Demo" );
+
+            ImGui::EndMenu();
         }
 
         ImGui::EndPopup();
@@ -599,27 +700,31 @@ void FastNoiseNodeEditor::DoContextMenu()
         {
             std::vector<std::unique_ptr<FastNoise::NodeData>> nodeData;
 
-            if( FastNoise::Metadata::DeserialiseNodeData( mImportNodeString, nodeData ) )
+            FastNoise::NodeData* firstNode = FastNoise::Metadata::DeserialiseNodeData( mImportNodeString, nodeData );
+            if( firstNode )
             {
-                int firstNodeId = Node::GetNodeID( nodeData.front().get() );
+                int firstNodeId = Node::GetNodeID( firstNode );
 
                 for( auto& data : nodeData )
                 {
                     int newNodeId = Node::GetNodeID( data.get() );
                     auto newNode = mNodes.emplace( std::piecewise_construct, std::forward_as_tuple( newNodeId ), std::forward_as_tuple( *this, std::move( data ) ) );
+                }
 
-
-                    if( mNodes.size() == 1 )
-                    {
-                        ChangeSelectedNode( newNodeId );
-                    }
+                if( mNodes.size() == nodeData.size() )
+                {
+                    ChangeSelectedNode( firstNodeId );
                 }
 
                 imnodes::SetNodeScreenSpacePos( firstNodeId, mContextStartPos );
                 mNodes.at( firstNodeId ).AutoPositionChildNodes( mContextStartPos );
+                mImportNodeModal = false;
             }
-
-            mImportNodeModal = false;
+            else
+            {
+                const char* error = "DESERIALISATION FAILED";
+                memcpy( mImportNodeString, error, strlen( error ) + 1 );
+            }
         }
         ImGui::EndPopup();
     }
@@ -634,16 +739,17 @@ void FastNoiseNodeEditor::DoContextMenu()
     {
         ImVec2 startPos = ImGui::GetMousePosOnOpeningCurrentPopup();
 
-        for( auto& metadata : FastNoise::Metadata::GetMetadataClasses() )
-        {
-            FormatClassName( className, metadata->name );
-            if( (!metadata->memberNodes.empty() || !metadata->memberHybrids.empty()) && ImGui::MenuItem( className.c_str() ) )
+        auto newMetadata = mContextMetadata.front()->DrawUI( []( const FastNoise::Metadata* metadata )
             {
-                auto& newNode = AddNode( startPos, metadata );
+                return !metadata->memberNodes.empty() || !metadata->memberHybrids.empty();
+            } );
 
-                newNode.SetNodeLink( 0, mDroppedLinkNodeId );
-                newNode.GeneratePreview();
-            }
+        if( newMetadata )
+        {
+            auto& newNode = AddNode( startPos, newMetadata );
+
+            newNode.SetNodeLink( 0, mDroppedLinkNodeId );
+            newNode.GeneratePreview();
         }
 
         ImGui::EndPopup();

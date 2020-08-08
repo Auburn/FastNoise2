@@ -18,6 +18,7 @@ namespace FastNoise
             
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Blends" );
                 this->AddGeneratorSource( "LHS", &OperatorSourceLHS::SetLHS );
                 this->AddHybridSource( "RHS", 0.0f, &OperatorSourceLHS::SetRHS, &OperatorSourceLHS::SetRHS );
             }
@@ -40,6 +41,7 @@ namespace FastNoise
             
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Blends" );
                 this->AddHybridSource( "LHS", 0.0f, &OperatorHybridLHS::SetLHS, &OperatorHybridLHS::SetLHS );
                 this->AddHybridSource( "RHS", 0.0f, &OperatorHybridLHS::SetRHS, &OperatorHybridLHS::SetRHS );
             }
@@ -140,6 +142,7 @@ namespace FastNoise
 
             Metadata( const char* className ) : Generator::Metadata( className )
             {
+                groups.push_back( "Blends" );
                 this->AddGeneratorSource( "A", &Fade::SetA );
                 this->AddGeneratorSource( "B", &Fade::SetB );
                 this->AddHybridSource( "Fade", 0.5f, &Fade::SetFade, &Fade::SetFade );
