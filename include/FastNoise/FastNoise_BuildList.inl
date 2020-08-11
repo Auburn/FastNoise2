@@ -45,7 +45,7 @@ FASTSIMD_BUILD_CLASS( Perlin )
 #include "Generators/Simplex.inl"
 #endif
 FASTSIMD_BUILD_CLASS( Simplex )
-FASTSIMD_BUILD_CLASS( OpenSimplex )
+FASTSIMD_BUILD_CLASS( OpenSimplex2 )
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Cellular.h"

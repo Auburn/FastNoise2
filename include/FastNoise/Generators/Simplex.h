@@ -14,7 +14,7 @@ namespace FastNoise
         };            
     };
 
-    class OpenSimplex : public virtual Generator
+    class OpenSimplex2 : public virtual Generator
     {
         FASTNOISE_METADATA( Generator )
 

@@ -124,7 +124,7 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
 };
 
 template<typename FS>
-class FS_T<FastNoise::OpenSimplex, FS> : public virtual FastNoise::OpenSimplex, public FS_T<FastNoise::Generator, FS>
+class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2, public FS_T<FastNoise::Generator, FS>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {

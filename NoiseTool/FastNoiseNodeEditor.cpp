@@ -18,7 +18,7 @@ void FormatClassName( std::string& string, const char* name )
     string = name;
     for( int i = 1; i < string.size(); i++ )
     {
-        if( isupper( string[i] ) && islower( string[i - 1] ) )
+        if( (isdigit( string[i] ) || isupper( string[i] )) && islower( string[i - 1] ) )
         {
             string.insert( i++, 1, ' ' );
         }
@@ -27,14 +27,7 @@ void FormatClassName( std::string& string, const char* name )
 
 void FormatClassName( std::string& string, const FastNoise::Metadata* metadata )
 {
-    string = metadata->name;
-    for( int i = 1; i < string.size(); i++ )
-    {
-        if( isupper( string[i] ) && islower( string[i - 1] ) )
-        {
-            string.insert( i++, 1, ' ' );
-        }
-    }
+    FormatClassName( string, metadata->name );
 
     for( auto group : metadata->groups )
     {
