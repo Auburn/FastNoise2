@@ -35,6 +35,7 @@ namespace Magnum
             enum
             {
                 GenType_2D,
+                GenType_2DTiled,
                 GenType_3D
             } generationType;            
         };

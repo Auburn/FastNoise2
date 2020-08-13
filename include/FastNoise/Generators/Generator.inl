@@ -13,10 +13,12 @@ class FS_T<FastNoise::Generator, FS> : public virtual FastNoise::Generator
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const { return Gen( seed, x, y, z ); };
 
 #define FASTNOISE_IMPL_GEN_T\
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const override { return GenT( seed, x, y ); }\
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }\
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const override { return GenT( seed, x, y, z, w ); }
 
     FastSIMD::eLevel GetSIMDLevel() const final
     {
@@ -230,6 +232,72 @@ public:
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
         return DoRemaining( noiseOut, count, index, min, max, gen );
+    }
+
+    OutputMinMax GenTileable2D( float* noiseOut, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
+    {
+        assert( xSize >= (int32_t)FS_Size_32() );
+
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
+        int32v xIdx( 0 );
+        int32v yIdx( 0 );
+
+        int32v xSizeV( xSize );
+        int32v ySizeV( ySize );
+        int32v xMax = xSizeV + xIdx + int32v( -1 );
+
+        size_t totalValues = xSize * ySize;
+        size_t index = 0;
+
+        float32v pi2Recip = float32v( 0.15915493667f );
+        float32v xSizePi = FS_Converti32_f32( xSizeV ) * pi2Recip;
+        float32v ySizePi = FS_Converti32_f32( ySizeV ) * pi2Recip;
+        float32v xFreq = float32v( frequency ) * xSizePi;
+        float32v yFreq = float32v( frequency ) * ySizePi;
+        float32v xMul = float32v( 1 ) / xSizePi;
+        float32v yMul = float32v( 1 ) / ySizePi;
+
+        xIdx += int32v::FS_Incremented();
+
+        while( index < totalValues - FS_Size_32() )
+        {
+            float32v xF = FS_Converti32_f32( xIdx ) * xMul;
+            float32v yF = FS_Converti32_f32( yIdx ) * yMul;
+
+            float32v xPos = FS_Cos_f32( xF ) * xFreq;
+            float32v yPos = FS_Cos_f32( yF ) * yFreq;
+            float32v zPos = FS_Sin_f32( xF ) * xFreq;
+            float32v wPos = FS_Sin_f32( yF ) * yFreq;
+
+            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
+            index += FS_Size_32();
+            xIdx += int32v( FS_Size_32() );
+
+            mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
+            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
+            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
+        }
+
+        float32v xF = FS_Converti32_f32( xIdx ) * xMul;
+        float32v yF = FS_Converti32_f32( yIdx ) * yMul;
+
+        float32v xPos = FS_Cos_f32( xF ) * xFreq;
+        float32v yPos = FS_Cos_f32( yF ) * yFreq;
+        float32v zPos = FS_Sin_f32( xF ) * xFreq;
+        float32v wPos = FS_Sin_f32( yF ) * yFreq;
+
+        float32v gen = Gen( int32v( seed ), xPos, yPos, yPos, wPos );
+
+        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
 private:

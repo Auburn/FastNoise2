@@ -62,7 +62,7 @@ void NoiseTexture::Draw()
         edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
         ImGui::SameLine();
 
-        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "3D Slice\0" );
+        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "2D Tiled\0" "3D Slice\0" );
         edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 2 );
         ImGui::SameLine();
 
@@ -141,6 +141,12 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     case BuildData::GenType_2D:
         minMax = genRGB->GenUniformGrid2D( noiseData.data(),
             buildData.size.x() / -2, buildData.size.y() / -2,
+            buildData.size.x(), buildData.size.y(),
+            buildData.frequency, buildData.seed );
+        break;
+
+    case BuildData::GenType_2DTiled:
+        minMax = genRGB->GenTileable2D( noiseData.data(),
             buildData.size.x(), buildData.size.y(),
             buildData.frequency, buildData.seed );
         break;

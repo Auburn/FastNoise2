@@ -90,11 +90,15 @@ namespace FastNoise
 
         virtual OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count,
             const float* xPosArray, const float* yPosArray,
-            float xOffset, float yOffset, int32_t seed ) const = 0;     
+            float xOffset, float yOffset, int32_t seed ) const = 0;
 
         virtual OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count,
             const float* xPosArray, const float* yPosArray, const float* zPosArray, 
-            float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;     
+            float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;
+
+        virtual OutputMinMax GenTileable2D( float* noiseOut,
+            int32_t xSize,  int32_t ySize, 
+            float frequency, int32_t seed ) const = 0;  
 
         virtual const Metadata* GetMetadata() = 0;
 
