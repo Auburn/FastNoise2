@@ -726,11 +726,12 @@ namespace FastSIMD
         value -= FS_Floor_f32( value * float32v( 0.1591549f ) ) * float32v( 6.283185f );
 
         mask32v geHalfPi  = FS_GreaterEqualThan_f32( value, float32v( 1.570796f ) );
+        mask32v geHalfPi2 = FS_GreaterEqualThan_f32( value, float32v( 3.141593f ) );
         mask32v geHalfPi3 = FS_GreaterEqualThan_f32( value, float32v( 4.7123889f ) );
 
         float32v cosAngle;
         cosAngle = FS_BitwiseXor_f32( value, FS_Mask_f32( FS_BitwiseXor_f32( value, float32v( 3.141593f ) - value ), geHalfPi ) );
-        cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), FS_GreaterEqualThan_f32( value, float32v( 3.141593f ) ) ) );
+        cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), geHalfPi2 ) );
         cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_BitwiseXor_f32( cosAngle, float32v( 6.283185f ) - value ), geHalfPi3 ) );
 
         cosAngle *= cosAngle;
