@@ -369,13 +369,4 @@ namespace FastSIMD
             return m ? float32v(0) : a;
         }
     };
-
-    template<typename T>
-    struct VectorSize<Scalar, T>
-    {
-        constexpr static int Count()
-        {
-            return 1;
-        }
-    };
 }

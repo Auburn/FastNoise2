@@ -116,7 +116,7 @@ template<typename T, typename FS>                                               
 std::enable_if_t<std::is_same<void, FS>::value> TestFunction_##NAME( void* baseData = nullptr )      \
 {                                                                                                          \
     std::cout << "\n";                                                                                     \
-    delete[] baseData;                                                                                     \
+    delete[] (T*)baseData;                                                                                     \
 }                                                                                                          \
                                                                                                            \
 template<typename T, typename FS>                                                                          \
@@ -236,7 +236,7 @@ SIMD_FUNCTION_TEST( Sqrt_f32, float, FS_Store_f32( &result, FS_Sqrt_f32( FS_Load
 //SIMD_FUNCTION_TEST( InvSqrt_f32, float, FS_Store_f32( &result, FS_InvSqrt_f32( FS_Load_f32( &rndFloats0[i] ) ) ) )
 
 
-const float MAX_ROUNDING = INT_MAX / 2;
+const float MAX_ROUNDING = (float)INT_MAX / 2.0f;
 
 SIMD_FUNCTION_TEST( Floor_f32, float, FS_Store_f32( &result, FS_Floor_f32( FS_Min_f32( typename FS::float32v( MAX_ROUNDING ), FS_Max_f32( typename FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
 
