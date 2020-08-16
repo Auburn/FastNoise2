@@ -17,6 +17,7 @@ namespace FastNoise
 
         const float kJitter2D = 0.5f;
         const float kJitter3D = 0.45f;
+        const float kJitter4D = 0.45f;
 
         FASTNOISE_METADATA_ABSTRACT( Generator )
         
