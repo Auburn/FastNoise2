@@ -15,9 +15,9 @@ namespace FastNoise
         HybridSource mJitterModifier = 1.0f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
 
-        const float kJitter2D = 0.5f;
-        const float kJitter3D = 0.45f;
-        const float kJitter4D = 0.45f;
+        const float kJitter2D = 0.437015f;
+        const float kJitter3D = 0.396143f;
+        const float kJitter4D = 0.366025f;
 
         FASTNOISE_METADATA_ABSTRACT( Generator )
         
