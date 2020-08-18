@@ -33,9 +33,8 @@ FastNoise::NodeData::NodeData( const Metadata* data )
 std::string FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, bool fixUp )
 {
     std::vector<uint8_t> serialData;
-    std::unordered_set<const NodeData*> dependancies;
 
-    if( !SerialiseNodeData( nodeData, serialData, dependancies, fixUp ) )
+    if( !SerialiseNodeData( nodeData, serialData, fixUp ) )
     {
         return "";
     }
@@ -51,7 +50,7 @@ void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
     }
 }
 
-bool FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp )
+bool FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, bool fixUp, std::unordered_set<const NodeData*> dependancies )
 {
     const Metadata* metadata = nodeData->metadata;
 
@@ -105,7 +104,7 @@ bool FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, std::vector<uin
             }
         }
 
-        if( !nodeData->nodes[i] || !SerialiseNodeData( nodeData->nodes[i], dataStream, dependancies, fixUp ) )
+        if( !nodeData->nodes[i] || !SerialiseNodeData( nodeData->nodes[i], dataStream, fixUp, dependancies ) )
         {
             return false;
         }
@@ -136,7 +135,7 @@ bool FastNoise::Metadata::SerialiseNodeData( NodeData* nodeData, std::vector<uin
             }
 
             AddToDataStream( dataStream, (uint8_t)1 );
-            if( !SerialiseNodeData( nodeData->hybrids[i].first, dataStream, dependancies, fixUp ) )
+            if( !SerialiseNodeData( nodeData->hybrids[i].first, dataStream, fixUp, dependancies ) )
             {
                 return false;
             }

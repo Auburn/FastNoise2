@@ -239,7 +239,7 @@ FS_INLINE float32v CalcDistance( FastNoise::DistanceFunction distFunc, float32v 
         return dist;
     }
 
-    case DistanceFunction::Natural:
+    case DistanceFunction::Hybrid:
     {
         float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
         ((both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);

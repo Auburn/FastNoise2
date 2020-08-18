@@ -63,7 +63,7 @@ void NoiseTexture::Draw()
         ImGui::SameLine();
 
         edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "2D Tiled\0" "3D Slice\0" );
-        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 2 );
+        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 3 );
         ImGui::SameLine();
 
         ImGui::PopItemWidth();

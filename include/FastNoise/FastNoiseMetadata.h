@@ -299,7 +299,7 @@ namespace FastNoise
             return (uint16_t)sMetadataClasses.size() - 1;
         }
 
-        static bool SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, std::unordered_set<const NodeData*>& dependancies, bool fixUp );
+        static bool SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, bool fixUp, std::unordered_set<const NodeData*> dependancies = {} );
         static SmartNode<> DeserialiseSmartNode( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
         static NodeData* DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx );
 

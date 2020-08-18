@@ -102,7 +102,7 @@ namespace FastNoise
             Metadata( const char* className ) : Generator::Metadata( className )
             {
                 groups.push_back( "Basic Generators" );
-                this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Natural" );
+                this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Hybrid" );
             }
         };
     };

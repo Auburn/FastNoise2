@@ -95,6 +95,7 @@ namespace Magnum
         };
 
         Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
+        bool AddNodeFromEncodedString( const char* string, ImVec2 nodePos );
         FastNoise::SmartNode<> GenerateSelectedPreview();
         void ChangeSelectedNode( int newId );
         void CheckLinks();
@@ -108,7 +109,7 @@ namespace Magnum
 
         ImVec2 mContextStartPos;
         std::vector<std::unique_ptr<MetadataMenu>> mContextMetadata;
-        char mImportNodeString[1024];
+        char mImportNodeString[4096];
         bool mImportNodeModal = false;
 
         MeshNoisePreview mMeshNoisePreview;

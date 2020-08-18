@@ -4,6 +4,7 @@
 #include <imnodes.h>
 
 #include "FastNoiseNodeEditor.h"
+#include "DemoNodeTrees.inl"
 
 #include <Magnum/PixelFormat.h>
 #include <Magnum/GL/TextureFormat.h>
@@ -182,7 +183,7 @@ void FastNoiseNodeEditor::Node::AutoPositionChildNodes( ImVec2 nodePos, float ve
     {
         imnodes::SetNodeScreenSpacePos( link, nodePos );
 
-        editor.mNodes.at( link ).AutoPositionChildNodes( nodePos, verticalSpacing * 0.6f );
+        editor.mNodes.at( link ).AutoPositionChildNodes( nodePos, nodeLinks.size() > 1 ? verticalSpacing * 0.6f : verticalSpacing );
         nodePos.y += nodeSpacing.y;
     }
 }
@@ -636,6 +637,33 @@ FastNoiseNodeEditor::Node& FastNoiseNodeEditor::AddNode( ImVec2 startPos, const 
     return newNode.first->second;
 }
 
+bool FastNoiseNodeEditor::AddNodeFromEncodedString( const char* string, ImVec2 nodePos )
+{
+    std::vector<std::unique_ptr<FastNoise::NodeData>> nodeData;
+
+    if( FastNoise::NodeData* firstNode = FastNoise::Metadata::DeserialiseNodeData( string, nodeData ) )
+    {
+        int firstNodeId = Node::GetNodeID( firstNode );
+
+        for( auto& data : nodeData )
+        {
+            int newNodeId = Node::GetNodeID( data.get() );
+            mNodes.emplace( std::piecewise_construct, std::forward_as_tuple( newNodeId ), std::forward_as_tuple( *this, std::move( data ) ) );
+        }
+
+        if( mNodes.size() == nodeData.size() )
+        {
+            ChangeSelectedNode( firstNodeId );
+        }
+
+        imnodes::SetNodeScreenSpacePos( firstNodeId, nodePos );
+        mNodes.at( firstNodeId ).AutoPositionChildNodes( nodePos );
+        return true;
+    }
+
+    return false;
+}
+
 void FastNoiseNodeEditor::DoContextMenu()
 {
     std::string className;
@@ -660,8 +688,13 @@ void FastNoiseNodeEditor::DoContextMenu()
                 openImportModal = true;
             }
             ImGui::Separator();
-            ImGui::MenuItem( "Demo" );
-
+            for( size_t i = 0; i < sizeof( gDemoNodeTrees ) / sizeof( gDemoNodeTrees[0] ); i++ )
+            {
+                if( ImGui::MenuItem( gDemoNodeTrees[i][0] ) )
+                {
+                    AddNodeFromEncodedString( gDemoNodeTrees[i][1], mContextStartPos );
+                }
+            }
             ImGui::EndMenu();
         }
 
@@ -691,26 +724,8 @@ void FastNoiseNodeEditor::DoContextMenu()
 
         if( txtEnter | ImGui::Button( "Create", { 100, 30 } ) )
         {
-            std::vector<std::unique_ptr<FastNoise::NodeData>> nodeData;
-
-            FastNoise::NodeData* firstNode = FastNoise::Metadata::DeserialiseNodeData( mImportNodeString, nodeData );
-            if( firstNode )
+            if( AddNodeFromEncodedString( mImportNodeString, mContextStartPos ) )
             {
-                int firstNodeId = Node::GetNodeID( firstNode );
-
-                for( auto& data : nodeData )
-                {
-                    int newNodeId = Node::GetNodeID( data.get() );
-                    auto newNode = mNodes.emplace( std::piecewise_construct, std::forward_as_tuple( newNodeId ), std::forward_as_tuple( *this, std::move( data ) ) );
-                }
-
-                if( mNodes.size() == nodeData.size() )
-                {
-                    ChangeSelectedNode( firstNodeId );
-                }
-
-                imnodes::SetNodeScreenSpacePos( firstNodeId, mContextStartPos );
-                mNodes.at( firstNodeId ).AutoPositionChildNodes( mContextStartPos );
                 mImportNodeModal = false;
             }
             else
