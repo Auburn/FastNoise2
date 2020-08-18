@@ -2,7 +2,7 @@
 
 # FastNoise2
 
-WIP successor to FastNoiseSIMD
+WIP successor to [FastNoiseSIMD](https://github.com/Auburn/FastNoiseSIMD)
 
 Modular node based approach to noise generation using modern C++17 features and templates
 
