@@ -148,8 +148,17 @@ template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level != FastSIM
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
 {
     int32v p = hash & int32v( 3 << 3 );
+
     float32v a = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 0 ) ), fX, fY );
-    float32v b = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 1 << 3 ) ), fY, fZ );
+    float32v b;
+    if constexpr( FS::SIMD_Level == FastSIMD::Level_SSE2 )
+    {
+        b = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 1 << 3 ) ), fY, fZ );        
+    }
+    else
+    {
+        b = FS_Select_f32( hash << 27, fY, fZ );
+    }
     float32v c = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 2 << 3 ) ), fZ, fW );
 
     float32v aSign = FS_Casti32_f32( hash << 31 );
