@@ -144,19 +144,28 @@ FS_INLINE float32v GetGradientDot(int32v hash, float32v fX, float32v fY, float32
     return FS_FMulAdd_f32( gX, fX, FS_FMulAdd_f32( fY, gY, fZ * gZ ));
 }
 
-template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level != FastSIMD::Level_AVX512 >* = nullptr >
+template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level != FastSIMD::Level_AVX512>* = nullptr >
 FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
 {
-    return float32v( 0 );
+    int32v p = hash & int32v( 3 << 3 );
+    float32v a = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 0 ) ), fX, fY );
+    float32v b = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 1 << 3 ) ), fY, fZ );
+    float32v c = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 2 << 3 ) ), fZ, fW );
+
+    float32v aSign = FS_Casti32_f32( hash << 31 );
+    float32v bSign = FS_Casti32_f32( (hash << 30) & int32v( 0x80000000 ) );
+    float32v cSign = FS_Casti32_f32( (hash << 29) & int32v( 0x80000000 ) );
+
+    return FS_BitwiseXor_f32( a, aSign ) + FS_BitwiseXor_f32( b, bSign ) + FS_BitwiseXor_f32( c, cSign );
 }
 
 template<typename FS = FS_SIMD_CLASS, std::enable_if_t<FS::SIMD_Level == FastSIMD::Level_AVX512>* = nullptr>
 FS_INLINE float32v GetGradientDot(int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
 {
-    float32v gX = _mm512_permutex2var_ps( float32v( 0, 1, -1, 1, -1, 1, -1, 0, 0, 1, -1, 1, -1, 1, -1, 0 ), hash, float32v( 0, 1, -1, 1, -1, 1, -1, 0, 0, 1, -1, 1, -1, 1, 0, -1 ) );
-    float32v gY = _mm512_permutex2var_ps( float32v( -1, 0, 0, 1, 1, 1, 1, 1, -1, 0, 0, 1, 1, 1, 1, 1 ), hash, float32v( -1, 0, 0, -1, -1, -1, -1, 1, -1, 0, 0, -1, -1, -1, 1, -1 ) );
-    float32v gZ = _mm512_permutex2var_ps( float32v( 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, -1, -1, -1 ), hash, float32v( -1, -1, -1, 0, 0, 1, 1, -1, -1, -1, -1, 0, 0, -1, 1, -1 ) );
-    float32v gW = _mm512_permutex2var_ps( float32v( 1, 1, 1, 1, 1, 0, 0, -1, -1, -1, -1, -1, -1, 0, 0, 1 ), hash, float32v( 1, 1, 1, 1, 1, 0, 0, -1, -1, -1, -1, -1, -1, 0, 1, 0 ) );
+    float32v gX = _mm512_permutex2var_ps( float32v( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+    float32v gY = _mm512_permutex2var_ps( float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, float32v( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
+    float32v gZ = _mm512_permutex2var_ps( float32v( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ), hash, float32v( 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1 ) );
+    float32v gW = _mm512_permutex2var_ps( float32v( 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1 ), hash, float32v( 1, 1, 1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) );
 
     return FS_FMulAdd_f32( gX, fX, FS_FMulAdd_f32( fY, gY, FS_FMulAdd_f32( fZ, gZ, fW * gW ) ));
 }

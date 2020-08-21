@@ -88,7 +88,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
     static std::array<float, NoiseSize* NoiseSize> noiseData;
 
     serialised = FastNoise::Metadata::SerialiseNodeData( data.get(), true );
-    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str() );
+    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str(), editor.mMaxSIMDLevel );
 
     if( generator )
     {
