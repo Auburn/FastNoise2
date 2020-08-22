@@ -51,6 +51,25 @@ void FormatMemberName( std::string& string, const char* name, int dimension )
     }
 }
 
+bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
+{
+    std::string aString;
+    for( const char* c : a )
+    {
+        aString.append( c );
+        aString.push_back( '\t' );
+    }
+
+    std::string bString;
+    for( const char* c : b )
+    {
+        bString.append( c );
+        bString.push_back( '\t' );
+    }
+
+    return aString == bString;
+}
+
 template<typename T>
 bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
 {
@@ -193,7 +212,7 @@ bool FastNoiseNodeEditor::MetadataMenuItem::CanDraw( std::function<bool( const F
     return !isValid || isValid( metadata );
 }
 
-const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuItem::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const
+const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuItem::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool drawGroups ) const
 {
     std::string format;
     FormatClassName( format, metadata );
@@ -216,23 +235,25 @@ bool FastNoiseNodeEditor::MetadataMenuGroup::CanDraw( std::function<bool( const 
     return false;
 }
 
-const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuGroup::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const
+const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuGroup::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool drawGroups ) const
 {
     const FastNoise::Metadata* returnPressed = nullptr;
 
-    if( root || ImGui::BeginMenu( name ) )
+    bool doGroup = drawGroups && name[0] != 0;
+
+    if( !doGroup || ImGui::BeginMenu( name ) )
     {
         for( const auto& item : items )
         {
             if( item->CanDraw( isValid ) )
             {
-                if( auto pressed = item->DrawUI( isValid, false ) )
+                if( auto pressed = item->DrawUI( isValid, drawGroups ) )
                 {
                     returnPressed = pressed;
                 }
             }
         }
-        if( !root )
+        if( doGroup )
         {
             ImGui::EndMenu();
         }
@@ -254,7 +275,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
 
     // Create Metadata context menu tree
     std::unordered_map<std::string, MetadataMenuGroup*> groupMap;
-    auto* root = new MetadataMenuGroup( "root" );
+    auto* root = new MetadataMenuGroup( "" );
     mContextMetadata.emplace_back( root );
 
     for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
@@ -305,6 +326,21 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
                 node.second.GeneratePreview( false );
             }
         }
+        auto find = mNodes.find( mSelectedNode );
+
+        FastNoise::SmartNode<> generator;
+        std::string serialised;
+        
+
+        if( find != mNodes.end() )
+        {
+            serialised = find->second.serialised;
+        }
+
+        const char* serialisedLabel = "Encoded Node Tree";
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x - 210 );
+        ImGui::InputText( serialisedLabel, serialised.data(), serialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
 
         std::string simdTxt = "Current SIMD Level: ";
         simdTxt += GetSIMDLevelName( mActualSIMDLevel );
@@ -486,16 +522,49 @@ void FastNoiseNodeEditor::DoNodes()
         {
             auto& nodeMetadata = node.second.data->metadata;
             auto newMetadata = mContextMetadata.front()->DrawUI( [nodeMetadata]( const FastNoise::Metadata* metadata )
-                {
-                    return metadata != nodeMetadata &&
-                        MatchingMembers( metadata->memberVariables, nodeMetadata->memberVariables ) &&
-                        MatchingMembers( metadata->memberNodes, nodeMetadata->memberNodes ) &&
-                        MatchingMembers( metadata->memberHybrids, nodeMetadata->memberHybrids );
-                } );
+            {
+                return metadata != nodeMetadata && MatchingGroup( metadata->groups, nodeMetadata->groups );
+            },  false );
 
             if( newMetadata )
             {
-                nodeMetadata = newMetadata;
+                if( MatchingMembers( newMetadata->memberVariables, nodeMetadata->memberVariables ) &&
+                    MatchingMembers( newMetadata->memberNodes, nodeMetadata->memberNodes ) &&
+                    MatchingMembers( newMetadata->memberHybrids, nodeMetadata->memberHybrids ) )
+                {
+                    nodeMetadata = newMetadata;                    
+                }
+                else
+                {
+                    FastNoise::NodeData newData( newMetadata );
+
+                    std::queue<FastNoise::NodeData*> links;
+
+                    for( FastNoise::NodeData* link : node.second.data->nodes )
+                    {
+                        links.emplace( link );
+                    }
+                    for( auto& link : node.second.data->hybrids )
+                    {
+                        links.emplace( link.first );
+                    }
+
+                    for( auto& link : newData.nodes )
+                    {
+                        if( links.empty() ) break;
+                        link = links.front();
+                        links.pop();
+                    }
+                    for( auto& link : newData.hybrids )
+                    {
+                        if( links.empty() ) break;
+                        link.first = links.front();
+                        links.pop();
+                    }
+
+                    *node.second.data = std::move( newData );                  
+                }
+
                 node.second.GeneratePreview();
             }
 
@@ -748,9 +817,9 @@ void FastNoiseNodeEditor::DoContextMenu()
         ImVec2 startPos = ImGui::GetMousePosOnOpeningCurrentPopup();
 
         auto newMetadata = mContextMetadata.front()->DrawUI( []( const FastNoise::Metadata* metadata )
-            {
-                return !metadata->memberNodes.empty() || !metadata->memberHybrids.empty();
-            } );
+        {
+            return !metadata->memberNodes.empty() || !metadata->memberHybrids.empty();
+        } );
 
         if( newMetadata )
         {

@@ -319,37 +319,37 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                 {
                     if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_X, STEP_Y, STEP_Z, colorRight,
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, colorRight,
                             Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_X, -STEP_Y, STEP_Z, colorLeft,
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, colorLeft,
                             Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Y, STEP_Z, STEP_X, colorUp,
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, colorUp,
                             Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                     }
 
                     if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Y, -STEP_Z, STEP_X, colorDown,
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, colorDown,
                             Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx + STEP_Z, STEP_X, STEP_Y, colorForward,
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, colorForward,
                             Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                     }
 
                     if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
                     {
-                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx - STEP_Z, -STEP_X, STEP_Y, colorBack,
+                        AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, colorBack,
                             Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                     }
                 }
@@ -386,8 +386,10 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 }
 
 void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
-    int32_t facingIdx, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
+    int32_t idx, int32_t facingOffset, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
 {
+    int32_t facingIdx = idx + facingOffset;
+
     uint8_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
     uint8_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
     uint8_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
@@ -402,6 +404,10 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
     float light01 = (float)(sideA1 + sideB0 + corner10) / 3.0f;
     float light10 = (float)(sideA0 + sideB1 + corner01) / 3.0f;
     float light11 = (float)(sideA1 + sideB1 + corner11) / 3.0f;
+
+    float densityColorShift = 1 - (isoSurface - density[idx]) * 2;
+
+    color *= densityColorShift * densityColorShift;
 
     uint32_t vertIdx = (uint32_t)verts.size();
     verts.emplace_back( pos00, color * (1.0f - light00 * AO_STRENGTH) );

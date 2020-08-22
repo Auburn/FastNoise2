@@ -55,7 +55,7 @@ void NoiseTexture::Draw()
     {
         //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
 
-        ImGui::PushItemWidth( 60.0f );
+        ImGui::PushItemWidth( 82.0f );
         bool edited = ImGui::DragInt( "Seed", &mBuildData.seed );
         ImGui::SameLine();
 
@@ -64,13 +64,8 @@ void NoiseTexture::Draw()
 
         edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "2D Tiled\0" "3D Slice\0" );
         edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 3 );
-        ImGui::SameLine();
-
+        
         ImGui::PopItemWidth();
-
-        const char* serialisedLabel = "Encoded Node Tree";
-        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x );
-        ImGui::InputText( serialisedLabel, mSerialised.data(), mSerialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
 
         ImVec2 winSize = ImGui::GetContentRegionAvail();
 

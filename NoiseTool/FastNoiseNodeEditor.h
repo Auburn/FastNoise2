@@ -70,7 +70,7 @@ namespace Magnum
         {
             virtual ~MetadataMenu() {}
             virtual bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr ) const = 0;
-            virtual const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr, bool root = true ) const = 0;
+            virtual const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr, bool drawGroups = true ) const = 0;
         };
 
         struct MetadataMenuItem : MetadataMenu
@@ -78,7 +78,7 @@ namespace Magnum
             MetadataMenuItem( const FastNoise::Metadata* metadata ) : metadata( metadata ) {}
 
             bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid ) const final;
-            const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const final;
+            const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool drawGroups ) const final;
 
             const FastNoise::Metadata* metadata;
         };
@@ -88,7 +88,7 @@ namespace Magnum
             MetadataMenuGroup( const char* name ) : name( name ) {}
 
             bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid ) const final;
-            const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool root ) const final;
+            const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool drawGroups ) const final;
 
             const char* name;
             std::vector<const MetadataMenu*> items;
