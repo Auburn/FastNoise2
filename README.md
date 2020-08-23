@@ -12,7 +12,7 @@ Currently being developed on Visual Studio 2019 x64, will be more crossplatform 
 
 Check the [releases](https://github.com/Auburns/FastNoise2/releases) for early versions of the Noise Tool
 
-![NoiseTool](https://user-images.githubusercontent.com/1349548/84082690-31196780-a9d8-11ea-8db7-168e27599f90.png)
+![NoiseTool](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
 
 # Getting Started
 
