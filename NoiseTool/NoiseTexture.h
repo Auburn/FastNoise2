@@ -19,7 +19,7 @@ namespace Magnum
         ~NoiseTexture();
 
         void Draw();
-        void ReGenerate( FastNoise::SmartNodeArg<> generator, const char* serialised );
+        void ReGenerate( FastNoise::SmartNodeArg<> generator );
 
 
     private:

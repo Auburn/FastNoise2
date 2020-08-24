@@ -73,7 +73,7 @@ void NoiseTexture::Draw()
             (edited || mBuildData.size.x() != winSize.x || mBuildData.size.y() != winSize.y) )
         {
             mBuildData.size = { (int)winSize.x, (int)winSize.y };
-            ReGenerate( mBuildData.generator, nullptr );
+            ReGenerate( mBuildData.generator );
         }
 
         ImGuiIntegration::image( mNoiseTexture, Vector2( mNoiseTexture.imageSize( 0 ) ) );
@@ -88,7 +88,7 @@ void NoiseTexture::SetPreviewTexture( ImageView2D& imageView )
         .setSubImage( 0, {}, imageView );
 }
 
-void NoiseTexture::ReGenerate( FastNoise::SmartNodeArg<> generator, const char* serialised )
+void NoiseTexture::ReGenerate( FastNoise::SmartNodeArg<> generator )
 {
     mBuildData.generator = generator;
     mBuildData.iteration++;

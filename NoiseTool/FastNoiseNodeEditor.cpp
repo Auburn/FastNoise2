@@ -839,12 +839,10 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
     auto find = mNodes.find( mSelectedNode );
 
     FastNoise::SmartNode<> generator;
-    const char* serialised = "";
 
     if( find != mNodes.end() )
     {
-        serialised = find->second.serialised.c_str();
-        generator = FastNoise::NewFromEncodedNodeTree( serialised, mMaxSIMDLevel );
+        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxSIMDLevel );
 
         if( generator )
         {
@@ -852,7 +850,7 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
         }
     }
 
-    mNoiseTexture.ReGenerate( generator, serialised );
+    mNoiseTexture.ReGenerate( generator );
 
     return generator;
 }
