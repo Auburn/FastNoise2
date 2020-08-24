@@ -93,19 +93,12 @@ void NoiseTexture::ReGenerate( FastNoise::SmartNodeArg<> generator, const char* 
     mBuildData.generator = generator;
     mBuildData.iteration++;
 
-    if( serialised )
-    {
-        mSerialised = serialised;
-    }
-
     mGenerateQueue.Clear();
 
     if( mBuildData.size.x() <= 0 || mBuildData.size.y() <= 0 )
     {
         return;
     }
-
-    size_t noiseSize = (size_t)mBuildData.size.x() * mBuildData.size.y();
 
     if( generator )
     {

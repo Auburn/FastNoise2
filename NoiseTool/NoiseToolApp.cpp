@@ -11,7 +11,7 @@ using namespace Magnum;
 
 NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments, Configuration{}
-    .setTitle( "FastNoise Tool" )
+    .setTitle( "FastNoise 2 Noise Tool" )
     .setSize( Vector2i( 1280, 720 ) )
     .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ) },
     mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
@@ -34,7 +34,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     mLevelNames = { "Auto" };
     mLevelEnums = { FastSIMD::Level_Null };
 
-    for( int i = 1; i > 0; i = i << 1 )
+    for( int i = 1; i > 0; i <<= 1 )
     {
         FastSIMD::eLevel lvl = (FastSIMD::eLevel)i;
         if( lvl & FastNoise::SUPPORTED_SIMD_LEVELS & FastSIMD::COMPILED_SIMD_LEVELS )

@@ -81,7 +81,6 @@ namespace Magnum
 
         BuildData mBuildData;
         FastNoise::OutputMinMax mMinMax;
-        std::string mSerialised;
 
         std::vector<std::thread> mThreads;
         GenerateQueue<BuildData> mGenerateQueue;
