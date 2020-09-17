@@ -37,6 +37,24 @@ namespace FastNoise
         };
     };
 
+    class CellularValues : public virtual Cellular
+    {
+    public:
+        void SetValueIndex( int value ) { mValueIndex = value; }
+
+    protected:
+        static const int kMaxDistanceCount = 4;
+
+        int mValueIndex = 0;
+
+        FASTNOISE_METADATA( Cellular )
+            Metadata( const char* className ) : Cellular::Metadata( className )
+            {
+                this->AddVariable( "Value Index", 0, &CellularValues::SetValueIndex, 0, kMaxDistanceCount - 1 );
+            }
+        };
+    };
+
     class CellularDistance : public virtual Cellular
     {
     public:
@@ -46,7 +64,7 @@ namespace FastNoise
             Index0Add1,
             Index0Sub1,
             Index0Mul1,
-            Index0Div1,
+            Index0Div1
         };
 
         void SetDistanceIndex0( int value ) { mDistanceIndex0 = value; }
