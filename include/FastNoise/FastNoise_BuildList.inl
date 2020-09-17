@@ -53,6 +53,7 @@ FASTSIMD_BUILD_CLASS( OpenSimplex2 )
 #include "Generators/Cellular.inl"
 #endif
 FASTSIMD_BUILD_CLASS( CellularValue )
+FASTSIMD_BUILD_CLASS( CellularValues )
 FASTSIMD_BUILD_CLASS( CellularDistance )
 FASTSIMD_BUILD_CLASS( CellularLookup )
 
