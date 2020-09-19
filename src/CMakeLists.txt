@@ -1,5 +1,15 @@
 set(CMAKE_CXX_STANDARD 17)
 
+file(GLOB_RECURSE FastSIMD_headers "../include/FastSIMD/*.h")
+file(GLOB_RECURSE FastSIMD_include_inl "../include/FastSIMD/*.inl")
+file(GLOB FastSIMD_inline "FastSIMD/*.inl")
+file(GLOB_RECURSE FastSIMD_internal_headers "FastSIMD/Internal/*.h")
+file(GLOB_RECURSE FastSIMD_internal_inl "FastSIMD/Internal/*.inl")
+
+list(APPEND FastSIMD_headers ${FastSIMD_inline})
+list(APPEND FastSIMD_headers ${FastSIMD_include_inl})
+list(APPEND FastSIMD_internal_headers ${FastSIMD_internal_inl})
+
 set(FastSIMD_sources
     FastSIMD/FastSIMD.cpp
     FastSIMD/FastSIMD_Level_AVX2.cpp
@@ -13,14 +23,33 @@ set(FastSIMD_sources
     FastSIMD/FastSIMD_Level_SSSE3.cpp
 )
 
-file(GLOB_RECURSE FastSIMD_headers "*.h")
-file(GLOB_RECURSE FastSIMD_inline "*.inl")
+file(GLOB FastNoise_headers "../include/FastNoise/*.h")
+file(GLOB FastNoise_inl "../include/FastNoise/*.inl")
+file(GLOB_RECURSE FastNoise_generators_headers "../include/FastNoise/Generators/*.h")
+file(GLOB_RECURSE FastNoise_generators_inl "../include/FastNoise/Generators/*.inl")
+
+list(APPEND FastNoise_headers ${FastNoise_inl})
+list(APPEND FastNoise_generators_headers ${FastNoise_generators_inl})
+
+set(FastNoise_source
+    FastNoise/FastNoiseMetadata.cpp
+)
+
+source_group("SIMD" FILES ${FastSIMD_headers})
+source_group("SIMD" FILES ${FastSIMD_sources})
+source_group("SIMD\\internals" FILES ${FastSIMD_internal_headers})
+
+source_group("FastNoise" FILES ${FastNoise_headers})
+source_group("FastNoise" FILES ${FastNoise_source})
+source_group("FastNoise\\Generators" FILES ${FastNoise_generators_headers})
 
 add_library(FastNoise
-    FastNoise/FastNoiseMetadata.cpp
-    ${FastSIMD_sources}
+    ${FastNoise_headers}
+    ${FastNoise_source}
+    ${FastNoise_generators_headers}
     ${FastSIMD_headers}
-    ${FastSIMD_inline}
+    ${FastSIMD_internal_headers}
+    ${FastSIMD_sources}
 )
 
 target_include_directories(FastNoise PUBLIC ../include)
