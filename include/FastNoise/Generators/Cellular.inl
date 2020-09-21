@@ -52,7 +52,7 @@ public:
 
                 mask32v closer;
 
-                for( int i = mValueIndex - 1; i > 0; i-- )
+                for( int i = mValueIndex; i > 0; i-- )
                 {
                     closer = FS_LessThan_f32( newDistance, distance[i] );
 
@@ -126,7 +126,7 @@ public:
                 
                     mask32v closer;
 
-                    for( int i = mValueIndex - 1; i > 0; i-- )
+                    for( int i = mValueIndex; i > 0; i-- )
                     {
                         closer = FS_LessThan_f32( newDistance, distance[i] );
 
@@ -212,7 +212,7 @@ public:
 
                         mask32v closer;
 
-                        for( int i = mValueIndex - 1; i > 0; i-- )
+                        for( int i = mValueIndex; i > 0; i-- )
                         {
                             closer = FS_LessThan_f32( newDistance, distance[i] );
 
