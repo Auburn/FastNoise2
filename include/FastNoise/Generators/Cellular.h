@@ -32,13 +32,6 @@ namespace FastNoise
 
     class CellularValue : public virtual Cellular
     {
-        FASTNOISE_METADATA( Cellular )
-            using Cellular::Metadata::Metadata;
-        };
-    };
-
-    class CellularValues : public virtual Cellular
-    {
     public:
         void SetValueIndex( int value ) { mValueIndex = value; }
 
@@ -50,7 +43,7 @@ namespace FastNoise
         FASTNOISE_METADATA( Cellular )
             Metadata( const char* className ) : Cellular::Metadata( className )
             {
-                this->AddVariable( "Value Index", 0, &CellularValues::SetValueIndex, 0, kMaxDistanceCount - 1 );
+                this->AddVariable( "Value Index", 0, &CellularValue::SetValueIndex, 0, kMaxDistanceCount - 1 );
             }
         };
     };
