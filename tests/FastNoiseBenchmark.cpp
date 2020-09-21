@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
+#include <FastNoise/FastNoise.h>
 
-#include "FastNoise/FastNoise.h"
-#include "FastSIMD/TypeList.h"
+#include "magic_enum.h"
 
 FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
 {    
@@ -99,7 +99,7 @@ int main( int argc, char** argv )
             benchName = "2D/";
             benchName += metadata->name;
             benchName += '/';
-            benchName += std::to_string( level );
+            benchName += magic_enum::flags::enum_name( level );
 
             benchmark::RegisterBenchmark( benchName.c_str(), BenchFastNoiseGenerator2D, 512, metadata, level );
 
