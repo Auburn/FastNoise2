@@ -49,6 +49,24 @@ namespace FastSIMD
             return *this;
         }
 
+        FS_INLINE AVX_f32x8& operator&=( const AVX_f32x8& rhs )
+        {
+            *this = _mm256_and_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE AVX_f32x8& operator|=( const AVX_f32x8& rhs )
+        {
+            *this = _mm256_or_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE AVX_f32x8& operator^=( const AVX_f32x8& rhs )
+        {
+            *this = _mm256_xor_ps( *this, rhs );
+            return *this;
+        }
+
         FS_INLINE AVX_f32x8 operator-() const
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS

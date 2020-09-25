@@ -38,6 +38,29 @@ namespace FastSIMD
             *this = *this / rhs;
             return *this;
         }
+
+        FS_INLINE Scalar_Float& operator&=( const Scalar_Float& rhs )
+        {
+            *this = _mm_and_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE Scalar_Float& operator|=( const Scalar_Float& rhs )
+        {
+            *this = _mm_or_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE Scalar_Float& operator^=( const Scalar_Float& rhs )
+        {
+            *this = _mm_xor_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE Scalar_Float operator-() const
+        {
+            return -*this;
+        }
     };
 
     struct Scalar_Int
@@ -101,6 +124,16 @@ namespace FastSIMD
         {
             *this = *this << rhs;
             return *this;
+        }
+
+        FS_INLINE Scalar_Int operator~() const
+        {
+            return ~*this;
+        }
+
+        FS_INLINE Scalar_Int operator-() const
+        {
+            return -*this;
         }
     };
 

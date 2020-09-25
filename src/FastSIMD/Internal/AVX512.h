@@ -50,6 +50,24 @@ namespace FastSIMD
             return *this;
         }
 
+        FS_INLINE AVX512_f32x16& operator&=( const AVX512_f32x16& rhs )
+        {
+            *this = _mm512_and_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE AVX512_f32x16& operator|=( const AVX512_f32x16& rhs )
+        {
+            *this = _mm512_or_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE AVX512_f32x16& operator^=( const AVX512_f32x16& rhs )
+        {
+            *this = _mm512_xor_ps( *this, rhs );
+            return *this;
+        }
+
         FS_INLINE AVX512_f32x16 operator-() const
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS

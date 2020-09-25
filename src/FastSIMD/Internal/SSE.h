@@ -49,6 +49,24 @@ namespace FastSIMD
             return *this;
         }
 
+        FS_INLINE SSE_f32x4& operator&=( const SSE_f32x4& rhs )
+        {
+            *this = _mm_and_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE SSE_f32x4& operator|=( const SSE_f32x4& rhs )
+        {
+            *this = _mm_or_ps( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE SSE_f32x4& operator^=( const SSE_f32x4& rhs )
+        {
+            *this = _mm_xor_ps( *this, rhs );
+            return *this;
+        }
+
         FS_INLINE SSE_f32x4 operator-() const
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
