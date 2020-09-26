@@ -46,7 +46,7 @@ public:
 
         int32v value = (FS_Convertf32_i32( pos * multiplier ) ^ ...);
 
-        return FS_BitwiseXor_f32( float32v( 1.0f ), FS_Casti32_f32( value << 31 ) );
+        return float32v( 1.0f ) ^ FS_Casti32_f32( value << 31 );
     }
 };
 

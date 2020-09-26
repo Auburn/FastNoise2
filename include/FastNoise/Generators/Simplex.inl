@@ -193,9 +193,9 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
             mask32v dir0xr = FS_LessEqualThan_f32( FS_Max_f32( score0yr, score0zr ), score0xr );
             mask32v dir0yr = FS_BitwiseAndNot_m32( FS_LessEqualThan_f32( FS_Max_f32( score0zr, score0xr ), score0yr ), dir0xr );
             mask32v dir0zr = ~(dir0xr | dir0yr);
-            float32v v1xr = FS_MaskedAdd_f32( v0xr, FS_BitwiseOr_f32( float32v( 1.0f ), FS_BitwiseAnd_f32( d0xr, float32v( -1.0f ) ) ), dir0xr );
-            float32v v1yr = FS_MaskedAdd_f32( v0yr, FS_BitwiseOr_f32( float32v( 1.0f ), FS_BitwiseAnd_f32( d0yr, float32v( -1.0f ) ) ), dir0yr );
-            float32v v1zr = FS_MaskedAdd_f32( v0zr, FS_BitwiseOr_f32( float32v( 1.0f ), FS_BitwiseAnd_f32( d0zr, float32v( -1.0f ) ) ), dir0zr );
+            float32v v1xr = FS_MaskedAdd_f32( v0xr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0xr ), dir0xr );
+            float32v v1yr = FS_MaskedAdd_f32( v0yr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0yr ), dir0yr );
+            float32v v1zr = FS_MaskedAdd_f32( v0zr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0zr ), dir0zr );
             float32v d1xr = xr - v1xr;
             float32v d1yr = yr - v1yr;
             float32v d1zr = zr - v1zr;

@@ -317,31 +317,6 @@ namespace FastSIMD
 
         // Bitwise
 
-        FS_INLINE static float32v BitwiseAnd_f32( float32v a, float32v b )
-        {
-            return _mm256_and_ps( a, b );
-        }
-
-        FS_INLINE static float32v BitwiseOr_f32( float32v a, float32v b )
-        {
-            return _mm256_or_ps( a, b );
-        }
-
-        FS_INLINE static float32v BitwiseXor_f32( float32v a, float32v b )
-        {
-            return _mm256_xor_ps( a, b );
-        }
-
-        FS_INLINE static float32v BitwiseNot_f32( float32v a )
-        {
-#if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-            const __m256i neg1 = _mm256_cmpeq_epi32( _mm256_setzero_si256(), _mm256_setzero_si256() );
-#else
-            const __m256i neg1 = _mm256_set1_epi32( -1 );
-#endif
-            return _mm256_xor_ps( a, _mm256_castsi256_ps( neg1 ) );
-        }
-
         FS_INLINE static float32v BitwiseAndNot_f32( float32v a, float32v b )
         {
             return _mm256_andnot_ps( b, a );

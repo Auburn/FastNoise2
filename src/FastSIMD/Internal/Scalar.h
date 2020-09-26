@@ -80,6 +80,9 @@ namespace FastSIMD
         }
     };
 
+    FASTSIMD_INTERNAL_OPERATORS_FLOAT( Scalar_Float )
+
+
     struct Scalar_Int
     {
         FASTSIMD_INTERNAL_TYPE_SET( Scalar_Int, int32_t );
@@ -153,6 +156,9 @@ namespace FastSIMD
             return -(int32_t)*this;
         }
     };
+
+    FASTSIMD_INTERNAL_OPERATORS_INT( Scalar_Int, int32_t )
+
 
     struct Scalar_Mask
     {
@@ -300,27 +306,7 @@ namespace FastSIMD
             return std::max( a, b );
         }
 
-        // Bitwise
-
-        FS_INLINE static float32v BitwiseAnd_f32( float32v a, float32v b )
-        {
-            return Casti32_f32( Castf32_i32( a ) & Castf32_i32( b ) );
-        }
-
-        FS_INLINE static float32v BitwiseOr_f32( float32v a, float32v b )
-        {
-            return Casti32_f32( Castf32_i32( a ) | Castf32_i32( b ) );
-        }
-
-        FS_INLINE static float32v BitwiseXor_f32( float32v a, float32v b )
-        {
-            return Casti32_f32( Castf32_i32( a ) ^ Castf32_i32( b ) );
-        }
-
-        FS_INLINE static float32v BitwiseNot_f32( float32v a )
-        {
-            return Casti32_f32( ~Castf32_i32( a ) );
-        }
+        // Bitwise       
 
         FS_INLINE static float32v BitwiseAndNot_f32( float32v a, float32v b )
         {
@@ -353,16 +339,16 @@ namespace FastSIMD
 
         FS_INLINE static float32v InvSqrt_f32( float32v a )
         {
-            float xhalf = 0.5f * a;
-            a = Casti32_f32( 0x5f3759df - (Castf32_i32( a ) >> 1) );
-            a = a * (1.5f - xhalf * a * a);
+            float xhalf = 0.5f * (float)a;
+            a = Casti32_f32( 0x5f3759df - ((int32_t)Castf32_i32( a ) >> 1) );
+            a *= (1.5f - xhalf * (float)a * (float)a);
             return a;
         }
 
         FS_INLINE static float32v Reciprocal_f32( float32v a )
         {
             // pow( pow(x,-0.5), 2 ) = pow( x, -1 ) = 1.0 / x
-            a = Casti32_f32( (0xbe6eb3beU - Castf32_i32( a )) >> 1 );
+            a = Casti32_f32( (0xbe6eb3beU - (int32_t)Castf32_i32( a )) >> 1 );
             return a * a;
         }
 

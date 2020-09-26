@@ -729,16 +729,15 @@ namespace FastSIMD
         mask32v geHalfPi2 = FS_GreaterEqualThan_f32( value, float32v( 3.141593f ) );
         mask32v geHalfPi3 = FS_GreaterEqualThan_f32( value, float32v( 4.7123889f ) );
 
-        float32v cosAngle;
-        cosAngle = FS_BitwiseXor_f32( value, FS_Mask_f32( FS_BitwiseXor_f32( value, float32v( 3.141593f ) - value ), geHalfPi ) );
-        cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), geHalfPi2 ) );
-        cosAngle = FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_BitwiseXor_f32( cosAngle, float32v( 6.283185f ) - value ), geHalfPi3 ) );
+        float32v cosAngle = value ^ FS_Mask_f32( ( value ^ float32v( 3.141593f ) - value ), geHalfPi );
+        cosAngle = cosAngle ^ FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), geHalfPi2 );
+        cosAngle = cosAngle ^ FS_Mask_f32( cosAngle ^ ( float32v( 6.283185f ) - value ), geHalfPi3 );
 
         cosAngle *= cosAngle;
 
         cosAngle = FS_FMulAdd_f32( cosAngle, FS_FMulAdd_f32( cosAngle, float32v( 0.03679168f ), float32v( -0.49558072f ) ), float32v( 0.99940307f ) );
 
-        return FS_BitwiseXor_f32( cosAngle, FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), FS_BitwiseAndNot_m32( geHalfPi, geHalfPi3 ) ) );
+        return cosAngle ^ FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), FS_BitwiseAndNot_m32( geHalfPi, geHalfPi3 ) );
     }
 
     template<typename FS>

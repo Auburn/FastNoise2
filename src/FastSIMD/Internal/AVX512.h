@@ -318,28 +318,6 @@ namespace FastSIMD
 
         // Bitwise
 
-        FS_INLINE static float32v BitwiseAnd_f32( float32v a, float32v b )
-        {
-            return _mm512_and_ps( a, b );
-        }
-
-        FS_INLINE static float32v BitwiseOr_f32( float32v a, float32v b )
-        {
-            return _mm512_or_ps( a, b );
-        }
-
-        FS_INLINE static float32v BitwiseXor_f32( float32v a, float32v b )
-        {
-            return _mm512_xor_ps( a, b );
-        }
-
-        FS_INLINE static float32v BitwiseNot_f32( float32v a )
-        {
-            const __m512i neg1 = _mm512_set1_epi32( -1 );
-
-            return _mm512_xor_ps( a, _mm512_castsi512_ps( neg1 ) );
-        }
-
         FS_INLINE static float32v BitwiseAndNot_f32( float32v a, float32v b )
         {
             return _mm512_andnot_ps( b, a );
