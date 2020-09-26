@@ -5,6 +5,18 @@
 
 namespace FastSIMD
 {
+    template<typename OUT, typename IN>
+    OUT ScalarCast( IN a )
+    {
+        union
+        {
+            OUT o;
+            IN  i;
+        } u;
+
+        u.i = a;
+        return u.o;
+    }
 
     struct Scalar_Float
     {
@@ -41,19 +53,19 @@ namespace FastSIMD
 
         FS_INLINE Scalar_Float& operator&=( const Scalar_Float& rhs )
         {
-            *this = _mm_and_ps( *this, rhs );
+            *this = ScalarCast<float>( ScalarCast<int32_t, float>( *this ) & ScalarCast<int32_t, float>( rhs ) );
             return *this;
         }
 
         FS_INLINE Scalar_Float& operator|=( const Scalar_Float& rhs )
         {
-            *this = _mm_or_ps( *this, rhs );
+            *this = ScalarCast<float>( ScalarCast<int32_t, float>( *this ) | ScalarCast<int32_t, float>( rhs ) );
             return *this;
         }
 
         FS_INLINE Scalar_Float& operator^=( const Scalar_Float& rhs )
         {
-            *this = _mm_xor_ps( *this, rhs );
+            *this = ScalarCast<float>( ScalarCast<int32_t, float>( *this ) ^ ScalarCast<int32_t, float>( rhs ) );
             return *this;
         }
 
@@ -187,26 +199,12 @@ namespace FastSIMD
 
         FS_INLINE static float32v Casti32_f32( int32v a )
         {
-            union
-            {
-                int32_t i;
-                float   f;
-            } u;
-
-            u.i = a;
-            return u.f;
+            return ScalarCast<float, int32_t>( a );
         }
 
         FS_INLINE static int32v Castf32_i32( float32v a )
         {
-            union
-            {
-                int32_t i;
-                float   f;
-            } u;
-
-            u.f = a;
-            return u.i;
+            return ScalarCast<int32_t, float>( a );
         }
 
         // Convert

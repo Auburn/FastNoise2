@@ -22,7 +22,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     // Bit-4 = Choose X Y ordering
     mask32v xy = index << 29;
 
-    if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+    if constexpr( FS::SIMD_Level > FastSIMD::Level_Scalar && FS::SIMD_Level < FastSIMD::Level_SSE41 )
     {
         xy >>= 31;
     }
@@ -77,7 +77,7 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     int32v  bit2 = (hash >> 1) << 31;
     mask32v bit4 = (hash << 29);
 
-    if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+    if constexpr( FS::SIMD_Level > FastSIMD::Level_Scalar && FS::SIMD_Level < FastSIMD::Level_SSE41 )
     {
         bit4 >>= 31;
     }
