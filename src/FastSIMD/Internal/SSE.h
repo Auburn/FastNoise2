@@ -67,6 +67,16 @@ namespace FastSIMD
             return *this;
         }
 
+        FS_INLINE SSE_f32x4 operator~() const
+        {
+#if FASTSIMD_CONFIG_GENERATE_CONSTANTS
+            const __m128i neg1 = _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() );
+#else
+            const __m128i neg1 = _mm_set1_epi32( -1 );
+#endif
+            return _mm_xor_ps( *this, _mm_castsi128_ps( neg1 ) );
+        }
+
         FS_INLINE SSE_f32x4 operator-() const
         {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS

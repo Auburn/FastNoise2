@@ -69,9 +69,14 @@ namespace FastSIMD
             return *this;
         }
 
+        FS_INLINE Scalar_Float operator~() const
+        {
+            return ScalarCast<float>( ~ScalarCast<int32_t, float>( *this ) );
+        }
+
         FS_INLINE Scalar_Float operator-() const
         {
-            return -*this;
+            return -(float)*this;
         }
     };
 
@@ -140,12 +145,12 @@ namespace FastSIMD
 
         FS_INLINE Scalar_Int operator~() const
         {
-            return ~*this;
+            return ~(int32_t)*this;
         }
 
         FS_INLINE Scalar_Int operator-() const
         {
-            return -*this;
+            return -(int32_t)*this;
         }
     };
 
