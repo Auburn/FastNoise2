@@ -50,25 +50,24 @@ public:
                 float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                 float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
-                mask32v closer;
-
-                for( int i = mValueIndex; i > 0; i-- )
+                for( int i = 0; ; i++ )
                 {
-                    closer = FS_LessThan_f32( newDistance, distance[i] );
+                    mask32v closer = FS_LessThan_f32( newDistance, distance[i] );
 
-                    float32v localValue = FS_Select_f32( closer, newCellValue, value[i] );
-                    float32v localDistance = FS_Select_f32( closer, newDistance, distance[i] );
+                    float32v localDistance = distance[i];
+                    float32v localCellValue = value[i];
 
-                    closer = FS_LessThan_f32( localDistance, distance[i-1] );
+                    distance[i] = FS_Select_f32( closer, newDistance, distance[i] );
+                    value[i] = FS_Select_f32( closer, newCellValue, value[i] );
 
-                    value[i] = FS_Select_f32( closer, value[i-1], localValue );
-                    distance[i] = FS_Select_f32( closer, distance[i-1], localDistance );
+                    if( i > mValueIndex )
+                    {
+                        break;
+                    }
+
+                    newDistance = FS_Select_f32( closer, localDistance, newDistance );
+                    newCellValue = FS_Select_f32( closer, localCellValue, newCellValue );
                 }
-
-                closer = FS_LessThan_f32( newDistance, distance[0] );
-
-                value[0] = FS_Select_f32( closer, newCellValue, value[0] );
-                distance[0] = FS_Select_f32( closer, newDistance, distance[0] );
 
                 ycf += float32v( 1 );
                 yc += int32v( Primes::Y );
@@ -124,25 +123,24 @@ public:
                     float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                     float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
                 
-                    mask32v closer;
-
-                    for( int i = mValueIndex; i > 0; i-- )
+                    for( int i = 0; ; i++ )
                     {
-                        closer = FS_LessThan_f32( newDistance, distance[i] );
+                        mask32v closer = FS_LessThan_f32( newDistance, distance[i] );
 
-                        float32v localValue = FS_Select_f32( closer, newCellValue, value[i] );
-                        float32v localDistance = FS_Select_f32( closer, newDistance, distance[i] );
+                        float32v localDistance = distance[i];
+                        float32v localCellValue = value[i];
 
-                        closer = FS_LessThan_f32( localDistance, distance[i-1] );
+                        distance[i] = FS_Select_f32( closer, newDistance, distance[i] );
+                        value[i] = FS_Select_f32( closer, newCellValue, value[i] );
 
-                        value[i] = FS_Select_f32( closer, value[i-1], localValue );
-                        distance[i] = FS_Select_f32( closer, distance[i-1], localDistance );
+                        if( i > mValueIndex )
+                        {
+                            break;
+                        }
+
+                        newDistance = FS_Select_f32( closer, localDistance, newDistance );
+                        newCellValue = FS_Select_f32( closer, localCellValue, newCellValue );
                     }
-
-                    closer = FS_LessThan_f32( newDistance, distance[0] );
-
-                    value[0] = FS_Select_f32( closer, newCellValue, value[0] );
-                    distance[0] = FS_Select_f32( closer, newDistance, distance[0] );
             
                     zcf += float32v( 1 );
                     zc += int32v( Primes::Z );
@@ -210,25 +208,24 @@ public:
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                         float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
-                        mask32v closer;
-
-                        for( int i = mValueIndex; i > 0; i-- )
+                        for( int i = 0; ; i++ )
                         {
-                            closer = FS_LessThan_f32( newDistance, distance[i] );
+                            mask32v closer = FS_LessThan_f32( newDistance, distance[i] );
 
-                            float32v localValue = FS_Select_f32( closer, newCellValue, value[i] );
-                            float32v localDistance = FS_Select_f32( closer, newDistance, distance[i] );
+                            float32v localDistance = distance[i];
+                            float32v localCellValue = value[i];
 
-                            closer = FS_LessThan_f32( localDistance, distance[i-1] );
+                            distance[i] = FS_Select_f32( closer, newDistance, distance[i] );
+                            value[i] = FS_Select_f32( closer, newCellValue, value[i] );
 
-                            value[i] = FS_Select_f32( closer, value[i-1], localValue );
-                            distance[i] = FS_Select_f32( closer, distance[i-1], localDistance );
+                            if( i > mValueIndex )
+                            {
+                                break;
+                            }
+
+                            newDistance = FS_Select_f32( closer, localDistance, newDistance );
+                            newCellValue = FS_Select_f32( closer, localCellValue, newCellValue );
                         }
-
-                        closer = FS_LessThan_f32( newDistance, distance[0] );
-
-                        value[0] = FS_Select_f32( closer, newCellValue, value[0] );
-                        distance[0] = FS_Select_f32( closer, newDistance, distance[0] );
 
                         wcf += float32v( 1 );
                         wc += int32v( Primes::W );
