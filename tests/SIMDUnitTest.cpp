@@ -230,9 +230,9 @@ SIMD_FUNCTION_TEST( Sqrt_f32, float, FS_Store_f32( &result, FS_Sqrt_f32( FS_Load
 
 const float MAX_ROUNDING = (float)INT_MAX / 2.0f;
 
-SIMD_FUNCTION_TEST( Floor_f32, float, FS_Store_f32( &result, FS_Floor_f32( FS_Min_f32( typename FS::float32v( MAX_ROUNDING ), FS_Max_f32( typename FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
+SIMD_FUNCTION_TEST( Floor_f32, float, FS_Store_f32( &result, FS_Floor_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS_Load_f32( &rndFloats0[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Ceil_f32, float, FS_Store_f32( &result, FS_Ceil_f32( FS_Min_f32( typename FS::float32v( MAX_ROUNDING ), FS_Max_f32( typename FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
+SIMD_FUNCTION_TEST( Ceil_f32, float, FS_Store_f32( &result, FS_Ceil_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS_Load_f32( &rndFloats0[i] ) ) ) )
 
 //SIMD_FUNCTION_TEST( Round_f32, float, FS_Store_f32( &result, FS_Round_f32( FS_Min_f32( FS::float32v( MAX_ROUNDING ), FS_Max_f32( FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
 
