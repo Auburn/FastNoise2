@@ -225,7 +225,7 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
                 xr += float32v( 0.5f );
                 yr += float32v( 0.5f );
                 zr += float32v( 0.5f );
-                seed -= int32v( -1 );
+                seed = ~seed;
             }
         }
         return float32v( 32.69428253173828125f ) * val;
