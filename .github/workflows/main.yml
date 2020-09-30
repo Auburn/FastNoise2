@@ -24,9 +24,9 @@ jobs:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
         buildDirectory: "${{ github.workspace }}/../../_temp/windows"
-        cmakeBuildType: Release   
         buildWithCMake: true
         cmakeGenerator: VS16Win64 
+        buildWithCMakeArgs: --config Release  
                   
   Linux:
     runs-on: ubuntu-latest
@@ -40,10 +40,9 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-        cmakeBuildType: Release  
         buildDirectory: "${{ github.workspace }}/../../_temp/linux"
         buildWithCMake: true
-        buildWithCMakeArgs: -FASTNOISE2_NOISETOOL="FALSE"
+        buildWithCMakeArgs: --config Release -DFASTNOISE2_NOISETOOL="FALSE"
   
   MacOS:
     runs-on: macos-latest
@@ -57,9 +56,8 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-        cmakeBuildType: Release  
         buildDirectory: "${{ github.workspace }}/../../_temp/macos"
         buildWithCMake: true
         cmakeAppendedArgs: -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"
-        buildWithCMakeArgs: -FASTNOISE2_NOISETOOL="FALSE"
+        buildWithCMakeArgs: --config Release -DFASTNOISE2_NOISETOOL="FALSE"
         
