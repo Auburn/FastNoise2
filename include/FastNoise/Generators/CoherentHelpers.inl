@@ -21,7 +21,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
     // Bit-4 = Choose X Y ordering
-    mask32v xy = index << 29;
+    typename FS::mask32v xy = index << 29;
 
     if constexpr( FS::SIMD_Level > FastSIMD::Level_Scalar && FS::SIMD_Level < FastSIMD::Level_SSE41 )
     {
@@ -35,7 +35,7 @@ FS_INLINE float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     b ^= FS_Casti32_f32( index << 31 );
 
     // Bit-2 = Mul a by 2 or Root3
-    mask32v aMul2 = (index << 30) >> 31;
+    typename FS::mask32v aMul2 = (index << 30) >> 31;
     a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
     // b zero value if a mul 2
     b = FS_NMask_f32( b, aMul2 );
@@ -233,37 +233,37 @@ FS_INLINE float32v CalcDistance( FastNoise::DistanceFunction distFunc, float32v 
 {
     switch( distFunc )
     {
-    default:
-    case DistanceFunction::Euclidean:
-    {
-        float32v distSqr = dX * dX;
-        ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
+        default:
+        case DistanceFunction::Euclidean:
+        {
+            float32v distSqr = dX * dX;
+            ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
 
-        return FS_InvSqrt_f32( distSqr ) * distSqr;
-    }
+            return FS_InvSqrt_f32( distSqr ) * distSqr;
+        }
 
-    case DistanceFunction::EuclideanSquared:
-    {
-        float32v distSqr = dX * dX;
-        ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
+        case DistanceFunction::EuclideanSquared:
+        {
+            float32v distSqr = dX * dX;
+            ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
 
-        return distSqr;
-    }
+            return distSqr;
+        }
 
-    case DistanceFunction::Manhattan:
-    {
-        float32v dist = FS_Abs_f32( dX );
-        dist += (FS_Abs_f32( d ) + ...);
+        case DistanceFunction::Manhattan:
+        {
+            float32v dist = FS_Abs_f32( dX );
+            dist += (FS_Abs_f32( d ) + ...);
 
-        return dist;
-    }
+            return dist;
+        }
 
-    case DistanceFunction::Hybrid:
-    {
-        float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
-        ((both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
+        case DistanceFunction::Hybrid:
+        {
+            float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
+            ((both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
 
-        return both;
-    }
+            return both;
+        }
     }
 }
