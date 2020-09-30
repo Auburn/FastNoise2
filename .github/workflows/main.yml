@@ -21,14 +21,14 @@ jobs:
     - name: 'Run CMake with VS19'
       uses: lukka/run-cmake@v3
       with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsOrSettingsJson: CMakeSettingsJson
         cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
         buildDirectory: "${{ github.workspace }}/../../_temp/windows"
         cmakeBuildType: Release   
         buildWithCMake: true
         cmakeGenerator: VS19Win64 
         buildWithCMakeArgs: --config Release  
-          
+                  
   Linux:
     runs-on: ubuntu-latest
     steps:
