@@ -1,4 +1,5 @@
-[![discord](https://img.shields.io/discord/703636892901441577?style=flat-square&logo=discord "Discord")](https://discord.gg/SHVaVfV)
+[![Discord](https://img.shields.io/discord/703636892901441577?style=flat-square&logo=discord "Discord")](https://discord.gg/SHVaVfV)
+[![GitHub Actions CI](https://img.shields.io/github/workflow/status/Auburn/FastNoise2/CI?style=flat-square&logo=GitHub "GitHub Actions CI")](https://github.com/Auburn/FastNoise2/actions)
 
 # FastNoise2
 
