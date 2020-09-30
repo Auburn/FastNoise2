@@ -74,9 +74,10 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
     // ( 1, 1+R2 ) ( 1, -1-R2 ) ( -1, 1+R2 ) ( -1, -1-R2 )
 
-    int32v  bit1 = (hash << 31);
-    int32v  bit2 = (hash >> 1) << 31;
-    mask32v bit4 = (hash << 29);
+    int32v bit1 = (hash << 31);
+    int32v bit2 = (hash >> 1) << 31;
+
+    typename FS::mask32v bit4 = (hash << 29);
 
     if constexpr( FS::SIMD_Level > FastSIMD::Level_Scalar && FS::SIMD_Level < FastSIMD::Level_SSE41 )
     {
