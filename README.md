@@ -9,7 +9,14 @@ Modular node based approach to noise generation using modern C++17 features and 
 
 Uses FastSIMD to compile classes with multiple SIMD types
 
-Currently being developed on Visual Studio 2019 x64, will be more crossplatform in the future
+Supports:
+- 32/64 bit
+- Windows
+- Linux
+- MacOS
+- MSVC
+- Clang
+- GCC
 
 Check the [releases](https://github.com/Auburns/FastNoise2/releases) for early versions of the Noise Tool
 
