@@ -1,3 +1,5 @@
+#include <cfloat>
+#include <climits>
 #include <random>
 #include <iostream>
 #include <cmath>
@@ -75,7 +77,7 @@ float GenNormalFloat( std::mt19937& gen )
     {
         u.i = gen();
 
-    } while ( !isnormal( u.f ) );
+    } while ( !std::isnormal( u.f ) );
 
     return u.f;
 }

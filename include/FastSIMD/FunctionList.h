@@ -10,7 +10,7 @@
 #define FS_INLINE __forceinline
 #else
 #define FS_VECTORCALL 
-#define FS_INLINE __attribute__((always_inline))
+#define FS_INLINE __attribute__((always_inline)) inline
 #endif
 
 

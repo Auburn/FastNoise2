@@ -1,6 +1,6 @@
 #include "FastSIMD/InlInclude.h"
 
-#include <algorithm>
+#include <cfloat>
 #include <array>
 
 #include "Cellular.h"

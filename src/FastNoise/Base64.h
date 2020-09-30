@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -97,7 +98,7 @@ namespace FastNoise
                 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64
             };
 
-            size_t in_len = strlen( input );
+            size_t in_len = std::strlen( input );
             if( in_len % 4 != 0 ) return {};
 
             size_t out_len = in_len / 4 * 3;

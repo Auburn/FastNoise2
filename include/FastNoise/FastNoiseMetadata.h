@@ -203,7 +203,7 @@ namespace FastNoise
                 member.name = name;
                 member.dimensionIdx = idx;
 
-                member.setFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
+                member.setFunc = [func, idx]( auto* g, SmartNodeArg<> s )
                 {
                     SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                     if( downCast )
@@ -234,7 +234,7 @@ namespace FastNoise
             member.name = name;
             member.valueDefault = defaultValue;
 
-            member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
+            member.setNodeFunc = [funcNode]( auto* g, SmartNodeArg<> s )
             {
                 SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                 if( downCast )
@@ -265,7 +265,7 @@ namespace FastNoise
                 member.valueDefault = defaultV;
                 member.dimensionIdx = idx;
 
-                member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
+                member.setNodeFunc = [func, idx]( auto* g, SmartNodeArg<> s )
                 {
                     SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                     if( downCast )

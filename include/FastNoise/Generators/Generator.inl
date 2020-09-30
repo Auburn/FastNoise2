@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 #include "FastSIMD/InlInclude.h"
 
 #include "Generator.h"
@@ -317,7 +318,7 @@ private:
         }
         else
         {
-            memcpy( &noiseOut[index], &finalGen, remaining * sizeof( int32_t ) );
+            std::memcpy( &noiseOut[index], &finalGen, remaining * sizeof( int32_t ) );
 
 #if FASTNOISE_CALC_MIN_MAX
             do

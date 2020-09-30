@@ -71,8 +71,8 @@ namespace FastNoise
     class Generator
     {
     public:
-        friend Metadata;
         using Metadata = FastNoise::Metadata;
+        friend Metadata;
 
         virtual ~Generator() = default;
 

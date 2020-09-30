@@ -107,6 +107,58 @@
                     "type": "BOOL"
                 }
             ]
+        },
+        {
+            "name": "WSL-GCC-Debug",
+            "generator": "Ninja",
+            "configurationType": "Debug",
+            "buildRoot": "${projectDir}\\out\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeExecutable": "cmake",
+            "cmakeCommandArgs": "",
+            "buildCommandArgs": "-v",
+            "ctestCommandArgs": "",
+            "inheritEnvironments": [ "linux_x64" ],
+            "wslPath": "${defaultWSLPath}",
+            "addressSanitizerRuntimeFlags": "detect_leaks=0",
+            "variables": [
+                {
+                    "name": "FASTNOISE2_NOISETOOL",
+                    "value": "False",
+                    "type": "BOOL"
+                },
+                {
+                    "name": "FASTNOISE2_TESTS",
+                    "value": "True",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "WSL-GCC-Release",
+            "generator": "Ninja",
+            "configurationType": "RelWithDebInfo",
+            "buildRoot": "${projectDir}\\out\\build\\${name}",
+            "installRoot": "${projectDir}\\out\\install\\${name}",
+            "cmakeExecutable": "cmake",
+            "cmakeCommandArgs": "",
+            "buildCommandArgs": "-v",
+            "ctestCommandArgs": "",
+            "inheritEnvironments": [ "linux_x64" ],
+            "wslPath": "${defaultWSLPath}",
+            "addressSanitizerRuntimeFlags": "detect_leaks=0",
+            "variables": [
+                {
+                    "name": "FASTNOISE2_NOISETOOL",
+                    "value": "False",
+                    "type": "BOOL"
+                },
+                {
+                    "name": "FASTNOISE2_TESTS",
+                    "value": "True",
+                    "type": "BOOL"
+                }
+            ]
         }
     ]
 }
