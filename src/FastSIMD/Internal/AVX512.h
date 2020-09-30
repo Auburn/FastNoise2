@@ -87,6 +87,31 @@ namespace FastSIMD
 #endif
             return _mm512_xor_ps( *this, _mm512_castsi512_ps( minInt ) );
         }
+
+        FS_INLINE __mmask16 operator==( const AVX512_f32x16& rhs )
+        {
+            return _mm512_cmp_ps_mask( *this, rhs, _CMP_EQ_OS );
+        }
+
+        FS_INLINE __mmask16 operator>( const AVX512_f32x16& rhs )
+        {
+            return _mm512_cmp_ps_mask( *this, rhs, _CMP_GT_OS );
+        }
+
+        FS_INLINE __mmask16 operator<( const AVX512_f32x16& rhs )
+        {
+            return _mm512_cmp_ps_mask( *this, rhs, _CMP_LT_OS );
+        }
+
+        FS_INLINE __mmask16 operator>=( const AVX512_f32x16& rhs )
+        {
+            return _mm512_cmp_ps_mask( *this, rhs, _CMP_GE_OS );
+        }
+
+        FS_INLINE __mmask16 operator<=( const AVX512_f32x16& rhs )
+        {
+            return _mm512_cmp_ps_mask( *this, rhs, _CMP_LE_OS );
+        }
     };
 
     FASTSIMD_INTERNAL_OPERATORS_FLOAT( AVX512_f32x16 )
@@ -173,6 +198,21 @@ namespace FastSIMD
         {
             return _mm512_sub_epi32( _mm512_setzero_si512(), *this );
         }
+
+        FS_INLINE __mmask16 operator==( const AVX512_i32x16& rhs )
+        {
+            return _mm512_cmpeq_epi32_mask( *this, rhs );
+        }
+
+        FS_INLINE __mmask16 operator>( const AVX512_i32x16& rhs )
+        {
+            return _mm512_cmpgt_epi32_mask( *this, rhs );
+        }
+
+        FS_INLINE __mmask16 operator<( const AVX512_i32x16& rhs )
+        {
+            return _mm512_cmplt_epi32_mask( *this, rhs );
+        }
     };
 
     FASTSIMD_INTERNAL_OPERATORS_INT( AVX512_i32x16, int32_t )
@@ -181,7 +221,7 @@ namespace FastSIMD
     class AVX512_T
     {
     public:
-        static_assert(LEVEL_T == Level_AVX512, "Cannot create template with unsupported SIMD level");
+        static_assert( LEVEL_T == Level_AVX512, "Cannot create template with unsupported SIMD level" );
 
         static constexpr eLevel SIMD_Level = LEVEL_T;
 
@@ -190,7 +230,7 @@ namespace FastSIMD
 
         typedef AVX512_f32x16  float32v;
         typedef AVX512_i32x16  int32v;
-        typedef uint16_t       mask32v;
+        typedef __mmask16      mask32v;
 
         // Load
 

@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef __GNUG__
+#include <x86intrin.h>
+#else
 #include <intrin.h>
+#endif
 
 #include "VecTools.h"
 
@@ -85,6 +89,31 @@ namespace FastSIMD
             const __m128i minInt = _mm_set1_epi32( 0x80000000 );
 #endif
             return _mm_xor_ps( *this, _mm_castsi128_ps( minInt ) );
+        }
+
+        FS_INLINE __m128i operator==( const SSE_f32x4& rhs )
+        {
+            return _mm_castps_si128( _mm_cmpeq_ps( *this, rhs ) );
+        }
+
+        FS_INLINE __m128i operator>( const SSE_f32x4& rhs )
+        {
+            return _mm_castps_si128( _mm_cmpgt_ps( *this, rhs ) );
+        }
+
+        FS_INLINE __m128i operator<( const SSE_f32x4& rhs )
+        {
+            return _mm_castps_si128( _mm_cmplt_ps( *this, rhs ) );
+        }
+
+        FS_INLINE __m128i operator>=( const SSE_f32x4& rhs )
+        {
+            return _mm_castps_si128( _mm_cmpge_ps( *this, rhs ) );
+        }
+
+        FS_INLINE __m128i operator<=( const SSE_f32x4& rhs )
+        {
+            return _mm_castps_si128( _mm_cmple_ps( *this, rhs ) );
         }
     };
 
@@ -183,15 +212,30 @@ namespace FastSIMD
         {
             return _mm_sub_epi32( _mm_setzero_si128(), *this );
         }
+
+        FS_INLINE SSE_i32x4 operator==( const SSE_i32x4& rhs )
+        {
+            return _mm_cmpeq_epi32( *this, rhs );
+        }
+
+        FS_INLINE SSE_i32x4 operator>( const SSE_i32x4& rhs )
+        {
+            return _mm_cmpgt_epi32( *this, rhs );
+        }
+
+        FS_INLINE SSE_i32x4 operator<( const SSE_i32x4& rhs )
+        {
+            return _mm_cmplt_epi32( *this, rhs );
+        }
     };
 
     FASTSIMD_INTERNAL_OPERATORS_INT_TEMPLATED( SSE_i32x4, int32_t )
 
-     template<eLevel LEVEL_T>
+    template<eLevel LEVEL_T>
     class SSE_T
     {
     public:
-        static_assert(LEVEL_T >= Level_SSE && LEVEL_T <= Level_SSE42, "Cannot create template with unsupported SIMD level");
+        static_assert( LEVEL_T >= Level_SSE && LEVEL_T <= Level_SSE42, "Cannot create template with unsupported SIMD level" );
 
         static constexpr eLevel SIMD_Level = LEVEL_T;
 

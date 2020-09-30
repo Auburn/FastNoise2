@@ -3,6 +3,8 @@
 #include "VecTools.h"
 #include <algorithm>
 
+#include "SSE.h"
+
 namespace FastSIMD
 {
     template<typename OUT, typename IN>
@@ -29,25 +31,25 @@ namespace FastSIMD
 
         FS_INLINE Scalar_Float& operator+=( const Scalar_Float& rhs )
         {
-            *this = *this + rhs;
+            vector += rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Float& operator-=( const Scalar_Float& rhs )
         {
-            *this = *this - rhs;
+            vector -= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Float& operator*=( const Scalar_Float& rhs )
         {
-            *this = *this * rhs;
+            vector *= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Float& operator/=( const Scalar_Float& rhs )
         {
-            *this = *this / rhs;
+            vector /= rhs;
             return *this;
         }
 
@@ -76,7 +78,32 @@ namespace FastSIMD
 
         FS_INLINE Scalar_Float operator-() const
         {
-            return -(float)*this;
+            return -vector;
+        }
+
+        FS_INLINE bool operator==( const Scalar_Float& rhs )
+        {
+            return vector == rhs;
+        }
+
+        FS_INLINE bool operator>( const Scalar_Float& rhs )
+        {
+            return vector > rhs;
+        }
+
+        FS_INLINE bool operator<( const Scalar_Float& rhs )
+        {
+            return vector < rhs;
+        }
+
+        FS_INLINE bool operator>=( const Scalar_Float& rhs )
+        {
+            return vector >= rhs;
+        }
+
+        FS_INLINE bool operator<=( const Scalar_Float& rhs )
+        {
+            return vector <= rhs;
         }
     };
 
@@ -94,66 +121,75 @@ namespace FastSIMD
 
         FS_INLINE Scalar_Int& operator+=( const Scalar_Int& rhs )
         {
-            *this = *this + rhs;
+            vector += rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator-=( const Scalar_Int& rhs )
         {
-            *this = *this - rhs;
+            vector -= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator*=( const Scalar_Int& rhs )
         {
-            *this = *this * rhs;
-            return *this;
-        }
-
-        FS_INLINE Scalar_Int& operator/=( const Scalar_Int& rhs )
-        {
-            *this = *this / rhs;
+            vector *= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator&=( const Scalar_Int& rhs )
         {
-            *this = *this & rhs;
+            vector &= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator|=( const Scalar_Int& rhs )
         {
-            *this = *this | rhs;
+            vector |= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator^=( const Scalar_Int& rhs )
         {
-            *this = *this ^ rhs;
+            vector ^= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator>>=( int32_t rhs )
         {
-            *this = *this >> rhs;
+            vector >>= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int& operator<<=( int32_t rhs )
         {
-            *this = *this << rhs;
+            vector <<= rhs;
             return *this;
         }
 
         FS_INLINE Scalar_Int operator~() const
         {
-            return ~(int32_t)*this;
+            return ~vector;
         }
 
         FS_INLINE Scalar_Int operator-() const
         {
-            return -(int32_t)*this;
+            return -vector;
+        }
+
+        FS_INLINE bool operator==( const Scalar_Int& rhs )
+        {
+            return vector == rhs;
+        }
+
+        FS_INLINE bool operator>( const Scalar_Int& rhs )
+        {
+            return vector > rhs;
+        }
+
+        FS_INLINE bool operator<( const Scalar_Int& rhs )
+        {
+            return vector < rhs;
         }
     };
 
@@ -166,7 +202,29 @@ namespace FastSIMD
 
         FS_INLINE Scalar_Mask operator~() const
         {
-            return !(*this);
+            return !vector;
+        }
+
+        FS_INLINE Scalar_Mask& operator&=( const Scalar_Mask& rhs )
+        {
+            vector = vector && rhs;
+            return *this;
+        }
+
+        FS_INLINE Scalar_Mask& operator|=( const Scalar_Mask& rhs )
+        {
+            vector = vector || rhs;
+            return *this;
+        }
+
+        FS_INLINE Scalar_Mask operator&( const Scalar_Mask& rhs )
+        {
+            return vector && rhs;
+        }
+
+        FS_INLINE Scalar_Mask operator|( const Scalar_Mask& rhs )
+        {
+            return vector || rhs;
         }
     };
 

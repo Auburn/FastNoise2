@@ -1,6 +1,10 @@
 #pragma once
 
+#ifdef __GNUG__
+#include <x86intrin.h>
+#else
 #include <intrin.h>
+#endif
 
 #include "VecTools.h"
 
@@ -85,6 +89,31 @@ namespace FastSIMD
             const __m256i minInt = _mm256_set1_epi32( 0x80000000 );
 #endif
             return _mm256_xor_ps( *this, _mm256_castsi256_ps( minInt ) );
+        }
+
+        FS_INLINE __m256i operator==( const AVX_f32x8& rhs )
+        {
+            return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_EQ_OS ) );
+        }
+
+        FS_INLINE __m256i operator>( const AVX_f32x8& rhs )
+        {
+            return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_GT_OS ) );
+        }
+
+        FS_INLINE __m256i operator<( const AVX_f32x8& rhs )
+        {
+            return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_LT_OS ) );
+        }
+
+        FS_INLINE __m256i operator>=( const AVX_f32x8& rhs )
+        {
+            return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_GE_OS ) );
+        }
+
+        FS_INLINE __m256i operator<=( const AVX_f32x8& rhs )
+        {
+            return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_LE_OS ) );
         }
     };
 
@@ -172,6 +201,21 @@ namespace FastSIMD
         {
             return _mm256_sub_epi32( _mm256_setzero_si256(), *this );
         }
+
+        FS_INLINE AVX2_i32x8 operator==( const AVX2_i32x8& rhs )
+        {
+            return _mm256_cmpeq_epi32( *this, rhs );
+        }
+
+        FS_INLINE AVX2_i32x8 operator>( const AVX2_i32x8& rhs )
+        {
+            return _mm256_cmpgt_epi32( *this, rhs );
+        }
+
+        FS_INLINE AVX2_i32x8 operator<( const AVX2_i32x8& rhs )
+        {
+            return _mm256_cmpgt_epi32( rhs, *this );
+        }
     };
 
     FASTSIMD_INTERNAL_OPERATORS_INT( AVX2_i32x8, int32_t )
@@ -180,7 +224,7 @@ namespace FastSIMD
     class AVX_T
     {
     public:
-        static_assert(LEVEL_T >= Level_AVX && LEVEL_T <= Level_AVX2, "Cannot create template with unsupported SIMD level");
+        static_assert( LEVEL_T >= Level_AVX && LEVEL_T <= Level_AVX2, "Cannot create template with unsupported SIMD level" );
 
         static constexpr eLevel SIMD_Level = LEVEL_T;
 
