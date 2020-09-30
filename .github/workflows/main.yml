@@ -18,16 +18,15 @@ jobs:
       with:        
         submodules: recursive
 
-    - name: 'Run CMake with VS19'
+    - name: 'Run CMake with VS16'
       uses: lukka/run-cmake@v3
       with:
-        cmakeListsOrSettingsJson: CMakeSettingsJson
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
         buildDirectory: "${{ github.workspace }}/../../_temp/windows"
         cmakeBuildType: Release   
         buildWithCMake: true
-        cmakeGenerator: VS19Win64 
-        buildWithCMakeArgs: --config Release  
+        cmakeGenerator: VS16Win64 
                   
   Linux:
     runs-on: ubuntu-latest
@@ -44,7 +43,7 @@ jobs:
         cmakeBuildType: Release  
         buildDirectory: "${{ github.workspace }}/../../_temp/linux"
         buildWithCMake: true
-        buildWithCMakeArgs: --config Release  
+        buildWithCMakeArgs: -FASTNOISE2_NOISETOOL="FALSE"
   
   MacOS:
     runs-on: macos-latest
@@ -62,5 +61,5 @@ jobs:
         buildDirectory: "${{ github.workspace }}/../../_temp/macos"
         buildWithCMake: true
         cmakeAppendedArgs: -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"
-        buildWithCMakeArgs: --config Release        
+        buildWithCMakeArgs: -FASTNOISE2_NOISETOOL="FALSE"
         
