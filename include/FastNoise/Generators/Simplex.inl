@@ -178,7 +178,7 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
         float32v zr = f - z;
 
         float32v val( 0 );
-        for( size_t i = 0; i < 2; i++ )
+        for( size_t i = 0; ; i++ )
         {
             float32v v0xr = FS_Round_f32( xr );
             float32v v0yr = FS_Round_f32( yr );
@@ -220,14 +220,17 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
 
             val = FS_FMulAdd_f32( v0, t0, FS_FMulAdd_f32( v1, t1, val ) );
 
-            if( i == 0 )
+            if( i == 1 )
             {
-                xr += float32v( 0.5f );
-                yr += float32v( 0.5f );
-                zr += float32v( 0.5f );
-                seed = ~seed;
+                break;
             }
+
+            xr += float32v( 0.5f );
+            yr += float32v( 0.5f );
+            zr += float32v( 0.5f );
+            seed = ~seed;
         }
+
         return float32v( 32.69428253173828125f ) * val;
     } 
 };
