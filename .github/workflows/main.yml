@@ -1,0 +1,64 @@
+name: CI
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  Windows:
+    runs-on: windows-latest 
+    steps:
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - uses: actions/checkout@v2
+      with:        
+        submodules: recursive
+
+    - name: 'Run CMake with VS16'
+      uses: lukka/run-cmake@v3
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+        buildDirectory: "${{ github.workspace }}/../../_temp/windows"
+        buildWithCMake: true
+        cmakeGenerator: VS16Win64 
+        buildWithCMakeArgs: --config Release  
+        cmakeAppendedArgs: -DFASTNOISE2_TESTS="TRUE"
+                  
+  Linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:        
+        submodules: recursive
+      
+    - name: 'Run CMake'
+      uses: lukka/run-cmake@v3
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+        buildDirectory: "${{ github.workspace }}/../../_temp/linux"
+        buildWithCMake: true
+        buildWithCMakeArgs: --config Release
+        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE"
+  
+  MacOS:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:        
+        submodules: recursive
+        
+    - name: 'Run CMake'
+      uses: lukka/run-cmake@v3
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
+        buildDirectory: "${{ github.workspace }}/../../_temp/macos"
+        buildWithCMake: true
+        buildWithCMakeArgs: --config Release
+        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE" -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"        
