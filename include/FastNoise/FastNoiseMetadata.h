@@ -3,6 +3,7 @@
 #include <memory>
 #include <type_traits>
 #include <unordered_set>
+#include <vector>
 
 #include "FastNoise_Config.h"
 #include "FastSIMD/FastSIMD.h"
