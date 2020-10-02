@@ -123,74 +123,6 @@
 #define FS_Convertf32_i32( ... ) FS::Convertf32_i32( __VA_ARGS__ )
 
 
-// Comparisons
-
-/// <summary>
-/// return ( a == b )
-/// </summary>
-/// <code>
-/// mask32v FS_Equal_f32( float32v a, float32v b )
-/// </code>
-#define FS_Equal_f32( ... ) FS::Equal_f32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a > b )
-/// </summary>
-/// <code>
-/// mask32v FS_GreaterThan_f32( float32v a, float32v b )
-/// </code>
-#define FS_GreaterThan_f32( ... ) FS::GreaterThan_f32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a < b )
-/// </summary>
-/// <code>
-/// mask32v FS_LessThan_f32( float32v a, float32v b )
-/// </code>
-#define FS_LessThan_f32( ... ) FS::LessThan_f32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a >= b )
-/// </summary>
-/// <code>
-/// mask32v FS_GreaterEqualThan_f32( float32v a, float32v b )
-/// </code>
-#define FS_GreaterEqualThan_f32( ... ) FS::GreaterEqualThan_f32( __VA_ARGS__ ) 
-
-/// <summary>
-/// return ( a <= b )
-/// </summary>
-/// <code>
-/// mask32v FS_LessEqualThan_f32( float32v a, float32v b )
-/// </code>
-#define FS_LessEqualThan_f32( ... ) FS::LessEqualThan_f32( __VA_ARGS__ )
-
-
-/// <summary>
-/// return ( a == b )
-/// </summary>
-/// <code>
-/// mask32v FS_Equal_i32( int32v a, int32v b )
-/// </code>
-#define FS_Equal_i32( ... ) FS::Equal_i32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a > b )
-/// </summary>
-/// <code>
-/// mask32v FS_GreaterThan_i32( int32v a, int32v b )
-/// </code>
-#define FS_GreaterThan_i32( ... ) FS::GreaterThan_i32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a < b )
-/// </summary>
-/// <code>
-/// mask32v FS_LessThan_i32( int32v a, int32v b )
-/// </code>
-#define FS_LessThan_i32( ... ) FS::LessThan_i32( __VA_ARGS__ )
-
-
 // Select
 
 /// <summary>
@@ -246,38 +178,6 @@
 
 
 // Bitwise
-
-/// <summary>
-/// return ( a & b )
-/// </summary>
-/// <code>
-/// float32v FS_BitwiseAnd_f32( float32v a, float32v b )
-/// </code>
-#define FS_BitwiseAnd_f32( ... ) FS::BitwiseAnd_f32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a | b )
-/// </summary>
-/// <code>
-/// float32v FS_BitwiseOr_f32( float32v a, float32v b )
-/// </code>
-#define FS_BitwiseOr_f32( ... ) FS::BitwiseOr_f32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( a ^ b )
-/// </summary>
-/// <code>
-/// float32v FS_BitwiseXor_f32( float32v a, float32v b )
-/// </code>
-#define FS_BitwiseXor_f32( ... ) FS::BitwiseXor_f32( __VA_ARGS__ )
-
-/// <summary>
-/// return ( ~a )
-/// </summary>
-/// <code>
-/// float32v FS_BitwiseNot_f32( float32v a )
-/// </code>
-#define FS_BitwiseNot_f32( ... ) FS::BitwiseNot_f32( __VA_ARGS__ )
 
 /// <summary>
 /// return ( a & ~b )
@@ -725,9 +625,9 @@ namespace FastSIMD
         value = FS_Abs_f32( value );
         value -= FS_Floor_f32( value * float32v( 0.1591549f ) ) * float32v( 6.283185f );
 
-        mask32v geHalfPi  = FS_GreaterEqualThan_f32( value, float32v( 1.570796f ) );
-        mask32v geHalfPi2 = FS_GreaterEqualThan_f32( value, float32v( 3.141593f ) );
-        mask32v geHalfPi3 = FS_GreaterEqualThan_f32( value, float32v( 4.7123889f ) );
+        mask32v geHalfPi  = value >= float32v( 1.570796f );
+        mask32v geHalfPi2 = value >= float32v( 3.141593f );
+        mask32v geHalfPi3 = value >= float32v( 4.7123889f );
 
         float32v cosAngle = value ^ FS_Mask_f32( ( value ^ float32v( 3.141593f ) - value ), geHalfPi );
         cosAngle = cosAngle ^ FS_Mask_f32( FS_Casti32_f32( int32v( 0x80000000 ) ), geHalfPi2 );

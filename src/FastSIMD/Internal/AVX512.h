@@ -280,48 +280,6 @@ namespace FastSIMD
             return _mm512_cvtps_epi32( a );
         }
 
-        // Comparisons
-
-        FS_INLINE static mask32v Equal_f32( float32v a, float32v b )
-        {
-            return _mm512_cmp_ps_mask( a, b, _CMP_EQ_OS );
-        }
-
-        FS_INLINE static mask32v GreaterThan_f32( float32v a, float32v b )
-        {
-            return _mm512_cmp_ps_mask( a, b, _CMP_GT_OS );
-        }
-
-        FS_INLINE static mask32v LessThan_f32( float32v a, float32v b )
-        {
-            return _mm512_cmp_ps_mask( a, b, _CMP_LT_OS );
-        }
-
-        FS_INLINE static mask32v GreaterEqualThan_f32( float32v a, float32v b )
-        {
-            return _mm512_cmp_ps_mask( a, b, _CMP_GE_OS );
-        }
-
-        FS_INLINE static mask32v LessEqualThan_f32( float32v a, float32v b )
-        {
-            return _mm512_cmp_ps_mask( a, b, _CMP_LE_OS );
-        }
-
-        FS_INLINE static mask32v Equal_i32( int32v a, int32v b )
-        {
-            return _mm512_cmpeq_epi32_mask( a, b );
-        }
-
-        FS_INLINE static mask32v GreaterThan_i32( int32v a, int32v b )
-        {
-            return _mm512_cmpgt_epi32_mask( a, b );
-        }
-
-        FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
-        {
-            return _mm512_cmplt_epi32_mask( a, b );
-        }
-
         // Select
 
         FS_INLINE static float32v Select_f32( mask32v m, float32v a, float32v b )

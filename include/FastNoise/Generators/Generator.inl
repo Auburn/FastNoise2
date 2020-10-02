@@ -104,7 +104,7 @@ public:
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
 
-            mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
+            mask32v xReset = xIdx > xMax;
             yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
             xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
         }
@@ -157,11 +157,11 @@ public:
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
 
-            mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
+            mask32v xReset = xIdx > xMax;
             yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
             xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
 
-            mask32v yReset = FS_GreaterThan_i32( yIdx, yMax );
+            mask32v yReset = yIdx > yMax;
             zIdx = FS_MaskedIncrement_i32( zIdx, yReset );
             yIdx = FS_MaskedSub_i32( yIdx, ySizeV, yReset );
         }
@@ -283,7 +283,7 @@ public:
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
 
-            mask32v xReset = FS_GreaterThan_i32( xIdx, xMax );
+            mask32v xReset = xIdx > xMax;
             yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
             xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
         }

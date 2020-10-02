@@ -23,7 +23,7 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         x0 = x - (x0 - g);
         y0 = y - (y0 - g);
 
-        mask32v i1 = FS_GreaterThan_f32( x0, y0 );
+        mask32v i1 = x0 > y0;
         //mask32v j1 = ~i1; //NMasked funcs
 
         float32v x1 = FS_MaskedSub_f32( x0, float32v( 1.f ), i1 ) + float32v( G2 );
@@ -72,9 +72,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         int32v j = FS_Convertf32_i32( y0 ) * int32v( Primes::Y );
         int32v k = FS_Convertf32_i32( z0 ) * int32v( Primes::Z );
 
-        mask32v x_ge_y = FS_GreaterEqualThan_f32( xi, yi );
-        mask32v y_ge_z = FS_GreaterEqualThan_f32( yi, zi );
-        mask32v x_ge_z = FS_GreaterEqualThan_f32( xi, zi );
+        mask32v x_ge_y = xi >= yi;
+        mask32v y_ge_z = yi >= zi;
+        mask32v x_ge_z = xi >= zi;
 
         float32v g = float32v( G3 ) * (xi + yi + zi);
         x0 = xi - g;
@@ -143,7 +143,7 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
         x0 = x - (x0 - g);
         y0 = y - (y0 - g);
 
-        mask32v i1 = FS_GreaterThan_f32( x0, y0 );
+        mask32v i1 = x0 > y0;
         //mask32v j1 = ~i1; //NMasked funcs
 
         float32v x1 = FS_MaskedSub_f32( x0, float32v( 1.f ), i1 ) + float32v( G2 );
@@ -190,8 +190,8 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
             float32v score0xr = FS_Abs_f32( d0xr );
             float32v score0yr = FS_Abs_f32( d0yr );
             float32v score0zr = FS_Abs_f32( d0zr );
-            mask32v dir0xr = FS_LessEqualThan_f32( FS_Max_f32( score0yr, score0zr ), score0xr );
-            mask32v dir0yr = FS_BitwiseAndNot_m32( FS_LessEqualThan_f32( FS_Max_f32( score0zr, score0xr ), score0yr ), dir0xr );
+            mask32v dir0xr = FS_Max_f32( score0yr, score0zr ) <= score0xr;
+            mask32v dir0yr = FS_BitwiseAndNot_m32( FS_Max_f32( score0zr, score0xr ) <= score0yr, dir0xr );
             mask32v dir0zr = ~(dir0xr | dir0yr);
             float32v v1xr = FS_MaskedAdd_f32( v0xr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0xr ), dir0xr );
             float32v v1yr = FS_MaskedAdd_f32( v0yr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0yr ), dir0yr );

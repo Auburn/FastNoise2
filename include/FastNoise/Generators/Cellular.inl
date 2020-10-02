@@ -52,7 +52,7 @@ public:
 
                 for( int i = 0; ; i++ )
                 {
-                    mask32v closer = FS_LessThan_f32( newDistance, distance[i] );
+                    mask32v closer = newDistance < distance[i];
 
                     float32v localDistance = distance[i];
                     float32v localCellValue = value[i];
@@ -125,7 +125,7 @@ public:
                 
                     for( int i = 0; ; i++ )
                     {
-                        mask32v closer = FS_LessThan_f32( newDistance, distance[i] );
+                        mask32v closer = newDistance < distance[i];
 
                         float32v localDistance = distance[i];
                         float32v localCellValue = value[i];
@@ -210,7 +210,7 @@ public:
 
                         for( int i = 0; ; i++ )
                         {
-                            mask32v closer = FS_LessThan_f32( newDistance, distance[i] );
+                            mask32v closer = newDistance < distance[i];
 
                             float32v localDistance = distance[i];
                             float32v localCellValue = value[i];
@@ -502,7 +502,7 @@ public:
 
                 float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
-                mask32v closer = FS_LessThan_f32( newDistance, distance );
+                mask32v closer = newDistance < distance;
                 distance = FS_Min_f32( newDistance, distance );
 
                 cellX = FS_Select_f32( closer, xd + x, cellX );
@@ -558,7 +558,7 @@ public:
 
                     float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
 
-                    mask32v closer = FS_LessThan_f32( newDistance, distance );
+                    mask32v closer = newDistance < distance;
                     distance = FS_Min_f32( newDistance, distance );
 
                     cellX = FS_Select_f32( closer, xd + x, cellX );
@@ -629,7 +629,7 @@ public:
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                         float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
-                        mask32v closer = FS_LessThan_f32( newDistance, distance );
+                        mask32v closer = newDistance < distance;
                         distance = FS_Min_f32( newDistance, distance );
 
                         cellX = FS_Select_f32( closer, xd + x, cellX );

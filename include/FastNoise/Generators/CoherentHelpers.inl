@@ -120,13 +120,11 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float3
     int32v hasha13 = hash & int32v( 13 );
 
     //if h < 8 then x, else y
-    mask32v l8 = FS_LessThan_i32( hasha13, int32v( 8 ));
-    float32v u = FS_Select_f32( l8, fX, fY );
+    float32v u = FS_Select_f32( hasha13 < int32v( 8 ), fX, fY );
 
     //if h < 4 then y else if h is 12 or 14 then x else z
-    mask32v l4 = FS_LessThan_i32( hasha13, int32v( 2 ) );
-    mask32v h12o14 = FS_Equal_i32( hasha13, int32v( 12 ) );
-    float32v v = FS_Select_f32( l4, fY, FS_Select_f32( h12o14, fX, fZ ) );
+    float32v v = FS_Select_f32( hasha13 == int32v( 12 ), fX, fZ );
+    v = FS_Select_f32( hasha13 < int32v( 2 ), fY, v );
 
     //if h1 then -u else u
     //if h2 then -v else v
@@ -151,17 +149,17 @@ FS_INLINE float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float3
 {
     int32v p = hash & int32v( 3 << 3 );
 
-    float32v a = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 0 ) ), fX, fY );
+    float32v a = FS_Select_f32( p > int32v( 0 ), fX, fY );
     float32v b;
     if constexpr( FS::SIMD_Level <= FastSIMD::Level_SSE2 )
     {
-        b = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 1 << 3 ) ), fY, fZ );        
+        b = FS_Select_f32( p > int32v( 1 << 3 ), fY, fZ );        
     }
     else
     {
         b = FS_Select_f32( hash << 27, fY, fZ );
     }
-    float32v c = FS_Select_f32( FS_GreaterThan_i32( p, int32v( 2 << 3 ) ), fZ, fW );
+    float32v c = FS_Select_f32( p > int32v( 2 << 3 ), fZ, fW );
 
     float32v aSign = FS_Casti32_f32( hash << 31 );
     float32v bSign = FS_Casti32_f32( (hash << 30) & int32v( 0x80000000 ) );

@@ -294,48 +294,6 @@ namespace FastSIMD
             return _mm_cvtps_epi32( a );
         }
 
-        // Comparisons
-
-        FS_INLINE static mask32v Equal_f32( float32v a, float32v b )
-        {
-            return _mm_castps_si128( _mm_cmpeq_ps( a, b ) );
-        }
-
-        FS_INLINE static mask32v GreaterThan_f32( float32v a, float32v b )
-        {
-            return _mm_castps_si128( _mm_cmpgt_ps( a, b ) );
-        }
-
-        FS_INLINE static mask32v LessThan_f32( float32v a, float32v b )
-        {
-            return _mm_castps_si128( _mm_cmplt_ps( a, b ) );
-        }
-
-        FS_INLINE static mask32v GreaterEqualThan_f32( float32v a, float32v b )
-        {
-            return _mm_castps_si128( _mm_cmpge_ps( a, b ) );
-        }
-
-        FS_INLINE static mask32v LessEqualThan_f32( float32v a, float32v b )
-        {
-            return _mm_castps_si128( _mm_cmple_ps( a, b ) );
-        }
-
-        FS_INLINE static mask32v Equal_i32( int32v a, int32v b )
-        {
-            return _mm_cmpeq_epi32( a, b );
-        }
-
-        FS_INLINE static mask32v GreaterThan_i32( int32v a, int32v b )
-        {
-            return _mm_cmpgt_epi32( a, b );
-        }
-
-        FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
-        {
-            return _mm_cmplt_epi32( a, b );
-        }
-
         // Select
 
         template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
@@ -379,7 +337,7 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
         FS_INLINE static int32v Min_i32( int32v a, int32v b )
         {
-            return Select_i32( LessThan_i32( a, b ), a, b );
+            return Select_i32( a < b, a, b );
         }
         
         template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>
@@ -391,7 +349,7 @@ namespace FastSIMD
         template<eLevel L = LEVEL_T, std::enable_if_t<(L < Level_SSE41)>* = nullptr>
         FS_INLINE static int32v Max_i32( int32v a, int32v b )
         {
-            return Select_i32( GreaterThan_i32( a, b ), a, b );
+            return Select_i32( a > b, a, b );
         }
         
         template<eLevel L = LEVEL_T, std::enable_if_t<(L >= Level_SSE41)>* = nullptr>

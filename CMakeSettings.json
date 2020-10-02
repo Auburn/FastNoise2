@@ -137,7 +137,7 @@
         {
             "name": "WSL-GCC-Release",
             "generator": "Ninja",
-            "configurationType": "RelWithDebInfo",
+            "configurationType": "Release",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeExecutable": "cmake",
