@@ -44,7 +44,7 @@ jobs:
         buildDirectory: "${{ github.workspace }}/../../_temp/linux"
         buildWithCMake: true
         buildWithCMakeArgs: --config Release
-        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE" -DFASTNOISE2_TESTS="TRUE"
+        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
   
   MacOS:
     runs-on: macos-latest
@@ -61,4 +61,4 @@ jobs:
         buildDirectory: "${{ github.workspace }}/../../_temp/macos"
         buildWithCMake: true
         buildWithCMakeArgs: --config Release
-        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE" -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"        
+        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"        
