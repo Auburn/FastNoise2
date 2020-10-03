@@ -99,14 +99,12 @@ int main( int argc, char** argv )
             benchName = "2D/";
             benchName += metadata->name;
             benchName += '/';
-            if constexpr( magic_enum::is_magic_enum_supported )
-            {
-                benchName += magic_enum::flags::enum_name( level );
-            }
-            else
-            {
-                benchName += std::to_string( (int)level );
-            }
+
+#ifdef MAGIC_ENUM_SUPPORTED 
+            benchName += magic_enum::flags::enum_name( level );
+#else
+            benchName += std::to_string( (int)level );
+#endif
 
             benchmark::RegisterBenchmark( benchName.c_str(), BenchFastNoiseGenerator2D, 512, metadata, level );
 
