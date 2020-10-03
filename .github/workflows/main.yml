@@ -46,18 +46,15 @@ jobs:
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
-        # will set the CC & CXX for cmake
         cc: gcc
         cxx: g++
         build-type: Release
-        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" 
-        # install the build using cmake --install
-        install-build: true
+        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
       with:
-        name: binaries
-        path: ${{ runner.workspace }}/build
+        name: 'Linux Binaries'
+        path: ${{ runner.workspace }}/build/Release/bin/
   
   MacOS:
     runs-on: macos-latest
