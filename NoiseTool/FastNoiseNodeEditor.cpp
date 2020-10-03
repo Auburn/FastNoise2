@@ -47,7 +47,7 @@ void FormatMemberName( std::string& string, const char* name, int dimension )
     {
         const char dimensionNames[] = { 'X', 'Y', 'Z', 'W' };
 
-        string.insert( 0, std::initializer_list<char>{ dimensionNames[dimension], ' ' } );
+        string.insert( string.begin(), { dimensionNames[dimension], ' ' } );
     }
 }
 
