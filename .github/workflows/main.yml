@@ -44,7 +44,7 @@ jobs:
         buildDirectory: "${{ github.workspace }}/../../_temp/linux"
         buildWithCMake: true
         buildWithCMakeArgs: --config Release
-        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE"
+        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE" -DFASTNOISE2_TESTS="TRUE"
   
   MacOS:
     runs-on: macos-latest
