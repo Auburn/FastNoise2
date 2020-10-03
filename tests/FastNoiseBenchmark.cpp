@@ -106,12 +106,11 @@ int main( int argc, char** argv )
             benchName += std::to_string( (int)level );
 #endif
 
-            benchmark::RegisterBenchmark( benchName.c_str(), BenchFastNoiseGenerator2D, 512, metadata, level );
+            benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 512, metadata, level ); } );
 
             benchName[0] = '3';
 
-            benchmark::RegisterBenchmark( benchName.c_str(), BenchFastNoiseGenerator3D, 64, metadata, level );
-        
+            benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator3D( st, 64, metadata, level ); } );        
         }
     }
 
