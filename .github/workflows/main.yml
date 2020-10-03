@@ -55,6 +55,12 @@ jobs:
   MacOS:
     runs-on: macos-latest
     steps:
+    - name: 'Install OpenGL'
+      run: sudo apt-get install libgl1-mesa-dev
+      
+    - name: 'Install SDL2'
+      run: sudo apt-get install libsdl2-dev
+      
     - uses: actions/checkout@v2
       with:        
         submodules: recursive
@@ -67,4 +73,4 @@ jobs:
         buildDirectory: "${{ github.workspace }}/../../_temp/macos"
         buildWithCMake: true
         buildWithCMakeArgs: --config Release
-        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="FALSE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"        
+        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"        
