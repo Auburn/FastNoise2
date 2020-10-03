@@ -45,6 +45,10 @@ target_link_libraries(NoiseTool PUBLIC
     Magnum::SceneGraph
     MagnumIntegration::ImGui
 )
+
+if (UNIX)
+    target_link_options(NoiseTool PRIVATE -pthread)
+endif()
  
 add_dependencies(NoiseTool FastNoise)
 

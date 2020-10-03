@@ -6,9 +6,16 @@
 
 #include "FastSIMD/FunctionList.h"
 #include "../src/FastSIMD/Internal/Scalar.h"
+
+#if FASTSIMD_x86
 #include "../src/FastSIMD/Internal/SSE.h"
 #include "../src/FastSIMD/Internal/AVX.h"
 #include "../src/FastSIMD/Internal/AVX512.h"
+#endif
+
+#if FASTSIMD_ARM
+#include "../src/FastSIMD/Internal/NEON.h"
+#endif
 
 #include <vector>
 #include <functional>

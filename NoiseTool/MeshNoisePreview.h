@@ -2,6 +2,8 @@
 #include <unordered_set>
 #include <vector>
 #include <chrono>
+#include <cstring>
+#include <thread>
 
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/Mesh.h>

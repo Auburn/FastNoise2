@@ -9,7 +9,7 @@
             "cmakeCommandArgs": "",
             "buildCommandArgs": "-v",
             "ctestCommandArgs": "",
-            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "inheritEnvironments": [ "msvc_x64" ],
             "variables": [
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -27,7 +27,7 @@
             "cmakeCommandArgs": "",
             "buildCommandArgs": "-v",
             "ctestCommandArgs": "",
-            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "inheritEnvironments": [ "msvc_x64" ],
             "variables": [
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -124,7 +124,7 @@
             "variables": [
                 {
                     "name": "FASTNOISE2_NOISETOOL",
-                    "value": "False",
+                    "value": "True",
                     "type": "BOOL"
                 },
                 {

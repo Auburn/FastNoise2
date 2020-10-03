@@ -10,10 +10,14 @@
 using namespace Magnum;
 
 NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
-    Platform::Application{ arguments, Configuration{}
+    Platform::Application{ arguments,
+    Configuration{}
     .setTitle( "FastNoise 2 Noise Tool" )
     .setSize( Vector2i( 1280, 720 ) )
-    .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ) },
+    .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ),
+    GLConfiguration{}
+    .setSampleCount( 4 )
+    }, 
     mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );

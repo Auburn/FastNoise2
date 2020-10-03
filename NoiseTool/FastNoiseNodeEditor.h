@@ -1,11 +1,12 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <climits>
 
 #include <Magnum/Magnum.h>
-#include <Magnum\GL\GL.h>
+#include <Magnum/GL/GL.h>
 #include <Magnum/GL/Texture.h>
-#include <Magnum\ImageView.h>
+#include <Magnum/ImageView.h>
 
 #include "FastNoise/FastNoise.h"
 #include "MeshNoisePreview.h"

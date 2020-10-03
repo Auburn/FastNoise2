@@ -1,6 +1,8 @@
 #include "MeshNoisePreview.h"
 
 #include <imgui.h>
+#include <thread>
+#include <cmath>
 
 #include <Corrade/Utility/Resource.h>
 #include <Magnum/Math/Color.h>
@@ -119,7 +121,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
 float MeshNoisePreview::GetLoadRangeModifier()
 {
-    return std::min( 0.01f, (float)(1000 / std::powl(  std::min( 1000.0f, mLoadRange ), 1.5 )) );
+    return std::min( 0.01f, (float)(1000 / std::pow( std::min( 1000.0f, mLoadRange ), 1.5 ) ) );
 }
 
 void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
