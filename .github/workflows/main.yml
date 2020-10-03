@@ -51,6 +51,11 @@ jobs:
         buildWithCMake: true
         buildWithCMakeArgs: --config Release
         cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: binaries
+        path: ../bin
   
   MacOS:
     runs-on: macos-latest
