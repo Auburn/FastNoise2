@@ -32,6 +32,12 @@ jobs:
   Linux:
     runs-on: ubuntu-latest
     steps:
+    - name: Install OpenGL
+      run: sudo apt-get install libgl1-mesa-dev
+      
+    - name: Install SDL2
+      run: sudo apt-get install libsdl2-dev
+      
     - uses: actions/checkout@v2
       with:        
         submodules: recursive
