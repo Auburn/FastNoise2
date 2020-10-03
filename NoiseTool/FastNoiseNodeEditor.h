@@ -1,4 +1,5 @@
 #pragma once
+#include <unordered_map>
 #include <vector>
 #include <memory>
 #include <climits>
@@ -57,7 +58,6 @@ namespace Magnum
             {
                 return (nodeId << 4) | 15;
             }
-
 
             FastNoiseNodeEditor& editor;
             std::unique_ptr<FastNoise::NodeData> data;
