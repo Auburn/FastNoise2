@@ -54,12 +54,9 @@ jobs:
   
   MacOS:
     runs-on: macos-latest
-    steps:
-    - name: 'Install OpenGL'
-      run: sudo apt-get install libgl1-mesa-dev
-      
+    steps:            
     - name: 'Install SDL2'
-      run: sudo apt-get install libsdl2-dev
+      run: brew install SDL2
       
     - uses: actions/checkout@v2
       with:        
