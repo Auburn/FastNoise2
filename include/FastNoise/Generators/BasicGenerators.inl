@@ -2,7 +2,7 @@
 #include "FastSIMD/InlInclude.h"
 
 #include "BasicGenerators.h"
-#include "CoherentHelpers.inl"
+#include "Utils.inl"
 
 template<typename FS>
 class FS_T<FastNoise::Constant, FS> : public virtual FastNoise::Constant, public FS_T<FastNoise::Generator, FS>
@@ -29,7 +29,7 @@ public:
         size_t idx = 0;
         ((pos = FS_Casti32_f32( (FS_Castf32_i32( pos ) ^ (FS_Castf32_i32( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 
-        return GetValueCoord( seed, FS_Castf32_i32( pos )... );
+        return Utils::GetValueCoord( seed, FS_Castf32_i32( pos )... );
     }
 };
 
@@ -91,6 +91,6 @@ public:
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return CalcDistance( mDistanceFunction, pos... );
+        return Utils::CalcDistance( mDistanceFunction, pos... );
     }
 };

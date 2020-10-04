@@ -35,7 +35,7 @@ void FormatClassName( std::string& string, const FastNoise::Metadata* metadata )
         size_t start_pos = string.find( group );
         if( start_pos != std::string::npos )
         {
-            string.erase( start_pos, strlen( group ) + 1 );
+            string.erase( start_pos, std::strlen( group ) + 1 );
         }
     }
 }

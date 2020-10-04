@@ -4,7 +4,7 @@
 #include <array>
 
 #include "Cellular.h"
-#include "CoherentHelpers.inl"
+#include "Utils.inl"
 
 template<typename FS>
 class FS_T<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public FS_T<FastNoise::Generator, FS>
@@ -39,7 +39,7 @@ public:
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
+                int32v hash = Utils::HashPrimesHB( seed, xc, yc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -48,7 +48,7 @@ public:
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
                 float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
-                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd );
 
                 for( int i = 0; ; i++ )
                 {
@@ -110,7 +110,7 @@ public:
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
-                    int32v hash = HashPrimesHB( seed, xc, yc, zc );
+                    int32v hash = Utils::HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v yd = FS_Converti32_f32( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS_Converti32_f32( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -121,7 +121,7 @@ public:
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
                 
                     float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
-                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd );
                 
                     for( int i = 0; ; i++ )
                     {
@@ -193,7 +193,7 @@ public:
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
                     {
-                        int32v hash = HashPrimesHB( seed, xc, yc, zc, wc );
+                        int32v hash = Utils::HashPrimesHB( seed, xc, yc, zc, wc );
                         float32v xd = FS_Converti32_f32( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS_Converti32_f32( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS_Converti32_f32( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -206,7 +206,7 @@ public:
                         wd = FS_FMulAdd_f32( wd, invMag, wcf );
 
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
-                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = 0; ; i++ )
                         {
@@ -270,7 +270,7 @@ public:
             int32v yc = ycBase;
             for ( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
+                int32v hash = Utils::HashPrimesHB( seed, xc, yc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -278,7 +278,7 @@ public:
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd );
 
                 for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                 {
@@ -326,7 +326,7 @@ public:
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
-                    int32v hash = HashPrimesHB( seed, xc, yc, zc );
+                    int32v hash = Utils::HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v yd = FS_Converti32_f32( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS_Converti32_f32( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -336,7 +336,7 @@ public:
                     yd = FS_FMulAdd_f32( yd, invMag, ycf );
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
 
-                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                     {
@@ -394,7 +394,7 @@ public:
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
                     {
-                        int32v hash = HashPrimesHB( seed, xc, yc, zc, wc );
+                        int32v hash = Utils::HashPrimesHB( seed, xc, yc, zc, wc );
                         float32v xd = FS_Converti32_f32( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS_Converti32_f32( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS_Converti32_f32( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -406,7 +406,7 @@ public:
                         zd = FS_FMulAdd_f32( zd, invMag, zcf );
                         wd = FS_FMulAdd_f32( wd, invMag, wcf );
 
-                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                         {
@@ -492,7 +492,7 @@ public:
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
+                int32v hash = Utils::HashPrimesHB( seed, xc, yc );
                 float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -500,7 +500,7 @@ public:
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd );
 
                 mask32v closer = newDistance < distance;
                 distance = FS_Min_f32( newDistance, distance );
@@ -546,7 +546,7 @@ public:
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
-                    int32v hash = HashPrimesHB( seed, xc, yc, zc );
+                    int32v hash = Utils::HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v yd = FS_Converti32_f32( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS_Converti32_f32( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -556,7 +556,7 @@ public:
                     yd = FS_FMulAdd_f32( yd, invMag, ycf );
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
 
-                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
                     distance = FS_Min_f32( newDistance, distance );
@@ -614,7 +614,7 @@ public:
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
                     {
-                        int32v hash = HashPrimesHB( seed, xc, yc, zc, wc );
+                        int32v hash = Utils::HashPrimesHB( seed, xc, yc, zc, wc );
                         float32v xd = FS_Converti32_f32( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS_Converti32_f32( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS_Converti32_f32( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -627,7 +627,7 @@ public:
                         wd = FS_FMulAdd_f32( wd, invMag, wcf );
 
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
-                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
                         distance = FS_Min_f32( newDistance, distance );

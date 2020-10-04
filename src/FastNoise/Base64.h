@@ -3,10 +3,10 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace FastNoise
 {
-
     /** https://gist.github.com/tomykaira/f0fd86b6c73063283afe550bc5d77594
      * The MIT License (MIT)
      * Copyright (c) 2016 tomykaira
@@ -105,8 +105,7 @@ namespace FastNoise
             if( input[in_len - 1] == '=' ) out_len--;
             if( input[in_len - 2] == '=' ) out_len--;
 
-            std::vector<uint8_t> out;
-            out.resize( out_len );
+            std::vector<uint8_t> out( out_len );
 
             for( size_t i = 0, j = 0; i < in_len; )
             {

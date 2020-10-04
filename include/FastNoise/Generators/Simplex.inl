@@ -1,7 +1,7 @@
 #include "FastSIMD/InlInclude.h"
 
 #include "Simplex.h"
-#include "CoherentHelpers.inl"
+#include "Utils.inl"
 
 template<typename FS>
 class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public FS_T<FastNoise::Generator, FS>
@@ -44,9 +44,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         t1 *= t1;
         t2 *= t2;
 
-        float32v n0 = t0 * t0 * GetGradientDot( HashPrimes( seed, i, j ), x0, y0 );
-        float32v n1 = t1 * t1 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
-        float32v n2 = t2 * t2 * GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
+        float32v n0 = t0 * t0 * Utils::GetGradientDot( Utils::HashPrimes( seed, i, j ), x0, y0 );
+        float32v n1 = t1 * t1 * Utils::GetGradientDot( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
+        float32v n2 = t2 * t2 * Utils::GetGradientDot( Utils::HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
 
         return float32v( 38.283687591552734375f ) * (n0 + n1 + n2);
     }
@@ -114,10 +114,10 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         t2 *= t2;
         t3 *= t3;
 
-        float32v n0 = t0 * t0 * GetGradientDot( HashPrimes( seed, i, j, k ), x0, y0, z0 );
-        float32v n1 = t1 * t1 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j1 ), FS_MaskedAdd_i32( k, int32v( Primes::Z ), k1 ) ), x1, y1, z1 );
-        float32v n2 = t2 * t2 * GetGradientDot( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i2 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( Primes::Z ), k2 ) ), x2, y2, z2 );
-        float32v n3 = t3 * t3 * GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
+        float32v n0 = t0 * t0 * Utils::GetGradientDot( Utils::HashPrimes( seed, i, j, k ), x0, y0, z0 );
+        float32v n1 = t1 * t1 * Utils::GetGradientDot( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j1 ), FS_MaskedAdd_i32( k, int32v( Primes::Z ), k1 ) ), x1, y1, z1 );
+        float32v n2 = t2 * t2 * Utils::GetGradientDot( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i2 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( Primes::Z ), k2 ) ), x2, y2, z2 );
+        float32v n3 = t3 * t3 * Utils::GetGradientDot( Utils::HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
 
         return float32v( 32.69428253173828125f ) * (n0 + n1 + n2 + n3);
     }
@@ -163,9 +163,9 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
         t1 *= t1;
         t2 *= t2;
 
-        float32v n0 = t0 * t0 * GetGradientDotFancy( HashPrimes( seed, i, j ), x0, y0 );
-        float32v n1 = t1 * t1 * GetGradientDotFancy( HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
-        float32v n2 = t2 * t2 * GetGradientDotFancy( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
+        float32v n0 = t0 * t0 * Utils::GetGradientDotFancy( Utils::HashPrimes( seed, i, j ), x0, y0 );
+        float32v n1 = t1 * t1 * Utils::GetGradientDotFancy( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
+        float32v n2 = t2 * t2 * Utils::GetGradientDotFancy( Utils::HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
 
         return float32v( 49.918426513671875f ) * (n0 + n1 + n2);
     }
@@ -215,8 +215,8 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
             t0 = t0 * t0;
             t1 = t1 * t1;
 
-            float32v v0 = t0 * GetGradientDot( HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
-            float32v v1 = t1 * GetGradientDot( HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
+            float32v v0 = t0 * Utils::GetGradientDot( Utils::HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
+            float32v v1 = t1 * Utils::GetGradientDot( Utils::HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
 
             val = FS_FMulAdd_f32( v0, t0, FS_FMulAdd_f32( v1, t1, val ) );
 
