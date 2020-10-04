@@ -16,18 +16,20 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
       with:        
-        submodules: recursive
-
-    - name: 'Run CMake with VS16'
-      uses: lukka/run-cmake@v3
+        submodules: recursive                
+   
+    - name: 'Build'
+      uses: ashutoshvarma/action-cmake-build@v1
       with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-        buildDirectory: "${{ github.workspace }}/../../_temp/windows"
-        buildWithCMake: true
-        cmakeGenerator: VS16Win64 
-        buildWithCMakeArgs: --config Release  
-        cmakeAppendedArgs: -DFASTNOISE2_TESTS="TRUE"
+        build-dir: ${{ runner.workspace }}/build
+        cxx: msvc
+        build-type: Release
+        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: 'Win64 Binaries'
+        path: ${{ runner.workspace }}/build/Release/bin/
                   
   Linux:
     runs-on: ubuntu-latest
