@@ -51,11 +51,12 @@ jobs:
         cc: gcc
         cxx: g++
         build-type: Release
+        build-options: -m64  
         configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
       with:
-        name: 'Linux Binaries'
+        name: 'Linux64 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
   
   MacOS:
@@ -68,12 +69,15 @@ jobs:
       with:        
         submodules: recursive
         
-    - name: 'Run CMake'
-      uses: lukka/run-cmake@v3
+    - name: 'Build'
+      uses: ashutoshvarma/action-cmake-build@v1
       with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: '${{ github.workspace }}/CMakeLists.txt'
-        buildDirectory: "${{ github.workspace }}/../../_temp/macos"
-        buildWithCMake: true
-        buildWithCMakeArgs: --config Release
-        cmakeAppendedArgs: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../../_temp/macos/install"        
+        build-dir: ${{ runner.workspace }}/build
+        build-type: Release
+        build-options: -m64  
+        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: 'MacOS Binaries'
+        path: ${{ runner.workspace }}/build/Release/bin/
