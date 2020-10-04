@@ -10,15 +10,14 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  Windows:
+  Windows32:
     runs-on: windows-latest 
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v2
       with:        
         submodules: recursive                
    
-    - name: 'Build 32'
+    - name: 'Build'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
@@ -26,19 +25,31 @@ jobs:
         build-type: Release
         configure-options: -A Win32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
    
-    - name: 'Build 64'
+    - uses: actions/upload-artifact@v2
+      with:
+        name: 'Win32 Binaries'
+        path: ${{ runner.workspace }}/build/Release/bin/
+                  
+  Windows64:
+    runs-on: windows-latest 
+    steps:
+    - uses: actions/checkout@v2
+      with:        
+        submodules: recursive                
+   
+    - name: 'Build'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
         cxx: msvc
         build-type: Release
         configure-options: -A x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
-    
+   
     - uses: actions/upload-artifact@v2
       with:
         name: 'Win64 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
-                  
+               
   Linux:
     runs-on: ubuntu-latest
     steps:
@@ -52,7 +63,7 @@ jobs:
       with:        
         submodules: recursive
       
-    - name: 'Build 64'
+    - name: 'Build'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
@@ -76,7 +87,7 @@ jobs:
       with:        
         submodules: recursive
         
-    - name: 'Build 64'
+    - name: 'Build'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
