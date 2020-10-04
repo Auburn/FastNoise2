@@ -24,7 +24,7 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         cxx: msvc
         build-type: Release
-        configure-options: -DCMAKE_GENERATOR_PLATFORM=x32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        configure-options: -A Win32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
    
     - name: 'Build 64'
       uses: ashutoshvarma/action-cmake-build@v1
@@ -32,7 +32,7 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         cxx: msvc
         build-type: Release
-        configure-options: -DCMAKE_GENERATOR_PLATFORM=x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        configure-options: -A x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
       with:
