@@ -5,7 +5,7 @@
 
 WIP successor to [FastNoiseSIMD](https://github.com/Auburn/FastNoiseSIMD)
 
-Modular node based approach to noise generation using modern C++17 features and templates
+FastNoise2 is a fully featured noise generation library which aims to meet all your coherent noise needs while being extremely fast
 
 Uses FastSIMD to compile classes with multiple SIMD types
 
