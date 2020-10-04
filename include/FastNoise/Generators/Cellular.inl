@@ -14,7 +14,8 @@ class FS_T<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public
 template<typename FS>
 class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularValue, public FS_T<FastNoise::Cellular, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
+
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
@@ -247,7 +248,8 @@ public:
 template<typename FS>
 class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::CellularDistance, public FS_T<FastNoise::Cellular, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
+
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
@@ -431,7 +433,6 @@ public:
         return GetReturn( distance );
     }
 
-protected:
     FS_INLINE float32v GetReturn( std::array<float32v, kMaxDistanceCount>& distance ) const
     {
         if( mDistanceFunction == DistanceFunction::Euclidean )
@@ -470,7 +471,8 @@ protected:
 template<typename FS>
 class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FS_T<FastNoise::Cellular, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
+
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
@@ -578,7 +580,6 @@ public:
         return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ), cellZ * float32v( mLookupFreq ) );
     }
 
-
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
     {
         float32v jitter = float32v( kJitter4D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z, w );
@@ -626,7 +627,6 @@ public:
                         zd = FS_FMulAdd_f32( zd, invMag, zcf );
                         wd = FS_FMulAdd_f32( wd, invMag, wcf );
 
-                        float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
                         float32v newDistance = Utils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;

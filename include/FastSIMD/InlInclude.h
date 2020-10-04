@@ -4,6 +4,7 @@
 template<typename CLASS, typename FS>
 class FS_T;
 
-typedef FS_SIMD_CLASS::float32v float32v;
-typedef FS_SIMD_CLASS::int32v int32v;
-typedef FS_SIMD_CLASS::mask32v mask32v;
+#define FASTSIMD_DECLARE_FS_TYPES \
+using float32v = typename FS::float32v;\
+using int32v   = typename FS::int32v;\
+using mask32v  = typename FS::mask32v

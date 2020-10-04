@@ -6,14 +6,7 @@
 template<typename FS>
 class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::Generator, FS>
 {
-public:
-    float GetWarpFrequency() const { return mWarpFrequency; }
-    const HybridSource& GetWarpAmplitude() const { return mWarpAmplitude; }
-
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const = 0;
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const = 0;
-    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const = 0;
-
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
@@ -23,11 +16,22 @@ public:
 
         return this->GetSourceValue( mSource, seed, pos...);
     }
+
+public:
+    float GetWarpFrequency() const { return mWarpFrequency; }
+    const HybridSource& GetWarpAmplitude() const { return mWarpAmplitude; }
+    const GeneratorSource& GetWarpSource() const { return mSource; }
+
+    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const = 0;
+    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const = 0;
+    virtual void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const = 0;
 };
 
 template<typename FS>
 class FS_T<FastNoise::DomainWarpGradient, FS> : public virtual FastNoise::DomainWarpGradient, public FS_T<FastNoise::DomainWarp, FS>
 {
+    FASTSIMD_DECLARE_FS_TYPES;
+
 public:
     void FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {

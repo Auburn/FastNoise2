@@ -11,7 +11,7 @@ class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, pu
 template<typename FS>
 class FS_T<FastNoise::FractalFBm, FS> : public virtual FastNoise::FractalFBm, public FS_T<FastNoise::Fractal<>, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
@@ -37,7 +37,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::FractalBillow, FS> : public virtual FastNoise::FractalBillow, public FS_T<FastNoise::Fractal<>, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
@@ -63,7 +63,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::FractalRidged, FS> : public virtual FastNoise::FractalRidged, public FS_T<FastNoise::Fractal<>, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
@@ -89,7 +89,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::FractalRidgedMulti, FS> : public virtual FastNoise::FractalRidgedMulti, public FS_T<FastNoise::Fractal<>, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>

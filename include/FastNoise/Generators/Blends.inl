@@ -6,7 +6,7 @@
 template<typename FS>
 class FS_T<FastNoise::Add, FS> : public virtual FastNoise::Add, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -19,7 +19,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Subtract, FS> : public virtual FastNoise::Subtract, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -32,7 +32,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Multiply, FS> : public virtual FastNoise::Multiply, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -45,7 +45,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Divide, FS> : public virtual FastNoise::Divide, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -58,7 +58,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Min, FS> : public virtual FastNoise::Min, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -71,7 +71,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Max, FS> : public virtual FastNoise::Max, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -84,7 +84,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::MinSmooth, FS> : public virtual FastNoise::MinSmooth, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -105,7 +105,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::MaxSmooth, FS> : public virtual FastNoise::MaxSmooth, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -126,7 +126,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Fade, FS> : public virtual FastNoise::Fade, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 

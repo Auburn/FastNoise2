@@ -11,6 +11,8 @@
 template<typename FS>
 class FS_T<FastNoise::Generator, FS> : public virtual FastNoise::Generator
 {
+    FASTSIMD_DECLARE_FS_TYPES;
+
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
@@ -42,8 +44,7 @@ public:
         {
             auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-            auto simdT = static_cast<FS_T<T, FS>*>( simdGen );
-            return simdT->Gen( seed, pos... );
+            return simdGen->Gen( seed, pos... );
         }
         return float32v( memberVariable.constant );
     }
@@ -54,8 +55,7 @@ public:
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        auto simdT = static_cast<FS_T<T, FS>*>( simdGen );
-        return simdT->Gen( seed, pos... );
+        return simdGen->Gen( seed, pos... );
     }
 
     template<typename T>
@@ -252,13 +252,13 @@ public:
         size_t totalValues = xSize * ySize;
         size_t index = 0;
 
-        float32v pi2Recip = float32v( 0.15915493667f );
-        float32v xSizePi = FS_Converti32_f32( xSizeV ) * pi2Recip;
-        float32v ySizePi = FS_Converti32_f32( ySizeV ) * pi2Recip;
-        float32v xFreq = float32v( frequency ) * xSizePi;
-        float32v yFreq = float32v( frequency ) * ySizePi;
-        float32v xMul = float32v( 1 ) / xSizePi;
-        float32v yMul = float32v( 1 ) / ySizePi;
+        float pi2Recip( 0.15915493667f );
+        float xSizePi = (float)xSize * pi2Recip;
+        float ySizePi = (float)ySize * pi2Recip;
+        float32v xFreq = float32v( frequency * xSizePi );
+        float32v yFreq = float32v( frequency * ySizePi );
+        float32v xMul = float32v( 1 / xSizePi );
+        float32v yMul = float32v( 1 / ySizePi );
 
         xIdx += int32v::FS_Incremented();
 
@@ -296,7 +296,7 @@ public:
         float32v zPos = FS_Sin_f32( xF ) * xFreq;
         float32v wPos = FS_Sin_f32( yF ) * yFreq;
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos, yPos, wPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
         return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }

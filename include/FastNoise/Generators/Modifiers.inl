@@ -5,7 +5,7 @@
 template<typename FS>
 class FS_T<FastNoise::DomainScale, FS> : public virtual FastNoise::DomainScale, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -18,7 +18,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::DomainOffset, FS> : public virtual FastNoise::DomainOffset, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
     
     template<typename... P> 
@@ -37,7 +37,8 @@ public:
 template<typename FS>
 class FS_T<FastNoise::DomainRotate, FS> : public virtual FastNoise::DomainRotate, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
+
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         if( mPitchSin == 0.0f && mRollSin == 0.0f )
@@ -62,7 +63,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::SeedOffset, FS> : public virtual FastNoise::SeedOffset, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
@@ -75,7 +76,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::Remap, FS> : public virtual FastNoise::Remap, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
@@ -90,7 +91,7 @@ public:
 template<typename FS>
 class FS_T<FastNoise::ConvertRGBA8, FS> : public virtual FastNoise::ConvertRGBA8, public FS_T<FastNoise::Generator, FS>
 {
-public:
+    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
