@@ -18,7 +18,15 @@ jobs:
       with:        
         submodules: recursive                
    
-    - name: 'Build'
+    - name: 'Build 32'
+      uses: ashutoshvarma/action-cmake-build@v1
+      with:
+        build-dir: ${{ runner.workspace }}/build
+        cxx: msvc
+        build-type: Release
+        configure-options: -DCMAKE_GENERATOR_PLATFORM=x32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+   
+    - name: 'Build 64'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
@@ -44,7 +52,7 @@ jobs:
       with:        
         submodules: recursive
       
-    - name: 'Build'
+    - name: 'Build 64'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
@@ -68,14 +76,14 @@ jobs:
       with:        
         submodules: recursive
         
-    - name: 'Build'
+    - name: 'Build 64'
       uses: ashutoshvarma/action-cmake-build@v1
       with:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
-        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
       with:
-        name: 'MacOS Binaries'
+        name: 'MacOS64 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
