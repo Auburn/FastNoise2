@@ -10,7 +10,7 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  'Windows MSVC x32':
+  Windows-MSVC-x32:
     runs-on: windows-latest 
     steps:
     - uses: actions/checkout@v2
@@ -30,7 +30,7 @@ jobs:
         name: 'Win32 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
                   
-  'Windows MSVC x64':
+  Windows-MSVC-x64:
     runs-on: windows-latest 
     steps:
     - uses: actions/checkout@v2
@@ -50,7 +50,7 @@ jobs:
         name: 'Win64 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
                
-  'Linux G++ x64':
+  Linux-GCC-x64':
     runs-on: ubuntu-latest
     steps:
     - name: 'Install OpenGL'
@@ -77,7 +77,7 @@ jobs:
         name: 'Linux64 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
   
-  'MacOS Clang x64':
+  MacOS-Clang-x64:
     runs-on: macos-latest
     steps:            
     - name: 'Install SDL2'
