@@ -24,7 +24,7 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         cxx: msvc
         build-type: Release
-        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        configure-options: -DCMAKE_GENERATOR_PLATFORM=x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
       with:
@@ -51,8 +51,7 @@ jobs:
         cc: gcc
         cxx: g++
         build-type: Release
-        build-options: -m64  
-        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
       with:
@@ -74,7 +73,6 @@ jobs:
       with:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
-        build-options: -m64  
         configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
     
     - uses: actions/upload-artifact@v2
