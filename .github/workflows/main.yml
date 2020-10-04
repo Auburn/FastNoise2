@@ -50,7 +50,7 @@ jobs:
         name: 'Win64 Binaries'
         path: ${{ runner.workspace }}/build/Release/bin/
                
-  Linux-GCC-x64':
+  Linux-GCC-x64:
     runs-on: ubuntu-latest
     steps:
     - name: 'Install OpenGL'
