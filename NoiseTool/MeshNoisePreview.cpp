@@ -274,7 +274,7 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
 
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const BuildData& buildData )
 {
-    thread_local static std::vector<float> densityValues(SIZE_GEN * SIZE_GEN * SIZE_GEN);
+    thread_local static std::vector<float> densityValues( SIZE_GEN * SIZE_GEN * SIZE_GEN );
     thread_local static std::vector<VertexData> vertexData;
     thread_local static std::vector<uint32_t> indicies;
 
@@ -291,15 +291,15 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     {
         Vector3 light = LIGHT_DIR.normalized() * (1.0f - AMBIENT_LIGHT) + Vector3( AMBIENT_LIGHT );
 
-        float xLight = abs( light.x() );
+        float xLight = std::abs( light.x() );
         Color3 colorRight = buildData.color * xLight;
         Color3 colorLeft = buildData.color * (1.0f - xLight);
 
-        float yLight = abs( light.y() );
+        float yLight = std::abs( light.y() );
         Color3 colorUp = buildData.color * yLight;
         Color3 colorDown = buildData.color * (1.0f - yLight);
 
-        float zLight = abs( light.z() );
+        float zLight = std::abs( light.z() );
         Color3 colorForward = buildData.color * zLight;
         Color3 colorBack = buildData.color * (1.0f - zLight);
 
