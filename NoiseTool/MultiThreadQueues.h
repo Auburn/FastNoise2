@@ -28,14 +28,14 @@ public:
     T Pop()
     {
         std::unique_lock<std::mutex> lock( mMutex );
-        while( mQueue.empty() )
+        while( mQueue.empty() || mKillThreads )
         {
-            mCond.wait( lock );
-
             if( mKillThreads )
             {
                 return {};
             }
+
+            mCond.wait( lock );
         }
         auto item = mQueue.front();
         mQueue.pop();
