@@ -34,7 +34,8 @@ MeshNoisePreview::~MeshNoisePreview()
 {
     for( auto& thread : mThreads )
     {
-        thread.detach();
+        mGenerateQueue.KillThreads();
+        thread.join();
     }
 }
 
@@ -261,6 +262,11 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
     while( true )
     {
         Chunk::BuildData buildData = generateQueue.Pop();
+
+        if( generateQueue.ShouldKillThread() )
+        {
+            return;
+        }
 
         Chunk::MeshData meshData = Chunk::BuildMeshData( buildData );
 
