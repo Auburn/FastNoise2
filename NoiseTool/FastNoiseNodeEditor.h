@@ -69,7 +69,7 @@ namespace Magnum
 
         struct MetadataMenu
         {
-            virtual ~MetadataMenu() {}
+            virtual ~MetadataMenu() = default;
             virtual bool CanDraw( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr ) const = 0;
             virtual const FastNoise::Metadata* DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid = nullptr, bool drawGroups = true ) const = 0;
         };

@@ -116,3 +116,35 @@ class FS_T<FastNoise::ConvertRGBA8, FS> : public virtual FastNoise::ConvertRGBA8
     }
 };
 
+template<typename FS>
+class FS_T<FastNoise::Terrace, FS> : public virtual FastNoise::Terrace, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v source = this->GetSourceValue( mSource, seed, pos... );
+
+        source *= float32v( mMultiplier );
+        float32v rounded = FS_Round_f32( source );
+
+        if( mSmoothness != 0.0f )
+        {
+            float32v diff = rounded - source;
+            mask32v diffSign = diff < float32v( 0 );
+
+            diff = FS_Abs_f32( diff );
+            diff = float32v( 0.5f ) - diff;
+
+            diff *= float32v( mSmoothnessRecip );
+            diff = FS_Min_f32( diff, float32v( 0.5f ) );
+            diff = FS_Select_f32( diffSign, float32v( 0.5f ) - diff, diff - float32v( 0.5f ) );
+
+            rounded += diff;
+        }
+
+        return rounded * float32v( mMultiplierRecip );
+    }
+};

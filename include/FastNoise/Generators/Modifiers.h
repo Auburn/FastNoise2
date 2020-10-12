@@ -207,4 +207,30 @@ namespace FastNoise
             }
         };    
     };
+
+    class Terrace : public virtual Generator
+    {
+    public:
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetMultiplier( float multiplier ) { mMultiplier = multiplier; mMultiplierRecip = 1 / multiplier; }
+        void SetSmoothness( float smoothness ) { mSmoothness = smoothness; if( mSmoothness != 0.0f ) mSmoothnessRecip = 1 + 1 / smoothness; }
+
+    protected:
+        GeneratorSource mSource;
+        float mMultiplier = 1.0f;
+        float mMultiplierRecip = 1.0f;
+        float mSmoothness = 0.0f;
+        float mSmoothnessRecip = 0.0f;
+
+        FASTNOISE_METADATA( Generator )
+        
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {            
+                groups.push_back( "Modifiers" );
+                this->AddGeneratorSource( "Source", &Terrace::SetSource );
+                this->AddVariable( "Multiplier", 1.0f, &Terrace::SetMultiplier );
+                this->AddVariable( "Smoothness", 0.0f, &Terrace::SetSmoothness );
+            }
+        };    
+    };
 }
