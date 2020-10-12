@@ -31,7 +31,8 @@ NoiseTexture::~NoiseTexture()
 {
     for( auto& thread : mThreads )
     {
-        thread.detach();
+        mGenerateQueue.KillThreads();
+        thread.join();
     }
 }
 
@@ -156,6 +157,11 @@ void NoiseTexture::GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, 
     while( true )
     {
         BuildData buildData = generateQueue.Pop();
+
+        if( generateQueue.ShouldKillThread() )
+        {
+            return;
+        }
 
         TextureData texData = BuildTexture( buildData );
 

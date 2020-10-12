@@ -34,7 +34,8 @@ MeshNoisePreview::~MeshNoisePreview()
 {
     for( auto& thread : mThreads )
     {
-        thread.detach();
+        mGenerateQueue.KillThreads();
+        thread.join();
     }
 }
 
@@ -262,6 +263,11 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
     {
         Chunk::BuildData buildData = generateQueue.Pop();
 
+        if( generateQueue.ShouldKillThread() )
+        {
+            return;
+        }
+
         Chunk::MeshData meshData = Chunk::BuildMeshData( buildData );
 
         if( !completeQueue.Push( meshData, buildData.genVersion ) )
@@ -274,11 +280,11 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
 
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const BuildData& buildData )
 {
-    thread_local static float densityValues[SIZE_GEN * SIZE_GEN * SIZE_GEN];
+    thread_local static std::vector<float> densityValues( SIZE_GEN * SIZE_GEN * SIZE_GEN );
     thread_local static std::vector<VertexData> vertexData;
     thread_local static std::vector<uint32_t> indicies;
 
-    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues,
+    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues.data(),
         buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
         SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
 
@@ -291,15 +297,15 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     {
         Vector3 light = LIGHT_DIR.normalized() * (1.0f - AMBIENT_LIGHT) + Vector3( AMBIENT_LIGHT );
 
-        float xLight = abs( light.x() );
+        float xLight = std::abs( light.x() );
         Color3 colorRight = buildData.color * xLight;
         Color3 colorLeft = buildData.color * (1.0f - xLight);
 
-        float yLight = abs( light.y() );
+        float yLight = std::abs( light.y() );
         Color3 colorUp = buildData.color * yLight;
         Color3 colorDown = buildData.color * (1.0f - yLight);
 
-        float zLight = abs( light.z() );
+        float zLight = std::abs( light.z() );
         Color3 colorForward = buildData.color * zLight;
         Color3 colorBack = buildData.color * (1.0f - zLight);
 
@@ -325,37 +331,37 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                     {
                         if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, colorRight,
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, colorRight,
                                 Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, colorLeft,
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, colorLeft,
                                 Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, colorUp,
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, colorUp,
                                 Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, colorDown,
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, colorDown,
                                 Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, colorForward,
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, colorForward,
                                 Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, colorBack,
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, colorBack,
                                 Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                         }
                     }

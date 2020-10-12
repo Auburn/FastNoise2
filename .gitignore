@@ -30,8 +30,9 @@
 *.exe
 *.out
 *.app
-/.vs
+/.vs*
 /out/build
+/build
 
 # Allow SDL2 libs
 !/NoiseTool/ThirdParty/SDL2-2.0.12/**

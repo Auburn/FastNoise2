@@ -7,6 +7,18 @@ template<typename T>
 class GenerateQueue
 {
 public:
+    void KillThreads()
+    {
+        std::unique_lock<std::mutex> lock( mMutex );
+        mKillThreads = true;
+        mCond.notify_all();
+    }
+
+    bool ShouldKillThread()
+    {
+        return mKillThreads;        
+    }
+
     void Clear()
     {
         std::unique_lock<std::mutex> lock( mMutex );
@@ -16,8 +28,13 @@ public:
     T Pop()
     {
         std::unique_lock<std::mutex> lock( mMutex );
-        while( mQueue.empty() )
+        while( mQueue.empty() || mKillThreads )
         {
+            if( mKillThreads )
+            {
+                return {};
+            }
+
             mCond.wait( lock );
         }
         auto item = mQueue.front();
@@ -39,6 +56,7 @@ private:
     std::queue<T> mQueue;
     std::mutex mMutex;
     std::condition_variable mCond;
+    bool mKillThreads = false;
 };
 
 template<typename T>
