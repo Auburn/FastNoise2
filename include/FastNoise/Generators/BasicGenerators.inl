@@ -27,9 +27,9 @@ class FS_T<FastNoise::White, FS> : public virtual FastNoise::White, public FS_T<
     FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
         size_t idx = 0;
-        ((pos = FS_Casti32_f32( (FS_Castf32_i32( pos ) ^ (FS_Castf32_i32( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
+        ((pos = FS_Casti32_f32( (FS_Castf32_i32( pos ) ^ (FS_Castf32_i32( pos ) >> 16)) * int32v( FnPrimes::Lookup[idx++] ) )), ...);
 
-        return Utils::GetValueCoord( seed, FS_Castf32_i32( pos )... );
+        return FnUtils::GetValueCoord( seed, FS_Castf32_i32( pos )... );
     }
 };
 
@@ -91,6 +91,6 @@ class FS_T<FastNoise::DistanceToOrigin, FS> : public virtual FastNoise::Distance
     template<typename... P>
     FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return Utils::CalcDistance( mDistanceFunction, pos... );
+        return FnUtils::CalcDistance( mDistanceFunction, pos... );
     }
 };

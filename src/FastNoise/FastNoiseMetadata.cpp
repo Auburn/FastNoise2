@@ -321,7 +321,7 @@ FastNoise::NodeData* FastNoise::Metadata::DeserialiseNodeData( const std::vector
     return find->get();
 }
 
-#define FASTSIMD_BUILD_CLASS( CLASS ) \
+#define FASTSIMD_BUILD_CLASS2( CLASS ) \
 const CLASS::Metadata g ## CLASS ## Metadata( #CLASS );\
 const FastNoise::Metadata* CLASS::GetMetadata()\
 {\
@@ -331,6 +331,11 @@ Generator* CLASS::Metadata::NodeFactory( FastSIMD::eLevel l ) const\
 {\
     return FastSIMD::New<CLASS>( l );\
 }
+
+#define FASTSIMD_BUILD_CLASS( CLASS ) FASTSIMD_BUILD_CLASS2( CLASS )
+
+using namespace FastNoise;
+#define FASTNOISE_CLASS( CLASS ) CLASS
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY
 #include "FastNoise/FastNoise_BuildList.inl"

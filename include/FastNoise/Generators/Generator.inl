@@ -38,7 +38,7 @@ public:
     }
 
     template<typename T, typename... POS>
-    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const HybridSourceT<T>& memberVariable, int32v seed, POS... pos ) const
+    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const FastNoise::HybridSourceT<T>& memberVariable, int32v seed, POS... pos ) const
     {
         if( memberVariable.simdGeneratorPtr )
         {
@@ -50,7 +50,7 @@ public:
     }
 
     template<typename T, typename... POS>
-    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos ) const
+    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos ) const
     {
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
@@ -59,7 +59,7 @@ public:
     }
 
     template<typename T>
-    FS_INLINE const FS_T<T, FS>* GetSourceSIMD( const GeneratorSourceT<T>& memberVariable ) const
+    FS_INLINE const FS_T<T, FS>* GetSourceSIMD( const FastNoise::GeneratorSourceT<T>& memberVariable ) const
     {
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
@@ -68,7 +68,7 @@ public:
         return simdT;
     }
 
-    OutputMinMax GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
     {
         assert( xSize >= (int32_t)FS_Size_32() );
 
@@ -117,7 +117,7 @@ public:
         return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    OutputMinMax GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed ) const final
     {
         assert( xSize >= (int32_t)FS_Size_32() );
 
@@ -175,7 +175,7 @@ public:
         return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int32_t seed ) const final
+    FastNoise::OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int32_t seed ) const final
     {
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -204,7 +204,7 @@ public:
         return DoRemaining( noiseOut, count, index, min, max, gen );
     }
 
-    OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int32_t seed ) const final
+    FastNoise::OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int32_t seed ) const final
     {
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -235,7 +235,7 @@ public:
         return DoRemaining( noiseOut, count, index, min, max, gen );
     }
 
-    OutputMinMax GenTileable2D( float* noiseOut, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
+    FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
     {
         assert( xSize >= (int32_t)FS_Size_32() );
 
@@ -302,9 +302,9 @@ public:
     }
 
 private:
-    static FS_INLINE OutputMinMax DoRemaining( float* noiseOut, size_t totalValues, size_t index, float32v min, float32v max, float32v finalGen )
+    static FS_INLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, size_t totalValues, size_t index, float32v min, float32v max, float32v finalGen )
     {
-        OutputMinMax minMax;
+        FastNoise::OutputMinMax minMax;
         size_t remaining = totalValues - index;
 
         if( remaining == FS_Size_32() )
@@ -334,7 +334,7 @@ private:
         float* maxP = reinterpret_cast<float*>(&max);
         for( size_t i = 0; i < FS_Size_32(); i++ )
         {
-            minMax << OutputMinMax{ minP[i], maxP[i] };
+            minMax << FastNoise::OutputMinMax{ minP[i], maxP[i] };
         }
 #endif
 

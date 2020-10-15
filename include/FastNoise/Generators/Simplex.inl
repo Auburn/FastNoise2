@@ -18,8 +18,8 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v x0 = FS_Floor_f32( x + f );
         float32v y0 = FS_Floor_f32( y + f );
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( Primes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( Primes::Y );
+        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
 
         float32v g = float32v( G2 ) * (x0 + y0);
         x0 = x - (x0 - g);
@@ -46,9 +46,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         t1 *= t1;
         t2 *= t2;
 
-        float32v n0 = t0 * t0 * Utils::GetGradientDot( Utils::HashPrimes( seed, i, j ), x0, y0 );
-        float32v n1 = t1 * t1 * Utils::GetGradientDot( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
-        float32v n2 = t2 * t2 * Utils::GetGradientDot( Utils::HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
+        float32v n0 = t0 * t0 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i, j ), x0, y0 );
+        float32v n1 = t1 * t1 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( FnPrimes::Y ), i1 ) ), x1, y1 );
+        float32v n2 = t2 * t2 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ) ), x2, y2 );
 
         return float32v( 38.283687591552734375f ) * (n0 + n1 + n2);
     }
@@ -70,9 +70,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v yi = y - y0;
         float32v zi = z - z0;
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( Primes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( Primes::Y );
-        int32v k = FS_Convertf32_i32( z0 ) * int32v( Primes::Z );
+        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
+        int32v k = FS_Convertf32_i32( z0 ) * int32v( FnPrimes::Z );
 
         mask32v x_ge_y = xi >= yi;
         mask32v y_ge_z = yi >= zi;
@@ -116,10 +116,10 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         t2 *= t2;
         t3 *= t3;
 
-        float32v n0 = t0 * t0 * Utils::GetGradientDot( Utils::HashPrimes( seed, i, j, k ), x0, y0, z0 );
-        float32v n1 = t1 * t1 * Utils::GetGradientDot( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j1 ), FS_MaskedAdd_i32( k, int32v( Primes::Z ), k1 ) ), x1, y1, z1 );
-        float32v n2 = t2 * t2 * Utils::GetGradientDot( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i2 ), FS_MaskedAdd_i32( j, int32v( Primes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( Primes::Z ), k2 ) ), x2, y2, z2 );
-        float32v n3 = t3 * t3 * Utils::GetGradientDot( Utils::HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
+        float32v n0 = t0 * t0 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i, j, k ), x0, y0, z0 );
+        float32v n1 = t1 * t1 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i1 ), FS_MaskedAdd_i32( j, int32v( FnPrimes::Y ), j1 ), FS_MaskedAdd_i32( k, int32v( FnPrimes::Z ), k1 ) ), x1, y1, z1 );
+        float32v n2 = t2 * t2 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i2 ), FS_MaskedAdd_i32( j, int32v( FnPrimes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( FnPrimes::Z ), k2 ) ), x2, y2, z2 );
+        float32v n3 = t3 * t3 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ), k + int32v( FnPrimes::Z ) ), x3, y3, z3 );
 
         return float32v( 32.69428253173828125f ) * (n0 + n1 + n2 + n3);
     }
@@ -140,8 +140,8 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
         float32v x0 = FS_Floor_f32( x + f );
         float32v y0 = FS_Floor_f32( y + f );
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( Primes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( Primes::Y );
+        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
 
         float32v g = float32v( G2 ) * (x0 + y0);
         x0 = x - (x0 - g);
@@ -167,9 +167,9 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
         t1 *= t1;
         t2 *= t2;
 
-        float32v n0 = t0 * t0 * Utils::GetGradientDotFancy( Utils::HashPrimes( seed, i, j ), x0, y0 );
-        float32v n1 = t1 * t1 * Utils::GetGradientDotFancy( Utils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( Primes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( Primes::Y ), i1 ) ), x1, y1 );
-        float32v n2 = t2 * t2 * Utils::GetGradientDotFancy( Utils::HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
+        float32v n0 = t0 * t0 * FnUtils::GetGradientDotFancy( FnUtils::HashPrimes( seed, i, j ), x0, y0 );
+        float32v n1 = t1 * t1 * FnUtils::GetGradientDotFancy( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( FnPrimes::Y ), i1 ) ), x1, y1 );
+        float32v n2 = t2 * t2 * FnUtils::GetGradientDotFancy( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ) ), x2, y2 );
 
         return float32v( 49.918426513671875f ) * (n0 + n1 + n2);
     }
@@ -204,13 +204,13 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
             float32v d1yr = yr - v1yr;
             float32v d1zr = zr - v1zr;
 
-            int32v hv0xr = FS_Convertf32_i32( v0xr ) * int32v( Primes::X );
-            int32v hv0yr = FS_Convertf32_i32( v0yr ) * int32v( Primes::Y );
-            int32v hv0zr = FS_Convertf32_i32( v0zr ) * int32v( Primes::Z );
+            int32v hv0xr = FS_Convertf32_i32( v0xr ) * int32v( FnPrimes::X );
+            int32v hv0yr = FS_Convertf32_i32( v0yr ) * int32v( FnPrimes::Y );
+            int32v hv0zr = FS_Convertf32_i32( v0zr ) * int32v( FnPrimes::Z );
 
-            int32v hv1xr = FS_Convertf32_i32( v1xr ) * int32v( Primes::X );
-            int32v hv1yr = FS_Convertf32_i32( v1yr ) * int32v( Primes::Y );
-            int32v hv1zr = FS_Convertf32_i32( v1zr ) * int32v( Primes::Z );
+            int32v hv1xr = FS_Convertf32_i32( v1xr ) * int32v( FnPrimes::X );
+            int32v hv1yr = FS_Convertf32_i32( v1yr ) * int32v( FnPrimes::Y );
+            int32v hv1zr = FS_Convertf32_i32( v1zr ) * int32v( FnPrimes::Z );
 
             float32v t0 = FS_FNMulAdd_f32( d0zr, d0zr, FS_FNMulAdd_f32( d0yr, d0yr, FS_FNMulAdd_f32( d0xr, d0xr, float32v( 0.6f ) ) ) );
             float32v t1 = FS_FNMulAdd_f32( d1zr, d1zr, FS_FNMulAdd_f32( d1yr, d1yr, FS_FNMulAdd_f32( d1xr, d1xr, float32v( 0.6f ) ) ) );
@@ -219,8 +219,8 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
             t0 = t0 * t0;
             t1 = t1 * t1;
 
-            float32v v0 = t0 * Utils::GetGradientDot( Utils::HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
-            float32v v1 = t1 * Utils::GetGradientDot( Utils::HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
+            float32v v0 = t0 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
+            float32v v1 = t1 * FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
 
             val = FS_FMulAdd_f32( v0, t0, FS_FMulAdd_f32( v1, t1, val ) );
 

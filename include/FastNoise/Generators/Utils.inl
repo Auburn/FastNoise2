@@ -15,8 +15,10 @@ namespace FastNoise
     }
 
     template<typename FS>
-    struct UtilsT
+    struct Utils
     {
+        friend class FastNoise::Generator;
+
         using float32v = typename FS::float32v;
         using int32v = typename FS::int32v;
         using mask32v = typename FS::mask32v;
@@ -272,6 +274,7 @@ namespace FastNoise
             }
         }
     };
-
-    using Utils = UtilsT<FS_SIMD_CLASS>;
 }
+
+using FnUtils = FastNoise::Utils<FS_SIMD_CLASS>;
+namespace FnPrimes = FastNoise::Primes;
