@@ -17,8 +17,6 @@ namespace FastNoise
     template<typename FS>
     struct Utils
     {
-        friend class FastNoise::Generator;
-
         using float32v = typename FS::float32v;
         using int32v = typename FS::int32v;
         using mask32v = typename FS::mask32v;
@@ -142,7 +140,7 @@ namespace FastNoise
         }
 
         template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX512>* = nullptr>
-        FS_INLINE static float32v GetGradientDot(int32v hash, float32v fX, float32v fY, float32v fZ)
+        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
         {
             float32v gX = _mm512_permutexvar_ps( hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
             float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
@@ -176,7 +174,7 @@ namespace FastNoise
         }
 
         template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX512>* = nullptr>
-        FS_INLINE static float32v GetGradientDot(int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
+        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
         {
             float32v gX = _mm512_permutex2var_ps( float32v( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
             float32v gY = _mm512_permutex2var_ps( float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, float32v( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
@@ -235,7 +233,7 @@ namespace FastNoise
         }
 
         template<typename SIMD = FS, typename... P>
-        FS_INLINE static float32v CalcDistance( FastNoise::DistanceFunction distFunc, float32v dX, P... d )
+        FS_INLINE static float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
         {
             switch( distFunc )
             {
