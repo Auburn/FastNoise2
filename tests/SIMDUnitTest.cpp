@@ -218,14 +218,19 @@ SIMD_FUNCTION_TEST( Min_f32, float, FS_Store_f32( &result, FS_Min_f32( FS_Load_f
 
 SIMD_FUNCTION_TEST( Max_f32, float, FS_Store_f32( &result, FS_Max_f32( FS_Load_f32( &rndFloats0[i] ), FS_Load_f32( &rndFloats1[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Min_i32, float, FS_Store_i32( &result, FS_Min_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
+SIMD_FUNCTION_TEST( Min_i32, int32_t, FS_Store_i32( &result, FS_Min_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Max_i32, float, FS_Store_i32( &result, FS_Max_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
+SIMD_FUNCTION_TEST( Max_i32, int32_t, FS_Store_i32( &result, FS_Max_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
 
 
 SIMD_FUNCTION_TEST( BitwiseAndNot_f32, float, FS_Store_f32( &result, FS_BitwiseAndNot_f32( FS_Load_f32( &rndFloats0[i] ), FS_Load_f32( &rndFloats1[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( BitwiseAndNot_i32, float, FS_Store_i32( &result, FS_BitwiseAndNot_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
+SIMD_FUNCTION_TEST( BitwiseAndNot_i32, int32_t, FS_Store_i32( &result, FS_BitwiseAndNot_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
+
+
+SIMD_FUNCTION_TEST( BitwiseShiftRightZX_f32, float, FS_Store_f32( &result, FS_BitwiseShiftRightZX_f32( FS_Load_f32( &rndFloats0[i] ), (rndInts1[i & NonVecMask] & 31) ) ) )
+
+SIMD_FUNCTION_TEST( BitwiseShiftRightZX_i32, int32_t, FS_Store_i32( &result, FS_BitwiseShiftRightZX_i32( FS_Load_i32( &rndInts0[i] ), (rndInts1[i & NonVecMask] & 31) ) ) )
 
 
 SIMD_FUNCTION_TEST( Abs_f32, float, FS_Store_f32( &result, FS_Abs_f32( FS_Load_f32( &rndFloats0[i] ) ) ) )

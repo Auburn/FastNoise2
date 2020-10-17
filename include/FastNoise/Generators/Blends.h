@@ -90,6 +90,50 @@ namespace FastNoise
         };    
     };    
 
+    class PowFloat : public virtual Generator
+    {
+    public:
+        void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
+        void SetValue( float value ) { mValue = value; }
+        void SetPow( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPow, gen ); }
+        void SetPow( float value ) { mPow = value; }
+
+    protected:
+        HybridSource mValue;
+        HybridSource mPow;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Blends" );
+                this->AddHybridSource( "Value", 2.0f, &PowFloat::SetValue, &PowFloat::SetValue );
+                this->AddHybridSource( "Pow", 2.0f, &PowFloat::SetPow, &PowFloat::SetPow );
+            }
+        };
+    };
+
+    class PowInt : public virtual OperatorHybridLHS
+    {
+    public:
+        void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
+        void SetPow( int32_t value ) { mPow = value; }
+
+    protected:
+        GeneratorSource mValue;
+        int32_t mPow;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Blends" );
+                this->AddGeneratorSource( "Value", &PowInt::SetValue );
+                this->AddVariable( "Pow", 2, &PowInt::SetPow, 2, INT_MAX );
+            }
+        };
+    };
+
     class MinSmooth : public virtual OperatorSourceLHS
     {
     public:

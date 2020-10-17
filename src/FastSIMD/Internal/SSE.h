@@ -370,6 +370,16 @@ namespace FastSIMD
             return _mm_andnot_si128( b, a );
         }
 
+        FS_INLINE static float32v BitwiseShiftRightZX_f32( float32v a, int32_t b )
+        {
+            return Casti32_f32( _mm_srli_epi32( Castf32_i32( a ), b ) );
+        }
+
+        FS_INLINE static int32v BitwiseShiftRightZX_i32( int32v a, int32_t b )
+        {
+            return _mm_srli_epi32( a, b );
+        }
+
         // Abs
 
         FS_INLINE static float32v Abs_f32( float32v a )

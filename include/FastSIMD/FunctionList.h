@@ -204,6 +204,22 @@
 #define FS_BitwiseAndNot_m32( ... ) FastSIMD::BitwiseAndNot_m32<FS>( __VA_ARGS__ )
 
 
+/// <summary>
+/// return ZeroExtend( a >> b )
+/// </summary>
+/// <code>
+/// float32v FS_BitwiseShiftRightZX_f32( float32v a, int32_t b )
+/// </code>
+#define FS_BitwiseShiftRightZX_f32( ... ) FS::BitwiseShiftRightZX_f32( __VA_ARGS__ )
+
+/// <summary>
+/// return ZeroExtend( a >> b )
+/// </summary>
+/// <code>
+/// float32v FS_BitwiseShiftRightZX_i32( int32v a, int32_t b )
+/// </code>
+#define FS_BitwiseShiftRightZX_i32( ... ) FS::BitwiseShiftRightZX_i32( __VA_ARGS__ )
+
 // Abs
 
 /// <summary>
@@ -301,6 +317,39 @@
 /// float32v FS_Sin_f32( float32v a )
 /// </code>
 #define FS_Sin_f32( ... ) FastSIMD::Sin_f32<FS>( __VA_ARGS__ )
+
+// Math
+
+/// <summary>
+/// return pow( v, pow )
+/// </summary>
+/// <code>
+/// float32v FS_Pow_f32( float32v v, float32v pow )
+/// </code>
+#define FS_Pow_f32( ... ) FastSIMD::Pow_f32<FS>( __VA_ARGS__ )
+
+/// <summary>
+/// return log( a )
+/// </summary>
+/// <remarks>
+/// a <= 0 returns 0
+/// </remarks>
+/// <code>
+/// float32v FS_Log_f32( float32v a )
+/// </code>
+#define FS_Log_f32( ... ) FastSIMD::Log_f32<FS>( __VA_ARGS__ )
+
+/// <summary>
+/// return exp( a )
+/// </summary>
+/// <remarks>
+/// a will be clamped to -88.376, 88.376
+/// </remarks>
+/// <code>
+/// float32v FS_Exp_f32( float32v a )
+/// </code>
+#define FS_Exp_f32( ... ) FastSIMD::Exp_f32<FS>( __VA_ARGS__ )
+
 
 // Mask
 
@@ -644,5 +693,113 @@ namespace FastSIMD
     FS_INLINE typename FS::float32v Sin_f32( typename FS::float32v value )
     {
         return Cos_f32<FS>( typename FS::float32v( 1.570796f ) - value );
+    }
+
+    template<typename FS>
+    FS_INLINE typename FS::float32v Exp_f32( typename FS::float32v x )
+    {
+        typedef typename FS::int32v int32v;
+        typedef typename FS::float32v float32v;
+
+        x = FS_Min_f32( x, float32v( 88.3762626647949f ) );
+        x = FS_Max_f32( x, float32v( -88.3762626647949f ) );
+
+        /* express exp(x) as exp(g + n*log(2)) */
+        float32v fx = x * float32v( 1.44269504088896341f );
+        fx += float32v( 0.5f );
+
+        float32v flr = FS_Floor_f32( fx );  
+        fx = FS_MaskedSub_f32( flr, float32v( 1 ), flr > fx );
+
+        x -= fx * float32v( 0.693359375f );
+        x -= fx * float32v( -2.12194440e-4f );
+
+        float32v y( 1.9875691500E-4f );
+        y *= x;
+        y += float32v( 1.3981999507E-3f );
+        y *= x;
+        y += float32v( 8.3334519073E-3f );
+        y *= x;
+        y += float32v( 4.1665795894E-2f );
+        y *= x;
+        y += float32v( 1.6666665459E-1f );
+        y *= x;
+        y += float32v( 5.0000001201E-1f );
+        y *= x * x;
+        y += x + float32v( 1 );        
+
+        /* build 2^n */
+        int32v i = FS_Convertf32_i32( fx );
+        // another two AVX2 instructions
+        i += int32v( 0x7f );
+        i <<= 23;
+        float32v pow2n = FS_Casti32_f32( i );
+        
+        return y * pow2n;        
+    }
+
+    template<typename FS>
+    FS_INLINE typename FS::float32v Log_f32( typename FS::float32v x )
+    {
+        typedef typename FS::int32v int32v;
+        typedef typename FS::float32v float32v;
+        typedef typename FS::mask32v mask32v;
+                
+        mask32v validMask = x > float32v( 0 );
+
+        x = FS_Max_f32( x, FS_Casti32_f32( int32v( 0x00800000 ) ) );  /* cut off denormalized stuff */
+
+        // can be done with AVX2
+        int32v i = FS_BitwiseShiftRightZX_i32( FS_Castf32_i32( x ), 23 );
+
+        /* keep only the fractional part */
+        x &= FS_Casti32_f32( int32v( ~0x7f800000 ) );
+        x |= float32v( 0.5f );
+
+        // this is again another AVX2 instruction
+        i -= int32v( 0x7f );
+        float32v e = FS_Converti32_f32( i );
+
+        e += float32v( 1 );
+
+        mask32v mask = x < float32v( 0.707106781186547524f );
+        x = FS_MaskedAdd_f32( x, x, mask );
+        x -= float32v( 1 );
+        e = FS_MaskedSub_f32( e, float32v( 1 ), mask );
+
+        float32v y = float32v( 7.0376836292E-2f );
+        y *= x;
+        y += float32v( -1.1514610310E-1f );
+        y *= x;
+        y += float32v( 1.1676998740E-1f );
+        y *= x;
+        y += float32v( -1.2420140846E-1f );
+        y *= x;
+        y += float32v( 1.4249322787E-1f );
+        y *= x;
+        y += float32v( -1.6668057665E-1f );
+        y *= x;
+        y += float32v( 2.0000714765E-1f );
+        y *= x;
+        y += float32v( -2.4999993993E-1f );
+        y *= x;
+        y += float32v( 3.3333331174E-1f );
+        y *= x;
+
+        float32v xx = x * x;
+        y *= xx;
+        y *= e * float32v( -2.12194440e-4f );
+        y -= xx * float32v( 0.5f );
+
+        x += y;
+        x += e * float32v( 0.693359375f );
+
+        return FS_Mask_f32( x, validMask );
+    }
+
+    template<typename FS>
+    FS_INLINE typename FS::float32v Pow_f32( typename FS::float32v value, typename FS::float32v pow )
+    {
+        return Exp_f32<FS>( pow * Log_f32<FS>( value ) );
     }
 }

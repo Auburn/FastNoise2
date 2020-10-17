@@ -56,6 +56,40 @@ class FS_T<FastNoise::Divide, FS> : public virtual FastNoise::Divide, public FS_
 };
 
 template<typename FS>
+class FS_T<FastNoise::PowFloat, FS> : public virtual FastNoise::PowFloat, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+    FASTNOISE_IMPL_GEN_T;
+    
+    template<typename... P> 
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        return FS_Pow_f32( this->GetSourceValue( mValue, seed, pos... ), this->GetSourceValue( mPow, seed, pos... ) );
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::PowInt, FS> : public virtual FastNoise::PowInt, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+    FASTNOISE_IMPL_GEN_T;
+    
+    template<typename... P> 
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v value = this->GetSourceValue( mValue, seed, pos... );
+        float32v pow = value * value;
+
+        for( int32_t i = 2; i < mPow; i++ )
+        {
+            pow *= value;
+        }
+
+        return pow;
+    }
+};
+
+template<typename FS>
 class FS_T<FastNoise::Min, FS> : public virtual FastNoise::Min, public FS_T<FastNoise::Generator, FS>
 {
     FASTSIMD_DECLARE_FS_TYPES;

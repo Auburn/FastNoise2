@@ -3,8 +3,6 @@
 #include "VecTools.h"
 #include <algorithm>
 
-#include "SSE.h"
-
 namespace FastSIMD
 {
     template<typename OUT, typename IN>
@@ -332,6 +330,16 @@ namespace FastSIMD
         FS_INLINE static int32v BitwiseAndNot_i32( int32v a, int32v b )
         {
             return a & ~b;
+        }
+
+        FS_INLINE static float32v BitwiseShiftRightZX_f32( float32v a, int32_t b )
+        {
+            return Casti32_f32( int32_t( uint32_t( Castf32_i32( a ) ) >> b ) );
+        }
+
+        FS_INLINE static int32v BitwiseShiftRightZX_i32( int32v a, int32_t b )
+        {
+            return int32_t( uint32_t( a ) >> b );
         }
 
         // Abs
