@@ -1,6 +1,8 @@
 #pragma once
 #include "Generator.h"
 
+#include <climits>
+
 namespace FastNoise
 {
     class OperatorSourceLHS : public virtual Generator
