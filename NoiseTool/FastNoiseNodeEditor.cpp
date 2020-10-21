@@ -278,6 +278,8 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
     auto* root = new MetadataMenuGroup( "" );
     mContextMetadata.emplace_back( root );
 
+    auto menuSort = []( const MetadataMenu* a, const MetadataMenu* b ) { return std::strcmp( a->GetName(), b->GetName() ) < 0; };
+
     for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
     {
         auto* metaDataGroup = root;
@@ -294,6 +296,8 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
                 mContextMetadata.emplace_back( newGroup );
                 metaDataGroup->items.emplace_back( newGroup );
                 find = groupMap.emplace( groupTree, newGroup ).first;
+
+                std::sort( metaDataGroup->items.begin(), metaDataGroup->items.end(), menuSort );
             }
 
             metaDataGroup = find->second;
@@ -301,6 +305,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
         }
 
         metaDataGroup->items.emplace_back( mContextMetadata.emplace_back( new MetadataMenuItem( metadata ) ).get() );
+        std::sort( metaDataGroup->items.begin(), metaDataGroup->items.end(), menuSort );
     }
 }
 
