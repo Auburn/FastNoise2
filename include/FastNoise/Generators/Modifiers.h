@@ -233,4 +233,27 @@ namespace FastNoise
             }
         };    
     };
+
+    class DomainAxisScale : public virtual Generator
+    {
+    public:
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+
+        template<Dim D>
+        void SetScale( float value ) { mScale[(int)D] = value; }
+
+    protected:
+        GeneratorSource mSource;
+        PerDimensionVariable<float> mScale;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Modifiers" );
+                this->AddGeneratorSource( "Source", &DomainAxisScale::SetSource );
+                this->AddPerDimensionVariable( "Scale", 1.0f, []( DomainAxisScale* p ) { return std::ref( p->mScale ); } );
+            }
+        };
+    };
 }

@@ -148,3 +148,19 @@ class FS_T<FastNoise::Terrace, FS> : public virtual FastNoise::Terrace, public F
         return rounded * float32v( mMultiplierRecip );
     }
 };
+
+template<typename FS>
+class FS_T<FastNoise::DomainAxisScale, FS> : public virtual FastNoise::DomainAxisScale, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        size_t idx = 0;
+        ((pos *= float32v( mScale[idx++] )), ...);
+
+        return this->GetSourceValue( mSource, seed, pos... );
+    }
+};
