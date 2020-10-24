@@ -126,8 +126,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
     {
-        static float F4 = (2.236067977499f - 1.0f) / 4.0f;
-        static float G4 = (5.0f - 2.236067977499f) / 20.0f;
+        const float SQRT5 = 2.236067977499f;
+        const float F4 = (SQRT5 - 1.0f) / 4.0f;
+        const float G4 = (5.0f - SQRT5) / 20.0f;
 
         float32v s = float32v( F4 ) * (x + y + z + w);
         x += s;
@@ -160,27 +161,27 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         int32v rankz( 0 );
         int32v rankw( 0 );
 
-        mask32v x_ge_y( x0 > y0 );
+        mask32v x_ge_y = x0 >= y0;
         rankx = FS_MaskedIncrement_i32( rankx, x_ge_y );
         ranky = FS_MaskedIncrement_i32( ranky, ~x_ge_y );
 
-        mask32v x_ge_z( x0 > z0 );
+        mask32v x_ge_z = x0 >= z0;
         rankx = FS_MaskedIncrement_i32( rankx, x_ge_z );
         rankz = FS_MaskedIncrement_i32( rankz, ~x_ge_z );
 
-        mask32v x_ge_w( x0 > w0 );
+        mask32v x_ge_w = x0 >= w0;
         rankx = FS_MaskedIncrement_i32( rankx, x_ge_w );
         rankw = FS_MaskedIncrement_i32( rankw, ~x_ge_w );
 
-        mask32v y_ge_z( y0 > z0 );
+        mask32v y_ge_z = y0 >= z0;
         ranky = FS_MaskedIncrement_i32( ranky, y_ge_z );
         rankz = FS_MaskedIncrement_i32( rankz, ~y_ge_z );
 
-        mask32v y_ge_w( y0 > w0 );
+        mask32v y_ge_w = y0 >= w0;
         ranky = FS_MaskedIncrement_i32( ranky, y_ge_w );
         rankw = FS_MaskedIncrement_i32( rankw, ~y_ge_w );
 
-        mask32v z_ge_w( z0 > w0 );
+        mask32v z_ge_w = z0 >= w0;
         rankz = FS_MaskedIncrement_i32( rankz, z_ge_w );
         rankw = FS_MaskedIncrement_i32( rankw, ~z_ge_w );
 
@@ -263,7 +264,7 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
-        const float SQRT3 = 1.7320508075688772935274463415059f;
+        const float SQRT3 = 1.7320508075f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
         const float G2 = (3.0f - SQRT3) / 6.0f;
 
