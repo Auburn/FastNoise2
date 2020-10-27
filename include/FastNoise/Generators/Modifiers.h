@@ -261,12 +261,12 @@ namespace FastNoise
     {
     public:
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetNewAxisPosition( float value ) { mNewAxisPosition = value; }
-        void SetNewAxisPosition( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mNewAxisPosition, gen ); }
+        void SetNewDimensionPosition( float value ) { mNewDimensionPosition = value; }
+        void SetNewDimensionPosition( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mNewDimensionPosition, gen ); }
 
     protected:
         GeneratorSource mSource;
-        HybridSource mNewAxisPosition;
+        HybridSource mNewDimensionPosition;
 
         FASTNOISE_METADATA( Generator )
 
@@ -274,7 +274,7 @@ namespace FastNoise
             {
                 groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &AddDimension::SetSource );
-                this->AddHybridSource( "New Axis Position", 0.0f, &AddDimension::SetNewAxisPosition, &AddDimension::SetNewAxisPosition );
+                this->AddHybridSource( "New Dimension Position", 0.0f, &AddDimension::SetNewDimensionPosition, &AddDimension::SetNewDimensionPosition );
             }
         };
     };
@@ -283,11 +283,11 @@ namespace FastNoise
     {
     public:
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetRemoveAxis( Dim dimension ) { mRemoveAxis = dimension; }
+        void SetRemoveDimension( Dim dimension ) { mRemoveDimension = dimension; }
 
     protected:
         GeneratorSource mSource;
-        Dim mRemoveAxis = Dim::Y;
+        Dim mRemoveDimension = Dim::Y;
 
         FASTNOISE_METADATA( Generator )
 
@@ -295,7 +295,7 @@ namespace FastNoise
             {
                 groups.push_back( "Modifiers" );
                 this->AddGeneratorSource( "Source", &RemoveDimension::SetSource );
-                this->AddVariableEnum( "Remove Axis", Dim::Y, &RemoveDimension::SetRemoveAxis, "X", "Y", "Z", "W" );
+                this->AddVariableEnum( "Remove Dimension", Dim::Y, &RemoveDimension::SetRemoveDimension, "X", "Y", "Z", "W" );
             }
         };
     };

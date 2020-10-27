@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <Magnum/Math/Color.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/ImGuiIntegration/Context.h>

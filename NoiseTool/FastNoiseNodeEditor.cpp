@@ -9,6 +9,7 @@
 #include <Magnum/PixelFormat.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
+#include <Corrade/Containers/ArrayViewStl.h>
 
 #include "ImGuiExtra.h"
 
@@ -354,9 +355,9 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         imnodes::BeginNodeEditor();
 
-        DoNodes();
-
         DoContextMenu();
+
+        DoNodes();
 
         imnodes::EndNodeEditor();
 
@@ -622,6 +623,8 @@ void FastNoiseNodeEditor::DoNodes()
 
         for( size_t i = 0; i < nodeMetadata->memberVariables.size(); i++ )
         {
+            imnodes::BeginStaticAttribute( 0 );
+
             auto& nodeVar = nodeMetadata->memberVariables[i];
 
             FormatMemberName( formatName, nodeVar.name, nodeVar.dimensionIdx );
@@ -654,6 +657,8 @@ void FastNoiseNodeEditor::DoNodes()
             }
             break;
             }
+
+            imnodes::EndStaticAttribute();
         }
 
         ImGui::PopItemWidth();

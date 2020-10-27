@@ -186,7 +186,7 @@ class FS_T<FastNoise::AddDimension, FS> : public virtual FastNoise::AddDimension
         }
         else
         {
-            return this->GetSourceValue( mSource, seed, pos..., this->GetSourceValue( mNewAxisPosition, seed, pos... ) );
+            return this->GetSourceValue( mSource, seed, pos..., this->GetSourceValue( mNewDimensionPosition, seed, pos... ) );
         }
     }
 };
@@ -203,7 +203,7 @@ class FS_T<FastNoise::RemoveDimension, FS> : public virtual FastNoise::RemoveDim
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
-        switch( mRemoveAxis )
+        switch( mRemoveDimension )
         {
         case FastNoise::Dim::X:
             return this->GetSourceValue( mSource, seed, y, z );
@@ -218,7 +218,7 @@ class FS_T<FastNoise::RemoveDimension, FS> : public virtual FastNoise::RemoveDim
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
     {
-        switch( mRemoveAxis )
+        switch( mRemoveDimension )
         {
         case FastNoise::Dim::X:
             return this->GetSourceValue( mSource, seed, y, z, w );
