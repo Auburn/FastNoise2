@@ -58,6 +58,12 @@ class FS_T<FastNoise::DomainRotate, FS> : public virtual FastNoise::DomainRotate
             FS_FMulAdd_f32( x, float32v( mYa ), FS_FMulAdd_f32( y, float32v( mYb ), z * float32v( mYc ) ) ),
             FS_FMulAdd_f32( x, float32v( mZa ), FS_FMulAdd_f32( y, float32v( mZb ), z * float32v( mZc ) ) ) );
     }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    {
+        // No rotation for 4D yet
+        return this->GetSourceValue( mSource, seed, x, y, z, w );
+    }
 };
 
 template<typename FS>
@@ -162,5 +168,68 @@ class FS_T<FastNoise::DomainAxisScale, FS> : public virtual FastNoise::DomainAxi
         ((pos *= float32v( mScale[idx++] )), ...);
 
         return this->GetSourceValue( mSource, seed, pos... );
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::AddDimension, FS> : public virtual FastNoise::AddDimension, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        if constexpr( sizeof...(P) == (size_t)FastNoise::Dim::Count )
+        {
+            return this->GetSourceValue( mSource, seed, pos... );
+        }
+        else
+        {
+            return this->GetSourceValue( mSource, seed, pos..., this->GetSourceValue( mNewAxisPosition, seed, pos... ) );
+        }
+    }
+};
+
+template<typename FS>
+class FS_T<FastNoise::RemoveDimension, FS> : public virtual FastNoise::RemoveDimension, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    {
+        return this->GetSourceValue( mSource, seed, x, y );
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    {
+        switch( mRemoveAxis )
+        {
+        case FastNoise::Dim::X:
+            return this->GetSourceValue( mSource, seed, y, z );
+        case FastNoise::Dim::Y:
+            return this->GetSourceValue( mSource, seed, x, z );
+        case FastNoise::Dim::Z:
+            return this->GetSourceValue( mSource, seed, x, y );
+        default:
+            return this->GetSourceValue( mSource, seed, x, y, z );
+        }
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    {
+        switch( mRemoveAxis )
+        {
+        case FastNoise::Dim::X:
+            return this->GetSourceValue( mSource, seed, y, z, w );
+        case FastNoise::Dim::Y:
+            return this->GetSourceValue( mSource, seed, x, z, w );
+        case FastNoise::Dim::Z:
+            return this->GetSourceValue( mSource, seed, x, y, w );
+        case FastNoise::Dim::W:
+            return this->GetSourceValue( mSource, seed, x, y, z );
+        default:
+            return this->GetSourceValue( mSource, seed, x, y, z, w );
+        }
     }
 };

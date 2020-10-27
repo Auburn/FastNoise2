@@ -256,4 +256,47 @@ namespace FastNoise
             }
         };
     };
+
+    class AddDimension : public virtual Generator
+    {
+    public:
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetNewAxisPosition( float value ) { mNewAxisPosition = value; }
+        void SetNewAxisPosition( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mNewAxisPosition, gen ); }
+
+    protected:
+        GeneratorSource mSource;
+        HybridSource mNewAxisPosition;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Modifiers" );
+                this->AddGeneratorSource( "Source", &AddDimension::SetSource );
+                this->AddHybridSource( "New Axis Position", 0.0f, &AddDimension::SetNewAxisPosition, &AddDimension::SetNewAxisPosition );
+            }
+        };
+    };
+
+    class RemoveDimension : public virtual Generator
+    {
+    public:
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetRemoveAxis( Dim dimension ) { mRemoveAxis = dimension; }
+
+    protected:
+        GeneratorSource mSource;
+        Dim mRemoveAxis = Dim::Y;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Modifiers" );
+                this->AddGeneratorSource( "Source", &RemoveDimension::SetSource );
+                this->AddVariableEnum( "Remove Axis", Dim::Y, &RemoveDimension::SetRemoveAxis, "X", "Y", "Z", "W" );
+            }
+        };
+    };
 }
