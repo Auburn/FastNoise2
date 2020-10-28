@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <unordered_set>
 #include <vector>
+#include <cstdint>
 
 #include "FastNoise_Config.h"
 #include "FastSIMD/FastSIMD.h"
@@ -15,9 +16,8 @@ namespace FastNoise
     struct PerDimensionVariable;
     struct NodeData;
 
-    class Metadata
+    struct Metadata
     {
-    public:
         Metadata( const char* className )
         {
             name = className;
@@ -91,13 +91,6 @@ namespace FastNoise
 
             std::function<void( Generator*, ValueUnion )> setFunc;
         };
-
-        //! Specialisation for Functor/Lambdas
-        template<typename F, typename Ret, typename... Args>
-        static std::tuple<Args...> getArgs( Ret( F::* )(Args...) const );
-
-        template<typename F, std::size_t I>
-        using GetArg = std::tuple_element_t<I, decltype(getArgs( &F::operator() ))>;
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
         void AddVariable( const char* name, T defaultV, U&& func, T minV = 0, T maxV = 0 )
@@ -293,6 +286,12 @@ namespace FastNoise
         virtual Generator* NodeFactory( FastSIMD::eLevel level = FastSIMD::Level_Null ) const = 0;
 
     private:
+        template<typename F, typename Ret, typename... Args>
+        static std::tuple<Args...> GetArg_Helper( Ret( F::* )(Args...) const );
+
+        template<typename F, std::size_t I>
+        using GetArg = std::tuple_element_t<I, decltype(GetArg_Helper( &F::operator() ))>;
+
         static uint16_t AddMetadataClass( const Metadata* newMetadata )
         {
             sMetadataClasses.emplace_back( newMetadata );
@@ -328,9 +327,9 @@ namespace FastNoise
 
 #define FASTNOISE_METADATA( ... ) public:\
     FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );\
-    const FastNoise::Metadata* GetMetadata() override;\
+    const FastNoise::Metadata* GetMetadata() const override;\
     struct Metadata : __VA_ARGS__::Metadata{\
-    virtual Generator* NodeFactory( FastSIMD::eLevel ) const override;
+    Generator* NodeFactory( FastSIMD::eLevel ) const override;
 
 #define FASTNOISE_METADATA_ABSTRACT( ... ) public:\
     struct Metadata : __VA_ARGS__::Metadata{

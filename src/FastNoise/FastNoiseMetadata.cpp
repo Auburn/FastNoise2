@@ -323,7 +323,7 @@ FastNoise::NodeData* FastNoise::Metadata::DeserialiseNodeData( const std::vector
 
 #define FASTSIMD_BUILD_CLASS2( CLASS ) \
 const CLASS::Metadata g ## CLASS ## Metadata( #CLASS );\
-const FastNoise::Metadata* CLASS::GetMetadata()\
+const FastNoise::Metadata* CLASS::GetMetadata() const\
 {\
     return &g ## CLASS ## Metadata;\
 }\

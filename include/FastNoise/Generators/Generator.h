@@ -76,6 +76,7 @@ namespace FastNoise
         virtual ~Generator() = default;
 
         virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
+        virtual const Metadata* GetMetadata() const = 0;
 
         virtual OutputMinMax GenUniformGrid2D( float* noiseOut,
             int32_t xStart, int32_t yStart,
@@ -99,7 +100,6 @@ namespace FastNoise
             int32_t xSize,  int32_t ySize, 
             float frequency, int32_t seed ) const = 0;  
 
-        virtual const Metadata* GetMetadata() = 0;
 
     protected:
         template<typename T>
