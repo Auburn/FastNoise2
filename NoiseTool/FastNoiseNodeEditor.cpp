@@ -18,7 +18,7 @@ using namespace Magnum;
 void FormatClassName( std::string& string, const char* name )
 {
     string = name;
-    for( int i = 1; i < string.size(); i++ )
+    for( size_t i = 1; i < string.size(); i++ )
     {
         if( (isdigit( string[i] ) || isupper( string[i] )) && islower( string[i - 1] ) )
         {

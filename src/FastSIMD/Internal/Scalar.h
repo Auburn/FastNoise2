@@ -2,6 +2,7 @@
 
 #include "VecTools.h"
 #include <algorithm>
+#include <cmath>
 
 namespace FastSIMD
 {

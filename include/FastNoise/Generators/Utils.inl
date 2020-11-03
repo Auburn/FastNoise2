@@ -30,11 +30,20 @@ namespace FastNoise
             int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
             // Bit-4 = Choose X Y ordering
-            mask32v xy = index << 29;
+            mask32v xy;
 
-            if constexpr( FS::SIMD_Level > FastSIMD::Level_Scalar && FS::SIMD_Level < FastSIMD::Level_SSE41 )
+            if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
             {
-                xy >>= 31;
+                xy = int32_t( index & int32v( 1 << 2 ) ) != 0;
+            }
+            else
+            {
+                xy = index << 29;
+
+                if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+                {
+                    xy >>= 31;
+                }
             }
 
             float32v a = FS_Select_f32( xy, fY, fX );
@@ -44,7 +53,17 @@ namespace FastNoise
             b ^= FS_Casti32_f32( index << 31 );
 
             // Bit-2 = Mul a by 2 or Root3
-            mask32v aMul2 = (index << 30) >> 31;
+            mask32v aMul2;
+
+            if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
+            {
+                aMul2 = int32_t( index & int32v( 1 << 1 ) ) != 0;
+            }
+            else
+            {
+                aMul2 = (index << 30) >> 31;
+            }
+
             a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
             // b zero value if a mul 2
             b = FS_NMask_f32( b, aMul2 );
@@ -85,11 +104,20 @@ namespace FastNoise
 
             int32v  bit1 = (hash << 31);
             int32v  bit2 = (hash >> 1) << 31;
-            mask32v bit4 = (hash << 29);
+            mask32v bit4;
 
-            if constexpr( FS::SIMD_Level > FastSIMD::Level_Scalar && FS::SIMD_Level < FastSIMD::Level_SSE41 )
+            if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
             {
-                bit4 >>= 31;
+                bit4 = int32_t( hash & int32v( 1 << 2 ) ) != 0;
+            }
+            else
+            {
+                bit4 = hash << 29;
+
+                if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+                {
+                    bit4 >>= 31;
+                }
             }
 
             fX ^= FS_Casti32_f32( bit1 );

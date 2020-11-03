@@ -22,7 +22,7 @@ namespace FastSIMD
         static constexpr eLevel GetNextCompiledAfter = (L == HEAD) ? SIMDTypeContainer<TAIL...>::MinimumCompiled : SIMDTypeContainer<TAIL...>::template GetNextCompiledAfter<L>;
     };
 
-    typedef SIMDTypeContainer<
+    using SIMDTypeList = SIMDTypeContainer<
         Level_Scalar,
         Level_SSE,
         Level_SSE2,
@@ -33,7 +33,5 @@ namespace FastSIMD
         Level_AVX,
         Level_AVX2,
         Level_AVX512,
-        Level_NEON
-    >
-        SIMDTypeList;
+        Level_NEON>;
 }

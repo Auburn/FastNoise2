@@ -138,7 +138,7 @@ namespace Magnum
         {
             size_t operator()( const Vector3i& v ) const
             {
-                return (size_t)v.x() ^ ((size_t)v.y() << 16) ^ ((size_t)v.z() << 32);
+                return (size_t)v.x() ^ ((size_t)v.y() << sizeof( size_t ) * 2) ^ ((size_t)v.z() << sizeof( size_t ) * 4);
             }
         };
 
