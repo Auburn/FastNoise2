@@ -6,7 +6,7 @@
 #include "FastSIMD/FastSIMD.h"
 
 #ifdef _MSC_VER
-#if _M_IX86_FP == 0
+#if _M_IX86_FP < 2
 #define FS_VECTORCALL
 #else
 #define FS_VECTORCALL __vectorcall
