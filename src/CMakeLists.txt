@@ -63,6 +63,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
 if(MSVC)
     target_compile_options(FastNoise PRIVATE /GS- /fp:fast)
 endif()
+    set_source_files_properties(FastSIMD/FastSIMD_Level_SSE2.cpp PROPERTIES COMPILE_FLAGS "-msse2")
     set_source_files_properties(FastSIMD/FastSIMD_Level_SSE3.cpp PROPERTIES COMPILE_FLAGS "-msse3")
     set_source_files_properties(FastSIMD/FastSIMD_Level_SSSE3.cpp PROPERTIES COMPILE_FLAGS "-mssse3")
     set_source_files_properties(FastSIMD/FastSIMD_Level_SSE41.cpp PROPERTIES COMPILE_FLAGS "-msse4.1")
