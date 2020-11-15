@@ -1,4 +1,6 @@
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include "NoiseTexture.h"
 
@@ -65,15 +67,30 @@ void NoiseTexture::Draw()
 
         edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "2D Tiled\0" "3D Slice\0" );
         edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 3 );
-        
+
+        ImVec2 contentSize = ImGui::GetContentRegionAvail();
+
+        int texSize[2] = { mBuildData.size.x(), mBuildData.size.y() };
+        ImGui::SameLine();
+
+        if( ImGui::DragInt2( "Size", texSize, 2, 16, 8192 ) )
+        {
+            ImVec2 delta( (float)(texSize[0] - mBuildData.size.x()), (float)(texSize[1] - mBuildData.size.y()) );
+
+            ImVec2 windowSize = ImGui::GetWindowSize();
+
+            windowSize += delta;
+            contentSize += delta;
+
+            ImGui::SetWindowSize( windowSize );
+        }
+
         ImGui::PopItemWidth();
 
-        ImVec2 winSize = ImGui::GetContentRegionAvail();
-
-        if( winSize.x >= 1 && winSize.y >= 1 &&
-            (edited || mBuildData.size.x() != winSize.x || mBuildData.size.y() != winSize.y) )
+        if( contentSize.x >= 1 && contentSize.y >= 1 &&
+            (edited || mBuildData.size.x() != (int)contentSize.x || mBuildData.size.y() != (int)contentSize.y) )
         {
-            mBuildData.size = { (int)winSize.x, (int)winSize.y };
+            mBuildData.size = { (int)contentSize.x, (int)contentSize.y };
             ReGenerate( mBuildData.generator );
         }
 

@@ -155,6 +155,7 @@ namespace Magnum
         std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
         std::vector<Vector3i> mDistanceOrderedChunks;
 
+        bool mEnabled = true;
         Chunk::BuildData mBuildData;
         float mLoadRange = 300.0f;
         float mAvgNewChunks = 1.0f;

@@ -61,7 +61,12 @@ void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
 
 void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
-    if( !mBuildData.generator )
+    if( ImGui::Checkbox( "Generate Mesh Preview", &mEnabled ) )
+    {
+        ReGenerate( mBuildData.generator );        
+    }
+
+    if( !mBuildData.generator || !mEnabled )
     {
         return;
     }
@@ -96,17 +101,16 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     mTriCount /= 3;
 
     //ImGui::Text( "Generating Queue Count: %llu", mGenerateQueue.Count() );
-    ImGui::Text( "Triangle Count: %0.1fK (%0.1fK)", mTriCount / 1000.0f, drawnTriCount / 3000.0f );
+    ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
     ImGui::Text( "   Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
     ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
 
-    float triLimit1000 = mTriLimit / 1000.0f;
-    if( ImGui::DragFloat( "Triangle Limit", &triLimit1000, 1000, 10000.0f, 200000.0f, "%0.1fK" ) )
+    float triLimitMil = (float)mTriLimit / 1000000.0f;
+    if( ImGui::DragFloat( "Triangle Limit", &triLimitMil, 1, 10.0f, 300.0f, "%0.1fM" ) )
     {
-        mTriLimit = (uint32_t)(triLimit1000 * 1000);
+        mTriLimit = (uint32_t)(triLimitMil * 1000000);
     }
-
 
 
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) |
