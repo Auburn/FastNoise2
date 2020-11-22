@@ -37,12 +37,12 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
     return generator;
 }
 
-void BenchFastNoiseGenerator2D( benchmark::State& state, size_t testSize, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
+void BenchFastNoiseGenerator2D( benchmark::State& state, int32_t testSize, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
 {
     FastNoise::SmartNode<> generator = BuildGenerator( state, metadata, level );
     if (!generator) return;
 
-    size_t dataSize = testSize * testSize;
+    size_t dataSize = (size_t)testSize * testSize;
 
     float* data = new float[dataSize];
     size_t totalData = 0;
@@ -59,12 +59,12 @@ void BenchFastNoiseGenerator2D( benchmark::State& state, size_t testSize, const 
     state.SetItemsProcessed( totalData );
 }
 
-void BenchFastNoiseGenerator3D( benchmark::State& state, size_t testSize, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
+void BenchFastNoiseGenerator3D( benchmark::State& state, int32_t testSize, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
 {
     FastNoise::SmartNode<> generator = BuildGenerator( state, metadata, level );
     if (!generator) return;
 
-    size_t dataSize = testSize * testSize * testSize;
+    size_t dataSize = (size_t)testSize * testSize * testSize;
 
     float* data = new float[dataSize];
     size_t totalData = 0;

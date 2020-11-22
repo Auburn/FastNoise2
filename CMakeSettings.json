@@ -3,7 +3,7 @@
         {
             "name": "x64-MSVC-Release",
             "generator": "Ninja",
-            "configurationType": "Release",
+            "configurationType": "RelWithDebInfo",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeCommandArgs": "",
@@ -39,7 +39,7 @@
         {
             "name": "x86-MSVC-Release",
             "generator": "Ninja",
-            "configurationType": "Release",
+            "configurationType": "RelWithDebInfo",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeCommandArgs": "",
@@ -75,7 +75,7 @@
         {
             "name": "x64-Clang-Release",
             "generator": "Ninja",
-            "configurationType": "Release",
+            "configurationType": "RelWithDebInfo",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeCommandArgs": "",
@@ -111,7 +111,7 @@
         {
             "name": "x86-Clang-Release",
             "generator": "Ninja",
-            "configurationType": "Release",
+            "configurationType": "RelWithDebInfo",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeCommandArgs": "",
@@ -168,7 +168,7 @@
         {
             "name": "x64-WSL-GCC-Release",
             "generator": "Ninja",
-            "configurationType": "Release",
+            "configurationType": "RelWithDebInfo",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeExecutable": "cmake",
@@ -214,7 +214,7 @@
         {
             "name": "x86-WSL-GCC-Release",
             "generator": "Ninja",
-            "configurationType": "Release",
+            "configurationType": "RelWithDebInfo",
             "buildRoot": "${projectDir}\\out\\build\\${name}",
             "installRoot": "${projectDir}\\out\\install\\${name}",
             "cmakeExecutable": "cmake",

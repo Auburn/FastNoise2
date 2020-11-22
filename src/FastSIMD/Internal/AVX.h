@@ -96,6 +96,11 @@ namespace FastSIMD
             return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_EQ_OS ) );
         }
 
+        FS_INLINE __m256i operator!=( const AVX_f32x8& rhs )
+        {
+            return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_NEQ_OS ) );
+        }
+
         FS_INLINE __m256i operator>( const AVX_f32x8& rhs )
         {
             return _mm256_castps_si256( _mm256_cmp_ps( *this, rhs, _CMP_GT_OS ) );
@@ -410,6 +415,11 @@ namespace FastSIMD
         FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
         {
             return _mm256_andnot_ps( _mm256_castsi256_ps( m ), a );
+        }
+
+        FS_INLINE static bool AnyMask_bool( mask32v m )
+        {
+            return _mm256_movemask_ps( _mm256_castsi256_ps( m ) );
         }
     };
 

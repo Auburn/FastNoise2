@@ -299,4 +299,23 @@ namespace FastNoise
             }
         };
     };
+
+    class GeneratorCache : public virtual Generator
+    {
+    public:
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+
+    protected:
+        GeneratorSource mSource;
+
+        FASTNOISE_METADATA( Generator )
+
+            Metadata( const char* className ) : Generator::Metadata( className )
+            {
+                groups.push_back( "Modifiers" );
+                this->AddGeneratorSource( "Source", &GeneratorCache::SetSource );
+            }
+        };
+    };
+    
 }

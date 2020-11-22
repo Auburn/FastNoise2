@@ -233,3 +233,45 @@ class FS_T<FastNoise::RemoveDimension, FS> : public virtual FastNoise::RemoveDim
         }
     }
 };
+
+template<typename FS>
+class FS_T<FastNoise::GeneratorCache, FS> : public virtual FastNoise::GeneratorCache, public FS_T<FastNoise::Generator, FS>
+{
+    FASTSIMD_DECLARE_FS_TYPES;
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        thread_local static void* CachedGenerator = nullptr;
+        thread_local static float32v CachedValue;
+        thread_local static float32v CachedPos[sizeof...( P )];
+        // TLS is not always aligned, so use FS_Load/FS_Store to access SIMD types
+
+        float32v arrayPos[] = { pos... };
+
+        bool isSame = (CachedGenerator == mSource.simdGeneratorPtr);
+
+        for( size_t i = 0; i < sizeof...( P ); i++ )
+        {
+            isSame &= !FS_AnyMask_bool( arrayPos[i] != FS_Load_f32( &CachedPos[i] ) );
+        }
+
+        if( !isSame )
+        {
+            CachedGenerator = mSource.simdGeneratorPtr;
+
+            float32v value = this->GetSourceValue( mSource, seed, pos... );
+            FS_Store_f32( &CachedValue, value );
+
+            for( size_t i = 0; i < sizeof...(P); i++ )
+            {
+                FS_Store_f32( &CachedPos[i], arrayPos[i] );
+            }
+
+            return value;
+        }
+
+        return FS_Load_f32( &CachedValue );
+    }
+};

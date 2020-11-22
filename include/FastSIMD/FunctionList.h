@@ -17,6 +17,10 @@
 #define FS_INLINE __attribute__((always_inline)) inline
 #endif
 
+#ifndef NDEBUG
+#undef FS_INLINE
+#define FS_INLINE inline
+#endif
 
 /// <summary>
 /// Number of 32 width elements that will fit into a vector
@@ -388,6 +392,14 @@
 /// float32v FS_NMask_f32( float32v a, mask32v m )
 /// </code>
 #define FS_NMask_f32( ... ) FS::NMask_f32( __VA_ARGS__ )
+
+/// <summary>
+/// return m.contains( true )
+/// </summary>
+/// <code>
+/// bool FS_AnyMask_bool( mask32v m )
+/// </code>
+#define FS_AnyMask_bool( ... ) FS::AnyMask_bool( __VA_ARGS__ )
 
 
 // FMA

@@ -96,6 +96,11 @@ namespace FastSIMD
             return _mm_castps_si128( _mm_cmpeq_ps( *this, rhs ) );
         }
 
+        FS_INLINE __m128i operator!=( const SSE_f32x4& rhs )
+        {
+            return _mm_castps_si128( _mm_cmpneq_ps( *this, rhs ) );
+        }
+
         FS_INLINE __m128i operator>( const SSE_f32x4& rhs )
         {
             return _mm_castps_si128( _mm_cmpgt_ps( *this, rhs ) );
@@ -507,6 +512,11 @@ namespace FastSIMD
         FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
         {
             return _mm_andnot_ps( _mm_castsi128_ps( m ), a );
+        }
+
+        FS_INLINE static bool AnyMask_bool( mask32v m )
+        {
+            return _mm_movemask_ps( _mm_castsi128_ps( m ) );
         }
     };
 

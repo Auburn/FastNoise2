@@ -85,6 +85,11 @@ namespace FastSIMD
             return vector == rhs;
         }
 
+        FS_INLINE bool operator!=( const Scalar_Float& rhs )
+        {
+            return vector != rhs;
+        }
+
         FS_INLINE bool operator>( const Scalar_Float& rhs )
         {
             return vector > rhs;
@@ -414,6 +419,11 @@ namespace FastSIMD
         FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
         {
             return m ? float32v(0) : a;
+        }
+
+        FS_INLINE static bool AnyMask_bool( mask32v m )
+        {
+            return m;
         }
     };
 }
