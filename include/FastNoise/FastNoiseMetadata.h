@@ -2,7 +2,6 @@
 #include <functional>
 #include <memory>
 #include <type_traits>
-#include <unordered_set>
 #include <vector>
 #include <cstdint>
 
@@ -29,7 +28,7 @@ namespace FastNoise
             return sMetadataClasses;
         }
 
-        static const Metadata* GetMetadataClass( uint16_t nodeId )
+        static const Metadata* GetMetadataClass( std::uint16_t nodeId )
         {
             if( nodeId < sMetadataClasses.size() )
             {
@@ -55,14 +54,14 @@ namespace FastNoise
             union ValueUnion
             {
                 float f;
-                int32_t i;
+                std::int32_t i;
 
                 ValueUnion( float v = 0 )
                 {
                     f = v;
                 }
 
-                ValueUnion( int32_t v )
+                ValueUnion( std::int32_t v )
                 {
                     i = v;
                 }
@@ -72,7 +71,7 @@ namespace FastNoise
                     return f;
                 }
 
-                operator int32_t()
+                operator std::int32_t()
                 {
                     return i;
                 }
@@ -177,7 +176,7 @@ namespace FastNoise
                 SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                 if( downCast )
                 {
-                    (dynamic_cast<U*>(g)->*func)(downCast);
+                    (dynamic_cast<U*>(g)->*func)( downCast );
                 }
                 return (bool)downCast;
             };
@@ -233,7 +232,7 @@ namespace FastNoise
                 SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s);
                 if( downCast )
                 {
-                    (dynamic_cast<U*>(g)->*funcNode)(downCast);
+                    (dynamic_cast<U*>(g)->*funcNode)( downCast );
                 }
                 return (bool)downCast;
             };
@@ -275,7 +274,7 @@ namespace FastNoise
             }
         }
 
-        uint16_t id;
+        std::uint16_t id;
         const char* name;
         std::vector<const char*> groups;
 
@@ -292,16 +291,12 @@ namespace FastNoise
         template<typename F, std::size_t I>
         using GetArg = std::tuple_element_t<I, decltype(GetArg_Helper( &F::operator() ))>;
 
-        static uint16_t AddMetadataClass( const Metadata* newMetadata )
+        static std::uint16_t AddMetadataClass( const Metadata* newMetadata )
         {
             sMetadataClasses.emplace_back( newMetadata );
 
-            return (uint16_t)sMetadataClasses.size() - 1;
+            return (std::uint16_t)sMetadataClasses.size() - 1;
         }
-
-        static bool SerialiseNodeData( NodeData* nodeData, std::vector<uint8_t>& dataStream, bool fixUp, std::unordered_set<const NodeData*> dependancies = {} );
-        static SmartNode<> DeserialiseSmartNode( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, FastSIMD::eLevel level = FastSIMD::Level_Null );
-        static NodeData* DeserialiseNodeData( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx );
 
         static std::vector<const Metadata*> sMetadataClasses;
     };
