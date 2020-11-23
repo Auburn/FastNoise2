@@ -53,6 +53,8 @@ jobs:
   Linux-GCC-x64:
     runs-on: ubuntu-latest
     steps:
+    - run: sudo apt-get update
+          
     - name: 'Install OpenGL'
       run: sudo apt-get install libgl1-mesa-dev
       
