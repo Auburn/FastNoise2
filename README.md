@@ -3,6 +3,8 @@
 
 # FastNoise2
 
+[Documentation WIP](https://github.com/Auburn/FastNoise2/wiki)
+
 WIP successor to [FastNoiseSIMD](https://github.com/Auburn/FastNoiseSIMD)
 
 FastNoise2 is a fully featured noise generation library which aims to meet all your coherent noise needs while being extremely fast
