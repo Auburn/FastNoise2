@@ -38,6 +38,8 @@ add_executable(NoiseTool
     "NoiseTexture.cpp"
     "ThirdParty/imnodes/imnodes.cpp")
  
+set(install_targets ${install_targets} NoiseTool PARENT_SCOPE)
+
 target_link_libraries(NoiseTool PUBLIC
     FastNoise
     Magnum::Application

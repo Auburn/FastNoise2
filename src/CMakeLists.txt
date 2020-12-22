@@ -51,8 +51,14 @@ add_library(FastNoise
     ${FastSIMD_internal_headers}
     ${FastSIMD_sources}
 )
+set(install_targets ${install_targets} FastNoise PARENT_SCOPE)
+set(install_fastnoise_headers ${FastNoise_headers} PARENT_SCOPE)
+set(install_fastsimd_headers ${FastSIMD_headers} PARENT_SCOPE)
 
-target_include_directories(FastNoise PUBLIC ../include)
+target_include_directories(FastNoise PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast)
@@ -86,3 +92,4 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
     set_source_files_properties(FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
     set_source_files_properties(FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512dq -mfma")
 endif()
+
