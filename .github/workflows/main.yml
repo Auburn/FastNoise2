@@ -23,12 +23,13 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         cxx: msvc
         build-type: Release
-        configure-options: -A Win32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        install-build: true
+        configure-options: -A Win32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
    
     - uses: actions/upload-artifact@v2
       with:
         name: 'Win32 Binaries'
-        path: ${{ runner.workspace }}/build/Release/bin/
+        path: ${{ runner.workspace }}/FastNoise2/install
                   
   Windows-MSVC-x64:
     runs-on: windows-latest 
@@ -73,12 +74,13 @@ jobs:
         cc: gcc
         cxx: g++
         build-type: Release
-        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        install-build: true
+        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
     
     - uses: actions/upload-artifact@v2
       with:
         name: 'Linux64 Binaries'
-        path: ${{ runner.workspace }}/build/Release/bin/
+        path: ${{ runner.workspace }}/FastNoise2/install
   
   MacOS-Clang-x64:
     runs-on: macos-latest
@@ -95,9 +97,10 @@ jobs:
       with:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
-        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        install-build: true
+        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
     
     - uses: actions/upload-artifact@v2
       with:
         name: 'MacOS64 Binaries'
-        path: ${{ runner.workspace }}/build/Release/bin/
+        path: ${{ runner.workspace }}/FastNoise2/install
