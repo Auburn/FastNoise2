@@ -43,7 +43,8 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         cxx: msvc
         build-type: Release
-        configure-options: -A x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE"
+        install-build: true
+        configure-options: -A x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
    
     - uses: actions/upload-artifact@v2
       with:
