@@ -49,7 +49,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: 'Win64 Binaries'
-        path: ${{ runner.workspace }}/build/Release/bin/
+        path: ${{ runner.workspace }}/install
                
   Linux-GCC-x64:
     runs-on: ubuntu-latest
