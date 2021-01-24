@@ -10,12 +10,15 @@ namespace FastNoise
         void SetSource( SmartNodeArg<T> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
         void SetGain( SmartNodeArg<> gen ) { mGain = 1.0f; this->SetSourceMemberVariable( mGain, gen ); CalculateFractalBounding(); }
+        void SetWeightedStrength( float value ) { mWeightedStrength = value; } 
+        void SetWeightedStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mWeightedStrength, gen ); }
         void SetOctaveCount( int32_t value ) { mOctaves = value; CalculateFractalBounding(); } 
         void SetLacunarity( float value ) { mLacunarity = value; } 
 
     protected:
         GeneratorSourceT<T> mSource;
         HybridSource mGain = 0.5f;
+        HybridSource mWeightedStrength = 0.0f;
 
         int32_t mOctaves = 3;
         float mLacunarity = 2.0f;
@@ -42,6 +45,7 @@ namespace FastNoise
 
                 this->AddGeneratorSource( sourceName, &Fractal::SetSource );
                 this->AddHybridSource( "Gain", 0.5f, &Fractal::SetGain, &Fractal::SetGain );
+                this->AddHybridSource( "Weighted Strength", 0.0f, &Fractal::SetWeightedStrength, &Fractal::SetWeightedStrength );
                 this->AddVariable( "Octaves", 3, &Fractal::SetOctaveCount, 2, 16 );
                 this->AddVariable( "Lacunarity", 2.0f, &Fractal::SetLacunarity );
             }
@@ -55,13 +59,6 @@ namespace FastNoise
         };    
     };
 
-    class FractalBillow : public virtual Fractal<>
-    {
-        FASTNOISE_METADATA( Fractal )
-            using Fractal::Metadata::Metadata;
-        };    
-    };
-
     class FractalRidged : public virtual Fractal<>
     {
         FASTNOISE_METADATA( Fractal )
@@ -69,35 +66,21 @@ namespace FastNoise
         };              
     };
 
-    class FractalRidgedMulti : public virtual Fractal<>
+    class FractalPingPong : public virtual Fractal<>
     {
     public:
-        void SetWeightAmplitude( float value ) { mWeightAmp = value; CalculateFractalBounding(); }
+        void SetPingPongStrength( float value ) { mPingPongStrength = value; }
+        void SetPingPongStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPingPongStrength, gen ); }
 
     protected:
-        float mWeightAmp = 2.0f;
-        float mWeightBounding = 2.0f / 1.75f;
-
-        void CalculateFractalBounding() override
-        {
-            Fractal::CalculateFractalBounding();
-
-            float weight = 1.0f;
-            float totalWeight = weight;
-            for( int32_t i = 1; i < mOctaves; i++ )
-            {
-                weight *= mWeightAmp;
-                totalWeight += 1.0f / weight;
-            }
-            mWeightBounding = 2.0f / totalWeight;
-        }
+        HybridSource mPingPongStrength = 0.0f;
 
         FASTNOISE_METADATA( Fractal )
 
             Metadata( const char* className ) : Fractal::Metadata( className )
             {
-                this->AddVariable( "Weight Amplitude", 2.0f, &FractalRidgedMulti::SetWeightAmplitude );
+                this->AddHybridSource( "Ping Pong Strength", 2.0f, &FractalPingPong::SetPingPongStrength, &FractalPingPong::SetPingPongStrength );
             }
-        };      
+        };    
     };
 }

@@ -23,6 +23,8 @@ namespace FastNoise
             id = AddMetadataClass( this );
         }
 
+        virtual ~Metadata() = default;
+
         static const std::vector<const Metadata*>& GetMetadataClasses()
         {
             return sMetadataClasses;
