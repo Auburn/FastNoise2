@@ -297,6 +297,14 @@ namespace FastNoise
 
                     return both;
                 }
+
+                case DistanceFunction::MaxAxis:
+                {
+                    float32v max = FS_Abs_f32( dX );
+                    ((max = FS_Max_f32( FS_Abs_f32(d), max )), ...);
+
+                    return max;
+                }
             }
         }
     };

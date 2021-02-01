@@ -18,6 +18,7 @@ namespace FastNoise
         EuclideanSquared,
         Manhattan,
         Hybrid,
+        MaxAxis,
     };
 
     struct OutputMinMax
