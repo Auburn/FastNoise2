@@ -51,22 +51,23 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
         install-build: true
-        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install ${{ matrix.cmake_options }}
-   
-    - name: 'Zip artifacts'
-      uses: papeloto/action-zip@v1
-      with:
-        files: install/
-        recursive: true
-        dest: ${{ matrix.name }}.zip    
+        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install ${{ matrix.cmake_options }}  
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.name }}-Binaries
-        path: ${{ github.workspace }}/${{ matrix.name }}.zip
+        name: ${{ matrix.name }}
+        path: ${{ github.workspace }}/install/
+   
+    - name: 'Zip artifacts'
+      if: github.event_name == 'release'
+      uses: papeloto/action-zip@v1
+      with:
+        files: install/
+        recursive: true
+        dest: ${{ matrix.name }}.zip  
         
-    - name: 'Upload release binaries'
+    - name: 'Upload release artifacts'
       if: github.event_name == 'release'
       uses: JasonEtco/upload-to-release@master
       with:
