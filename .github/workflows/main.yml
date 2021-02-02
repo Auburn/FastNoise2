@@ -53,11 +53,10 @@ jobs:
         configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install ${{ matrix.cmake_options }}
    
     - name: 'Zip artifacts'
-      uses: papeloto/action-zip@v1
+      uses: thedoctor0/zip-release@v0.4.1
       with:
-        files: ${{ runner.workspace }}/FastNoise2/install/
-        recursive: true
-        dest: ${{ matrix.name }}.zip
+        directory: ${{ runner.workspace }}/FastNoise2/install
+        filename: ${{ runner.workspace }}/${{ matrix.name }}.zip
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
