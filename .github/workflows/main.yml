@@ -7,100 +7,68 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  release:
+    types: [ create ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  Windows-MSVC-x32:
-    runs-on: windows-latest 
-    steps:
-    - uses: actions/checkout@v2
-      with:        
-        submodules: recursive                
-   
-    - name: 'Build'
-      uses: ashutoshvarma/action-cmake-build@master
-      with:
-        build-dir: ${{ runner.workspace }}/build
-        cxx: msvc
-        build-type: Release
-        install-build: true
-        configure-options: -A Win32 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
-   
-    - uses: actions/upload-artifact@v2
-      with:
-        name: 'Win32 Binaries'
-        path: ${{ runner.workspace }}/FastNoise2/install
-                  
-  Windows-MSVC-x64:
-    runs-on: windows-latest 
-    steps:
-    - uses: actions/checkout@v2
-      with:        
-        submodules: recursive                
-   
-    - name: 'Build'
-      uses: ashutoshvarma/action-cmake-build@master
-      with:
-        build-dir: ${{ runner.workspace }}/build
-        cxx: msvc
-        build-type: Release
-        install-build: true
-        configure-options: -A x64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
-   
-    - uses: actions/upload-artifact@v2
-      with:
-        name: 'Win64 Binaries'
-        path: ${{ runner.workspace }}/FastNoise2/install
-               
-  Linux-GCC-x64:
-    runs-on: ubuntu-latest
-    steps:
-    - run: sudo apt-get update
-          
-    - name: 'Install OpenGL'
-      run: sudo apt-get install libgl1-mesa-dev
+jobs:  
+  CI-Matrix::
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            name: Win32-MSVC
+            cmake_options: -A Win32
+          - os: windows-latest
+            name: Win64-MSVC
+            cmake_options: -A x64
+          - os: ubuntu-latest
+            name: Linux64-GCC
+            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+          - os: macos-latest
+            name: MacOS64-Clang
+            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+    steps:                
+    - name: 'Install OpenGL SDL2'
+      if: ${{ matrix.os }} == ubuntu-latest
+      run: sudo apt-get install libgl1-mesa-dev libsdl2-dev
       
     - name: 'Install SDL2'
-      run: sudo apt-get install libsdl2-dev
-      
-    - uses: actions/checkout@v2
-      with:        
-        submodules: recursive
-      
-    - name: 'Build'
-      uses: ashutoshvarma/action-cmake-build@master
-      with:
-        build-dir: ${{ runner.workspace }}/build
-        cc: gcc
-        cxx: g++
-        build-type: Release
-        install-build: true
-        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
-    
-    - uses: actions/upload-artifact@v2
-      with:
-        name: 'Linux64 Binaries'
-        path: ${{ runner.workspace }}/FastNoise2/install
-  
-  MacOS-Clang-x64:
-    runs-on: macos-latest
-    steps:            
-    - name: 'Install SDL2'
+      if: ${{ matrix.os }} == macos-latest
       run: brew install SDL2
       
-    - uses: actions/checkout@v2
+    - name: 'Checkout recursive' 
+      uses: actions/checkout@v2
       with:        
-        submodules: recursive
-        
-    - name: 'Build'
+        submodules: recursive                
+   
+    - name: 'CMake Build'
       uses: ashutoshvarma/action-cmake-build@master
       with:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
         install-build: true
-        configure-options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install
-    
-    - uses: actions/upload-artifact@v2
+        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install ${{ matrix.cmake_options }}
+   
+    - name: 'Zip artifacts'
+      uses: papeloto/action-zip@v1
       with:
-        name: 'MacOS64 Binaries'
-        path: ${{ runner.workspace }}/FastNoise2/install
+        files: ${{ runner.workspace }}/FastNoise2/install/
+        recursive: true
+        dest: artifact.zip
+    
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.name }} Binaries
+        path: ${{ runner.workspace }}/artifact.zip      
+        
+    - name: 'Upload release binaries'
+      if: github.event_name == 'release'
+      uses: JasonEtco/upload-to-release@master
+      with:
+        args: artifact.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
