@@ -16,6 +16,7 @@ jobs:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
@@ -68,6 +69,6 @@ jobs:
       if: github.event_name == 'release'
       uses: JasonEtco/upload-to-release@master
       with:
-        args: ${{ matrix.name }}.zip
+        args: ${{ runner.workspace }}/${{ matrix.name }}.zip   
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
