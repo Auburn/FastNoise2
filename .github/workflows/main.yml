@@ -13,7 +13,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:  
   CI-Matrix:
-    name: ${{ matrix.os }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,11 +32,11 @@ jobs:
             cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     steps:                
     - name: 'Install OpenGL SDL2'
-      if: ${{ matrix.os }} == ubuntu-latest
+      if: matrix.os == ubuntu-latest
       run: sudo apt-get install libgl1-mesa-dev libsdl2-dev
       
     - name: 'Install SDL2'
-      if: ${{ matrix.os }} == macos-latest
+      if: matrix.os == macos-latest
       run: brew install SDL2
       
     - name: 'Checkout recursive' 
@@ -57,18 +57,18 @@ jobs:
       with:
         files: ${{ runner.workspace }}/FastNoise2/install/
         recursive: true
-        dest: artifact.zip
+        dest: ${{ matrix.name }}.zip
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
         name: ${{ matrix.name }} Binaries
-        path: ${{ runner.workspace }}/artifact.zip      
+        path: ${{ runner.workspace }}/${{ matrix.name }}.zip      
         
     - name: 'Upload release binaries'
       if: github.event_name == 'release'
       uses: JasonEtco/upload-to-release@master
       with:
-        args: artifact.zip
+        args: ${{ matrix.name }}.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
