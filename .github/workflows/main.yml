@@ -56,7 +56,7 @@ jobs:
     - name: 'Zip artifacts'
       uses: papeloto/action-zip@v1
       with:
-        files: FastNoise2/install/
+        files: ${{ runner.workspace }}/FastNoise2/install/
         recursive: true
         dest: ${{ matrix.name }}.zip    
     
@@ -64,7 +64,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: ${{ matrix.name }} Binaries
-        path: ${{ runner.workspace }}/FastNoise2/install/    
+        path: ${{ runner.workspace }}/FastNoise2/install/
         
     - name: 'Upload release binaries'
       if: github.event_name == 'release'
