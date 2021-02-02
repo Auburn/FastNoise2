@@ -56,9 +56,9 @@ jobs:
     - name: 'Zip artifacts'
       uses: papeloto/action-zip@v1
       with:
-        files: ${{ runner.workspace }}/FastNoise2/install/
-        recursive: false
-        dest: ${{ runner.workspace }}/${{ matrix.name }}.zip    
+        files: ${{ runner.workspace }}/FastNoise2/install
+        recursive: true
+        dest: ${{ matrix.name }}.zip    
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
