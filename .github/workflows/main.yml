@@ -53,7 +53,7 @@ jobs:
         configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install ${{ matrix.cmake_options }}
    
     - name: 'Zip artifacts'
-      uses: thedoctor0/zip-release@v0.4.1
+      uses: thedoctor0/zip-release@0.4.1
       with:
         directory: ${{ runner.workspace }}/FastNoise2/install
         filename: ${{ runner.workspace }}/${{ matrix.name }}.zip
