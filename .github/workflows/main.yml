@@ -56,7 +56,7 @@ jobs:
     - name: 'Zip artifacts'
       uses: papeloto/action-zip@v1
       with:
-        files: FastNoise2/install/
+        files: FastNoise2/FastNoise2/install/
         recursive: true
         dest: ${{ matrix.name }}.zip    
     
