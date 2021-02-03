@@ -1,6 +1,6 @@
 #pragma once
 #include "FastSIMD/FastSIMD.h"
-#include "FastSIMD/TypeList.h"
+#include "FastSIMD/SIMDTypeList.h"
 
 template<typename CLASS, typename FS>
 class FS_T;

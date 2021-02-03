@@ -1,10 +1,14 @@
 set(CMAKE_CXX_STANDARD 17)
 
+set(install_targets ${install_targets} FastNoise PARENT_SCOPE)
+
 file(GLOB_RECURSE FastSIMD_headers "../include/FastSIMD/*.h")
 file(GLOB_RECURSE FastSIMD_include_inl "../include/FastSIMD/*.inl")
 file(GLOB FastSIMD_inline "FastSIMD/*.inl")
 file(GLOB_RECURSE FastSIMD_internal_headers "FastSIMD/Internal/*.h")
 file(GLOB_RECURSE FastSIMD_internal_inl "FastSIMD/Internal/*.inl")
+
+set(install_fastsimd_headers ${FastSIMD_headers} PARENT_SCOPE)
 
 list(APPEND FastSIMD_headers ${FastSIMD_inline})
 list(APPEND FastSIMD_headers ${FastSIMD_include_inl})
@@ -27,6 +31,9 @@ file(GLOB FastNoise_headers "../include/FastNoise/*.h")
 file(GLOB FastNoise_inl "../include/FastNoise/*.inl")
 file(GLOB_RECURSE FastNoise_generators_headers "../include/FastNoise/Generators/*.h")
 file(GLOB_RECURSE FastNoise_generators_inl "../include/FastNoise/Generators/*.inl")
+
+set(install_fastnoise_headers ${FastNoise_headers} PARENT_SCOPE)
+set(install_fastnoise_generators_headers ${FastNoise_generators_headers} PARENT_SCOPE)
 
 list(APPEND FastNoise_headers ${FastNoise_inl})
 list(APPEND FastNoise_generators_headers ${FastNoise_generators_inl})
@@ -51,10 +58,6 @@ add_library(FastNoise
     ${FastSIMD_internal_headers}
     ${FastSIMD_sources}
 )
-set(install_targets ${install_targets} FastNoise PARENT_SCOPE)
-set(install_fastnoise_headers ${FastNoise_headers} PARENT_SCOPE)
-set(install_fastnoise_generators_headers ${FastNoise_generators_headers} PARENT_SCOPE)
-set(install_fastsimd_headers ${FastSIMD_headers} PARENT_SCOPE)
 
 target_include_directories(FastNoise PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>

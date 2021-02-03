@@ -9,7 +9,7 @@
 #include <intrin.h>
 #endif
 
-#include "FastSIMD/TypeList.h"
+#include "FastSIMD/SIMDTypeList.h"
 
 
 static FastSIMD::eLevel simdLevel = FastSIMD::Level_Null;
