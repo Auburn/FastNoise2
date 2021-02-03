@@ -23,11 +23,11 @@ set(install_targets "")
 add_subdirectory(src)
 
 if(FASTNOISE2_NOISETOOL)
-	add_subdirectory(NoiseTool)
+    add_subdirectory(NoiseTool)
 endif()
 
 if(FASTNOISE2_TESTS)
-	add_subdirectory(tests)
+    add_subdirectory(tests)
 endif()
 
 
@@ -85,20 +85,20 @@ install(
 )
 
 if(FASTNOISE2_NOISETOOL)
-	if(WIN32)
-		#need sdl2 dll on windows, linux its expected to be installed
-		if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") #32bit
-			install(
-				FILES NoiseTool/ThirdParty/SDL2-2.0.12/lib/x86/SDL2.dll
-				DESTINATION "${CMAKE_INSTALL_BINDIR}"
-			)
-		else()
-			install(
-				FILES NoiseTool/ThirdParty/SDL2-2.0.12/lib/x64/SDL2.dll
-				DESTINATION "${CMAKE_INSTALL_BINDIR}"
-			)
-		endif()
-	endif()
+    if(WIN32)
+        #need sdl2 dll on windows, linux its expected to be installed
+        if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") #32bit
+            install(
+                FILES NoiseTool/ThirdParty/SDL2-2.0.12/lib/x86/SDL2.dll
+                DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            )
+        else()
+            install(
+                FILES NoiseTool/ThirdParty/SDL2-2.0.12/lib/x64/SDL2.dll
+                DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            )
+        endif()
+    endif()
 endif()
 
 # Headers:
