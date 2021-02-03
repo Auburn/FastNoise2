@@ -65,12 +65,13 @@ jobs:
       with:
         files: install/
         recursive: true
-        dest: ${{ matrix.name }}.zip  
+        dest: ${{ matrix.name }}.zip
         
     - name: 'Upload release artifacts'
       if: github.event_name == 'release'
-      uses: JasonEtco/upload-to-release@master
+      uses: svenstaro/upload-release-action@v2
       with:
-        args: ${{ github.workspace }}/${{ matrix.name }}.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ github.workspace }}/${{ matrix.name }}.zip
+        asset_name: FastNoise2-${{ matrix.name }}
+        tag: ${{ github.ref }}
