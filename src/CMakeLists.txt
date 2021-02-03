@@ -53,6 +53,7 @@ add_library(FastNoise
 )
 set(install_targets ${install_targets} FastNoise PARENT_SCOPE)
 set(install_fastnoise_headers ${FastNoise_headers} PARENT_SCOPE)
+set(install_fastnoise_generators_headers ${FastNoise_generators_headers} PARENT_SCOPE)
 set(install_fastsimd_headers ${FastSIMD_headers} PARENT_SCOPE)
 
 target_include_directories(FastNoise PUBLIC 
