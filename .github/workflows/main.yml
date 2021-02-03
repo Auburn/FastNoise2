@@ -51,7 +51,7 @@ jobs:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
         install-build: true
-        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install ${{ matrix.cmake_options }}  
+        configure-options: -DFASTNOISE2_NOISETOOL="TRUE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install/FastNoise2 ${{ matrix.cmake_options }}  
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
