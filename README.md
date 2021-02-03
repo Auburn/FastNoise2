@@ -20,7 +20,7 @@ Supports:
 - Clang
 - GCC
 
-Check the [releases](https://github.com/Auburns/FastNoise2/releases) for early versions of the Noise Tool
+Check the [releases](https://github.com/Auburn/FastNoise2/releases) for early versions of the Noise Tool
 
 ![NoiseTool](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
 
