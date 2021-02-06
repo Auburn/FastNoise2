@@ -6,7 +6,6 @@
 #include <cstdint>
 
 #include "FastNoise_Config.h"
-#include "FastSIMD/FastSIMD.h"
 
 namespace FastNoise
 {
@@ -17,9 +16,8 @@ namespace FastNoise
 
     struct Metadata
     {
-        Metadata( const char* className )
+        Metadata()
         {
-            name = className;
             id = AddMetadataClass( this );
         }
 
@@ -41,7 +39,6 @@ namespace FastNoise
         }
 
         static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
-        static SmartNode<> DeserialiseSmartNode( const char* serialisedBase64NodeData, FastSIMD::eLevel level = FastSIMD::Level_Null );
         static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
         struct MemberVariable
@@ -276,6 +273,8 @@ namespace FastNoise
             }
         }
 
+
+
         std::uint16_t id;
         const char* name;
         std::vector<const char*> groups;
@@ -321,13 +320,3 @@ namespace FastNoise
         }
     };
 }
-
-#define FASTNOISE_METADATA( ... ) public:\
-    FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );\
-    const FastNoise::Metadata* GetMetadata() const override;\
-    struct Metadata : __VA_ARGS__::Metadata{\
-    Generator* NodeFactory( FastSIMD::eLevel ) const override;
-
-#define FASTNOISE_METADATA_ABSTRACT( ... ) public:\
-    struct Metadata : __VA_ARGS__::Metadata{
-

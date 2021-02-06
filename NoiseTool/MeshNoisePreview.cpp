@@ -1,5 +1,6 @@
 #include "MeshNoisePreview.h"
 
+#include <algorithm>
 #include <imgui.h>
 #include <thread>
 #include <cmath>

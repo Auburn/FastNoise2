@@ -2,7 +2,6 @@
 
 #include "Blends.h"
 
-
 template<typename FS>
 class FS_T<FastNoise::Add, FS> : public virtual FastNoise::Add, public FS_T<FastNoise::Generator, FS>
 {

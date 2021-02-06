@@ -1,4 +1,7 @@
+#define FASTNOISE_METADATA // Should only be defined here
+
 #include "FastNoise/FastNoiseMetadata.h"
+#include "FastNoise/FastNoise.h"
 #include "Base64.h"
 
 #include <unordered_set>
@@ -267,7 +270,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
     return generator;
 }
 
-SmartNode<> Metadata::DeserialiseSmartNode( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
+SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
 {
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
@@ -371,13 +374,27 @@ NodeData* Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, s
     return DeserialiseNodeDataInternal( dataStream, nodeDataOut, startIdx, referenceNodes );
 }
 
+namespace FastNoise
+{
+    template<typename T>
+    struct MetadataT;    
+}
+
+template<typename T>
+std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
+{
+    MetadataT<T>* newMetadata( new MetadataT<T> );
+    newMetadata->name = className;
+    return std::unique_ptr<const MetadataT<T>>{ newMetadata };
+}
+
 #define FASTSIMD_BUILD_CLASS2( CLASS ) \
-const CLASS::Metadata g ## CLASS ## Metadata( #CLASS );\
-const FastNoise::Metadata* CLASS::GetMetadata() const\
+const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
+const FastNoise::Metadata& CLASS::GetMetadata() const\
 {\
-    return &g ## CLASS ## Metadata;\
+    return *g ## CLASS ## Metadata;\
 }\
-Generator* CLASS::Metadata::NodeFactory( FastSIMD::eLevel l ) const\
+Generator* FastNoise::MetadataT<CLASS>::NodeFactory( FastSIMD::eLevel l ) const\
 {\
     return FastSIMD::New<CLASS>( l );\
 }

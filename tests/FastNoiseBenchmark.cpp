@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
-#include <FastNoise/FastNoise.h>
+#include "FastNoise/FastNoise.h"
+#include "FastNoise/FastNoiseMetadata.h"
 
 #include "magic_enum.h"
 

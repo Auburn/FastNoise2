@@ -1,6 +1,4 @@
 #pragma once
-
-#include <cstdint>
 #include "FastSIMD_Config.h"
 
 namespace FastSIMD

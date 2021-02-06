@@ -1,4 +1,3 @@
-#include <cassert>
 #include "FastSIMD/InlInclude.h"
 
 #include "BasicGenerators.h"

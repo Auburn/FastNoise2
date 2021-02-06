@@ -10,8 +10,23 @@ target_link_libraries(FastNoiseBenchmark
     FastNoise
     benchmark::benchmark
 )
- 
-add_dependencies(FastNoiseBenchmark FastNoise)
+
+add_dependencies(FastNoiseBenchmark 
+    FastNoise
+)
+
+
+add_executable(FastNoiseIncludeTest
+    "FastNoiseInclude.cpp"
+)
+
+target_link_libraries(FastNoiseIncludeTest
+    FastNoise
+)
+
+add_dependencies(FastNoiseIncludeTest 
+    FastNoise
+)
 
 
 add_executable(FastSIMDTest
@@ -29,4 +44,6 @@ target_link_libraries(FastSIMDTest
     FastNoise
 )
  
-add_dependencies(FastSIMDTest FastNoise)
+add_dependencies(FastSIMDTest 
+    FastNoise
+)

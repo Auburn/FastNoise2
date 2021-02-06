@@ -1,8 +1,5 @@
 #pragma once
 
-#include <memory>
-
-#include "FastSIMD/FastSIMD.h"
 #include "FastNoise_Config.h"
 
 #include "Generators/BasicGenerators.h"
@@ -19,15 +16,12 @@
 namespace FastNoise
 {
     template<typename T>
-    inline SmartNode<T> New( FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
+    SmartNode<T> New( FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
     {
         static_assert( std::is_base_of_v<Generator, T>, "Use FastSIMD::New() to create non FastNoise classes" );
 
         return SmartNode<T>( FastSIMD::New<T>( maxLevel ) );
     }
 
-    inline SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
-    {
-        return Metadata::DeserialiseSmartNode( encodedNodeTreeString, maxLevel );
-    }
+    SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null );
 }

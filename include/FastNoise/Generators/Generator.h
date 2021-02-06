@@ -2,10 +2,24 @@
 #include <cassert>
 #include <cmath>
 
-#include "FastNoise/FastNoiseMetadata.h"
+#include "FastNoise/FastNoise_Config.h"
 
 namespace FastNoise
 {
+#if !defined( FASTNOISE_METADATA ) && defined( __INTELLISENSE__ )
+#define FASTNOISE_METADATA
+#endif
+
+#ifdef FASTNOISE_METADATA
+    template<typename T>
+    struct MetadataT;
+
+    template<>
+    struct MetadataT<Generator> : Metadata { };
+#else
+    struct Metadata;
+#endif
+
     enum class Dim
     {
         X, Y, Z, W,
@@ -77,7 +91,7 @@ namespace FastNoise
         virtual ~Generator() = default;
 
         virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
-        virtual const Metadata* GetMetadata() const = 0;
+        virtual const Metadata& GetMetadata() const = 0;
 
         virtual OutputMinMax GenUniformGrid2D( float* noiseOut,
             int32_t xStart, int32_t yStart,

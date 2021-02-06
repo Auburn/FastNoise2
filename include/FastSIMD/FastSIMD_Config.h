@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #if defined(__arm__) || defined(__aarch64__)
 #define FASTSIMD_x86 0
