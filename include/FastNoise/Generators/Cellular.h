@@ -1,6 +1,7 @@
 #pragma once
-
 #include "Generator.h"
+
+#include <algorithm>
 
 namespace FastNoise
 {
