@@ -20,6 +20,8 @@ add_executable(FastNoiseIncludeTest
     "FastNoiseInclude.cpp"
 )
 
+set_target_properties(FastNoiseIncludeTest PROPERTIES CXX_STANDARD 11)
+
 target_link_libraries(FastNoiseIncludeTest
     FastNoise
 )

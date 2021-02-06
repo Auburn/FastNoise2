@@ -1,13 +1,14 @@
 #define FASTNOISE_METADATA // Should only be defined here
 
+#include <unordered_set>
+#include <unordered_map>
+#include <type_traits>
+#include <cassert>
+#include <cstdint>
+
 #include "FastNoise/FastNoiseMetadata.h"
 #include "FastNoise/FastNoise.h"
 #include "Base64.h"
-
-#include <unordered_set>
-#include <unordered_map>
-#include <cassert>
-#include <cstdint>
 
 using namespace FastNoise;
 

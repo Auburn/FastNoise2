@@ -18,7 +18,7 @@ namespace FastNoise
     template<typename T>
     SmartNode<T> New( FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
     {
-        static_assert( std::is_base_of_v<Generator, T>, "Use FastSIMD::New() to create non FastNoise classes" );
+        static_assert( std::is_base_of<Generator, T>::value, "Use FastSIMD::New() to create non FastNoise classes" );
 
         return SmartNode<T>( FastSIMD::New<T>( maxLevel ) );
     }
