@@ -154,7 +154,7 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, "Euclidean", "Euclidean Squared", "Manhattan", "Hybrid", "MaxAxis" );
+            this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, kDistanceFunction_Strings );
         }
     };
 #endif

@@ -22,6 +22,11 @@ namespace FastNoise
         Count
     };
 
+    constexpr static const char* kDim_Strings[] =
+    {
+        "X", "Y", "Z", "W",
+    };
+
     enum class DistanceFunction
     {
         Euclidean,
@@ -29,6 +34,15 @@ namespace FastNoise
         Manhattan,
         Hybrid,
         MaxAxis,
+    };
+
+    constexpr static const char* kDistanceFunction_Strings[] =
+    {
+        "Euclidean",
+        "Euclidean Squared",
+        "Manhattan",
+        "Hybrid",
+        "Max Axis",
     };
 
     struct OutputMinMax
@@ -198,14 +212,28 @@ namespace FastNoise
             memberVariables.push_back( member );
         }
 
-        template<typename T, typename U, typename = std::enable_if_t<std::is_enum_v<T>>, typename... NAMES>
-        void AddVariableEnum( const char* name, T defaultV, void(U::* func)(T), NAMES... names )
+        template<typename T, typename U, typename = std::enable_if_t<std::is_enum_v<T>>, typename... ENUM_NAMES>
+        void AddVariableEnum( const char* name, T defaultV, void(U::* func)(T), ENUM_NAMES... enumNames )
         {
             MemberVariable member;
             member.name = name;
             member.type = MemberVariable::EEnum;
             member.valueDefault = (int32_t)defaultV;
-            member.enumNames = { names... };
+            member.enumNames = { enumNames... };
+
+            member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { (dynamic_cast<U*>(g)->*func)((T)v.i); };
+
+            memberVariables.push_back( member );
+        }
+
+        template<typename T, typename U, size_t ENUM_NAMES, typename = std::enable_if_t<std::is_enum_v<T>>>
+        void AddVariableEnum( const char* name, T defaultV, void(U::* func)(T), const char* const (&enumNames)[ENUM_NAMES] )
+        {
+            MemberVariable member;
+            member.name = name;
+            member.type = MemberVariable::EEnum;
+            member.valueDefault = (int32_t)defaultV;
+            member.enumNames = { enumNames, enumNames + ENUM_NAMES };
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v ) { (dynamic_cast<U*>(g)->*func)((T)v.i); };
 

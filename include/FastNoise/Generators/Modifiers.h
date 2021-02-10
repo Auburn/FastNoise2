@@ -383,7 +383,7 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &RemoveDimension::SetSource );
-            this->AddVariableEnum( "Remove Dimension", Dim::Y, &RemoveDimension::SetRemoveDimension, "X", "Y", "Z", "W" );
+            this->AddVariableEnum( "Remove Dimension", Dim::Y, &RemoveDimension::SetRemoveDimension, kDim_Strings );
         }
     };
 #endif
