@@ -133,28 +133,38 @@ namespace FastNoise
     };
 #endif
 
-    class DistanceToOrigin : public virtual Generator
+    class DistanceToPoint : public virtual Generator
     {
     public:
         FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }
 
+        template<Dim D>
+        void SetScale( float value ) { mPoint[(int)D] = value; }
+
     protected:
+        GeneratorSource mSource;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
+        PerDimensionVariable<float> mPoint;
+
+        template<typename T>
+        friend struct MetadataT;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<DistanceToOrigin> : MetadataT<Generator>
+    struct MetadataT<DistanceToPoint> : MetadataT<Generator>
     {
         Generator* NodeFactory( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToOrigin::SetDistanceFunction, kDistanceFunction_Strings );
+            this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToPoint::SetDistanceFunction, kDistanceFunction_Strings );
+            this->AddPerDimensionVariable( "Point", 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
         }
     };
 #endif
