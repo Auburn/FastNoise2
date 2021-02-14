@@ -191,6 +191,7 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Modifiers" );
+            this->AddGeneratorSource( "Source", &Remap::SetSource );
 
             this->AddVariable( "From Min", -1.0f,
                 []( Remap* p, float f )
@@ -246,6 +247,8 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Modifiers" );
+            this->AddGeneratorSource( "Source", &ConvertRGBA8::SetSource );
+
             this->AddVariable( "Min", -1.0f,
                 []( ConvertRGBA8* p, float f )
                 {
