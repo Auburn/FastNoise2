@@ -5,9 +5,16 @@
 
 WIP successor to [FastNoiseSIMD](https://github.com/Auburn/FastNoiseSIMD)
 
+Modular node based noise generation using SIMD, modern C++17 and templates
+
 FastNoise2 is a fully featured noise generation library which aims to meet all your coherent noise needs while being extremely fast
 
-Uses FastSIMD to compile classes with multiple SIMD types
+Uses FastSIMD to compile classes with multiple SIMD types and selects the fastest supported SIMD level at runtime
+- Scalar (non-SIMD)
+- SSE2
+- SSE4.1
+- AVX2
+- AVX512
 
 Supports:
 - 32/64 bit
