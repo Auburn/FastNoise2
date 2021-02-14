@@ -31,7 +31,7 @@ Check the [releases](https://github.com/Auburn/FastNoise2/releases) for early ve
 
 ## Performance Comparisons
 
-Benchmarked using C++ version with [NoiseBenchmarking](https://github.com/Auburn/NoiseBenchmarking)
+Benchmarked using [NoiseBenchmarking](https://github.com/Auburn/NoiseBenchmarking)
 
 - CPU: Intel 7820X @ 4.9Ghz
 - OS: Win10 x64
