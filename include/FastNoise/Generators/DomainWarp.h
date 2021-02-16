@@ -42,7 +42,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainWarpGradient> : MetadataT<DomainWarp>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 }

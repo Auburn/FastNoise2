@@ -67,7 +67,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Add> : MetadataT<OperatorSourceLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -82,7 +82,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Subtract> : MetadataT<OperatorHybridLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -97,7 +97,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Multiply> : MetadataT<OperatorSourceLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -112,7 +112,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Divide> : MetadataT<OperatorHybridLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -127,7 +127,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Min> : MetadataT<OperatorSourceLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -142,7 +142,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Max> : MetadataT<OperatorSourceLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -166,7 +166,7 @@ namespace FastNoise
     template<>
     struct MetadataT<PowFloat> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -195,7 +195,7 @@ namespace FastNoise
     template<>
     struct MetadataT<PowInt> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -223,7 +223,7 @@ namespace FastNoise
     template<>
     struct MetadataT<MinSmooth> : MetadataT<OperatorSourceLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -249,7 +249,7 @@ namespace FastNoise
     template<>
     struct MetadataT<MaxSmooth> : MetadataT<OperatorSourceLHS>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -279,7 +279,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Fade> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {

@@ -48,7 +48,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularValue> : MetadataT<Cellular>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -88,7 +88,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularDistance> : MetadataT<Cellular>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -117,7 +117,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularLookup> : MetadataT<Cellular>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {

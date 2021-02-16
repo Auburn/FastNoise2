@@ -21,7 +21,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainScale> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -58,7 +58,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainOffset> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -120,7 +120,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainRotate> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -151,7 +151,7 @@ namespace FastNoise
     template<>
     struct MetadataT<SeedOffset> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -186,7 +186,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Remap> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -242,7 +242,7 @@ namespace FastNoise
     template<>
     struct MetadataT<ConvertRGBA8> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -286,7 +286,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Terrace> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -321,7 +321,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainAxisScale> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -351,7 +351,7 @@ namespace FastNoise
     template<>
     struct MetadataT<AddDimension> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -380,7 +380,7 @@ namespace FastNoise
     template<>
     struct MetadataT<RemoveDimension> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -407,7 +407,7 @@ namespace FastNoise
     template<>
     struct MetadataT<GeneratorCache> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {

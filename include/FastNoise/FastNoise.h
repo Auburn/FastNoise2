@@ -1,7 +1,7 @@
 #pragma once
-
 #include "FastNoise_Config.h"
 
+// Node class definitions
 #include "Generators/BasicGenerators.h"
 #include "Generators/Value.h"
 #include "Generators/Perlin.h"
@@ -15,13 +15,31 @@
 
 namespace FastNoise
 {
+    /// <summary>
+    /// Create a new instance of a FastNoise node
+    /// </summary>
+    /// <example>
+    /// auto node = FastNoise::New<FastNoise::Simplex>();
+    /// </example>
+    /// <typeparam name="T">Node class to create</typeparam>
+    /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
+    /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
     template<typename T>
-    SmartNode<T> New( FastSIMD::eLevel maxLevel = FastSIMD::Level_Null )
+    SmartNode<T> New( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null )
     {
         static_assert( std::is_base_of<Generator, T>::value, "Use FastSIMD::New() to create non FastNoise classes" );
 
-        return SmartNode<T>( FastSIMD::New<T>( maxLevel ) );
+        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel ) );
     }
 
-    SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxLevel = FastSIMD::Level_Null );
+    /// <summary>
+    /// Create a tree of FastNoise nodes from an encoded string
+    /// </summary>
+    /// <example>
+    /// FastNoise::SmartNode<> rootNode = FastNoise::NewFromEncodedNodeTree( "DQAFAAAAAAAAQAgAAAAAAD8AAAAAAA==" );
+    /// </example>
+    /// <param name="encodedNodeTreeString">Can be generated using the NoiseTool</param>
+    /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
+    /// <returns>Root node of the tree, nullptr for invalid strings</returns>
+    SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null );
 }

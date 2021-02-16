@@ -6,9 +6,9 @@
 
 FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
 {    
-    FastNoise::SmartNode<> generator( metadata->NodeFactory( level ) );
+    FastNoise::SmartNode<> generator = metadata->CreateNode( level );
 
-    FastNoise::SmartNode<> source( FastSIMD::New<FastNoise::Constant>( level ) );
+    FastNoise::SmartNode<> source = FastNoise::New<FastNoise::Constant>( level );
 
     for( const auto& memberNode : metadata->memberNodes )
     {
@@ -17,7 +17,7 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
             // If constant source is not valid try all other node types in order
             for( const FastNoise::Metadata* tryMetadata : FastNoise::Metadata::GetMetadataClasses() )
             {
-                FastNoise::SmartNode<> trySource( tryMetadata->NodeFactory( level ) );
+                FastNoise::SmartNode<> trySource = tryMetadata->CreateNode( level );
 
                 // Other node types may also have sources
                 if( memberNode.setFunc( generator.get(), trySource ) )

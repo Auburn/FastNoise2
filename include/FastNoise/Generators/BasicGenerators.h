@@ -19,7 +19,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Constant> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -40,7 +40,7 @@ namespace FastNoise
     template<>
     struct MetadataT<White> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -65,7 +65,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Checkerboard> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -91,7 +91,7 @@ namespace FastNoise
     template<>
     struct MetadataT<SineWave> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -122,7 +122,7 @@ namespace FastNoise
     template<>
     struct MetadataT<PositionOutput> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -158,7 +158,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DistanceToPoint> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {

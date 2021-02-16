@@ -15,9 +15,9 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainWarpFractalProgressive> : MetadataT<Fractal<DomainWarp>>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
-        MetadataT()
+        MetadataT() : MetadataT<Fractal<DomainWarp>>( "Domain Warp Source"  )
         {
             groups.push_back( "Domain Warp" );
         }
@@ -35,9 +35,9 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainWarpFractalIndependant> : MetadataT<Fractal<DomainWarp>>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
-        MetadataT()
+        MetadataT() : MetadataT<Fractal<DomainWarp>>( "Domain Warp Source"  )
         {
             groups.push_back( "Domain Warp" );
         }

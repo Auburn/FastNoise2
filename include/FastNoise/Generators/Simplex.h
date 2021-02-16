@@ -14,7 +14,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Simplex> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
@@ -34,7 +34,7 @@ namespace FastNoise
     template<>
     struct MetadataT<OpenSimplex2> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {

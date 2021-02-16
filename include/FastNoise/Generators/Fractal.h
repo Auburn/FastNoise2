@@ -66,7 +66,7 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalFBm> : MetadataT<Fractal<>>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -81,7 +81,7 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalRidged> : MetadataT<Fractal<>>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
     };
 #endif
 
@@ -102,7 +102,7 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalPingPong> : MetadataT<Fractal<>>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {

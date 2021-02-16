@@ -12,20 +12,19 @@ namespace FastNoise
     struct PerDimensionVariable;
     struct NodeData;
 
+    // Stores definition of a FastNoise node class
+    // Node name, member name+types, functions to set members
     struct Metadata
     {
-        Metadata()
-        {
-            id = AddMetadataClass( this );
-        }
-
         virtual ~Metadata() = default;
 
+        /// <returns>Array containing metadata for every FastNoise node type</returns>
         static const std::vector<const Metadata*>& GetMetadataClasses()
         {
             return sMetadataClasses;
         }
 
+        /// <returns>Metadata for given Metadata::id</returns>
         static const Metadata* GetMetadataClass( std::uint16_t nodeId )
         {
             if( nodeId < sMetadataClasses.size() )
@@ -36,10 +35,31 @@ namespace FastNoise
             return nullptr;
         }
 
+        /// <summary>
+        /// Serialise node data and any source node datas (recursive)
+        /// </summary>
+        /// <param name="nodeData">Root node data</param>
+        /// <param name="fixUp">Remove dependency loops and invalid node types</param>
+        /// <returns>Empty string on error</returns>
         static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
+
+        /// <summary>
+        /// Deserialise a string created from SerialiseNodeData to a node data tree
+        /// </summary>
+        /// <param name="serialisedBase64NodeData">Encoded string to deserialise</param>
+        /// <param name="nodeDataOut">Storage for new node data</param>
+        /// <returns>Root node</returns>
         static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
-        struct MemberVariable
+        // Base member struct
+        struct Member
+        {
+            const char* name;
+            int dimensionIdx = -1;            
+        };
+
+        // float, int or enum value
+        struct MemberVariable : Member
         {
             enum eType
             {
@@ -79,31 +99,26 @@ namespace FastNoise
                 }
             };
 
-            const char* name;
             eType type;
-            int dimensionIdx = -1;
             ValueUnion valueDefault, valueMin, valueMax;
             std::vector<const char*> enumNames;
 
-            std::function<void( Generator*, ValueUnion )> setFunc;
+            // Function used to set value for given 
+            std::function<bool( Generator*, ValueUnion )> setFunc;
         };
 
-        struct MemberNode
+        // Node lookup (must be valid for node to function)
+        struct MemberNode : Member
         {
-            const char* name;
-            int dimensionIdx = -1;
-
             std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
         };
 
-
-        struct MemberHybrid
+        // Either a constant float or node lookup
+        struct MemberHybrid : Member
         {
-            const char* name;
             float valueDefault = 0.0f;
-            int dimensionIdx = -1;
 
-            std::function<void( Generator*, float )> setValueFunc;
+            std::function<bool( Generator*, float )> setValueFunc;
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
@@ -115,7 +130,13 @@ namespace FastNoise
         std::vector<MemberNode>     memberNodes;
         std::vector<MemberHybrid>   memberHybrids;
 
-        virtual Generator* NodeFactory( FastSIMD::eLevel level = FastSIMD::Level_Null ) const = 0;
+        virtual SmartNode<> CreateNode( FastSIMD::eLevel level = FastSIMD::Level_Null ) const = 0;
+
+    protected:
+        Metadata()
+        {
+            id = AddMetadataClass( this );
+        }
 
     private:
         static std::uint16_t AddMetadataClass( const Metadata* newMetadata )
@@ -128,6 +149,8 @@ namespace FastNoise
         static std::vector<const Metadata*> sMetadataClasses;
     };
 
+    // Stores data to create an instance of a FastNoise node
+    // Node type, member values
     struct NodeData
     {
         NodeData( const Metadata* metadata );

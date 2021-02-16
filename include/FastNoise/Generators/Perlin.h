@@ -14,7 +14,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Perlin> : MetadataT<Generator>
     {
-        Generator* NodeFactory( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
 
         MetadataT()
         {
