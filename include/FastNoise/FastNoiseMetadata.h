@@ -103,13 +103,16 @@ namespace FastNoise
             ValueUnion valueDefault, valueMin, valueMax;
             std::vector<const char*> enumNames;
 
-            // Function used to set value for given 
+            // Function to set value for given generator
+            // Returns true if Generator is correct node class
             std::function<bool( Generator*, ValueUnion )> setFunc;
         };
 
         // Node lookup (must be valid for node to function)
         struct MemberNode : Member
         {
+            // Function to set source for given generator
+            // Returns true if Generator* is correct node class and SmartNodeArg<> is correct node class
             std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
         };
 
@@ -118,7 +121,13 @@ namespace FastNoise
         {
             float valueDefault = 0.0f;
 
+            // Function to set value for given generator
+            // Returns true if Generator is correct node class
             std::function<bool( Generator*, float )> setValueFunc;
+
+            // Function to set source for given generator
+            // Source takes priority if value is also set
+            // Returns true if Generator is correct node class and SmartNodeArg<> is correct node class
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
@@ -130,7 +139,16 @@ namespace FastNoise
         std::vector<MemberNode>     memberNodes;
         std::vector<MemberHybrid>   memberHybrids;
 
-        virtual SmartNode<> CreateNode( FastSIMD::eLevel level = FastSIMD::Level_Null ) const = 0;
+        /// <summary>
+        /// Create new instance of a FastNoise node from metadata
+        /// </summary>
+        /// <example>
+        /// auto node = metadata->CreateNode();
+        /// metadata->memberVariables[0].setFunc( node.get(), 1.5f );
+        /// </example>
+        /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
+        /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
+        virtual SmartNode<> CreateNode( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null ) const = 0;
 
     protected:
         Metadata()

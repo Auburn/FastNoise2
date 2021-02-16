@@ -16,7 +16,7 @@
 namespace FastNoise
 {
     /// <summary>
-    /// Create a new instance of a FastNoise node
+    /// Create new instance of a FastNoise node
     /// </summary>
     /// <example>
     /// auto node = FastNoise::New<FastNoise::Simplex>();
