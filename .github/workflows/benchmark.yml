@@ -27,17 +27,17 @@ jobs:
       with:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
-        configure-options: -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=ON -DCMAKE_INSTALL_PREFIX=install/FastNoise2 -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+        configure-options: -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=ON -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
-        name: Linux64-ToolsBin
-        path: ${{ github.workspace }}/build/Release/bin/
+        name: Linux64-TestsBin
+        path: ${{ github.workspace }}/build/
 
     - name: Repository Dispatch
       uses: peter-evans/repository-dispatch@v1
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         repository: Auburn/FastNoise2Benchmarking
-        event-type: push-event
+        event-type: benchmark
