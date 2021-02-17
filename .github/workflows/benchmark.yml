@@ -27,7 +27,7 @@ jobs:
       with:
         build-dir: ${{ runner.workspace }}/build
         build-type: Release
-        configure-options: -DFASTNOISE2_NOISETOOL="FALSE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install/FastNoise2 -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+        configure-options: -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=ON -DCMAKE_INSTALL_PREFIX=install/FastNoise2 -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
