@@ -32,8 +32,8 @@ jobs:
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
-        name: Linux64-TestsBin
-        path: ${{ runner.workspace }}/build/
+        name: Linux64-BenchmarkBin
+        path: ${{ runner.workspace }}/build/test/FastNoiseBenchmark
 
     - name: Repository Dispatch
       uses: peter-evans/repository-dispatch@v1
