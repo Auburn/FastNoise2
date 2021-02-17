@@ -13,15 +13,28 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+jobs:  
+  BenchmarkTrigger:
     runs-on: ubuntu-latest
+    steps:                      
+    - name: 'Checkout recursive' 
+      uses: actions/checkout@v2
+      with:        
+        submodules: recursive                
+   
+    - name: 'CMake Build'
+      uses: ashutoshvarma/action-cmake-build@master
+      with:
+        build-dir: ${{ runner.workspace }}/build
+        build-type: Release
+        configure-options: -DFASTNOISE2_NOISETOOL="FALSE" -DFASTNOISE2_TESTS="TRUE" -DCMAKE_INSTALL_PREFIX=install/FastNoise2 -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+    
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v2
+      with:
+        name: Linux64-ToolsBin
+        path: ${{ github.workspace }}/build/Release/bin/
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps: 
     - name: Repository Dispatch
       uses: peter-evans/repository-dispatch@v1
       with:
