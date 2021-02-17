@@ -33,7 +33,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Linux64-TestsBin
-        path: ${{ github.workspace }}/build/
+        path: ${{ runner.workspace }}/build/
 
     - name: Repository Dispatch
       uses: peter-evans/repository-dispatch@v1
