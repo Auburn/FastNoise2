@@ -14,7 +14,7 @@ namespace FastNoise
 
     protected:
         GeneratorSource mLHS;
-        HybridSource mRHS;
+        HybridSource mRHS = 0.0f;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -39,8 +39,8 @@ namespace FastNoise
         void SetRHS( float value ) { mRHS = value; }
 
     protected:
-        HybridSource mLHS;
-        HybridSource mRHS;
+        HybridSource mLHS = 0.0f;
+        HybridSource mRHS = 0.0f;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -158,8 +158,8 @@ namespace FastNoise
         void SetPow( float value ) { mPow = value; }
 
     protected:
-        HybridSource mValue;
-        HybridSource mPow;
+        HybridSource mValue = 2.0f;
+        HybridSource mPow = 2.0f;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -188,7 +188,7 @@ namespace FastNoise
 
     protected:
         GeneratorSource mValue;
-        int32_t mPow;
+        int32_t mPow = 2;
     };
 
 #ifdef FASTNOISE_METADATA

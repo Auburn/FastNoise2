@@ -111,8 +111,8 @@ namespace FastNoise
         void Set( float multiplier, float offset = 0.0f ) { mMultiplier[(int)D] = multiplier; mOffset[(int)D] = offset; }
 
     protected:
-        PerDimensionVariable<float> mMultiplier;
-        PerDimensionVariable<float> mOffset;
+        PerDimensionVariable<float> mMultiplier = 0.0f;
+        PerDimensionVariable<float> mOffset = 0.0f;
 
         template<typename T>
         friend struct MetadataT;
@@ -148,7 +148,7 @@ namespace FastNoise
     protected:
         GeneratorSource mSource;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
-        PerDimensionVariable<float> mPoint;
+        PerDimensionVariable<float> mPoint = 0.0f;
 
         template<typename T>
         friend struct MetadataT;

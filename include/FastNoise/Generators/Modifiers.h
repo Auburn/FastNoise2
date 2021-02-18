@@ -48,7 +48,7 @@ namespace FastNoise
 
     protected:
         GeneratorSource mSource;
-        PerDimensionVariable<HybridSource> mOffset;
+        PerDimensionVariable<HybridSource> mOffset = 0.0f;
 
         template<typename T>
         friend struct MetadataT;
@@ -311,7 +311,7 @@ namespace FastNoise
 
     protected:
         GeneratorSource mSource;
-        PerDimensionVariable<float> mScale;
+        PerDimensionVariable<float> mScale = 1.0f;
 
         template<typename T>
         friend struct MetadataT;
@@ -344,7 +344,7 @@ namespace FastNoise
 
     protected:
         GeneratorSource mSource;
-        HybridSource mNewDimensionPosition;
+        HybridSource mNewDimensionPosition = 0.0f;
     };
 
 #ifdef FASTNOISE_METADATA
