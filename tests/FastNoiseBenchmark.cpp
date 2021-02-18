@@ -117,6 +117,5 @@ int main( int argc, char** argv )
 
     benchmark::RunSpecifiedBenchmarks();
 
-    getchar();
     return 0;
 }
