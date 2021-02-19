@@ -15,43 +15,6 @@
 
 using namespace Magnum;
 
-void FormatClassName( std::string& string, const char* name )
-{
-    string = name;
-    for( size_t i = 1; i < string.size(); i++ )
-    {
-        if( (isdigit( string[i] ) || isupper( string[i] )) && islower( string[i - 1] ) )
-        {
-            string.insert( i++, 1, ' ' );
-        }
-    }
-}
-
-void FormatClassName( std::string& string, const FastNoise::Metadata* metadata )
-{
-    FormatClassName( string, metadata->name );
-
-    for( auto group : metadata->groups )
-    {
-        size_t start_pos = string.find( group );
-        if( start_pos != std::string::npos )
-        {
-            string.erase( start_pos, std::strlen( group ) + 1 );
-        }
-    }
-}
-
-void FormatMemberName( std::string& string, const char* name, int dimension )
-{
-    string = name;
-    if( dimension >= 0 )
-    {
-        const char dimensionNames[] = { 'X', 'Y', 'Z', 'W' };
-
-        string.insert( string.begin(), { dimensionNames[dimension], ' ' } );
-    }
-}
-
 bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
 {
     std::string aString;
@@ -215,8 +178,8 @@ bool FastNoiseNodeEditor::MetadataMenuItem::CanDraw( std::function<bool( const F
 
 const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuItem::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool drawGroups ) const
 {
-    std::string format;
-    FormatClassName( format, metadata );
+    std::string format = FastNoise::Metadata::FormatMetadataNodeName( metadata, true );
+    
     if( ImGui::MenuItem( format.c_str() ) )
     {
         return metadata;
@@ -511,14 +474,12 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
 
 void FastNoiseNodeEditor::DoNodes()
 {
-    std::string formatName;
-
     for( auto& node : mNodes )
     {
         imnodes::BeginNode( node.first );
 
         imnodes::BeginNodeTitleBar();
-        FormatClassName( formatName, node.second.data->metadata->name );
+        std::string formatName = FastNoise::Metadata::FormatMetadataNodeName( node.second.data->metadata );
         ImGui::TextUnformatted( formatName.c_str() );
         imnodes::EndNodeTitleBar();
 
@@ -589,7 +550,7 @@ void FastNoiseNodeEditor::DoNodes()
         for( auto& memberNode : nodeMetadata->memberNodes )
         {
             imnodes::BeginInputAttribute( attributeId++ );
-            FormatMemberName( formatName, memberNode.name, memberNode.dimensionIdx );
+            formatName = FastNoise::Metadata::FormatMetadataMemberName( memberNode );
             ImGui::TextUnformatted( formatName.c_str() );
             imnodes::EndInputAttribute();
         }
@@ -607,7 +568,7 @@ void FastNoiseNodeEditor::DoNodes()
                 floatFormat = "";
             }
 
-            FormatMemberName( formatName, nodeMetadata->memberHybrids[i].name, nodeMetadata->memberHybrids[i].dimensionIdx );
+            formatName = FastNoise::Metadata::FormatMetadataMemberName( nodeMetadata->memberHybrids[i] );
 
             if( ImGui::DragFloat( formatName.c_str(), &nodeData->hybrids[i].second, 0.02f, 0, 0, floatFormat ) )
             {
@@ -627,7 +588,7 @@ void FastNoiseNodeEditor::DoNodes()
 
             auto& nodeVar = nodeMetadata->memberVariables[i];
 
-            FormatMemberName( formatName, nodeVar.name, nodeVar.dimensionIdx );
+            formatName = FastNoise::Metadata::FormatMetadataMemberName( nodeVar );
 
             switch( nodeVar.type )
             {

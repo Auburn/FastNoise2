@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <vector>
+#include <string>
 #include <cstdint>
 
 #include "FastNoise_Config.h"
@@ -57,6 +58,22 @@ namespace FastNoise
             const char* name;
             int dimensionIdx = -1;            
         };
+
+        /// <summary>
+        /// Add spaces to node names: DomainScale -> Domain Scale
+        /// </summary>
+        /// <param name="metadata">FastNoise node metadata</param>
+        /// <param name="removeGroups">Removes metadata groups from name: FractalFBm -> FBm</param>
+        /// <returns>string with formatted name</returns>
+        static std::string FormatMetadataNodeName( const Metadata* metadata, bool removeGroups = false );
+
+        /// <summary>
+        /// Adds dimension prefix to member varibles that per-dimension:
+        /// DomainAxisScale::Scale -> X Scale
+        /// </summary>
+        /// <param name="member">FastNoise node metadata member</param>
+        /// <returns>string with formatted name</returns>
+        static std::string FormatMetadataMemberName( const Member& member );
 
         // float, int or enum value
         struct MemberVariable : Member

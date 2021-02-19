@@ -86,8 +86,6 @@ int main( int argc, char** argv )
 {
     benchmark::Initialize( &argc, argv );
     
-    std::string benchName;
-
     for( FastSIMD::eLevel level = FastSIMD::CPUMaxSIMDLevel(); level != FastSIMD::Level_Null; level = (FastSIMD::eLevel)(level >> 1) )
     {
         if( !(level & FastSIMD::COMPILED_SIMD_LEVELS & FastNoise::SUPPORTED_SIMD_LEVELS) )
@@ -97,15 +95,34 @@ int main( int argc, char** argv )
 
         for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
         {
-            benchName = "2D/";
-            benchName += metadata->name;
-            benchName += '/';
+            std::string benchName = "2D/";
 
-#ifdef MAGIC_ENUM_SUPPORTED 
-            benchName += magic_enum::flags::enum_name( level );
+#ifdef MAGIC_ENUM_SUPPORTED
+            auto enumName = magic_enum::flags::enum_name( level );
+            auto find = enumName.find( '_' );
+            if( find != std::string::npos )
+            {
+                benchName += enumName.data() + find + 1;                
+            }
+            else
+            {
+                benchName += enumName;     
+            }
 #else
             benchName += std::to_string( (int)level );
 #endif
+
+            const char* groupName = "None";
+
+            if( !metadata->groups.empty() )
+            {
+                groupName = metadata->groups[metadata->groups.size() - 1];
+            }
+
+            benchName += '/';
+            benchName += groupName;
+            benchName += '/';
+            benchName += FastNoise::Metadata::FormatMetadataNodeName( metadata, false );
 
             benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 512, metadata, level ); } );
 

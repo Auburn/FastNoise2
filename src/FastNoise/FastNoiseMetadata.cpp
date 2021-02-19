@@ -402,10 +402,46 @@ NodeData* Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, s
     return DeserialiseNodeDataInternal( dataStream, nodeDataOut, startIdx );
 }
 
+std::string Metadata::FormatMetadataNodeName( const Metadata* metadata, bool removeGroups )
+{
+    std::string string = metadata->name;
+    for( size_t i = 1; i < string.size(); i++ )
+    {
+        if( ( isdigit( string[i] ) || isupper( string[i] ) ) && islower( string[i - 1] ) )
+        {
+            string.insert( i++, 1, ' ' );
+        }
+    }
+
+    if( removeGroups )
+    {
+        for( auto group : metadata->groups )
+        {
+            size_t start_pos = string.find( group );
+            if( start_pos != std::string::npos )
+            {
+                string.erase( start_pos, std::strlen( group ) + 1 );
+            }
+        }
+    }
+    return string;
+}
+
+std::string Metadata::FormatMetadataMemberName( const Member& member )
+{
+    std::string string = member.name;
+    if( member.dimensionIdx >= 0 )
+    {
+        string.insert( string.begin(), ' ' );
+        string.insert( 0, kDim_Strings[member.dimensionIdx] );
+    }
+    return string;
+}
+
 namespace FastNoise
 {
     template<typename T>
-    struct MetadataT;    
+    struct MetadataT;
 }
 
 template<typename T>

@@ -42,9 +42,9 @@ set(FastNoise_source
     FastNoise/FastNoiseMetadata.cpp
 )
 
-source_group("SIMD" FILES ${FastSIMD_headers})
-source_group("SIMD" FILES ${FastSIMD_sources})
-source_group("SIMD\\internals" FILES ${FastSIMD_internal_headers})
+source_group("FastSIMD" FILES ${FastSIMD_headers})
+source_group("FastSIMD" FILES ${FastSIMD_sources})
+source_group("FastSIMD\\internals" FILES ${FastSIMD_internal_headers})
 
 source_group("FastNoise" FILES ${FastNoise_headers})
 source_group("FastNoise" FILES ${FastNoise_source})
