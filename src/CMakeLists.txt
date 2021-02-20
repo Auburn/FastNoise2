@@ -64,6 +64,10 @@ target_include_directories(FastNoise PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
+set_target_properties(FastNoise PROPERTIES
+    DEBUG_POSTFIX D
+    COMPILE_PDB_NAME_DEBUG FastNoiseD)
+
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast)
     
