@@ -11,22 +11,22 @@ target_link_libraries(FastNoiseBenchmark
     benchmark::benchmark
 )
 
-add_dependencies(FastNoiseBenchmark 
+
+add_library(FastNoiseCpp11Test
+    "FastNoiseCpp11Include.cpp"
+)
+
+set_target_properties(FastNoiseCpp11Test PROPERTIES CXX_STANDARD 11)
+
+target_link_libraries(FastNoiseCpp11Test
     FastNoise
 )
 
 
-add_executable(FastNoiseIncludeTest
-    "FastNoiseInclude.cpp"
-)
+add_library(FastNoiseMetadataIncludeTest
+    "FastNoiseMetadataInclude.cpp")
 
-set_target_properties(FastNoiseIncludeTest PROPERTIES CXX_STANDARD 11)
-
-target_link_libraries(FastNoiseIncludeTest
-    FastNoise
-)
-
-add_dependencies(FastNoiseIncludeTest 
+target_link_libraries(FastNoiseMetadataIncludeTest 
     FastNoise
 )
 

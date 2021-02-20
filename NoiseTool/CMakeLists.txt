@@ -51,8 +51,6 @@ target_link_libraries(NoiseTool PUBLIC
 if (UNIX)
     target_link_options(NoiseTool PRIVATE -pthread)
 endif()
- 
-add_dependencies(NoiseTool FastNoise)
 
 # Make the executable a default target to build & run in Visual Studio
 set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT NoiseTool)
