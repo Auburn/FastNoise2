@@ -104,7 +104,7 @@ namespace Magnum
 
             struct BuildData
             {
-                FastNoise::SmartNode<> generator;
+                FastNoise::SmartNode<const FastNoise::Generator> generator;
                 Vector3i pos;
                 Color3 color;
                 float frequency, isoSurface;

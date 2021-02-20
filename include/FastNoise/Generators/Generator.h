@@ -70,8 +70,8 @@ namespace FastNoise
     {
         using Type = T;
 
-        SmartNode<T> base;
-        void* simdGeneratorPtr = nullptr;
+        SmartNode<const T> base;
+        const void* simdGeneratorPtr = nullptr;
 
     protected:
         BaseSource() = default;
@@ -137,11 +137,11 @@ namespace FastNoise
             assert( GetSIMDLevel() == gen->GetSIMDLevel() ); // Ensure that all SIMD levels match
 
             memberVariable.base = gen;
-            SetSourceSIMDPtr( dynamic_cast<Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
+            SetSourceSIMDPtr( dynamic_cast<const Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
         }
 
     private:
-        virtual void SetSourceSIMDPtr( Generator* base, void** simdPtr ) = 0;
+        virtual void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) = 0;
     };
 
     using GeneratorSource = GeneratorSourceT<Generator>;
@@ -308,7 +308,7 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
             {
-                if( SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s) )
+                if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
                 {
                     if( auto* c = dynamic_cast<U*>(g) )
                     {
@@ -336,7 +336,7 @@ namespace FastNoise
 
                 member.setFunc = [func, idx]( auto* g, SmartNodeArg<> s )
                 {
-                    if( SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s) )
+                    if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
                     {
                         if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
                         {
@@ -361,7 +361,7 @@ namespace FastNoise
 
             member.setNodeFunc = [funcNode]( auto* g, SmartNodeArg<> s )
             {
-                if( SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s) )
+                if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
                 {
                     if( auto* c = dynamic_cast<U*>(g) )
                     {
@@ -400,7 +400,7 @@ namespace FastNoise
 
                 member.setNodeFunc = [func, idx]( auto* g, SmartNodeArg<> s )
                 {
-                    if( SmartNode<T> downCast = std::dynamic_pointer_cast<T>(s) )
+                    if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
                     {
                         if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
                         {

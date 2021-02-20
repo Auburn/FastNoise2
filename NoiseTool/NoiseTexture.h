@@ -27,7 +27,7 @@ namespace Magnum
     private:
         struct BuildData
         {
-            FastNoise::SmartNode<> generator;
+            FastNoise::SmartNode<const FastNoise::Generator> generator;
             Vector2i size;
             Vector3 offset;
             float frequency;

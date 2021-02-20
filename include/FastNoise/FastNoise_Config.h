@@ -17,5 +17,5 @@ namespace FastNoise
     using SmartNode = std::shared_ptr<T>;
 
     template<typename T = class Generator>
-    using SmartNodeArg = const SmartNode<T>&;
+    using SmartNodeArg = const SmartNode<const T>&;
 }

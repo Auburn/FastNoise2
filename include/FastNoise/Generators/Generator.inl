@@ -28,13 +28,13 @@ public:
         return FS::SIMD_Level;
     }
 
-    using VoidPtrStorageType = FS_T<Generator, FS>*;
+    using VoidPtrStorageType = const FS_T<Generator, FS>*;
 
-    void SetSourceSIMDPtr( Generator* base, void** simdPtr ) final
+    void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) final
     {
         auto simd = dynamic_cast<VoidPtrStorageType>( base );
         assert( simd );
-        *simdPtr = reinterpret_cast<void*>( simd );
+        *simdPtr = reinterpret_cast<const void*>( simd );
     }
 
     template<typename T, typename... POS>
@@ -64,7 +64,7 @@ public:
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        auto simdT = static_cast<FS_T<T, FS>*>( simdGen );
+        auto simdT = static_cast<const FS_T<T, FS>*>( simdGen );
         return simdT;
     }
 
