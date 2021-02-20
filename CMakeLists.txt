@@ -1,7 +1,7 @@
 # CMakeList.txt : CMake project for FastNoise
 cmake_minimum_required(VERSION 3.7.1)
 
-project(FastNoise2 VERSION 0.6.0)
+project(FastNoise2 VERSION 0.7.0)
 set(CMAKE_CXX_STANDARD 17)
 
 option(FASTNOISE2_NOISETOOL "Build Noise Tool" ON)
