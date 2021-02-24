@@ -5,7 +5,7 @@
 
 WIP successor to [FastNoiseSIMD](https://github.com/Auburn/FastNoiseSIMD)
 
-Modular node based noise generation using SIMD, modern C++17 and templates
+Modular node based noise generation library using SIMD, modern C++17 and templates
 
 FastNoise2 is a fully featured noise generation library which aims to meet all your coherent noise needs while being extremely fast
 
@@ -24,6 +24,10 @@ Supports:
 - MSVC
 - Clang
 - GCC
+
+## Noise Tool
+
+The FastNoise noise tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. The noise tool has 2D and 3D previews for the node graph output, see screenshots below for examples.
 
 Check the [releases](https://github.com/Auburn/FastNoise2/releases) for early versions of the Noise Tool
 
