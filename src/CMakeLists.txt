@@ -60,7 +60,7 @@ add_library(FastNoise
 )
 
 target_include_directories(FastNoise PUBLIC 
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${FastNoise2_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 

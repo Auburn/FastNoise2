@@ -14,7 +14,7 @@ if(MSVC)
     set(CMAKE_PDB_OUTPUT_DIRECTORY "${pdb_output_dir}")
     set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY "${pdb_output_dir}") 
 
-    #need to sync pdp files
+    #need to sync pdb files
     add_compile_options("/FS")
 endif()
 
