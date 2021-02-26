@@ -27,7 +27,7 @@ Supports:
 
 ## Noise Tool
 
-The FastNoise noise tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. The noise tool has 2D and 3D previews for the node graph output, see screenshots below for examples.
+The FastNoise2 noise tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. The noise tool has 2D and 3D previews for the node graph output, see screenshots below for examples.
 
 Check the [releases](https://github.com/Auburn/FastNoise2/releases) for early versions of the Noise Tool
 
@@ -47,7 +47,7 @@ Million points of noise generated per second (higher = better)
 |--------------------|--------|--------|----------------|----------|
 | FastNoise Lite     | 64.13  | 47.93  | 36.83*         | 12.49    |
 | FastNoise (Legacy) | 49.34  | 37.75  | 44.74          | 13.27    |
-| FastNoise 2 (AVX2) | 494.49 | 261.10 | 268.44         | 52.43    |
+| FastNoise2 (AVX2)  | 494.49 | 261.10 | 268.44         | 52.43    |
 | libnoise           |        | 27.35  |                | 0.65     |
 | stb perlin         |        | 34.32  |                |          |
 
@@ -55,7 +55,7 @@ Million points of noise generated per second (higher = better)
 |--------------------|--------|--------|---------|----------|
 | FastNoise Lite     | 114.01 | 92.83  | 71.30   | 39.15    |
 | FastNoise (Legacy) | 102.12 | 87.99  | 65.29   | 36.84    |
-| FastNoise 2 (AVX2) | 776.33 | 624.27 | 466.03  | 194.30   |
+| FastNoise2 (AVX2)  | 776.33 | 624.27 | 466.03  | 194.30   |
 
 # Getting Started
 
