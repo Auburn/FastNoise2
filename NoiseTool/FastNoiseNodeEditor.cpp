@@ -307,10 +307,14 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         }
 
         const char* serialisedLabel = "Encoded Node Tree";
+        const char* buttonLabel = "To CLI";
         ImGui::SameLine();
-        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x - 210 );
+        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x - 210 - ImGui::CalcTextSize( buttonLabel ).x );
         ImGui::InputText( serialisedLabel, serialised.data(), serialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
-
+        ImGui::SameLine();
+        if(ImGui::Button(buttonLabel))
+            printf("\n%s\n", serialised.data());
+        
         std::string simdTxt = "Current SIMD Level: ";
         simdTxt += GetSIMDLevelName( mActualSIMDLevel );
         ImGui::SameLine( ImGui::GetWindowContentRegionWidth() - ImGui::CalcTextSize( simdTxt.c_str() ).x );
