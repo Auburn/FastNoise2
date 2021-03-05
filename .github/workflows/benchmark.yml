@@ -37,4 +37,4 @@ jobs:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         repository: Auburn/FastNoise2Benchmarking
         event-type: benchmark
-        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}, "msg": "${{ github.event.head_commit.message }}"}'
+        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "msg": "${{ github.event.head_commit.message }}"}'
