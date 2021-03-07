@@ -27,7 +27,7 @@ jobs:
         if-no-files-found: error
 
     - id: message-format
-      uses: ashley-taylor/regex-property-action@v1.2
+      uses: ashley-taylor/regex-property-action@1.2
       with:
         value: ${{ github.event.head_commit.message }}
         regex: "[^a-zA-Z0-9 -]"
