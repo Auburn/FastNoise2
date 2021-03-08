@@ -25,14 +25,21 @@ jobs:
         name: Linux64-BenchmarkBin
         path: ${{ runner.workspace }}/build/tests/FastNoiseBenchmark
         if-no-files-found: error
-
-    - id: message-format
+        
+    - id: message-format-1
       uses: ashley-taylor/regex-property-action@1.2
       with:
         value: ${{ github.event.head_commit.message }}
         regex: "[^a-zA-Z0-9 -]"
         replacement: ""
 
+    - id: message-format
+      uses: ashley-taylor/regex-property-action@1.2
+      with:
+        value: ${{ steps.message-format-1.outputs.value }}
+        regex: "(?<=.{20}).*"
+        replacement: ""
+        
     - name: Repository Dispatch
       uses: peter-evans/repository-dispatch@v1
       with:
