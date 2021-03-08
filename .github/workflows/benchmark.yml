@@ -30,14 +30,14 @@ jobs:
       uses: ashley-taylor/regex-property-action@1.2
       with:
         value: ${{ github.event.head_commit.message }}
-        regex: "[^a-zA-Z0-9 -]"
+        regex: "^\\s*|[^a-zA-Z0-9_&\\(\\) -]"
         replacement: ""
 
     - id: message-format
       uses: ashley-taylor/regex-property-action@1.2
       with:
         value: ${{ steps.message-format-1.outputs.value }}
-        regex: "(?<=.{20}).*"
+        regex: "(?<=.{50}).*"
         replacement: ""
         
     - name: Repository Dispatch
