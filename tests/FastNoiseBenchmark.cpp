@@ -2,6 +2,8 @@
 #include "FastNoise/FastNoise.h"
 #include "FastNoise/FastNoiseMetadata.h"
 
+#include "../NoiseTool/DemoNodeTrees.inl"
+
 #include "magic_enum.h"
 
 FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
@@ -38,9 +40,8 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
     return generator;
 }
 
-void BenchFastNoiseGenerator2D( benchmark::State& state, int32_t testSize, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
+void BenchFastNoiseGenerator2D( benchmark::State& state, int32_t testSize, const FastNoise::SmartNode<> generator )
 {
-    FastNoise::SmartNode<> generator = BuildGenerator( state, metadata, level );
     if (!generator) return;
 
     size_t dataSize = (size_t)testSize * testSize;
@@ -60,9 +61,8 @@ void BenchFastNoiseGenerator2D( benchmark::State& state, int32_t testSize, const
     state.SetItemsProcessed( totalData );
 }
 
-void BenchFastNoiseGenerator3D( benchmark::State& state, int32_t testSize, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
+void BenchFastNoiseGenerator3D( benchmark::State& state, int32_t testSize, const FastNoise::SmartNode<> generator )
 {
-    FastNoise::SmartNode<> generator = BuildGenerator( state, metadata, level );
     if (!generator) return;
 
     size_t dataSize = (size_t)testSize * testSize * testSize;
@@ -82,6 +82,64 @@ void BenchFastNoiseGenerator3D( benchmark::State& state, int32_t testSize, const
     state.SetItemsProcessed( totalData );
 }
 
+void BenchFastNoiseGenerator4D( benchmark::State& state, int32_t testSize, const FastNoise::SmartNode<> generator )
+{
+    if (!generator) return;
+
+    size_t dataSize = (size_t)testSize * testSize * testSize * testSize;
+
+    float* data = new float[dataSize];
+    size_t totalData = 0;
+    int seed = 0;
+
+    for( auto _ : state )
+    {
+        (void)_;
+        generator->GenUniformGrid4D( data, 0, 0, 0, 0, testSize, testSize, testSize, testSize, 0.1f, seed++ );
+        totalData += dataSize;
+    }
+
+    delete[] data;
+    state.SetItemsProcessed( totalData );
+}
+
+template<typename T>
+void RegisterBenchmarks( FastSIMD::eLevel level, const char* groupName, const char* name, T generatorFunc )
+{
+    std::string benchName = "2D/";
+
+#ifdef MAGIC_ENUM_SUPPORTED
+    auto enumName = magic_enum::flags::enum_name( level );
+    auto find = enumName.find( '_' );
+    if( find != std::string::npos )
+    {
+        benchName += enumName.data() + find + 1;
+    }
+    else
+    {
+        benchName += enumName;
+    }
+#else
+    benchName += std::to_string( (int)level );
+#endif
+
+
+    benchName += '/';
+    benchName += groupName;
+    benchName += '/';
+    benchName += name;
+
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 64, generatorFunc( st ) ); } );
+
+    benchName[0] = '3';
+
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator3D( st, 16, generatorFunc( st ) ); } );
+
+    benchName[0] = '4';
+
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator4D( st, 8, generatorFunc( st ) ); } );
+}
+
 int main( int argc, char** argv )
 {
     benchmark::Initialize( &argc, argv );
@@ -95,40 +153,32 @@ int main( int argc, char** argv )
 
         for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
         {
-            std::string benchName = "2D/";
-
-#ifdef MAGIC_ENUM_SUPPORTED
-            auto enumName = magic_enum::flags::enum_name( level );
-            auto find = enumName.find( '_' );
-            if( find != std::string::npos )
-            {
-                benchName += enumName.data() + find + 1;                
-            }
-            else
-            {
-                benchName += enumName;     
-            }
-#else
-            benchName += std::to_string( (int)level );
-#endif
-
-            const char* groupName = "None";
+            const char* groupName = "Misc";
 
             if( !metadata->groups.empty() )
             {
                 groupName = metadata->groups[metadata->groups.size() - 1];
             }
 
-            benchName += '/';
-            benchName += groupName;
-            benchName += '/';
-            benchName += FastNoise::Metadata::FormatMetadataNodeName( metadata, false );
+            std::string nodeName = FastNoise::Metadata::FormatMetadataNodeName( metadata, false );
 
-            benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 512, metadata, level ); } );
+           RegisterBenchmarks( level, groupName, nodeName.c_str(), [=]( benchmark::State& st ) { return BuildGenerator( st, metadata, level ); } );
+        }
 
-            benchName[0] = '3';
+        for( const auto& nodeTree : gDemoNodeTrees )
+        {
+            RegisterBenchmarks( level, "Node Trees", nodeTree[0], [=]( benchmark::State& st )
+            {
+                FastNoise::SmartNode<> rootNode = FastNoise::NewFromEncodedNodeTree( nodeTree[1], level );
 
-            benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator3D( st, 64, metadata, level ); } );        
+                if( !rootNode )
+                {
+                    st.SkipWithError( "Could not generate node tree from encoded string" );                    
+                }
+
+                return rootNode;
+            } );
+            
         }
     }
 
