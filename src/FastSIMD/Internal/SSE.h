@@ -244,8 +244,8 @@ namespace FastSIMD
 
         static constexpr eLevel SIMD_Level = LEVEL_T;
 
-        template<size_t ElementSize = 8>
-        static constexpr size_t VectorSize = 128 / ElementSize;
+        template<size_t ElementSize>
+        static constexpr size_t VectorSize = (128 / 8) / ElementSize;
 
         typedef SSE_f32x4          float32v;
         typedef SSE_i32x4<LEVEL_T> int32v;
@@ -273,6 +273,32 @@ namespace FastSIMD
         FS_INLINE static void Store_i32( void* p, int32v a )
         {
             _mm_storeu_si128( reinterpret_cast<__m128i*>(p), a );
+        }
+
+        // Extract
+
+        FS_INLINE static float Extract0_f32( float32v a )
+        {
+            return _mm_cvtss_f32( a );
+        }
+
+        FS_INLINE static float Extract0_i32( int32v a )
+        {
+            return _mm_cvtss_si32( a );
+        }
+
+        FS_INLINE static float Extract_f32( float32v a, size_t idx )
+        {
+            return _mm_cvtss_f32( _mm_shuffle_ps( a, a, idx ) );
+        }
+
+        FS_INLINE static float Extract_i32( int32v a, size_t idx )
+        {
+            if constexpr( SIMD_Level >= Level_SSE41 )
+            {
+                return _mm_extract_epi32( a, idx );
+            }
+            return _mm_cvtss_si32( _mm_shuffle_epi32( a, idx ) );
         }
 
         // Cast
