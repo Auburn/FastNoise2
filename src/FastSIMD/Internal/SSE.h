@@ -282,23 +282,23 @@ namespace FastSIMD
             return _mm_cvtss_f32( a );
         }
 
-        FS_INLINE static float Extract0_i32( int32v a )
+        FS_INLINE static int32_t Extract0_i32( int32v a )
         {
-            return _mm_cvtss_si32( a );
+            return _mm_cvtsi128_si32( a );
         }
 
         FS_INLINE static float Extract_f32( float32v a, size_t idx )
         {
-            return _mm_cvtss_f32( _mm_shuffle_ps( a, a, idx ) );
+            float f[4];
+            Store_f32( &f, a );
+            return f[idx & 3];
         }
 
-        FS_INLINE static float Extract_i32( int32v a, size_t idx )
+        FS_INLINE static int32_t Extract_i32( int32v a, size_t idx )
         {
-            if constexpr( SIMD_Level >= Level_SSE41 )
-            {
-                return _mm_extract_epi32( a, idx );
-            }
-            return _mm_cvtss_si32( _mm_shuffle_epi32( a, idx ) );
+            int32_t i[4];
+            Store_i32( &i, a );
+            return i[idx & 3];
         }
 
         // Cast

@@ -271,9 +271,9 @@ namespace FastSIMD
             return _mm256_cvtss_f32( a );
         }
 
-        FS_INLINE static float Extract0_i32( int32v a )
+        FS_INLINE static int32_t Extract0_i32( int32v a )
         {
-            return _mm256_cvtsi256_si32( a );
+            return _mm_cvtsi128_si32(_mm256_castsi256_si128( a ));
         }
 
         FS_INLINE static float Extract_f32( float32v a, size_t idx )
@@ -283,7 +283,7 @@ namespace FastSIMD
             return f[idx & 7];
         }
 
-        FS_INLINE static float Extract_i32( int32v a, size_t idx )
+        FS_INLINE static int32_t Extract_i32( int32v a, size_t idx )
         {
             int32_t i[8];
             Store_i32( &i, a );

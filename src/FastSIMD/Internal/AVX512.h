@@ -280,9 +280,9 @@ namespace FastSIMD
             return _mm512_cvtss_f32( a );
         }
 
-        FS_INLINE static float Extract0_i32( int32v a )
+        FS_INLINE static int32_t Extract0_i32( int32v a )
         {
-            return _mm512_cvtsi512_si32( a );
+            return _mm_cvtsi128_si32( _mm512_castsi512_si128( a ) );
         }
 
         FS_INLINE static float Extract_f32( float32v a, size_t idx )
@@ -291,10 +291,10 @@ namespace FastSIMD
             return _mm512_cvtss_f32( x );
         }
 
-        FS_INLINE static float Extract_i32( int32v a, size_t idx )
+        FS_INLINE static int32_t Extract_i32( int32v a, size_t idx )
         {
             int32v x = _mm512_maskz_compress_epi32( mask32v( 1u << (idx & 15) ), a );
-            return _mm512_cvtsi512_si32( x );
+            return _mm_cvtsi128_si32( _mm512_castsi512_si128( x ) );
         }
 
         // Convert

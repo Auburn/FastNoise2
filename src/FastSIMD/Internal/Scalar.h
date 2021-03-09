@@ -268,6 +268,28 @@ namespace FastSIMD
             *reinterpret_cast<int32v*>(p) = a;
         }
 
+        // Extract
+
+        FS_INLINE static float Extract0_f32( float32v a )
+        {
+            return a;
+        }
+
+        FS_INLINE static int32_t Extract0_i32( int32v a )
+        {
+            return a;
+        }
+
+        FS_INLINE static float Extract_f32( float32v a, size_t idx )
+        {
+            return a;
+        }
+
+        FS_INLINE static int32_t Extract_i32( int32v a, size_t idx )
+        {
+            return a;
+        }
+
         // Cast
 
         FS_INLINE static float32v Casti32_f32( int32v a )
