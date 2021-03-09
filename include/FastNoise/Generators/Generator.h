@@ -115,6 +115,11 @@ namespace FastNoise
             int32_t xSize,  int32_t ySize,  int32_t zSize,
             float frequency, int32_t seed ) const = 0;
 
+        virtual OutputMinMax GenUniformGrid4D( float* noiseOut,
+            int32_t xStart, int32_t yStart, int32_t zStart, int32_t wStart,
+            int32_t xSize,  int32_t ySize,  int32_t zSize,  int32_t wSize,
+            float frequency, int32_t seed ) const = 0;
+
         virtual OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count,
             const float* xPosArray, const float* yPosArray,
             float xOffset, float yOffset, int32_t seed ) const = 0;
@@ -122,6 +127,14 @@ namespace FastNoise
         virtual OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count,
             const float* xPosArray, const float* yPosArray, const float* zPosArray, 
             float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;
+
+        virtual OutputMinMax GenPositionArray4D( float* noiseOut, int32_t count,
+            const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, 
+            float xOffset, float yOffset, float zOffset, float wOffset, int32_t seed ) const = 0;
+
+        virtual float GenSingle2D( float x, float y, int32_t seed ) const = 0;
+        virtual float GenSingle3D( float x, float y, float z, int32_t seed ) const = 0;
+        virtual float GenSingle4D( float x, float y, float z, float w, int32_t seed ) const = 0;
 
         virtual OutputMinMax GenTileable2D( float* noiseOut,
             int32_t xSize,  int32_t ySize, 
