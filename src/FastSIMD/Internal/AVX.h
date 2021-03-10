@@ -445,7 +445,7 @@ namespace FastSIMD
 
         FS_INLINE static bool AnyMask_bool( mask32v m )
         {
-            return _mm256_movemask_ps( _mm256_castsi256_ps( m ) );
+            return !_mm256_testz_si256( m, m );
         }
     };
 

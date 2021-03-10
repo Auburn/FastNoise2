@@ -540,9 +540,16 @@ namespace FastSIMD
             return _mm_andnot_ps( _mm_castsi128_ps( m ), a );
         }
 
+        template<eLevel L = LEVEL_T, std::enable_if_t<( L < Level_SSE41 )>* = nullptr>
         FS_INLINE static bool AnyMask_bool( mask32v m )
         {
             return _mm_movemask_ps( _mm_castsi128_ps( m ) );
+        }
+
+        template<eLevel L = LEVEL_T, std::enable_if_t<( L >= Level_SSE41 )>* = nullptr>
+        FS_INLINE static bool AnyMask_bool( mask32v m )
+        {
+            return !_mm_testz_si128( m, m );
         }
     };
 
