@@ -12,7 +12,7 @@ target_link_libraries(FastNoiseBenchmark
 )
 
 
-add_library(FastNoiseCpp11Test
+add_executable(FastNoiseCpp11Test
     "FastNoiseCpp11Include.cpp"
 )
 

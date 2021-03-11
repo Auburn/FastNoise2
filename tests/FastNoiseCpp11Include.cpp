@@ -5,11 +5,15 @@
 
 int main()
 {
-    FastNoise::SmartNode<> node = FastNoise::New<FastNoise::Simplex>();
+    auto node = FastNoise::New<FastNoise::FractalFBm>();
 
-    float noise[16 * 16];
+    node->SetSource( FastNoise::New<FastNoise::Simplex>() );
 
-    node->GenUniformGrid2D( noise, 0, 0, 16, 16, 0.02f, 1337 );
+    const int size = 16;
+
+    float noise[size * size];
+
+    node->GenUniformGrid2D( noise, 0, 0, size, size, 0.02f, 1337 );
 
     for( int i = 0; i < sizeof(noise) / sizeof(float); i++ )
     {
