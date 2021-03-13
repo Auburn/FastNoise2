@@ -1,6 +1,8 @@
 #pragma once
 #include <cassert>
 #include <cmath>
+#include <limits>
+#include <algorithm>
 
 #include "FastNoise/FastNoise_Config.h"
 
