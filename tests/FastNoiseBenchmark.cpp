@@ -106,7 +106,7 @@ void BenchFastNoiseGenerator4D( benchmark::State& state, int32_t testSize, const
 template<typename T>
 void RegisterBenchmarks( FastSIMD::eLevel level, const char* groupName, const char* name, T generatorFunc )
 {
-    std::string benchName = "2D/";
+    std::string benchName = "0D/";
 
 #ifdef MAGIC_ENUM_SUPPORTED
     auto enumName = magic_enum::flags::enum_name( level );
@@ -129,15 +129,14 @@ void RegisterBenchmarks( FastSIMD::eLevel level, const char* groupName, const ch
     benchName += '/';
     benchName += name;
 
-    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 64, generatorFunc( st ) ); } );
+    benchName[0] = '4';
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator4D( st, 8, generatorFunc( st ) ); } );
 
     benchName[0] = '3';
-
     benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator3D( st, 16, generatorFunc( st ) ); } );
 
-    benchName[0] = '4';
-
-    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator4D( st, 8, generatorFunc( st ) ); } );
+    benchName[0] = '2';
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 64, generatorFunc( st ) ); } );
 }
 
 int main( int argc, char** argv )
