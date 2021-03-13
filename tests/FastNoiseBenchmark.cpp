@@ -6,7 +6,7 @@
 
 #include "magic_enum.h"
 
-static const size_t gPositionCount = 262144;
+static const size_t gPositionCount = 8192;
 static float gPositionFloats[gPositionCount];
 
 FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
