@@ -77,9 +77,9 @@ namespace FastNoise
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
 
-        void SetYaw(   float value ) { mYawCos   = cosf( value ); mYawSin   = sinf( value ); CalculateRotation(); }
-        void SetPitch( float value ) { mPitchCos = cosf( value ); mPitchSin = sinf( value ); CalculateRotation(); }
-        void SetRoll(  float value ) { mRollCos  = cosf( value ); mRollSin  = sinf( value ); CalculateRotation(); }
+        void SetYaw(   float value ) { mYawCos   = std::cos( value ); mYawSin   = std::sin( value ); CalculateRotation(); }
+        void SetPitch( float value ) { mPitchCos = std::cos( value ); mPitchSin = std::sin( value ); CalculateRotation(); }
+        void SetRoll(  float value ) { mRollCos  = std::cos( value ); mRollSin  = std::sin( value ); CalculateRotation(); }
 
     protected:
         GeneratorSource mSource;

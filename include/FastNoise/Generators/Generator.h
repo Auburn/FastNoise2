@@ -1,5 +1,6 @@
 #pragma once
 #include <cassert>
+#include <cmath>
 
 #include "FastNoise/FastNoise_Config.h"
 
@@ -42,8 +43,8 @@ namespace FastNoise
 
     struct OutputMinMax
     {
-        float min = INFINITY;
-        float max = -INFINITY;
+        float min = std::numeric_limits<float>::infinity();
+        float max = -std::numeric_limits<float>::infinity();
 
         OutputMinMax& operator <<( float v )
         {
