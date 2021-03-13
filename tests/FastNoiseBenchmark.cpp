@@ -6,6 +6,9 @@
 
 #include "magic_enum.h"
 
+static const size_t gPositionCount = 262144;
+static float gPositionFloats[gPositionCount];
+
 FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
 {    
     FastNoise::SmartNode<> generator = metadata->CreateNode( level );
@@ -40,63 +43,57 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
     return generator;
 }
 
-void BenchFastNoiseGenerator2D( benchmark::State& state, int32_t testSize, const FastNoise::SmartNode<> generator )
+void BenchFastNoiseGenerator2D( benchmark::State& state, const FastNoise::SmartNode<> generator )
 {
     if (!generator) return;
 
-    size_t dataSize = (size_t)testSize * testSize;
-
-    float* data = new float[dataSize];
+    float* data = new float[gPositionCount];
     size_t totalData = 0;
     int seed = 0;
 
     for( auto _ : state )
     {
         (void)_;
-        generator->GenUniformGrid2D( data, 0, 0, testSize, testSize, 0.1f, seed++ );
-        totalData += dataSize;
+        generator->GenPositionArray2D( data, gPositionCount, gPositionFloats, gPositionFloats, 0, 0, seed++ );
+        totalData += gPositionCount;
     }
 
     delete[] data;
     state.SetItemsProcessed( totalData );
 }
 
-void BenchFastNoiseGenerator3D( benchmark::State& state, int32_t testSize, const FastNoise::SmartNode<> generator )
+void BenchFastNoiseGenerator3D( benchmark::State& state, const FastNoise::SmartNode<> generator )
 {
     if (!generator) return;
 
-    size_t dataSize = (size_t)testSize * testSize * testSize;
-
-    float* data = new float[dataSize];
+    float* data = new float[gPositionCount];
     size_t totalData = 0;
     int seed = 0;
 
     for( auto _ : state )
     {
         (void)_;
-        generator->GenUniformGrid3D( data, 0, 0, 0, testSize, testSize, testSize, 0.1f, seed++ );
-        totalData += dataSize;
+        generator->GenPositionArray3D( data, gPositionCount, gPositionFloats, gPositionFloats, gPositionFloats, 0, 0, 0, seed++ );
+        totalData += gPositionCount;
     }
 
     delete[] data;
     state.SetItemsProcessed( totalData );
 }
 
-void BenchFastNoiseGenerator4D( benchmark::State& state, int32_t testSize, const FastNoise::SmartNode<> generator )
+void BenchFastNoiseGenerator4D( benchmark::State& state, const FastNoise::SmartNode<> generator )
 {
     if (!generator) return;
 
-    size_t dataSize = (size_t)testSize * testSize * testSize * testSize;
-
-    float* data = new float[dataSize];
+    float* data = new float[gPositionCount];
     size_t totalData = 0;
     int seed = 0;
 
     for( auto _ : state )
     {
         (void)_;
-        generator->GenUniformGrid4D( data, 0, 0, 0, 0, testSize, testSize, testSize, testSize, 0.1f, seed++ );
-        totalData += dataSize;
+        generator->GenPositionArray4D( data, gPositionCount, gPositionFloats, gPositionFloats, gPositionFloats, gPositionFloats, 0, 0, 0, 0, seed++ );
+        totalData += gPositionCount;
     }
 
     delete[] data;
@@ -130,18 +127,23 @@ void RegisterBenchmarks( FastSIMD::eLevel level, const char* groupName, const ch
     benchName += name;
 
     benchName[0] = '4';
-    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator4D( st, 8, generatorFunc( st ) ); } );
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator4D( st, generatorFunc( st ) ); } );
 
     benchName[0] = '3';
-    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator3D( st, 16, generatorFunc( st ) ); } );
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator3D( st, generatorFunc( st ) ); } );
 
     benchName[0] = '2';
-    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, 64, generatorFunc( st ) ); } );
+    benchmark::RegisterBenchmark( benchName.c_str(), [=]( benchmark::State& st ) { BenchFastNoiseGenerator2D( st, generatorFunc( st ) ); } );
 }
 
 int main( int argc, char** argv )
 {
     benchmark::Initialize( &argc, argv );
+
+    for( size_t idx = 0; idx < gPositionCount; idx++ )
+    {
+        gPositionFloats[idx] = (float)idx * 0.6f;
+    }
     
     for( FastSIMD::eLevel level = FastSIMD::CPUMaxSIMDLevel(); level != FastSIMD::Level_Null; level = (FastSIMD::eLevel)(level >> 1) )
     {
