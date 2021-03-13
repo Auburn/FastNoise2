@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "FastNoise/FastNoise.h"
-#include "FastNoise/FastNoiseMetadata.h"
+#include "FastNoise/Metadata.h"
 
 #include "../NoiseTool/DemoNodeTrees.inl"
 

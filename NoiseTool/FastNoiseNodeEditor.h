@@ -10,7 +10,7 @@
 #include <Magnum/ImageView.h>
 
 #include "FastNoise/FastNoise.h"
-#include "FastNoise/FastNoiseMetadata.h"
+#include "FastNoise/Metadata.h"
 
 #include "MeshNoisePreview.h"
 #include "NoiseTexture.h"

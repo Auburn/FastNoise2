@@ -39,7 +39,7 @@ list(APPEND FastNoise_headers ${FastNoise_inl})
 list(APPEND FastNoise_generators_headers ${FastNoise_generators_inl})
 
 set(FastNoise_source
-    FastNoise/FastNoiseMetadata.cpp
+    FastNoise/Metadata.cpp
 )
 
 source_group("FastSIMD" FILES ${FastSIMD_headers})

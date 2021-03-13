@@ -1,1 +1,1 @@
-#include <FastNoise/FastNoiseMetadata.h>
+#include <FastNoise/Metadata.h>
