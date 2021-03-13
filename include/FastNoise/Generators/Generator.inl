@@ -32,7 +32,13 @@ public:
 
     void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) final
     {
+        if( !base )
+        {
+            *simdPtr = nullptr;
+            return;
+        }
         auto simd = dynamic_cast<VoidPtrStorageType>( base );
+
         assert( simd );
         *simdPtr = reinterpret_cast<const void*>( simd );
     }

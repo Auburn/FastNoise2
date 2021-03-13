@@ -1,20 +1,15 @@
 #pragma once
 #include <cassert>
-#include <cmath>
 
 #include "FastNoise/FastNoise_Config.h"
 
 #if !defined( FASTNOISE_METADATA ) && defined( __INTELLISENSE__ )
-#define FASTNOISE_METADATA
+//#define FASTNOISE_METADATA
 #endif
 
 namespace FastNoise
 {
     struct Metadata;
-#ifdef FASTNOISE_METADATA
-    template<typename T>
-    struct MetadataT;
-#endif
 
     enum class Dim
     {
@@ -52,15 +47,15 @@ namespace FastNoise
 
         OutputMinMax& operator <<( float v )
         {
-            min = fminf( min, v );
-            max = fmaxf( max, v );
+            min = std::min( min, v );
+            max = std::max( max, v );
             return *this;
         }
 
         OutputMinMax& operator <<( const OutputMinMax& v )
         {
-            min = fminf( min, v.min );
-            max = fmaxf( max, v.max );
+            min = std::min( min, v.min );
+            max = std::max( max, v.max );
             return *this;
         }
     };
@@ -97,7 +92,7 @@ namespace FastNoise
     public:
 #ifdef FASTNOISE_METADATA
         template<typename T>
-        friend struct FastNoise::MetadataT;
+        friend struct MetadataT;
 #endif
 
         virtual ~Generator() = default;
@@ -146,11 +141,11 @@ namespace FastNoise
         void SetSourceMemberVariable( BaseSource<T>& memberVariable, SmartNodeArg<T> gen )
         {
             static_assert( std::is_base_of<Generator, T>::value, "T must be child of FastNoise::Generator class" );
-            assert( gen.get() );
-            assert( GetSIMDLevel() == gen->GetSIMDLevel() ); // Ensure that all SIMD levels match
 
-            memberVariable.base = gen;
+            assert( !gen.get() || GetSIMDLevel() == gen->GetSIMDLevel() ); // Ensure that all SIMD levels match
+
             SetSourceSIMDPtr( dynamic_cast<const Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
+            memberVariable.base = gen;
         }
 
     private:
@@ -188,6 +183,8 @@ namespace FastNoise
     };
 
 #ifdef FASTNOISE_METADATA
+    template<typename T>
+    struct MetadataT;
 
     template<>
     struct MetadataT<Generator> : Metadata
