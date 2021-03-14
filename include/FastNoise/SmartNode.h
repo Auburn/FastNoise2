@@ -2,6 +2,8 @@
 #include <cstddef>
 #include <utility>
 #include <cassert>
+#include <type_traits>
+#include <functional>
 
 namespace FastNoise
 {
@@ -30,6 +32,8 @@ namespace FastNoise
     template<typename T = Generator>
     class SmartNode
     {
+        static_assert( std::is_base_of<Generator, T>::value, "SmartNode should only be used for FastNoise node classes" );
+
     public:
         constexpr SmartNode( std::nullptr_t = nullptr ) noexcept :
             mReferenceId( SmartNodeManager::InvalidReferenceId ),
@@ -231,9 +235,6 @@ namespace FastNoise
 
 namespace std
 {
-    template<typename T>
-    struct hash;
-
     template<typename T>
     struct hash<FastNoise::SmartNode<T>>
     {
