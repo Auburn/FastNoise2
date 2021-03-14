@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <utility>
+#include <cassert>
 
 namespace FastNoise
 {
@@ -28,16 +29,15 @@ namespace FastNoise
     class SmartNode
     {
     public:
-        constexpr SmartNode( nullptr_t = nullptr )
+        constexpr SmartNode( std::nullptr_t = nullptr )
         {
-            mPtr = nullptr;
             mReferenceId = SmartNodeManager::InvalidReferenceId;
+            mPtr = nullptr;
         }
 
-        template<typename U>
-        explicit SmartNode( U* ptr )
+        explicit SmartNode( T* ptr )
         {
-            mReferenceId = SmartNodeManager::NewReference();
+            mReferenceId = ptr ? SmartNodeManager::NewReference() : SmartNodeManager::InvalidReferenceId;
             mPtr = ptr;
         }
         
@@ -53,18 +53,30 @@ namespace FastNoise
         {
             SmartNodeManager::IncReference( node.mReferenceId );
             mReferenceId = node.mReferenceId;
-            mPtr = static_cast<T*>( node.mPtr );
+            mPtr = node.mPtr;
         }
 
         template<typename U>
         SmartNode( const SmartNode<U>& node, T* ptr )
         {
+            assert( ptr );
+
             SmartNodeManager::IncReference( node.mReferenceId );
             mReferenceId = node.mReferenceId;
             mPtr = ptr;
         }
 
-        SmartNode( SmartNode&& node )
+        SmartNode( SmartNode&& node ) noexcept
+        {
+            mReferenceId = node.mReferenceId;
+            mPtr = node.mPtr;
+
+            node.mReferenceId = SmartNodeManager::InvalidReferenceId;
+            node.mPtr = nullptr;
+        }
+
+        template<typename U>
+        SmartNode( SmartNode<U>&& node ) noexcept
         {
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
@@ -78,11 +90,30 @@ namespace FastNoise
             free();
         }
 
-
-        SmartNode& operator=( SmartNode&& node )
+        SmartNode& operator=( SmartNode&& node ) noexcept
         {
             std::swap( mPtr, node.mPtr );
             std::swap( mReferenceId, node.mReferenceId );
+            return *this;
+        }
+
+        template<typename U>
+        SmartNode& operator=( SmartNode<U>&& node ) noexcept
+        {
+            if( mReferenceId == node.mReferenceId )
+            {
+                mPtr = node.mPtr;                
+            }
+            else
+            {
+                free();
+                mReferenceId = node.mReferenceId;
+                mPtr = node.mPtr;
+
+                node.mReferenceId = SmartNodeManager::InvalidReferenceId;
+                node.mPtr = nullptr;
+            }
+
             return *this;
         }
 
@@ -92,9 +123,9 @@ namespace FastNoise
             {
                 SmartNodeManager::IncReference( node.mReferenceId );
                 free();
+                mReferenceId = node.mReferenceId;
             }
             mPtr = node.mPtr;
-            mReferenceId = node.mReferenceId;
 
             return *this;
         }
@@ -106,9 +137,9 @@ namespace FastNoise
             {
                 SmartNodeManager::IncReference( node.mReferenceId );
                 free();
+                mReferenceId = node.mReferenceId;
             }
-            mPtr = static_cast<T*>( node.mPtr );
-            mReferenceId = node.mReferenceId;
+            mPtr = node.mPtr;
 
             return *this;
         }
@@ -131,6 +162,11 @@ namespace FastNoise
         T* get() const
         {
             return mPtr;
+        }
+
+        void reset( T* ptr = nullptr )
+        {
+            *this = SmartNode( ptr );
         }
 
     private:

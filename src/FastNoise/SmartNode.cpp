@@ -2,7 +2,6 @@
 
 #include <shared_mutex>
 #include <unordered_map>
-#include <cassert>
 
 namespace FastNoise
 {
