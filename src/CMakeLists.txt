@@ -40,7 +40,7 @@ list(APPEND FastNoise_generators_headers ${FastNoise_generators_inl})
 
 set(FastNoise_source
     FastNoise/Metadata.cpp
-)
+    FastNoise/SmartNode.cpp)
 
 source_group("FastSIMD" FILES ${FastSIMD_headers})
 source_group("FastSIMD" FILES ${FastSIMD_sources})

@@ -206,9 +206,9 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
             {
-                if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
+                if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                 {
-                    func( c, v );
+                    func( gRealType, v );
                     return true;
                 }
                 return false;
@@ -230,9 +230,9 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
             {
-                if( auto* c = dynamic_cast<U*>(g) )
+                if( U* gRealType = dynamic_cast<U*>( g ) )
                 {
-                    (c->*func)( v );
+                    (gRealType->*func)( v );
                     return true;
                 }
                 return false;
@@ -252,9 +252,9 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
             {
-                if( auto* c = dynamic_cast<U*>(g) )
+                if( U* gRealType = dynamic_cast<U*>( g ) )
                 {
-                    (c->*func)( (T)v.i );
+                    (gRealType->*func)( (T)v.i );
                     return true;
                 }
                 return false;
@@ -274,9 +274,9 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
             {
-                if( auto* c = dynamic_cast<U*>(g) )
+                if( U* gRealType = dynamic_cast<U*>( g ) )
                 {
-                    (c->*func)( (T)v.i );
+                    (gRealType->*func)( (T)v.i );
                     return true;
                 }
                 return false;
@@ -301,9 +301,9 @@ namespace FastNoise
 
                 member.setFunc = [func, idx]( Generator* g, MemberVariable::ValueUnion v )
                 {
-                    if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
+                    if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                     {
-                        func( c ).get()[idx] = v;
+                        func( gRealType ).get()[idx] = v;
                         return true;
                     }
                     return false;
@@ -321,11 +321,12 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
             {
-                if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
+                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                 {
-                    if( auto* c = dynamic_cast<U*>(g) )
+                    if( U* gRealType = dynamic_cast<U*>( g ) )
                     {
-                        (c->*func)( downCast );
+                        SmartNode<const T> source( s, sUpCast ); 
+                        (gRealType->*func)( source );
                         return true;
                     }
                 }
@@ -347,13 +348,14 @@ namespace FastNoise
                 member.name = name;
                 member.dimensionIdx = idx;
 
-                member.setFunc = [func, idx]( auto* g, SmartNodeArg<> s )
+                member.setFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
+                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                     {
-                        if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
+                        if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                         {
-                            g->SetSourceMemberVariable( func( c ).get()[idx], downCast );
+                            SmartNode<const T> source( s, sUpCast ); 
+                            g->SetSourceMemberVariable( func( gRealType ).get()[idx], source );
                             return true;
                         }
                     }
@@ -372,13 +374,14 @@ namespace FastNoise
             member.name = name;
             member.valueDefault = defaultValue;
 
-            member.setNodeFunc = [funcNode]( auto* g, SmartNodeArg<> s )
+            member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
-                if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
+                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                 {
-                    if( auto* c = dynamic_cast<U*>(g) )
+                    if( U* gRealType = dynamic_cast<U*>( g ) )
                     {
-                        (c->*funcNode)( downCast );
+                        SmartNode<const T> source( s, sUpCast ); 
+                        (gRealType->*funcNode)( source );
                         return true;
                     }
                 }
@@ -387,9 +390,9 @@ namespace FastNoise
 
             member.setValueFunc = [funcValue]( Generator* g, float v )
             {
-                if( auto* c = dynamic_cast<U*>(g) )
+                if( U* gRealType = dynamic_cast<U*>( g ) )
                 {
-                    (c->*funcValue)( v );
+                    (gRealType->*funcValue)( v );
                     return true;
                 }                
                 return false;
@@ -411,13 +414,14 @@ namespace FastNoise
                 member.valueDefault = defaultV;
                 member.dimensionIdx = idx;
 
-                member.setNodeFunc = [func, idx]( auto* g, SmartNodeArg<> s )
+                member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    if( SmartNode<const T> downCast = std::dynamic_pointer_cast<const T>( s ) )
+                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                     {
-                        if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
+                        if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                         {
-                            g->SetSourceMemberVariable( func( c ).get()[idx], downCast );
+                            SmartNode<const T> source( s, sUpCast ); 
+                            g->SetSourceMemberVariable( func( gRealType ).get()[idx], source );
                             return true;
                         }
                     }
@@ -426,9 +430,9 @@ namespace FastNoise
 
                 member.setValueFunc = [func, idx]( Generator* g, float v )
                 {
-                    if( auto* c = dynamic_cast<GetArg<U, 0>>(g) )
+                    if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                     {
-                        func( c ).get()[idx] = v;
+                        func( gRealType ).get()[idx] = v;
                         return true;
                     }
                     return false;
