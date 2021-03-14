@@ -232,6 +232,9 @@ namespace FastNoise
 namespace std
 {
     template<typename T>
+    struct hash;
+
+    template<typename T>
     struct hash<FastNoise::SmartNode<T>>
     {
         size_t operator()( const FastNoise::SmartNode<T>& node ) const noexcept
