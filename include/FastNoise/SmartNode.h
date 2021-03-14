@@ -21,6 +21,8 @@ namespace FastNoise
         static void IncReference( size_t id );
 
         static bool DecReference( size_t id );
+
+        static size_t ReferenceCount( size_t id );
     };
 
     class Generator;
@@ -29,7 +31,7 @@ namespace FastNoise
     class SmartNode
     {
     public:
-        constexpr SmartNode( std::nullptr_t = nullptr )
+        constexpr SmartNode( std::nullptr_t = nullptr ) noexcept
         {
             mReferenceId = SmartNodeManager::InvalidReferenceId;
             mPtr = nullptr;
@@ -43,7 +45,7 @@ namespace FastNoise
         
         SmartNode( const SmartNode& node )
         {
-            SmartNodeManager::IncReference( node.mReferenceId );
+            try_inc( node.mReferenceId );
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
         }
@@ -51,7 +53,7 @@ namespace FastNoise
         template<typename U>
         SmartNode( const SmartNode<U>& node )
         {
-            SmartNodeManager::IncReference( node.mReferenceId );
+            try_inc( node.mReferenceId );
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
         }
@@ -61,7 +63,7 @@ namespace FastNoise
         {
             assert( ptr );
 
-            SmartNodeManager::IncReference( node.mReferenceId );
+            try_inc( node.mReferenceId );
             mReferenceId = node.mReferenceId;
             mPtr = ptr;
         }
@@ -87,13 +89,12 @@ namespace FastNoise
 
         ~SmartNode()
         {
-            free();
+            release();
         }
 
         SmartNode& operator=( SmartNode&& node ) noexcept
         {
-            std::swap( mPtr, node.mPtr );
-            std::swap( mReferenceId, node.mReferenceId );
+            swap( node );
             return *this;
         }
 
@@ -106,7 +107,7 @@ namespace FastNoise
             }
             else
             {
-                free();
+                release();
                 mReferenceId = node.mReferenceId;
                 mPtr = node.mPtr;
 
@@ -117,12 +118,12 @@ namespace FastNoise
             return *this;
         }
 
-        SmartNode& operator=( const SmartNode& node )
+        SmartNode& operator=( const SmartNode& node ) noexcept
         {
             if( mReferenceId != node.mReferenceId )
             {
-                SmartNodeManager::IncReference( node.mReferenceId );
-                free();
+                try_inc( node.mReferenceId );
+                release();
                 mReferenceId = node.mReferenceId;
             }
             mPtr = node.mPtr;
@@ -131,12 +132,12 @@ namespace FastNoise
         }
 
         template<typename U>
-        SmartNode& operator=( const SmartNode<U>& node )
+        SmartNode& operator=( const SmartNode<U>& node ) noexcept
         {
             if( mReferenceId != node.mReferenceId )
             {
-                SmartNodeManager::IncReference( node.mReferenceId );
-                free();
+                try_inc( node.mReferenceId );
+                release();
                 mReferenceId = node.mReferenceId;
             }
             mPtr = node.mPtr;
@@ -144,22 +145,34 @@ namespace FastNoise
             return *this;
         }
 
-        T& operator*() const
+        template<typename U>
+        friend bool operator==( const SmartNode& lhs, const SmartNode<U>& rhs ) noexcept
+        {
+            return lhs.get() == rhs.get();
+        }
+
+        template<typename U>
+        friend bool operator!=( const SmartNode& lhs, const SmartNode<U>& rhs ) noexcept
+        {
+            return lhs.get() != rhs.get();
+        }
+
+        T& operator*() const noexcept
         {
             return *mPtr;
         }
 
-        T* operator->() const
+        T* operator->() const noexcept
         {
             return mPtr;
         }
 
-        operator bool() const
+        operator bool() const noexcept
         {
             return mPtr;
         }
 
-        T* get() const
+        T* get() const noexcept
         {
             return mPtr;
         }
@@ -169,15 +182,45 @@ namespace FastNoise
             *this = SmartNode( ptr );
         }
 
-    private:
-        void free()
+        void swap( SmartNode& node ) noexcept
         {
-            if( SmartNodeManager::DecReference( mReferenceId ) )
+            std::swap( mReferenceId, node.mReferenceId );
+            std::swap( mPtr, node.mPtr );
+        }
+
+        long use_count() const noexcept
+        {
+            if( mReferenceId == SmartNodeManager::InvalidReferenceId )
+            {
+                return 0;
+            }
+
+            return (long)SmartNodeManager::ReferenceCount( mReferenceId );
+        }
+
+        bool unique() const noexcept
+        {
+            return use_count() == 1;
+        }
+
+    private:
+        static void try_inc( size_t id )
+        {
+            if( id != SmartNodeManager::InvalidReferenceId )
+            {
+                SmartNodeManager::IncReference( id );
+            }
+        }
+
+        void release()
+        {
+            if( mReferenceId != SmartNodeManager::InvalidReferenceId && SmartNodeManager::DecReference( mReferenceId ) )
             {
                 delete mPtr;
+
+                mReferenceId = SmartNodeManager::InvalidReferenceId;
+                mPtr = nullptr;
             }
-            mReferenceId = SmartNodeManager::InvalidReferenceId;
-            mPtr = nullptr;
         }
 
         template<typename U>

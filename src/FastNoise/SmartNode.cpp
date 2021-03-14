@@ -20,29 +20,36 @@ namespace FastNoise
 
     void SmartNodeManager::IncReference( size_t id )
     {
-        if( id != InvalidReferenceId )
-        {
-            std::unique_lock lock( gMutex );
+        assert( id != InvalidReferenceId );
 
-            ++gReferenceMap.at( id );
-        }
+        std::unique_lock lock( gMutex );
+
+        ++gReferenceMap.at( id );        
     }
 
     bool SmartNodeManager::DecReference( size_t id )
     {
-        if( id != InvalidReferenceId )
+        assert( id != InvalidReferenceId );
+        
+        std::unique_lock lock( gMutex );
+
+        if( gReferenceMap.at( id ) == 1 )
         {
-            std::unique_lock lock( gMutex );
-
-            if( gReferenceMap.at( id ) == 1 )
-            {
-                gReferenceMap.erase( id );
-                return true;
-            }
-
-            --gReferenceMap.at( id );
+            gReferenceMap.erase( id );
+            return true;
         }
+
+        --gReferenceMap.at( id );
         return false;
     }
+
+    size_t SmartNodeManager::ReferenceCount( size_t id )
+    {
+        assert( id != InvalidReferenceId );
+
+        std::shared_lock lock( gMutex );
+        return gReferenceMap.at( id );
+    }
+
 
 } // namespace FastNoise
