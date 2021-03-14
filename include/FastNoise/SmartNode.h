@@ -31,17 +31,15 @@ namespace FastNoise
     class SmartNode
     {
     public:
-        constexpr SmartNode( std::nullptr_t = nullptr ) noexcept
-        {
-            mReferenceId = SmartNodeManager::InvalidReferenceId;
-            mPtr = nullptr;
-        }
+        constexpr SmartNode( std::nullptr_t = nullptr ) noexcept :
+            mReferenceId( SmartNodeManager::InvalidReferenceId ),
+            mPtr( nullptr )
+        {}
 
-        explicit SmartNode( T* ptr )
-        {
-            mReferenceId = ptr ? SmartNodeManager::NewReference() : SmartNodeManager::InvalidReferenceId;
-            mPtr = ptr;
-        }
+        explicit SmartNode( T* ptr ) :
+            mReferenceId( ptr ? SmartNodeManager::NewReference() : SmartNodeManager::InvalidReferenceId ),
+            mPtr( ptr )
+        {}
         
         SmartNode( const SmartNode& node )
         {
@@ -226,7 +224,19 @@ namespace FastNoise
         template<typename U>
         friend class SmartNode;
 
-        T* mPtr;
         size_t mReferenceId;
+        T* mPtr;
     };
 } // namespace FastNoise
+
+namespace std
+{
+    template<typename T>
+    struct hash<FastNoise::SmartNode<T>>
+    {
+        size_t operator()( const FastNoise::SmartNode<T>& node ) const noexcept
+        {
+            return std::hash<T*>( node.get() );
+        }        
+    };
+}
