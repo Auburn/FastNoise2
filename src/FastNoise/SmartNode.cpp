@@ -204,7 +204,7 @@ namespace FastNoise
     class SmartNodeMemoryResource final : public std::pmr::memory_resource
     {
     public:
-        static inline uint32_t sNewPoolSize = 256;
+        static inline uint32_t sNewPoolSize = 256 * 1024;
         static inline std::pmr::memory_resource* sPoolMemoryResource = nullptr;
 
         static thread_local inline SmartNodeReference sLastAlloc = { SmartNodeManager::kInvalidReferenceId };
