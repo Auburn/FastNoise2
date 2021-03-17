@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 
-#if __cplusplus >= 201703L // C++17
+#if __cplusplus >= 201703L || ( defined( _MSVC_LANG ) && ( _MSVC_LANG >= 201703L ) && ( _MSC_VER >= 1913 ) ) // C++17
 #if __has_include( <memory_resource> )
 #include <memory_resource>
 #define FASTSIMD_HAS_MEMORY_RESOURCE true
