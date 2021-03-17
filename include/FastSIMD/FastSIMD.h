@@ -39,7 +39,7 @@ namespace FastSIMD
     struct MemoryResource
     {
         // nullptr will use standard 'new CLASS()'
-        constexpr MemoryResource( nullptr_t = nullptr ) noexcept :
+        constexpr MemoryResource( std::nullptr_t = nullptr ) noexcept :
             std_pmr_memory_resource( nullptr ) { }
 
 #if FASTSIMD_HAS_MEMORY_RESOURCE
