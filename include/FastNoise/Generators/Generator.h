@@ -12,8 +12,6 @@
 
 namespace FastNoise
 {
-    struct Metadata;
-
     enum class Dim
     {
         X, Y, Z, W,
@@ -93,10 +91,8 @@ namespace FastNoise
     class Generator
     {
     public:
-#ifdef FASTNOISE_METADATA
         template<typename T>
         friend struct MetadataT;
-#endif
 
         virtual ~Generator() = default;
 
@@ -186,9 +182,6 @@ namespace FastNoise
     };
 
 #ifdef FASTNOISE_METADATA
-    template<typename T>
-    struct MetadataT;
-
     template<>
     struct MetadataT<Generator> : Metadata
     {

@@ -1,8 +1,12 @@
 #pragma once
-#include <memory>
 #include <FastSIMD/FastSIMD.h>
 
 #define FASTNOISE_CALC_MIN_MAX 1
+#define FASTNOISE_USE_SHARED_PTR 1
+
+#if FASTNOISE_USE_SHARED_PTR
+#include <memory>
+#endif
 
 namespace FastNoise
 {
@@ -12,10 +16,36 @@ namespace FastNoise
         FastSIMD::Level_SSE41  |
         FastSIMD::Level_AVX2   |
         FastSIMD::Level_AVX512 ;
+    
+    class Generator;
+    struct Metadata;
 
-    template<typename T = class Generator>
+    template<typename T>
+    struct MetadataT;
+
+#if FASTNOISE_USE_SHARED_PTR
+    template<typename T = Generator>
     using SmartNode = std::shared_ptr<T>;
 
-    template<typename T = class Generator>
+    namespace SmartNodeManager
+    {
+        inline FastSIMD::MemoryResource GetMemoryResource()
+        {
+            return {};
+        }
+    }
+#else
+    template<typename T = Generator>
+    class SmartNode;
+#endif
+
+    template<typename T = Generator>
     using SmartNodeArg = const SmartNode<const T>&;
-}
+
+    template<typename T>
+    SmartNode<T> New( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null );
+} // namespace FastNoise
+
+#if !FASTNOISE_USE_SHARED_PTR
+#include "SmartNode.h"
+#endif

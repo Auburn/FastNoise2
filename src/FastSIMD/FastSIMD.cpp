@@ -192,15 +192,15 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 }
 
 template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL>
-CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
+CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel, FastSIMD::MemoryResource mr )
 {
     if constexpr( ( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ) != 0 )
     {
-        CLASS_T* newClass = SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel );
+        CLASS_T* newClass = SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, mr );
 
         if( !newClass && SIMD_LEVEL <= maxSIMDLevel )
         {
-            return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>();
+            return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>( mr );
         }
 
         return newClass;
@@ -212,12 +212,12 @@ CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel )
             return nullptr;
         }
 
-        return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel );        
+        return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, mr );        
     }
 }
 
 template<typename CLASS_T>
-CLASS_T* FastSIMD::New( eLevel maxSIMDLevel )
+CLASS_T* FastSIMD::New( eLevel maxSIMDLevel, FastSIMD::MemoryResource mr )
 {
     if( maxSIMDLevel == Level_Null )
     {
@@ -229,11 +229,11 @@ CLASS_T* FastSIMD::New( eLevel maxSIMDLevel )
     }
 
     static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );
-    return SIMDLevelSelector<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel );
+    return SIMDLevelSelector<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel, mr );
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template CLASS* FastSIMD::New( FastSIMD::eLevel );
+template CLASS* FastSIMD::New( FastSIMD::eLevel, FastSIMD::MemoryResource );
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY
 #include "FastSIMD_BuildList.inl"

@@ -5,7 +5,7 @@ namespace FastSIMD
 {
     typedef uint32_t Level_BitFlags;
 
-       enum eLevel : Level_BitFlags
+    enum eLevel : Level_BitFlags
     {
         Level_Null   = 0,       // Uninitilised
         Level_Scalar = 1 <<  0, // 80386 instruction set (Not SIMD)
@@ -34,17 +34,40 @@ namespace FastSIMD
         (FASTSIMD_COMPILE_AVX2       ? Level_AVX2   : 0) |
         (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : 0) |
         (FASTSIMD_COMPILE_NEON       ? Level_NEON   : 0) ;
-                                                              
+    
+    // Wrap std::pmr::memory_resource in struct for compatibility with C++11
+    struct MemoryResource
+    {
+        // nullptr will use standard 'new CLASS()'
+        constexpr MemoryResource( nullptr_t = nullptr ) noexcept :
+            std_pmr_memory_resource( nullptr ) { }
+
+#if __cplusplus >= 201703L // C++17
+        constexpr MemoryResource( std::pmr::memory_resource* mr ) noexcept :
+            std_pmr_memory_resource( mr ) { }
+
+        operator std::pmr::memory_resource*() const noexcept
+        {
+            return (std::pmr::memory_resource*)std_pmr_memory_resource;
+        }
+
+        std::pmr::memory_resource* operator->() const noexcept
+        {
+            return *this;
+        }
+#endif
+
+        void* std_pmr_memory_resource;
+    };
 
     eLevel CPUMaxSIMDLevel();
 
     template<typename T>
-    T* New( eLevel maxSIMDLevel = Level_Null );
+    T* New( eLevel maxSIMDLevel = Level_Null, MemoryResource mr = nullptr );
 
     template<typename T, eLevel SIMD_LEVEL>
-    T* ClassFactory();
+    T* ClassFactory( MemoryResource mr = nullptr );
 
 #define FASTSIMD_LEVEL_SUPPORT( ... ) \
     static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = __VA_ARGS__
-
 };

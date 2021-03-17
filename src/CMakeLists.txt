@@ -69,7 +69,7 @@ set_target_properties(FastNoise PROPERTIES
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast)
+    target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast /Zc:__cplusplus)
     
     if(CMAKE_SIZEOF_VOID_P EQUAL 4)
         set_source_files_properties(FastSIMD/FastSIMD_Level_Scalar.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE")
@@ -84,7 +84,7 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
-        target_compile_options(FastNoise PRIVATE /GS- /fp:fast)
+        target_compile_options(FastNoise PRIVATE /GS- /fp:fast /Zc:__cplusplus)
     else()
         target_compile_options(FastNoise PRIVATE "-ffast-math")        
     endif()

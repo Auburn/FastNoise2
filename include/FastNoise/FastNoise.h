@@ -25,12 +25,12 @@ namespace FastNoise
     /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
     /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
     template<typename T>
-    SmartNode<T> New( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null )
+    SmartNode<T> New( FastSIMD::eLevel maxSimdLevel /*= FastSIMD::Level_Null*/ )
     {
         static_assert( std::is_base_of<Generator, T>::value, "Use FastSIMD::New() to create non FastNoise classes" );
         static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot create abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
 
-        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel ) );
+        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel, SmartNodeManager::GetMemoryResource() ) );
     }
 
     /// <summary>

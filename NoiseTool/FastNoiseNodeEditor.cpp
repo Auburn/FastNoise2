@@ -297,7 +297,6 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         }
         auto find = mNodes.find( mSelectedNode );
 
-        FastNoise::SmartNode<> generator;
         std::string serialised;
         
 

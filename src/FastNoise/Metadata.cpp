@@ -460,7 +460,7 @@ const FastNoise::Metadata& CLASS::GetMetadata() const\
 }\
 SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::eLevel l ) const\
 {\
-    return SmartNode<>( FastSIMD::New<CLASS>( l ) );\
+    return SmartNode<>( FastSIMD::New<CLASS>( l, SmartNodeManager::GetMemoryResource() ) );\
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) FASTSIMD_BUILD_CLASS2( CLASS )

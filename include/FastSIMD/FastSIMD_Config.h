@@ -1,5 +1,10 @@
 #pragma once
 #include <cstdint>
+#include <cstddef>
+
+#if __cplusplus >= 201703L // C++17
+#include <memory_resource>
+#endif
 
 #if defined(__arm__) || defined(__aarch64__)
 #define FASTSIMD_x86 0
