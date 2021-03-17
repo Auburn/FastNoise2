@@ -1,8 +1,8 @@
 #pragma once
 #include <FastSIMD/FastSIMD.h>
 
-#define FASTNOISE_CALC_MIN_MAX 1
-#define FASTNOISE_USE_SHARED_PTR 1
+#define FASTNOISE_CALC_MIN_MAX true
+#define FASTNOISE_USE_SHARED_PTR true // !FASTSIMD_HAS_MEMORY_RESOURCE
 
 #if FASTNOISE_USE_SHARED_PTR
 #include <memory>
@@ -26,14 +26,6 @@ namespace FastNoise
 #if FASTNOISE_USE_SHARED_PTR
     template<typename T = Generator>
     using SmartNode = std::shared_ptr<T>;
-
-    namespace SmartNodeManager
-    {
-        inline FastSIMD::MemoryResource GetMemoryResource()
-        {
-            return {};
-        }
-    }
 #else
     template<typename T = Generator>
     class SmartNode;

@@ -11,9 +11,6 @@
 
 #include "FastSIMD/SIMDTypeList.h"
 
-
-static FastSIMD::eLevel simdLevel = FastSIMD::Level_Null;
-
 static_assert(FastSIMD::SIMDTypeList::MinimumCompiled & FastSIMD::COMPILED_SIMD_LEVELS, "FASTSIMD_FALLBACK_SIMD_LEVEL is not a compiled SIMD level, check FastSIMD_Config.h");
 
 #if FASTSIMD_x86
@@ -82,9 +79,10 @@ static int64_t xgetbv( int ctr )
 }
 #endif
 
-
 FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 {
+    static eLevel simdLevel = Level_Null;
+
     if ( simdLevel > Level_Null )
     {
         return simdLevel;

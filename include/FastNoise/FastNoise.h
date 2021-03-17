@@ -30,7 +30,11 @@ namespace FastNoise
         static_assert( std::is_base_of<Generator, T>::value, "Use FastSIMD::New() to create non FastNoise classes" );
         static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot create abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
 
+#if FASTNOISE_USE_SHARED_PTR
+        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel ) );
+#else
         return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel, SmartNodeManager::GetMemoryResource() ) );
+#endif
     }
 
     /// <summary>

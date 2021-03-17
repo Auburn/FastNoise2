@@ -1,14 +1,16 @@
 #include <FastNoise/FastNoise_Config.h>
 
 #if !FASTNOISE_USE_SHARED_PTR
+
 #include <FastNoise/SmartNode.h>
 
-#include <shared_mutex>
+#include <cstdlib>
+#include <mutex>
 #include <atomic>
 #include <unordered_map>
 #include <vector>
 #include <list>
-#include <cstdlib>
+#include <cstring>
 
 namespace FastNoise
 {

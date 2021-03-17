@@ -42,7 +42,7 @@ namespace FastSIMD
         constexpr MemoryResource( nullptr_t = nullptr ) noexcept :
             std_pmr_memory_resource( nullptr ) { }
 
-#if __cplusplus >= 201703L // C++17
+#if FASTSIMD_HAS_MEMORY_RESOURCE
         constexpr MemoryResource( std::pmr::memory_resource* mr ) noexcept :
             std_pmr_memory_resource( mr ) { }
 
@@ -57,6 +57,11 @@ namespace FastSIMD
         }
 #endif
 
+        operator bool() const noexcept
+        {
+            return std_pmr_memory_resource;
+        }
+    private:
         void* std_pmr_memory_resource;
     };
 
@@ -70,4 +75,5 @@ namespace FastSIMD
 
 #define FASTSIMD_LEVEL_SUPPORT( ... ) \
     static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = __VA_ARGS__
-};
+
+}

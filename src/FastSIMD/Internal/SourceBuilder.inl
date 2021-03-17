@@ -1,6 +1,8 @@
 #pragma once
 #include "FastSIMD/FastSIMD.h"
 
+#include <cassert>
+
 template<typename CLASS, typename FS>
 class FS_T;
 
@@ -13,12 +15,17 @@ CLASS* FastSIMD::ClassFactory( FastSIMD::MemoryResource memoryResource )
 
         if( memoryResource )
         {
+#if FASTSIMD_HAS_MEMORY_RESOURCE
             void* alloc = memoryResource->allocate( sizeof( FS_T<CLASS, FS_SIMD_CLASS> ), alignof( FS_T<CLASS, FS_SIMD_CLASS> ) );
             
             return new( alloc ) FS_T<CLASS, FS_SIMD_CLASS>;
+#endif
+            assert( 0 );
         }
-
-        return new FS_T<CLASS, FS_SIMD_CLASS>;
+        else
+        {
+            return new FS_T<CLASS, FS_SIMD_CLASS>;
+        }
     }
     return nullptr; 
 }
