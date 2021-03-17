@@ -137,9 +137,6 @@ namespace FastNoise
 
                     SlotInfo* newSlot = new( startSlot ) SlotInfo{ slotSize, (uint32_t)0 };
 
-                    usedSlots.push_back( newSlot );
-                    printf( "Alloc   %x (Used: %d Free: %d)\n", pos, (int)usedSlots.size(), (int)freeSlots.size() );
-
                     return newSlot + 1;
                 }
             }
@@ -153,10 +150,6 @@ namespace FastNoise
 
             assert( slot->references == 0 );
             assert( slot->size < poolSize );
-
-            usedSlots.erase( std::find( usedSlots.begin(), usedSlots.end(), slot ) );
-
-            printf( "Dealloc %x (Used: %d Free: %d)\n", pos, (int)usedSlots.size(), (int)freeSlots.size() );
 
             // Merge free slots as necessary 
             FreeSlot* expandedBefore = nullptr;
@@ -206,7 +199,6 @@ namespace FastNoise
         uint8_t* pool;
         std::pmr::memory_resource* memoryResource;
         std::vector<FreeSlot> freeSlots;
-        std::vector<SlotInfo*> usedSlots;
     };
     
     class SmartNodeMemoryResource final : public std::pmr::memory_resource
@@ -320,8 +312,6 @@ namespace FastNoise
         std::atomic<uint32_t>& refCount = gMemoryResource.GetReferenceCount( { id } );
 
         ++refCount;
-
-        printf( "Inc  %d  %x\n", (uint32_t)refCount, SmartNodeReference { id }.u32.id );
     }
 
     void SmartNodeManager::DecReference( uint64_t id, void* ptr, void ( *destructorFunc )( void* ) )
@@ -331,8 +321,6 @@ namespace FastNoise
         std::atomic<uint32_t>& refCount = gMemoryResource.GetReferenceCount( { id } );    
 
         uint32_t previousRefCount = refCount.fetch_sub( 1 );
-
-        printf( "Dec  %d  %x\n", previousRefCount - 1, SmartNodeReference { id }.u32.id );
 
         assert( previousRefCount );
 

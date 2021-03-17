@@ -53,9 +53,6 @@ namespace FastNoise
         
         SmartNode( const SmartNode& node )
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "SmartNode( const SmartNode& node )\n" );
-
             TryInc( node.mReferenceId );
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
@@ -64,9 +61,6 @@ namespace FastNoise
         template<typename U>
         SmartNode( const SmartNode<U>& node )
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "SmartNode( const SmartNode<U>& node )\n" );
-
             TryInc( node.mReferenceId );
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
@@ -75,8 +69,6 @@ namespace FastNoise
         template<typename U>
         SmartNode( const SmartNode<U>& node, T* ptr )
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "SmartNode( const SmartNode<U>& node, T* ptr )\n" );
             assert( ptr );
 
             TryInc( node.mReferenceId );
@@ -86,9 +78,6 @@ namespace FastNoise
 
         SmartNode( SmartNode&& node ) noexcept
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "SmartNode( SmartNode&& node )\n" );
-
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
 
@@ -99,9 +88,6 @@ namespace FastNoise
         template<typename U>
         SmartNode( SmartNode<U>&& node ) noexcept
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "SmartNode( SmartNode<U>&& node )\n" );
-
             mReferenceId = node.mReferenceId;
             mPtr = node.mPtr;
 
@@ -111,15 +97,11 @@ namespace FastNoise
 
         ~SmartNode()
         {
-            printf( "        %x ", (int)(mReferenceId >> 32) );
-            printf( "~SmartNode()\n" );
             Release();
         }
 
         SmartNode& operator=( SmartNode&& node ) noexcept
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "operator=( SmartNode&& node ) %x\n", (int)( mReferenceId >> 32 ) );
             swap( node );
             return *this;
         }
@@ -127,9 +109,6 @@ namespace FastNoise
         template<typename U>
         SmartNode& operator=( SmartNode<U>&& node ) noexcept
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "operator=( SmartNode<U>&& node ) %x\n", (int)( mReferenceId >> 32 ) );
-
             if( mReferenceId == node.mReferenceId )
             {
                 mPtr = node.mPtr;                
@@ -149,8 +128,6 @@ namespace FastNoise
 
         SmartNode& operator=( const SmartNode& node ) noexcept
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "operator=( const SmartNode& node ) %x\n", (int)( mReferenceId >> 32 ) );
             if( mReferenceId != node.mReferenceId )
             {
                 TryInc( node.mReferenceId );
@@ -165,9 +142,6 @@ namespace FastNoise
         template<typename U>
         SmartNode& operator=( const SmartNode<U>& node ) noexcept
         {
-            printf( "        %x ", (int)( node.mReferenceId >> 32 ) );
-            printf( "operator=( const SmartNode<U>& node ) %x\n", (int)( mReferenceId >> 32 ) );
-
             if( mReferenceId != node.mReferenceId )
             {
                 TryInc( node.mReferenceId );
