@@ -297,6 +297,11 @@ namespace FastNoise
         SmartNodeMemoryResource::sNewPoolSize = size;
     }
 
+    void SmartNodeManager::SetMemoryPoolAllocator( FastSIMD::MemoryResource memoryResource )
+    {
+        SmartNodeMemoryResource::sPoolMemoryResource = memoryResource;
+    }
+
     uint64_t SmartNodeManager::GetLastAllocID( void* ptr )
     {
         uint64_t id = SmartNodeMemoryResource::sLastAlloc.u64;

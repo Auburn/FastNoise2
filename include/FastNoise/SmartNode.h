@@ -19,6 +19,8 @@ namespace FastNoise
 
         static void SetMemoryPoolSize( uint32_t size );
 
+        static void SetMemoryPoolAllocator( FastSIMD::MemoryResource memoryResource );
+
     private:
         template<typename T>
         friend class SmartNode;
