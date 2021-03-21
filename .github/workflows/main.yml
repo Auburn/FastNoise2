@@ -34,7 +34,9 @@ jobs:
     steps:                
     - name: 'Install OpenGL SDL2'
       if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get update | sudo apt-get install libgl1-mesa-dev libsdl2-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install libgl1-mesa-dev libsdl2-dev
       
     - name: 'Install SDL2'
       if: matrix.os == 'macos-latest'
