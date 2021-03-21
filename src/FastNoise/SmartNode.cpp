@@ -153,7 +153,7 @@ namespace FastNoise
             assert( slot->references == 0 );
             assert( slot->size < poolSize );
 
-            // Merge free slots as necessary 
+            // Merge free slots as necessary
             FreeSlot* expandedBefore = nullptr;
             uint32_t idx = 0;
 
