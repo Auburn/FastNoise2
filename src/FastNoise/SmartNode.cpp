@@ -1,3 +1,4 @@
+#include <memory>
 #include <FastNoise/FastNoise_Config.h>
 
 #if !FASTNOISE_USE_SHARED_PTR
@@ -7,7 +8,6 @@
 #include <cstdlib>
 #include <mutex>
 #include <atomic>
-#include <unordered_map>
 #include <vector>
 #include <list>
 #include <cstring>
