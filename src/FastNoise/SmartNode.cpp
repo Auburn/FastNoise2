@@ -1,4 +1,3 @@
-#include <memory>
 #include <FastNoise/FastNoise_Config.h>
 
 #if !FASTNOISE_USE_SHARED_PTR
@@ -11,6 +10,7 @@
 #include <vector>
 #include <list>
 #include <cstring>
+#include <memory>
 
 namespace FastNoise
 {
@@ -45,17 +45,13 @@ namespace FastNoise
             uint32_t alignOffset = size % alignof( SlotInfo );
             if( alignOffset )
             {
-                assert( 0 ); // pool size needs to be multiple of alignof( SlotInfo )
+                // pool size needs to be multiple of `alignof( SlotInfo )` (likely 4)
                 size += alignof( SlotInfo ) - alignOffset;
             }
 
             poolSize = size;
-#ifdef _MSC_VER
-            pool = (uint8_t*)_aligned_malloc( poolSize, alignof( SlotInfo ) );
-#else
-            pool = (uint8_t*)std::aligned_alloc( poolSize, alignof( SlotInfo ) );
+            pool = (uint8_t*)new SlotInfo[size / sizeof( SlotInfo )];
 
-#endif
             freeSlots = { { 0, poolSize } };
         }
 
@@ -64,11 +60,7 @@ namespace FastNoise
 
         ~SmartNodeManagerPool()
         {
-#ifdef _MSC_VER
-            _aligned_free( pool );
-#else
-            std::free( pool );
-#endif
+            delete[] pool;
         }
         
         bool ValidatePtr( uint32_t pos, void* ptr ) const
@@ -131,7 +123,7 @@ namespace FastNoise
                         endSlot += alignof( SlotInfo ) - alignmentOffset;
                     }
 
-                    uint32_t slotSize = ( uint32_t )( endSlot - startSlot );
+                    uint32_t slotSize = (uint32_t)( endSlot - startSlot );
 
                     assert( freeSlots[idx].size >= slotSize );
 
