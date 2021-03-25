@@ -19,17 +19,15 @@ namespace FastNoise
 
         static void SetMemoryPoolSize( uint32_t size );
 
-        static void SetMemoryPoolAllocator( FastSIMD::MemoryResource memoryResource );
-
     private:
-        template<typename T>
+        template<typename>
+        friend struct MetadataT;
+
+        template<typename>
         friend class SmartNode;
 
         template<typename T>
         friend SmartNode<T> New( FastSIMD::eLevel );
-
-        template<typename U>
-        friend struct MetadataT;
 
         static uint64_t GetLastAllocID( void* ptr );
 
@@ -39,7 +37,7 @@ namespace FastNoise
 
         static uint32_t ReferenceCount( uint64_t id );
 
-        static FastSIMD::MemoryResource GetMemoryResource();
+        static void* Allocate( size_t size, size_t align );
     };
 
     template<typename T>

@@ -35,43 +35,15 @@ namespace FastSIMD
         (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : 0) |
         (FASTSIMD_COMPILE_NEON       ? Level_NEON   : 0) ;
     
-    // Wrap std::pmr::memory_resource in struct for compatibility with C++11
-    struct MemoryResource
-    {
-        // nullptr will use standard 'new CLASS()'
-        constexpr MemoryResource( std::nullptr_t = nullptr ) noexcept :
-            std_pmr_memory_resource( nullptr ) { }
-
-#if FASTSIMD_HAS_MEMORY_RESOURCE
-        constexpr MemoryResource( std::pmr::memory_resource* mr ) noexcept :
-            std_pmr_memory_resource( mr ) { }
-
-        operator std::pmr::memory_resource*() const noexcept
-        {
-            return (std::pmr::memory_resource*)std_pmr_memory_resource;
-        }
-
-        std::pmr::memory_resource* operator->() const noexcept
-        {
-            return *this;
-        }
-#endif
-
-        operator bool() const noexcept
-        {
-            return std_pmr_memory_resource;
-        }
-    private:
-        void* std_pmr_memory_resource;
-    };
+    typedef void* (*MemoryAllocator)( size_t size, size_t align );
 
     eLevel CPUMaxSIMDLevel();
 
     template<typename T>
-    T* New( eLevel maxSIMDLevel = Level_Null, MemoryResource mr = nullptr );
+    T* New( eLevel maxSIMDLevel = Level_Null, MemoryAllocator allocator = nullptr );
 
     template<typename T, eLevel SIMD_LEVEL>
-    T* ClassFactory( MemoryResource mr = nullptr );
+    T* ClassFactory( MemoryAllocator allocator = nullptr );
 
 #define FASTSIMD_LEVEL_SUPPORT( ... ) \
     static const FastSIMD::Level_BitFlags Supported_SIMD_Levels = __VA_ARGS__

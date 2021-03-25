@@ -33,7 +33,7 @@ namespace FastNoise
 #if FASTNOISE_USE_SHARED_PTR
         return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel ) );
 #else
-        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel, SmartNodeManager::GetMemoryResource() ) );
+        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel, &SmartNodeManager::Allocate ) );
 #endif
     }
 

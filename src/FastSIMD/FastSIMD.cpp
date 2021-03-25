@@ -190,15 +190,15 @@ FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 }
 
 template<typename CLASS_T, FastSIMD::eLevel SIMD_LEVEL>
-CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel, FastSIMD::MemoryResource mr )
+CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel, FastSIMD::MemoryAllocator allocator )
 {
     if constexpr( ( CLASS_T::Supported_SIMD_Levels & SIMD_LEVEL ) != 0 )
     {
-        CLASS_T* newClass = SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, mr );
+        CLASS_T* newClass = SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, allocator );
 
         if( !newClass && SIMD_LEVEL <= maxSIMDLevel )
         {
-            return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>( mr );
+            return FastSIMD::ClassFactory<CLASS_T, SIMD_LEVEL>( allocator );
         }
 
         return newClass;
@@ -210,12 +210,12 @@ CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel, FastSIMD::MemoryResou
             return nullptr;
         }
 
-        return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, mr );        
+        return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, allocator );        
     }
 }
 
 template<typename CLASS_T>
-CLASS_T* FastSIMD::New( eLevel maxSIMDLevel, FastSIMD::MemoryResource mr )
+CLASS_T* FastSIMD::New( eLevel maxSIMDLevel, FastSIMD::MemoryAllocator allocator )
 {
     if( maxSIMDLevel == Level_Null )
     {
@@ -227,11 +227,11 @@ CLASS_T* FastSIMD::New( eLevel maxSIMDLevel, FastSIMD::MemoryResource mr )
     }
 
     static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );
-    return SIMDLevelSelector<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel, mr );
+    return SIMDLevelSelector<CLASS_T, SIMDTypeList::MinimumCompiled>( maxSIMDLevel, allocator );
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template CLASS* FastSIMD::New( FastSIMD::eLevel, FastSIMD::MemoryResource );
+template CLASS* FastSIMD::New( FastSIMD::eLevel, FastSIMD::MemoryAllocator );
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY
 #include "FastSIMD_BuildList.inl"

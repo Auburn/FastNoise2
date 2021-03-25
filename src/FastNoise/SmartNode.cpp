@@ -40,7 +40,7 @@ namespace FastNoise
             uint32_t size;            
         };
 
-        SmartNodeManagerPool( uint32_t size, std::pmr::memory_resource* mr )
+        SmartNodeManagerPool( uint32_t size )
         {
             uint32_t alignOffset = size % alignof( SlotInfo );
             if( alignOffset )
@@ -50,8 +50,12 @@ namespace FastNoise
             }
 
             poolSize = size;
-            pool = (uint8_t*)mr->allocate( poolSize, alignof( SlotInfo ) );
-            memoryResource = mr;
+#ifdef _MSC_VER
+            pool = (uint8_t*)_aligned_malloc( poolSize, alignof( SlotInfo ) );
+#else
+            pool = (uint8_t*)std::aligned_alloc( poolSize, alignof( SlotInfo ) );
+
+#endif
             freeSlots = { { 0, poolSize } };
         }
 
@@ -60,7 +64,11 @@ namespace FastNoise
 
         ~SmartNodeManagerPool()
         {
-            memoryResource->deallocate( pool, poolSize, alignof( SlotInfo ) );
+#ifdef _MSC_VER
+            _aligned_free( pool );
+#else
+            std::free( pool );
+#endif
         }
         
         bool ValidatePtr( uint32_t pos, void* ptr ) const
@@ -143,6 +151,7 @@ namespace FastNoise
                 }
             }
 
+            assert( freeSlots.empty() || freeSlots[0].size != poolSize ); // Empty pool not large enough to fit alloc, increase the pool size
             return nullptr;
         }
 
@@ -199,15 +208,13 @@ namespace FastNoise
 
         uint32_t poolSize;
         uint8_t* pool;
-        std::pmr::memory_resource* memoryResource;
         std::vector<FreeSlot> freeSlots;
     };
     
-    class SmartNodeMemoryResource final : public std::pmr::memory_resource
+    class SmartNodeMemoryAllocator
     {
     public:
         static inline uint32_t sNewPoolSize = 256 * 1024;
-        static inline std::pmr::memory_resource* sPoolMemoryResource = nullptr;
 
         static thread_local inline SmartNodeReference sLastAlloc = { SmartNodeManager::kInvalidReferenceId };
 
@@ -227,6 +234,20 @@ namespace FastNoise
         std::atomic<uint32_t>& GetReferenceCount( SmartNodeReference ref ) const
         {
             return std::next( mPools.begin(), ref.u32.pool )->GetReferenceCount( ref.u32.id );
+        }
+
+        void* Alloc( size_t size, size_t align ) 
+        {
+            std::lock_guard lock( mMutex );
+
+            if( void* ptr = AllocFromPools( size, align ) )
+            {
+                return ptr;
+            }
+
+            mPools.emplace_back( sNewPoolSize );
+
+            return AllocFromPools( size, align );
         }
 
         void Dealloc( SmartNodeReference ref )
@@ -260,55 +281,26 @@ namespace FastNoise
             return nullptr;
         }
 
-        void* do_allocate( size_t size, size_t align ) override
-        {
-            std::lock_guard lock( mMutex );
-
-            if( void* ptr = AllocFromPools( size, align ) )
-            {
-                return ptr;
-            }
-
-            mPools.emplace_back( sNewPoolSize, sPoolMemoryResource ? sPoolMemoryResource : std::pmr::get_default_resource() );
-
-            return AllocFromPools( size, align );
-        }
-
-        void do_deallocate( void* ptr, size_t size, size_t align ) override
-        {
-            assert( 0 );
-        }
-
-        bool do_is_equal( const memory_resource& that ) const noexcept override
-        {
-            return false;
-        }
-
         // std::list is used to allow lock free access to pools
         // In most use cases there should only be 1 pool so performance is not a concern
         std::list<SmartNodeManagerPool> mPools;
         std::mutex mMutex;
     };
 
-    static SmartNodeMemoryResource gMemoryResource;
+    static SmartNodeMemoryAllocator gMemoryAllocator;
 
     void SmartNodeManager::SetMemoryPoolSize( uint32_t size )
     {
-        SmartNodeMemoryResource::sNewPoolSize = size;
-    }
-
-    void SmartNodeManager::SetMemoryPoolAllocator( FastSIMD::MemoryResource memoryResource )
-    {
-        SmartNodeMemoryResource::sPoolMemoryResource = memoryResource;
+        SmartNodeMemoryAllocator::sNewPoolSize = size;
     }
 
     uint64_t SmartNodeManager::GetLastAllocID( void* ptr )
     {
-        uint64_t id = SmartNodeMemoryResource::sLastAlloc.u64;
+        uint64_t id = SmartNodeMemoryAllocator::sLastAlloc.u64;
 
-        assert( gMemoryResource.ValidatePtr( { id }, ptr ) );
+        assert( gMemoryAllocator.ValidatePtr( { id }, ptr ) );
 
-        SmartNodeMemoryResource::sLastAlloc.u64 = kInvalidReferenceId;
+        SmartNodeMemoryAllocator::sLastAlloc.u64 = kInvalidReferenceId;
         return id;
     }
 
@@ -316,16 +308,16 @@ namespace FastNoise
     {
         assert( id != kInvalidReferenceId );
 
-        std::atomic<uint32_t>& refCount = gMemoryResource.GetReferenceCount( { id } );
+        std::atomic<uint32_t>& refCount = gMemoryAllocator.GetReferenceCount( { id } );
 
         ++refCount;
     }
 
     void SmartNodeManager::DecReference( uint64_t id, void* ptr, void ( *destructorFunc )( void* ) )
     {
-        assert( gMemoryResource.ValidatePtr( { id }, ptr ) );
+        assert( gMemoryAllocator.ValidatePtr( { id }, ptr ) );
 
-        std::atomic<uint32_t>& refCount = gMemoryResource.GetReferenceCount( { id } );    
+        std::atomic<uint32_t>& refCount = gMemoryAllocator.GetReferenceCount( { id } );    
 
         uint32_t previousRefCount = refCount.fetch_sub( 1 );
 
@@ -335,21 +327,20 @@ namespace FastNoise
         {
             destructorFunc( ptr );
 
-            gMemoryResource.Dealloc( { id } );
+            gMemoryAllocator.Dealloc( { id } );
         }
-
     }
 
     uint32_t SmartNodeManager::ReferenceCount( uint64_t id )
     {
         assert( id != kInvalidReferenceId );
         
-        return gMemoryResource.GetReferenceCount( { id } );
+        return gMemoryAllocator.GetReferenceCount( { id } );
     }
 
-    FastSIMD::MemoryResource SmartNodeManager::GetMemoryResource()
+    void* SmartNodeManager::Allocate( size_t size, size_t align )
     {
-        return &gMemoryResource;
+        return gMemoryAllocator.Alloc( size, align );
     }
 } // namespace FastNoise
 

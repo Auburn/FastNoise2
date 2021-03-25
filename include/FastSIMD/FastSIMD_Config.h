@@ -2,17 +2,6 @@
 #include <cstdint>
 #include <cstddef>
 
-#if __cplusplus >= 201703L || ( defined( _MSVC_LANG ) && ( _MSVC_LANG >= 201703L ) && ( _MSC_VER >= 1913 ) ) // C++17
-#if __has_include( <memory_resource> )
-#include <memory_resource>
-#define FASTSIMD_HAS_MEMORY_RESOURCE true
-#endif
-#endif
-
-#ifndef FASTSIMD_HAS_MEMORY_RESOURCE
-#define FASTSIMD_HAS_MEMORY_RESOURCE false
-#endif
-
 #if defined(__arm__) || defined(__aarch64__)
 #define FASTSIMD_x86 false
 #define FASTSIMD_ARM true
