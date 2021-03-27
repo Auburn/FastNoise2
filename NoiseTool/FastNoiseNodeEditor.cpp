@@ -232,7 +232,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
 #endif
     ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
 
-    imnodes::Initialize();
+    imnodes::CreateContext();
     imnodes::GetIO().alt_mouse_button = ImGuiMouseButton_Right;
 
     ImGui::StyleColorsDark();
