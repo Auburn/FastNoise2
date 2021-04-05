@@ -8,6 +8,7 @@ int main()
     auto node = FastNoise::New<FastNoise::FractalFBm>();
 
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
+    node->SetGain( FastNoise::New<FastNoise::Value>() );
 
     const int size = 16;
 
