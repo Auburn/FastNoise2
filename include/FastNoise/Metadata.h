@@ -16,7 +16,7 @@ namespace FastNoise
 
     // Stores definition of a FastNoise node class
     // Node name, member name+types, functions to set members
-    struct Metadata
+    struct FASTNOISE_API Metadata
     {
         virtual ~Metadata() = default;
 
@@ -187,7 +187,7 @@ namespace FastNoise
 
     // Stores data to create an instance of a FastNoise node
     // Node type, member values
-    struct NodeData
+    struct FASTNOISE_API NodeData
     {
         NodeData( const Metadata* metadata );
 

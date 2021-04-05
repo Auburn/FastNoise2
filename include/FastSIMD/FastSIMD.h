@@ -37,7 +37,7 @@ namespace FastSIMD
     
     typedef void* (*MemoryAllocator)( size_t size, size_t align );
 
-    eLevel CPUMaxSIMDLevel();
+    FASTSIMD_API eLevel CPUMaxSIMDLevel();
 
     template<typename T>
     T* New( eLevel maxSIMDLevel = Level_Null, MemoryAllocator allocator = nullptr );

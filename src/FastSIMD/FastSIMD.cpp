@@ -231,7 +231,7 @@ CLASS_T* FastSIMD::New( eLevel maxSIMDLevel, FastSIMD::MemoryAllocator allocator
 }
 
 #define FASTSIMD_BUILD_CLASS( CLASS ) \
-template CLASS* FastSIMD::New( FastSIMD::eLevel, FastSIMD::MemoryAllocator );
+template FASTSIMD_API CLASS* FastSIMD::New( FastSIMD::eLevel, FastSIMD::MemoryAllocator );
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY
 #include "FastSIMD_BuildList.inl"

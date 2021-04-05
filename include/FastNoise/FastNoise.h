@@ -46,5 +46,5 @@ namespace FastNoise
     /// <param name="encodedNodeTreeString">Can be generated using the NoiseTool</param>
     /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
     /// <returns>Root node of the tree, nullptr for invalid strings</returns>
-    SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null );
+    FASTNOISE_API SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null );
 }

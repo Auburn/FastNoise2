@@ -2,6 +2,8 @@
 #include <cstdint>
 #include <cstddef>
 
+#include "FastSIMD_Export.h"
+
 #if defined(__arm__) || defined(__aarch64__)
 #define FASTSIMD_x86 false
 #define FASTSIMD_ARM true

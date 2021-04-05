@@ -20,6 +20,8 @@ endif()
 
 set(install_targets "")
 
+set(BUILD_SHARED_LIBS ON)
+
 add_subdirectory(src)
 
 if(FASTNOISE2_NOISETOOL)

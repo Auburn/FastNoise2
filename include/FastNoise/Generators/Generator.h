@@ -88,7 +88,7 @@ namespace FastNoise
         }
     };
 
-    class Generator
+    class FASTNOISE_API Generator
     {
     public:
         template<typename T>

@@ -40,7 +40,8 @@ list(APPEND FastNoise_generators_headers ${FastNoise_generators_inl})
 
 set(FastNoise_source
     FastNoise/Metadata.cpp
-    FastNoise/SmartNode.cpp)
+    FastNoise/SmartNode.cpp
+    FastNoise/FastNoise_C.cpp)
 
 source_group("FastSIMD" FILES ${FastSIMD_headers})
 source_group("FastSIMD" FILES ${FastSIMD_sources})
@@ -63,6 +64,12 @@ target_include_directories(FastNoise PUBLIC
     $<BUILD_INTERFACE:${FastNoise2_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+
+if(BUILD_SHARED_LIBS)
+    target_compile_definitions(FastNoise PRIVATE FASTNOISE_EXPORT)
+else()    
+    target_compile_definitions(FastNoise PUBLIC FASTNOISE_STATIC_LIB)
+endif()
 
 set_target_properties(FastNoise PROPERTIES
     DEBUG_POSTFIX D
