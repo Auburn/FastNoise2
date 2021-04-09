@@ -500,7 +500,7 @@ void FastNoiseNodeEditor::DoNodes()
             if( newMetadata )
             {
                 if( MatchingMembers( newMetadata->memberVariables, nodeMetadata->memberVariables ) &&
-                    MatchingMembers( newMetadata->memberNodes, nodeMetadata->memberNodes ) &&
+                    MatchingMembers( newMetadata->memberNodeLookups, nodeMetadata->memberNodeLookups ) &&
                     MatchingMembers( newMetadata->memberHybrids, nodeMetadata->memberHybrids ) )
                 {
                     nodeMetadata = newMetadata;                    
@@ -551,7 +551,7 @@ void FastNoiseNodeEditor::DoNodes()
         auto& nodeMetadata = node.second.data->metadata;
         auto& nodeData = node.second.data;
 
-        for( auto& memberNode : nodeMetadata->memberNodes )
+        for( auto& memberNode : nodeMetadata->memberNodeLookups )
         {
             imnodes::BeginInputAttribute( attributeId++ );
             formatName = FastNoise::Metadata::FormatMetadataMemberName( memberNode );
@@ -793,7 +793,7 @@ void FastNoiseNodeEditor::DoContextMenu()
 
         auto newMetadata = mContextMetadata.front()->DrawUI( []( const FastNoise::Metadata* metadata )
         {
-            return !metadata->memberNodes.empty() || !metadata->memberHybrids.empty();
+            return !metadata->memberNodeLookups.empty() || !metadata->memberHybrids.empty();
         } );
 
         if( newMetadata )

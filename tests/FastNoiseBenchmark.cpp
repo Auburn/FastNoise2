@@ -15,7 +15,7 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
 
     FastNoise::SmartNode<> source = FastNoise::New<FastNoise::Constant>( level );
 
-    for( const auto& memberNode : metadata->memberNodes )
+    for( const auto& memberNode : metadata->memberNodeLookups )
     {
         if( !memberNode.setFunc( generator.get(), source ) )
         {
@@ -27,7 +27,7 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
                 // Other node types may also have sources
                 if( memberNode.setFunc( generator.get(), trySource ) )
                 {
-                    for( const auto& tryMemberNode : tryMetadata->memberNodes )
+                    for( const auto& tryMemberNode : tryMetadata->memberNodeLookups )
                     {
                         if( !tryMemberNode.setFunc( trySource.get(), source ) )
                         {

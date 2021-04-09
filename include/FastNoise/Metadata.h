@@ -127,7 +127,7 @@ namespace FastNoise
         };
 
         // Node lookup (must be valid for node to function)
-        struct MemberNode : Member
+        struct MemberNodeLookup : Member
         {
             // Function to set source for given generator
             // Returns true if Generator* is correct node class and SmartNodeArg<> is correct node class
@@ -153,9 +153,9 @@ namespace FastNoise
         const char* name;
         std::vector<const char*> groups;
 
-        std::vector<MemberVariable> memberVariables;
-        std::vector<MemberNode>     memberNodes;
-        std::vector<MemberHybrid>   memberHybrids;
+        std::vector<MemberVariable>   memberVariables;
+        std::vector<MemberNodeLookup> memberNodeLookups;
+        std::vector<MemberHybrid>     memberHybrids;
 
         /// <summary>
         /// Create new instance of a FastNoise node from metadata

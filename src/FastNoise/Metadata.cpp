@@ -25,7 +25,7 @@ NodeData::NodeData( const Metadata* data )
             variables.push_back( value.valueDefault );
         }
 
-        for( const auto& value : metadata->memberNodes )
+        for( const auto& value : metadata->memberNodeLookups )
         {
             (void)value;
             nodes.push_back( nullptr );
@@ -54,9 +54,9 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     const Metadata* metadata = nodeData->metadata;
 
     if( !metadata ||
-        nodeData->variables.size() != metadata->memberVariables.size() ||
-        nodeData->nodes.size()     != metadata->memberNodes.size()     ||
-        nodeData->hybrids.size()   != metadata->memberHybrids.size()   )
+        nodeData->variables.size() != metadata->memberVariables.size()   ||
+        nodeData->nodes.size()     != metadata->memberNodeLookups.size() ||
+        nodeData->hybrids.size()   != metadata->memberHybrids.size()     )
     {
         assert( 0 ); // Member size mismatch with metadata
         return false;
@@ -106,7 +106,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     }
 
     // Member nodes
-    for( size_t i = 0; i < metadata->memberNodes.size(); i++ )
+    for( size_t i = 0; i < metadata->memberNodeLookups.size(); i++ )
     {
         if( fixUp && nodeData->nodes[i] )
         {
@@ -114,7 +114,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
             SmartNode<> test = metadata->CreateNode();
             SmartNode<> node = nodeData->nodes[i]->metadata->CreateNode();
 
-            if( !metadata->memberNodes[i].setFunc( test.get(), node ) )
+            if( !metadata->memberNodeLookups[i].setFunc( test.get(), node ) )
             {
                 nodeData->nodes[i] = nullptr;
                 return false;
@@ -245,7 +245,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
     }
 
     // Member nodes
-    for( const auto& node : metadata->memberNodes )
+    for( const auto& node : metadata->memberNodeLookups )
     {
         SmartNode<> nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, serialIdx, referenceNodes, level );
 

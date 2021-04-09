@@ -309,7 +309,7 @@ namespace FastNoise
         template<typename T, typename U>
         void AddGeneratorSource( const char* name, void(U::* func)(SmartNodeArg<T>) )
         {
-            MemberNode member;
+            MemberNodeLookup member;
             member.name = name;
 
             member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
@@ -326,7 +326,7 @@ namespace FastNoise
                 return false;
             };
 
-            memberNodes.push_back( member );
+            memberNodeLookups.push_back( member );
         }
 
         template<typename U>
