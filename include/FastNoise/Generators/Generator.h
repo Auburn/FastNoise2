@@ -337,7 +337,7 @@ namespace FastNoise
 
             for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<GeneratorSourceT>::varArray ) / sizeof( *PerDimensionVariable<GeneratorSourceT>::varArray ); idx++ )
             {
-                MemberNode member;
+                MemberNodeLookup member;
                 member.name = name;
                 member.dimensionIdx = idx;
 
@@ -355,7 +355,7 @@ namespace FastNoise
                     return false;
                 };
 
-                memberNodes.push_back( member );
+                memberNodeLookups.push_back( member );
             }
         }
 
