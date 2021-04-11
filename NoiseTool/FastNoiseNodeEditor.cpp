@@ -394,10 +394,11 @@ void FastNoiseNodeEditor::CheckLinks()
 void FastNoiseNodeEditor::UpdateSelected()
 {
     std::vector<int> linksToDelete;
+    int selectedLinkCount = imnodes::NumSelectedLinks();
 
-    if( int selectedCount = imnodes::NumSelectedLinks() && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+    if( selectedLinkCount && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
     {
-        linksToDelete.resize( selectedCount );
+        linksToDelete.resize( selectedLinkCount );
         imnodes::GetSelectedLinks( linksToDelete.data() );
     }
 
@@ -432,9 +433,11 @@ void FastNoiseNodeEditor::UpdateSelected()
         }
     }
 
-    if( int selectedCount = imnodes::NumSelectedNodes() && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+    int selectedNodeCount = imnodes::NumSelectedNodes();
+
+    if( selectedNodeCount && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
     {
-        std::vector<int> selected( selectedCount );
+        std::vector<int> selected( selectedNodeCount );
 
         imnodes::GetSelectedNodes( selected.data() );
 
