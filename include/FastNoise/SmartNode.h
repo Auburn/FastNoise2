@@ -46,6 +46,17 @@ namespace FastNoise
     public:
         static_assert( std::is_base_of<Generator, T>::value, "SmartNode should only be used for FastNoise node classes" );
 
+        template<typename U>
+        static SmartNode DynamicCast( SmartNode<U> node )
+        {
+            if( T* dynamicCast = dynamic_cast<T*>( node.get() ) )
+            {
+                return FastNoise::SmartNode<T>( node, dynamicCast );
+            }
+
+            return nullptr;
+        }
+
         constexpr SmartNode( std::nullptr_t = nullptr ) noexcept :
             mReferenceId( SmartNodeManager::kInvalidReferenceId ),
             mPtr( nullptr )

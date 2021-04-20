@@ -10,6 +10,12 @@ int main()
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
     node->SetGain( FastNoise::New<FastNoise::Value>() );
 
+    {
+        FastNoise::SmartNode<> base = FastNoise::New<FastNoise::Simplex>();
+
+        FastNoise::SmartNode<FastNoise::Simplex> simplex = FastNoise::SmartNode<FastNoise::Simplex>::DynamicCast( base );
+    }
+
     const int size = 16;
 
     float noise[size * size];
