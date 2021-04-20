@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <functional>
 
-#include <FastSIMD/FastSIMD.h>
+#include "FastNoise_Config.h"
 
 namespace FastNoise
 {
