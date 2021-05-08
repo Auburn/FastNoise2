@@ -252,7 +252,7 @@ namespace FastNoise
             mPtr = nullptr;            
         }
 
-        static void TryInc( size_t id )
+        static void TryInc( uint64_t id )
         {
             if( id != SmartNodeManager::kInvalidReferenceId )
             {
@@ -260,8 +260,7 @@ namespace FastNoise
             }
         }
 
-
-        size_t mReferenceId;
+        uint64_t mReferenceId;
         T* mPtr;
     };
 } // namespace FastNoise
