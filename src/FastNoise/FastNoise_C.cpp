@@ -30,7 +30,7 @@ void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned simdLevel )
     return nullptr;
 }
 
-void fnDeleteGeneratorRef( void* node )
+void fnDeleteNodeRef( void* node )
 {
     delete static_cast<FastNoise::SmartNode<>*>( node );
 }
