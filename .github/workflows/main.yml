@@ -47,11 +47,11 @@ jobs:
       with:        
         submodules: recursive
    
-    #- name: 'CMake Build Debug'
-    #  run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
+    - name: 'CMake Build Debug'
+      run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
    
-    #- name: 'CMake Install Debug'
-    #  run: cmake --build ${{ github.workspace }}/debug --config Debug --target install --parallel 4
+    - name: 'CMake Install Debug'
+      run: cmake --build ${{ github.workspace }}/debug --config Debug --target install --parallel 4
    
     - name: 'CMake Build Release'
       run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/release -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=ON -DFASTNOISE2_TESTS=ON ${{ matrix.cmake_options }}
