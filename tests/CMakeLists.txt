@@ -1,6 +1,10 @@
-
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-add_subdirectory(ThirdParty/benchmark EXCLUDE_FROM_ALL)
+CPMAddPackage(
+    NAME benchmark
+    GITHUB_REPOSITORY google/benchmark
+    VERSION 1.5.5
+    OPTIONS
+        "BENCHMARK_ENABLE_TESTING OFF"
+)
 
 add_executable(FastNoiseBenchmark 
     "FastNoiseBenchmark.cpp"
