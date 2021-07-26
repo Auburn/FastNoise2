@@ -4,8 +4,9 @@ cmake_minimum_required(VERSION 3.7.1)
 project(FastNoise2 VERSION 0.8.2)
 set(CMAKE_CXX_STANDARD 17)
 
-option(FASTNOISE2_NOISETOOL "Build Noise Tool" ON)
-option(FASTNOISE2_TESTS "Build Test" OFF)
+option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ON)
+option(FASTNOISE2_TESTS "Build tests" OFF)
+
 
 if(MSVC)
     #setup pdb target location
@@ -26,10 +27,12 @@ set(install_targets "")
 add_subdirectory(src)
 
 if(FASTNOISE2_NOISETOOL)
+    include(cmake/CPM.cmake)
     add_subdirectory(NoiseTool)
 endif()
 
 if(FASTNOISE2_TESTS)
+    include(cmake/CPM.cmake)  
     add_subdirectory(tests)
 endif()
 
