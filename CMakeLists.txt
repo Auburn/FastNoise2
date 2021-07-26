@@ -90,23 +90,6 @@ install(
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
-if(FASTNOISE2_NOISETOOL)
-    if(WIN32)
-        #need sdl2 dll on windows, linux its expected to be installed
-        if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") #32bit
-            install(
-                FILES ${SDL2_SOURCE_DIR}/lib/x86/SDL2.dll
-                DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            )
-        else()
-            install(
-                FILES ${SDL2_SOURCE_DIR}/lib/x64/SDL2.dll
-                DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            )
-        endif()
-    endif()
-endif()
-
 # Headers:
 install(
     FILES ${install_fastsimd_headers}

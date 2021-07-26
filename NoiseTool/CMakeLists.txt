@@ -20,6 +20,14 @@ CPMAddPackage(
 # Set SDL2 path
 list(APPEND CMAKE_PREFIX_PATH "${SDL2_SOURCE_DIR}")
 
+if(WIN32)
+    #need sdl2 dll on windows, linux its expected to be installed
+    install(
+        FILES ${SDL2_DLL_RELEASE}
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
+endif()
+
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
