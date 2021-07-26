@@ -42,10 +42,8 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: brew install SDL2
       
-    - name: 'Checkout recursive' 
+    - name: 'Checkout' 
       uses: actions/checkout@v2
-      with:        
-        submodules: recursive
    
     - name: 'CMake Build Debug'
       run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
