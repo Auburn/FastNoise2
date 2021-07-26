@@ -11,8 +11,14 @@ CPMAddPackage(
         "WITH_TESTSUITE OFF"
 )
 
+CPMAddPackage(
+    NAME SDL2
+    VERSION 2.0.14
+    URL https://www.libsdl.org/release/SDL2-devel-2.0.14-VC.zip
+)
+
 # Set SDL2 path
-list(APPEND CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty/SDL2-2.0.12")
+list(APPEND CMAKE_PREFIX_PATH "${SDL2_SOURCE_DIR}")
 
 CPMAddPackage(
     NAME magnum
