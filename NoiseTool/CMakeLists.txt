@@ -9,7 +9,6 @@ CPMAddPackage(
     OPTIONS
         "BUILD_STATIC ON"
         "WITH_INTERCONNECT OFF"
-        "WITH_PLUGINMANAGER OFF"
         "WITH_TESTSUITE OFF"
 )
 
