@@ -5,9 +5,11 @@ CPMAddPackage(
     GITHUB_REPOSITORY mosra/corrade
     GIT_TAG a8065db3c55aec214aa4e4887c4073289b2988e2
     GIT_SUBMODULES "src"
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_STATIC ON"
         "WITH_INTERCONNECT OFF"
+        "WITH_PLUGINMANAGER OFF"
         "WITH_TESTSUITE OFF"
 )
 
@@ -22,6 +24,7 @@ list(APPEND CMAKE_PREFIX_PATH "${SDL2_SOURCE_DIR}")
 
 if(WIN32)
     #need sdl2 dll on windows, linux its expected to be installed
+    find_package(SDL2)
     install(
         FILES ${SDL2_DLL_RELEASE}
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -33,6 +36,7 @@ CPMAddPackage(
     GITHUB_REPOSITORY mosra/magnum
     GIT_TAG 360ca834e17870e56f987bb6ecca308ab9889409
     GIT_SUBMODULES "src"
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_STATIC ON"
         "BUILD_PLUGINS_STATIC ON"
@@ -56,6 +60,7 @@ CPMAddPackage(
     GITHUB_REPOSITORY mosra/magnum-integration
     GIT_TAG 789f8132842536f077548bc4f2d2c3685e9f491e
     GIT_SUBMODULES "src"
+    EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_STATIC ON"
         "WITH_IMGUI ON"
