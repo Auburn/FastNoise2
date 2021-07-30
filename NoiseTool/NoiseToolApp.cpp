@@ -21,6 +21,8 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
+
+    setSwapInterval( 0 );
     
     mFrameTime.start();
 

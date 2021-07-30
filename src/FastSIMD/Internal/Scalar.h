@@ -238,7 +238,7 @@ namespace FastSIMD
         static constexpr eLevel SIMD_Level = FastSIMD::Level_Scalar;
 
         template<size_t ElementSize = 8>
-        static constexpr size_t VectorSize = 32 / ElementSize;
+        static constexpr size_t VectorSize = sizeof(int32_t) / ElementSize;
 
         typedef Scalar_Float float32v;
         typedef Scalar_Int   int32v;

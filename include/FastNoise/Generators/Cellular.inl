@@ -10,9 +10,10 @@ template<typename FS>
 class FS_T<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public FS_T<FastNoise::Generator, FS>
 {
 protected:
-    const float kJitter2D = 0.437015f;
-    const float kJitter3D = 0.396143f;
+    const float kJitter2D = 0.437016f;
+    const float kJitter3D = 0.396144f;
     const float kJitter4D = 0.366025f;
+    const float kJitterIdx23 = 0.190983f;
 };
 
 template<typename FS>

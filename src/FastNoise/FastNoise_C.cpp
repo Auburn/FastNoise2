@@ -7,7 +7,7 @@ FastNoise::Generator* ToGen( void* p )
     return static_cast<FastNoise::SmartNode<>*>( p )->get();
 }
 
-FastNoise::Generator* ToGen( const void* p )
+const FastNoise::Generator* ToGen( const void* p )
 {
     return static_cast<const FastNoise::SmartNode<>*>( p )->get();
 }
