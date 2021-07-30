@@ -1,11 +1,12 @@
 # CMakeList.txt : CMake project for FastNoise
 cmake_minimum_required(VERSION 3.7.1)
 
-project(FastNoise2 VERSION 0.8.1)
+project(FastNoise2 VERSION 0.8.2)
 set(CMAKE_CXX_STANDARD 17)
 
-option(FASTNOISE2_NOISETOOL "Build Noise Tool" ON)
-option(FASTNOISE2_TESTS "Build Test" OFF)
+option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ON)
+option(FASTNOISE2_TESTS "Build tests" OFF)
+
 
 if(MSVC)
     #setup pdb target location
@@ -26,10 +27,12 @@ set(install_targets "")
 add_subdirectory(src)
 
 if(FASTNOISE2_NOISETOOL)
+    include(cmake/CPM.cmake)
     add_subdirectory(NoiseTool)
 endif()
 
 if(FASTNOISE2_TESTS)
+    include(cmake/CPM.cmake)  
     add_subdirectory(tests)
 endif()
 
@@ -86,23 +89,6 @@ install(
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
-
-if(FASTNOISE2_NOISETOOL)
-    if(WIN32)
-        #need sdl2 dll on windows, linux its expected to be installed
-        if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") #32bit
-            install(
-                FILES NoiseTool/ThirdParty/SDL2-2.0.12/lib/x86/SDL2.dll
-                DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            )
-        else()
-            install(
-                FILES NoiseTool/ThirdParty/SDL2-2.0.12/lib/x64/SDL2.dll
-                DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            )
-        endif()
-    endif()
-endif()
 
 # Headers:
 install(

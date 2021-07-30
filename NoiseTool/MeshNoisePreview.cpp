@@ -418,20 +418,22 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
     uint8_t corner10 = (sideA1 && sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
     uint8_t corner11 = (sideA1 && sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
 
-    float light00 = (float)(sideA0 + sideB0 + corner00) / 3.0f;
-    float light01 = (float)(sideA1 + sideB0 + corner10) / 3.0f;
-    float light10 = (float)(sideA0 + sideB1 + corner01) / 3.0f;
-    float light11 = (float)(sideA1 + sideB1 + corner11) / 3.0f;
+    constexpr float lightAdjust = AO_STRENGTH / 3.0f; 
+
+    float light00 = (float)(sideA0 + sideB0 + corner00) * lightAdjust;
+    float light01 = (float)(sideA1 + sideB0 + corner10) * lightAdjust;
+    float light10 = (float)(sideA0 + sideB1 + corner01) * lightAdjust;
+    float light11 = (float)(sideA1 + sideB1 + corner11) * lightAdjust;
 
     float densityColorShift = 1 - (isoSurface - density[idx]) * 2;
 
     color *= densityColorShift * densityColorShift;
 
     uint32_t vertIdx = (uint32_t)verts.size();
-    verts.emplace_back( pos00, color * (1.0f - light00 * AO_STRENGTH) );
-    verts.emplace_back( pos01, color * (1.0f - light01 * AO_STRENGTH) );
-    verts.emplace_back( pos10, color * (1.0f - light10 * AO_STRENGTH) );
-    verts.emplace_back( pos11, color * (1.0f - light11 * AO_STRENGTH) );
+    verts.emplace_back( pos00, color * (1.0f - light00) );
+    verts.emplace_back( pos01, color * (1.0f - light01) );
+    verts.emplace_back( pos10, color * (1.0f - light10) );
+    verts.emplace_back( pos11, color * (1.0f - light11) );
 
     if( light00 + light11 < light01 + light10 )
     {
@@ -456,11 +458,11 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
 MeshNoisePreview::VertexColorShader::VertexColorShader()
 {
 #ifdef MAGNUM_BUILD_STATIC
-    if( !Utility::Resource::hasGroup( "MagnumShaders" ) )
+    if( !Utility::Resource::hasGroup( "MagnumShadersGL" ) )
         importShaderResources();
 #endif
 
-    Utility::Resource rs( "MagnumShaders" );
+    Utility::Resource rs( "MagnumShadersGL" );
 
 #ifndef MAGNUM_TARGET_GLES
     const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GL320, GL::Version::GL310, GL::Version::GL300, GL::Version::GL210 } );

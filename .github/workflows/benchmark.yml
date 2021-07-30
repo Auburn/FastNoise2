@@ -7,10 +7,8 @@ jobs:
   BenchmarkTrigger:
     runs-on: ubuntu-latest
     steps:                      
-    - name: 'Checkout recursive' 
-      uses: actions/checkout@v2
-      with:        
-        submodules: recursive                
+    - name: 'Checkout' 
+      uses: actions/checkout@v2            
    
     - name: 'CMake Build'
       uses: ashutoshvarma/action-cmake-build@master
