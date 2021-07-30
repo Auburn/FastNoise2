@@ -22,7 +22,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
 {
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
-    setSwapInterval( 0 );
+    setSwapInterval( 1 );
     
     mFrameTime.start();
 
