@@ -4,9 +4,11 @@ cmake_minimum_required(VERSION 3.7.1)
 project(FastNoise2 VERSION 0.8.2)
 set(CMAKE_CXX_STANDARD 17)
 
+# Build DLL
+#set(BUILD_SHARED_LIBS ON) 
+
 option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ON)
 option(FASTNOISE2_TESTS "Build tests" OFF)
-
 
 if(MSVC)
     #setup pdb target location
@@ -19,10 +21,11 @@ if(MSVC)
     add_compile_options("/FS")
 endif()
 
+# Introduce variables:
+# * CMAKE_INSTALL_LIBDIR
+# * CMAKE_INSTALL_BINDIR
+include(GNUInstallDirs) 
 set(install_targets "")
-
-#Build DLL
-#set(BUILD_SHARED_LIBS ON) 
 
 add_subdirectory(src)
 
@@ -38,11 +41,6 @@ endif()
 
 
 #Install -----------------------------------------------------------
-
-# Introduce variables:
-# * CMAKE_INSTALL_LIBDIR
-# * CMAKE_INSTALL_BINDIR
-include(GNUInstallDirs) 
 
 # Layout. This works for all platforms:
 #   * <prefix>/lib*/cmake/<PROJECT-NAME>
