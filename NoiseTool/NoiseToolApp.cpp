@@ -12,7 +12,7 @@ using namespace Magnum;
 NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
     Configuration{}
-    .setTitle( "FastNoise 2 Noise Tool" )
+    .setTitle( "FastNoise2 NoiseTool" )
     .setSize( Vector2i( 1280, 720 ) )
     .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ),
     GLConfiguration{}
@@ -23,7 +23,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
     setSwapInterval( 1 );
-    
+
     mFrameTime.start();
 
     mCameraObject.setTransformation( Matrix4::translation( { 20, 20, 20 } ) );

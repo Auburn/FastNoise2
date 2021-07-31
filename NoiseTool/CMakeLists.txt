@@ -1,5 +1,3 @@
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/modules" ${CMAKE_MODULE_PATH})
-
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
@@ -12,22 +10,16 @@ CPMAddPackage(
         "WITH_TESTSUITE OFF"
 )
 
-CPMAddPackage(
-    NAME SDL2
-    VERSION 2.0.14
-    URL https://www.libsdl.org/release/SDL2-devel-2.0.14-VC.zip
-)
-
-# Set SDL2 path
-list(APPEND CMAKE_PREFIX_PATH "${SDL2_SOURCE_DIR}")
-
+# Get SDL2 windows dev release
 if(WIN32)
-    #need sdl2 dll on windows, linux its expected to be installed
-    find_package(SDL2)
-    install(
-        FILES ${SDL2_DLL_RELEASE}
-        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    CPMAddPackage(
+        NAME SDL2
+        VERSION 2.0.14
+        URL https://www.libsdl.org/release/SDL2-devel-2.0.14-VC.zip
     )
+
+    # Set SDL2 path so magnum can find it
+    list(APPEND CMAKE_PREFIX_PATH "${SDL2_SOURCE_DIR}")
 endif()
 
 CPMAddPackage(
@@ -46,8 +38,6 @@ CPMAddPackage(
         "WITH_TEXTURETOOLS OFF"
 )
     
-find_package(Magnum REQUIRED GL Sdl2Application)
-    
 CPMAddPackage(
     NAME imgui
     GITHUB_REPOSITORY ocornut/imgui
@@ -65,26 +55,31 @@ CPMAddPackage(
         "WITH_IMGUI ON"
         "IMGUI_DIR ${imgui_SOURCE_DIR}"
 )
-
-find_package(MagnumIntegration REQUIRED ImGui)
   
 CPMAddPackage(
     NAME imnodes
     VERSION 0.4
     GITHUB_REPOSITORY Nelarius/imnodes
-)  
-include_directories(${imnodes_SOURCE_DIR})
+)
+
+# Use modules from magnum-integration since it has everything we need
+set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_PATH})
+
+find_package(Magnum REQUIRED GL Sdl2Application)
+find_package(MagnumIntegration REQUIRED ImGui)
 
 add_executable(NoiseTool 
     "NoiseToolApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
-    "${imnodes_SOURCE_DIR}/imnodes.cpp")
- 
-set(install_targets ${install_targets} NoiseTool PARENT_SCOPE)
+    "${imnodes_SOURCE_DIR}/imnodes.cpp"
+) 
 
-target_link_libraries(NoiseTool PUBLIC
+# Include imnodes in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
+target_include_directories(NoiseTool PRIVATE "${imnodes_SOURCE_DIR}")
+
+target_link_libraries(NoiseTool PRIVATE
     FastNoise
     Magnum::Application
     Magnum::Shaders
@@ -94,6 +89,17 @@ target_link_libraries(NoiseTool PUBLIC
 
 if (UNIX)
     target_link_options(NoiseTool PRIVATE -pthread)
+endif()
+
+set(install_targets ${install_targets} NoiseTool PARENT_SCOPE)
+
+# Need sdl2 dll on windows, linux/mac its expected to be installed
+if(WIN32)
+    find_package(SDL2)
+    install(
+        FILES "${SDL2_DLL_RELEASE}"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
 endif()
 
 # Make the executable a default target to build & run in Visual Studio
