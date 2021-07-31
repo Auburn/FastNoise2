@@ -33,7 +33,13 @@ Check the [releases](https://github.com/Auburn/FastNoise2/releases) for early ve
 
 ![NoiseTool](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
 
-## Performance Comparisons
+## Performance
+
+FastNoise2 has continuous benchmarking to track of performance for each node type across commits
+
+Results can be found here: https://auburn.github.io/fastnoise2benchmarking/
+
+### Library Comparisons
 
 Benchmarked using [NoiseBenchmarking](https://github.com/Auburn/NoiseBenchmarking)
 
