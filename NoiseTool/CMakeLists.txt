@@ -97,7 +97,7 @@ set(install_targets ${install_targets} NoiseTool PARENT_SCOPE)
 if(WIN32)
     find_package(SDL2)
     install(
-        FILES "${SDL2_DLL_RELEASE}"
+        FILES ${SDL2_DLL_RELEASE}
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
     )
 endif()
