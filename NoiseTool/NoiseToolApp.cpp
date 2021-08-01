@@ -20,6 +20,15 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     }, 
     mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
 {
+    // Add a font that actually looks acceptable on HiDPI screens.
+    {
+        ImGui::GetIO().Fonts->Clear();
+        ImFontConfig fontConfig;
+        fontConfig.FontDataOwnedByAtlas = false;
+        const auto font = Utility::Resource { "font" }.getRaw( "main.ttf" );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), font.size(), 13.0f * framebufferSize().x() / ImGui::GetIO().DisplaySize.x, &fontConfig );
+    }
+
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
     setSwapInterval( 1 );

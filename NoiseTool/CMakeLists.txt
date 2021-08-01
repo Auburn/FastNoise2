@@ -68,12 +68,18 @@ set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_
 find_package(Magnum REQUIRED GL Sdl2Application)
 find_package(MagnumIntegration REQUIRED ImGui)
 
+# Bundle a better font
+# Configure resource file for imgui source dir variable
+configure_file("resources.conf" "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
+corrade_add_resource(NoiseTool_RESOURCES "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
+
 add_executable(NoiseTool 
     "NoiseToolApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
     "${imnodes_SOURCE_DIR}/imnodes.cpp"
+    ${NoiseTool_RESOURCES}
 ) 
 
 # Include imnodes in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
