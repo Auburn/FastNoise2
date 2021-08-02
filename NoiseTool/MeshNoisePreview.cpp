@@ -475,7 +475,7 @@ MeshNoisePreview::VertexColorShader::VertexColorShader()
     size_t mainStartIdx = fragShader.find( mainStart );
 
     CORRADE_INTERNAL_ASSERT_OUTPUT( mainStartIdx != std::string::npos );
-    fragShader.insert( mainStartIdx + mainStart.length(), "if( !gl_FrontFacing ){ fragmentColor = vec4(0.0,0.0,0.0,1.0); return; }" );
+    fragShader.insert( mainStartIdx + mainStart.length(), "if( !gl_FrontFacing ){ fragmentColor = (1.0 - interpolatedColor) * 0.05; return; }" );
 
     GL::Shader vert = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Vertex );
     GL::Shader frag = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Fragment );

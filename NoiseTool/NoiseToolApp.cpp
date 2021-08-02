@@ -9,6 +9,13 @@
 
 using namespace Magnum;
 
+void InitResources()
+{
+#ifdef MAGNUM_BUILD_STATIC
+    CORRADE_RESOURCE_INITIALIZE( NoiseTool_RESOURCES )
+#endif
+}
+
 NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
     Configuration{}
@@ -20,6 +27,8 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     }, 
     mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
 {
+    InitResources();
+
     // Add a font that actually looks acceptable on HiDPI screens.
     {
         ImGui::GetIO().Fonts->Clear();
@@ -122,11 +131,11 @@ void NoiseToolApp::drawEvent()
 
     cameraVelocity *= mFrameTime.previousFrameDuration() * 80.0f;
 
-    if( !cameraVelocity.isZero() ) {
+    if( !cameraVelocity.isZero() ) 
+    {
         Matrix4 transform = mCameraObject.transformation();
         transform.translation() += transform.rotation() * cameraVelocity;
         mCameraObject.setTransformation( transform );
-        redraw();
     }
 
     if( mBackFaceCulling )
