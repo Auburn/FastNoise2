@@ -26,7 +26,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
         ImFontConfig fontConfig;
         fontConfig.FontDataOwnedByAtlas = false;
         const auto font = Utility::Resource { "font" }.getRaw( "main.ttf" );
-        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), font.size(), 13.0f * framebufferSize().x() / ImGui::GetIO().DisplaySize.x, &fontConfig );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), font.size(), 14.0f * framebufferSize().x() / ImGui::GetIO().DisplaySize.x, &fontConfig );
     }
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
