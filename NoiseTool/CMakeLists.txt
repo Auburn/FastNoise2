@@ -73,7 +73,7 @@ find_package(MagnumIntegration REQUIRED ImGui)
 configure_file("resources.conf" "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
 corrade_add_resource(NoiseTool_RESOURCES "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
 
-add_executable(NoiseTool 
+add_executable(NoiseTool
     "NoiseToolApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
@@ -92,6 +92,11 @@ target_link_libraries(NoiseTool PRIVATE
     Magnum::SceneGraph
     MagnumIntegration::ImGui
 )
+
+# Windows HiDPI support
+if(CORRADE_TARGET_WINDOWS)
+    target_sources(NoiseTool PRIVATE WindowsHiDPI.manifest)
+endif()
 
 if (UNIX)
     target_link_options(NoiseTool PRIVATE -pthread)
