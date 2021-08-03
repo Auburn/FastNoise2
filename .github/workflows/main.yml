@@ -32,11 +32,11 @@ jobs:
             name: MacOS64-Clang
             cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     steps:                
-    - name: 'Install OpenGL & libxrandr'
+    - name: 'Install OpenGL & xorg'
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install libgl1-mesa-dev libxrandr-dev
+        sudo apt-get install libgl1-mesa-dev xorg-dev
             
     - name: 'Checkout' 
       uses: actions/checkout@v2
