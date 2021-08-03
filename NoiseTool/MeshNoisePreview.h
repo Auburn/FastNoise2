@@ -10,7 +10,7 @@
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/Math/Vector3.h>
 #include <Magnum/Math/Color.h>
-#include <Magnum/Shaders/VertexColor.h>
+#include <Magnum/Shaders/VertexColorGL.h>
 
 #include "FastNoise/FastNoise.h"
 #include "MultiThreadQueues.h"
@@ -31,13 +31,13 @@ namespace Magnum
         class VertexColorShader : public GL::AbstractShaderProgram
         {
         public:
-            typedef Shaders::Generic3D::Position Position;
-            typedef Shaders::Generic3D::Color3 Color3;
-            typedef Shaders::Generic3D::Color4 Color4;
+            typedef Shaders::GenericGL3D::Position Position;
+            typedef Shaders::GenericGL3D::Color3 Color3;
+            typedef Shaders::GenericGL3D::Color4 Color4;
 
             enum : UnsignedInt
             {
-                ColorOutput = Shaders::Generic3D::ColorOutput
+                ColorOutput = Shaders::GenericGL3D::ColorOutput
             };
 
             explicit VertexColorShader();
