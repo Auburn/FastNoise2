@@ -227,6 +227,8 @@ const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuGroup::DrawUI( std::
 
 FastNoiseNodeEditor::FastNoiseNodeEditor()
 {
+    ImGui::CreateContext();
+
 #ifdef IMGUI_HAS_DOCK
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 #endif

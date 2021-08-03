@@ -10,17 +10,17 @@ CPMAddPackage(
         "WITH_TESTSUITE OFF"
 )
 
-# Get SDL2 windows dev release
-if(WIN32)
-    CPMAddPackage(
-        NAME SDL2
-        VERSION 2.0.14
-        URL https://www.libsdl.org/release/SDL2-devel-2.0.14-VC.zip
-    )
-
-    # Set SDL2 path so magnum can find it
-    list(APPEND CMAKE_PREFIX_PATH "${SDL2_SOURCE_DIR}")
-endif()
+CPMAddPackage(
+    NAME GLFW
+    GITHUB_REPOSITORY glfw/glfw
+    GIT_TAG 3.3.4
+    EXCLUDE_FROM_ALL YES
+    OPTIONS
+        "GLFW_INSTALL OFF"
+        "GLFW_BUILD_TESTS OFF"
+        "GLFW_BUILD_EXAMPLES OFF"
+        "GLFW_BULID_DOCS OFF"
+)
 
 CPMAddPackage(
     NAME magnum
@@ -31,7 +31,7 @@ CPMAddPackage(
     OPTIONS
         "BUILD_STATIC ON"
         "BUILD_PLUGINS_STATIC ON"
-        "WITH_SDL2APPLICATION ON"
+        "WITH_GLFWAPPLICATION ON"
         "WITH_MESHTOOLS OFF"
         "WITH_TRADE OFF"
         "WITH_TEXT OFF"
@@ -65,7 +65,7 @@ CPMAddPackage(
 # Use modules from magnum-integration since it has everything we need
 set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_PATH})
 
-find_package(Magnum REQUIRED GL Sdl2Application)
+find_package(Magnum REQUIRED GL GlfwApplication)
 find_package(MagnumIntegration REQUIRED ImGui)
 
 # Bundle a better font
@@ -103,15 +103,6 @@ if (UNIX)
 endif()
 
 set(install_targets ${install_targets} NoiseTool PARENT_SCOPE)
-
-# Need sdl2 dll on windows, linux/mac its expected to be installed
-if(WIN32)
-    find_package(SDL2)
-    install(
-        FILES ${SDL2_DLL_RELEASE}
-        DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    )
-endif()
 
 # Make the executable a default target to build & run in Visual Studio
 set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT NoiseTool)

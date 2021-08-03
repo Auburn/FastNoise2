@@ -1,4 +1,5 @@
 #include <imgui.h>
+#include <Corrade/Utility/Resource.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
 #include <Magnum/Math/Matrix4.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
@@ -24,19 +25,21 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ),
     GLConfiguration{}
     .setSampleCount( 4 )
-    }, 
-    mImGuiContext( Vector2{ windowSize() } / dpiScaling(), windowSize(), framebufferSize() )
+    }
 {
     InitResources();
 
+    const Vector2 size = Vector2 { windowSize() } / dpiScaling();
+
     // Add a font that actually looks acceptable on HiDPI screens.
     {
-        ImGui::GetIO().Fonts->Clear();
         ImFontConfig fontConfig;
         fontConfig.FontDataOwnedByAtlas = false;
         const auto font = Utility::Resource { "font" }.getRaw( "main.ttf" );
-        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), font.size(), 14.0f * framebufferSize().x() / ImGui::GetIO().DisplaySize.x, &fontConfig );
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), font.size(), 14.0f * framebufferSize().x() / size.x(), &fontConfig );
     }
+
+    mImGuiContext = ImGuiIntegration::Context( *ImGui::GetCurrentContext(), size, windowSize(), framebufferSize() );
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 

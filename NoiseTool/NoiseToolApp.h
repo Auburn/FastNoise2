@@ -2,7 +2,7 @@
 
 #include <array>
 #include <Magnum/Math/Color.h>
-#include <Magnum/Platform/Sdl2Application.h>
+#include <Magnum/Platform/GlfwApplication.h>
 #include <Magnum/ImGuiIntegration/Context.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Camera.h>
