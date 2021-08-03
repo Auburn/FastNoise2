@@ -20,7 +20,7 @@ CPMAddPackage(
         "GLFW_INSTALL OFF"
         "GLFW_BUILD_TESTS OFF"
         "GLFW_BUILD_EXAMPLES OFF"
-        "GLFW_BULID_DOCS OFF"
+        "GLFW_BUILD_DOCS OFF"
 )
 
 CPMAddPackage(

@@ -105,6 +105,7 @@ namespace Magnum
         FastNoise::SmartNode<> GenerateSelectedPreview();
         void ChangeSelectedNode( int newId );
         void CheckLinks();
+        void DoHelp();
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();

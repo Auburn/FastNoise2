@@ -323,6 +323,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         ImGui::TextUnformatted( simdTxt.c_str() );
 
         imnodes::BeginNodeEditor();
+        
+        DoHelp();
 
         DoContextMenu();
 
@@ -398,7 +400,11 @@ void FastNoiseNodeEditor::UpdateSelected()
     std::vector<int> linksToDelete;
     int selectedLinkCount = imnodes::NumSelectedLinks();
 
-    if( selectedLinkCount && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+    bool delKeyPressed =
+        ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) ||
+        ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Backspace ), false );
+
+    if( selectedLinkCount && delKeyPressed )
     {
         linksToDelete.resize( selectedLinkCount );
         imnodes::GetSelectedLinks( linksToDelete.data() );
@@ -711,6 +717,32 @@ bool FastNoiseNodeEditor::AddNodeFromEncodedString( const char* string, ImVec2 n
     }
 
     return false;
+}
+
+void FastNoiseNodeEditor::DoHelp()
+{
+    ImGui::Text( " Help" );
+    if( ImGui::IsItemHovered() )
+    {
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
+        constexpr float alignPx = 110;
+
+        ImGui::BeginTooltip();
+        ImGui::Text( "Add nodes" );
+        ImGui::SameLine( alignPx );
+        ImGui::Text( "Right mouse click" );
+
+        ImGui::Text( "Pan graph" );
+        ImGui::SameLine( alignPx );
+        ImGui::Text( "Right mouse drag" );
+
+        ImGui::Text( "Delete node/link" );
+        ImGui::SameLine( alignPx );
+        ImGui::Text( "Backspace or Delete" );
+        ImGui::EndTooltip();
+
+        ImGui::PopStyleVar();
+    }
 }
 
 void FastNoiseNodeEditor::DoContextMenu()
