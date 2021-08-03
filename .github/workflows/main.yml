@@ -32,16 +32,12 @@ jobs:
             name: MacOS64-Clang
             cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     steps:                
-    - name: 'Install OpenGL SDL2'
+    - name: 'Install OpenGL'
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install libgl1-mesa-dev libsdl2-dev
-      
-    - name: 'Install SDL2'
-      if: matrix.os == 'macos-latest'
-      run: brew install SDL2
-      
+        sudo apt-get install libgl1-mesa-dev
+            
     - name: 'Checkout' 
       uses: actions/checkout@v2
    
