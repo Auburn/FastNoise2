@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <string>
 #include <climits>
 
 #include <Magnum/Magnum.h>
@@ -116,7 +117,7 @@ namespace Magnum
 
         ImVec2 mContextStartPos;
         std::vector<std::unique_ptr<MetadataMenu>> mContextMetadata;
-        char mImportNodeString[4096];
+        std::string mImportNodeString;
         bool mImportNodeModal = false;
 
         MeshNoisePreview mMeshNoisePreview;

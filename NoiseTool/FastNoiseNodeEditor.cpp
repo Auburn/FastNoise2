@@ -1,6 +1,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <imnodes.h>
 
 #include "FastNoiseNodeEditor.h"
@@ -785,13 +786,13 @@ void FastNoiseNodeEditor::DoContextMenu()
     if( openImportModal )
     {
         mImportNodeModal = true;
-        memset( mImportNodeString, 0, sizeof( mImportNodeString ) );
+        mImportNodeString.clear();
         ImGui::OpenPopup( "New From Encoded Node Tree" );
     }
 
     ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, { 5,5 } );
     ImGui::PushStyleVar( ImGuiStyleVar_FramePadding, { 5,5 } );
-    ImGui::SetNextWindowSize( { 400, 90 }, ImGuiCond_Always );
+    ImGui::SetNextWindowSize( { 400, 92 }, ImGuiCond_Always );
     ImGui::SetNextWindowPos( ImGui::GetIO().DisplaySize / 2, ImGuiCond_Always, { 0.5f,0.5f } );
 
     if( ImGui::BeginPopupModal( "New From Encoded Node Tree", &mImportNodeModal, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings ) )
@@ -801,18 +802,17 @@ void FastNoiseNodeEditor::DoContextMenu()
             ImGui::SetKeyboardFocusHere();
         }
 
-        bool txtEnter = ImGui::InputText( "Base64 String", mImportNodeString, sizeof( mImportNodeString ), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_CharsNoBlank );
+        bool txtEnter = ImGui::InputText( "Base64 String", &mImportNodeString, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_CharsNoBlank );
 
         if( txtEnter | ImGui::Button( "Create", { 100, 30 } ) )
         {
-            if( AddNodeFromEncodedString( mImportNodeString, mContextStartPos ) )
+            if( AddNodeFromEncodedString( mImportNodeString.c_str(), mContextStartPos ) )
             {
                 mImportNodeModal = false;
             }
             else
             {
-                const char* error = "DESERIALISATION FAILED";
-                memcpy( mImportNodeString, error, strlen( error ) + 1 );
+                mImportNodeString = "DESERIALISATION FAILED";
             }
         }
         ImGui::EndPopup();

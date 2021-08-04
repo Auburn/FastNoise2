@@ -80,6 +80,7 @@ add_executable(NoiseTool
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
     "${imnodes_SOURCE_DIR}/imnodes.cpp"
+    "${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp"
     ${NoiseTool_RESOURCES}
 ) 
 
