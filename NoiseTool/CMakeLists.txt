@@ -44,6 +44,8 @@ CPMAddPackage(
     GITHUB_REPOSITORY ocornut/imgui
     GIT_TAG 7bfc379a23e97b6777eb80aafb50a8e6248904cd
 )
+# Set dir for find_package(ImGui)
+set(IMGUI_DIR ${imgui_SOURCE_DIR})
 
 CPMAddPackage(
     NAME magnum-integration
@@ -54,7 +56,6 @@ CPMAddPackage(
     OPTIONS
         "BUILD_STATIC ON"
         "WITH_IMGUI ON"
-        "IMGUI_DIR ${imgui_SOURCE_DIR}"
 )
   
 CPMAddPackage(
@@ -68,6 +69,7 @@ set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_
 
 find_package(Magnum REQUIRED GL GlfwApplication)
 find_package(MagnumIntegration REQUIRED ImGui)
+find_package(ImGui REQUIRED SourcesMiscCpp)
 
 # Bundle a better font
 # Configure resource file for imgui source dir variable
@@ -80,7 +82,6 @@ add_executable(NoiseTool
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
     "${imnodes_SOURCE_DIR}/imnodes.cpp"
-    "${imgui_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp"
     ${NoiseTool_RESOURCES}
 ) 
 
@@ -93,6 +94,7 @@ target_link_libraries(NoiseTool PRIVATE
     Magnum::Shaders
     Magnum::SceneGraph
     MagnumIntegration::ImGui
+    ImGui::SourcesMiscCpp
 )
 
 # Windows HiDPI support
