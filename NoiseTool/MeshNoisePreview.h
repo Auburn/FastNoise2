@@ -10,7 +10,8 @@
 #include <Magnum/GL/Mesh.h>
 #include <Magnum/Math/Vector3.h>
 #include <Magnum/Math/Color.h>
-#include <Magnum/Shaders/VertexColorGL.h>
+#include <Magnum/GL/AbstractShaderProgram.h>
+#include <Magnum/GL/Shader.h>
 
 #include "FastNoise/FastNoise.h"
 #include "MultiThreadQueues.h"
@@ -28,30 +29,27 @@ namespace Magnum
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
 
     private:
-        class VertexColorShader : public GL::AbstractShaderProgram
+        class VertexLightShader : public GL::AbstractShaderProgram
         {
         public:
-            typedef Shaders::GenericGL3D::Position Position;
-            typedef Shaders::GenericGL3D::Color3 Color3;
-            typedef Shaders::GenericGL3D::Color4 Color4;
+            typedef GL::Attribute<0, Vector4> PositionLight;
 
-            enum : UnsignedInt
-            {
-                ColorOutput = Shaders::GenericGL3D::ColorOutput
-            };
+            explicit VertexLightShader();
+            explicit VertexLightShader( NoCreateT ) noexcept : AbstractShaderProgram{ NoCreate } {}
 
-            explicit VertexColorShader();
-            explicit VertexColorShader( NoCreateT ) noexcept : AbstractShaderProgram{ NoCreate } {}
+            VertexLightShader( const VertexLightShader& ) = delete;
+            VertexLightShader( VertexLightShader&& ) noexcept = default;
+            VertexLightShader& operator=( const VertexLightShader& ) = delete;
+            VertexLightShader& operator=( VertexLightShader&& ) noexcept = default;
 
-            VertexColorShader( const VertexColorShader& ) = delete;
-            VertexColorShader( VertexColorShader&& ) noexcept = default;
-            VertexColorShader& operator=( const VertexColorShader& ) = delete;
-            VertexColorShader& operator=( VertexColorShader&& ) noexcept = default;
-
-            VertexColorShader& setTransformationProjectionMatrix( const Matrix4& matrix );
+            VertexLightShader& SetTransformationProjectionMatrix( const Matrix4& matrix );
+            VertexLightShader& SetColorTint( const Color3& color );
 
         private:
-            Int mTransformationProjectionMatrixUniform{ 0 };
+            GL::Shader CreateShader( GL::Version version, GL::Shader::Type type );
+
+            int mTransformationProjectionMatrixUniform = 0;
+            int mColorTintUniform = 1;
         };
 
         class Chunk
@@ -59,11 +57,10 @@ namespace Magnum
         public:
             struct VertexData
             {
-                VertexData() = default;
-                VertexData( Vector3 p, Color3 c ) : pos(p), col(c) {}
+                VertexData( Vector3 p, float c ) :
+                    posLight( p, c ) {}
 
-                Vector3 pos;
-                Color3 col;
+                Vector4 posLight;
             };
 
             struct MeshData
@@ -77,20 +74,22 @@ namespace Magnum
                         return;
                     }
 
-                    VertexData* vertexDataPtr = new VertexData[v.size()];
-                    uint32_t* indiciesPtr = new uint32_t[i.size()];
+                    size_t vertSize = sizeof( VertexData ) * v.size();
+                    size_t indSize = sizeof( uint32_t ) * i.size();
 
-                    std::memcpy( vertexDataPtr, v.data(), v.size() * sizeof( VertexData ) );
-                    std::memcpy( indiciesPtr, i.data(), i.size() * sizeof( uint32_t ) );
+                    void* vertexDataPtr = std::malloc( vertSize + indSize );
+                    void* indiciesPtr = (uint8_t*)vertexDataPtr + vertSize;
 
-                    vertexData = { vertexDataPtr, v.size() };
-                    indicies = { indiciesPtr, i.size() };
+                    std::memcpy( vertexDataPtr, v.data(), vertSize );
+                    std::memcpy( indiciesPtr, i.data(), indSize );
+
+                    vertexData = { (VertexData*)vertexDataPtr, v.size() };
+                    indicies = { (uint32_t*)indiciesPtr, i.size() };
                 }
 
                 void Free()
                 {
-                    delete[] vertexData.data();
-                    delete[] indicies.data();
+                    std::free( vertexData.data() );
 
                     vertexData = nullptr;
                     indicies = nullptr;
@@ -119,14 +118,14 @@ namespace Magnum
             GL::Mesh& GetMesh() { return mMesh; }
             Vector3i GetPos() const { return mPos; }
 
-            static constexpr uint32_t SIZE = 126;
+            static constexpr uint32_t SIZE          = 128;
             static constexpr Vector3  LIGHT_DIR     = { 3, 4, 2 };
             static constexpr float    AMBIENT_LIGHT = 0.3f;
             static constexpr float    AO_STRENGTH   = 0.6f;
 
         private:
             static void AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
-                                   int32_t idx, int32_t facingIdx, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
+                                   int32_t idx, int32_t facingIdx, int32_t offsetA, int32_t offsetB, float light, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
 
             static constexpr uint32_t SIZE_GEN = SIZE + 2;
 
@@ -159,7 +158,7 @@ namespace Magnum
         Chunk::BuildData mBuildData;
         float mLoadRange = 300.0f;
         float mAvgNewChunks = 1.0f;
-        uint32_t mTriLimit = 25000000; // 25 mil
+        uint32_t mTriLimit = 35000000; // 35 mil
         uint32_t mTriCount = 0;
         int mStaggerCheck = 0;
         FastNoise::OutputMinMax mMinMax;
@@ -169,6 +168,6 @@ namespace Magnum
         std::vector<std::thread> mThreads;
         std::chrono::high_resolution_clock::time_point mTimerStart;
 
-        VertexColorShader mShader;
+        VertexLightShader mShader;
     };
 }

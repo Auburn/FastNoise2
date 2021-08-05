@@ -77,7 +77,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     Matrix4 transformationProjection = projection * transformation;
 
     Frustum camFrustrum = Frustum::fromMatrix( transformationProjection );
-    mShader.setTransformationProjectionMatrix( transformationProjection );
+    mShader.SetTransformationProjectionMatrix( transformationProjection );
 
     mTriCount = 0;
     uint32_t drawnTriCount = 0;
@@ -114,8 +114,12 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     }
 
 
-    if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) |
-        ImGui::DragInt( "Seed", &mBuildData.seed ) |
+    if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) )
+    {        
+        mShader.SetColorTint( mBuildData.color );
+    }
+
+    if( ImGui::DragInt( "Seed", &mBuildData.seed ) |
         ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" ) |
         ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f ) )
     {
@@ -303,16 +307,8 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
         Vector3 light = LIGHT_DIR.normalized() * (1.0f - AMBIENT_LIGHT) + Vector3( AMBIENT_LIGHT );
 
         float xLight = std::abs( light.x() );
-        Color3 colorRight = buildData.color * xLight;
-        Color3 colorLeft = buildData.color * (1.0f - xLight);
-
         float yLight = std::abs( light.y() );
-        Color3 colorUp = buildData.color * yLight;
-        Color3 colorDown = buildData.color * (1.0f - yLight);
-
         float zLight = std::abs( light.z() );
-        Color3 colorForward = buildData.color * zLight;
-        Color3 colorBack = buildData.color * (1.0f - zLight);
 
         constexpr int32_t STEP_X = 1;
         constexpr int32_t STEP_Y = SIZE_GEN;
@@ -332,42 +328,42 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                 {
                     float xf = x + (float)buildData.pos.x();
 
-                    if( densityValues[noiseIdx] <= buildData.isoSurface ) // isSolid
+                    if( densityValues[noiseIdx] <= buildData.isoSurface ) // Is Solid?
                     {
                         if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, colorRight,
-                                Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
+                                       Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, colorLeft,
-                                Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - xLight,
+                                       Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, colorUp,
-                                Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, yLight,
+                                       Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, colorDown,
-                                Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - yLight,
+                                       Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, colorForward,
-                                Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, zLight,
+                                       Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, colorBack,
-                                Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
+                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - zLight,
+                                       Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                         }
                     }
                     noiseIdx++;
@@ -397,96 +393,70 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
         mMesh.setCount( (Int)meshData.indicies.size() )
             .setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, (UnsignedInt)meshData.vertexData.size() - 1 )
-            .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexColorShader::Position{}, VertexColorShader::Color3{} );
+            .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
     }
 
     meshData.Free();
 }
 
 void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
-    int32_t idx, int32_t facingOffset, int32_t offsetA, int32_t offsetB, Color3 color, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
+                                         int32_t idx, int32_t facingOffset, int32_t offsetA, int32_t offsetB, float light, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
 {
     int32_t facingIdx = idx + facingOffset;
 
-    uint8_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
-    uint8_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
-    uint8_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
-    uint8_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
+    int32_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
+    int32_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
+    int32_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
+    int32_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
 
-    uint8_t corner00 = (sideA0 && sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
-    uint8_t corner01 = (sideA0 && sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
-    uint8_t corner10 = (sideA1 && sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
-    uint8_t corner11 = (sideA1 && sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
+    int32_t corner00 = (sideA0 & sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
+    int32_t corner01 = (sideA0 & sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
+    int32_t corner10 = (sideA1 & sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
+    int32_t corner11 = (sideA1 & sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
 
-    constexpr float lightAdjust = AO_STRENGTH / 3.0f; 
+    constexpr float aoAdjust = AO_STRENGTH / 3.0f; 
 
-    float light00 = (float)(sideA0 + sideB0 + corner00) * lightAdjust;
-    float light01 = (float)(sideA1 + sideB0 + corner10) * lightAdjust;
-    float light10 = (float)(sideA0 + sideB1 + corner01) * lightAdjust;
-    float light11 = (float)(sideA1 + sideB1 + corner11) * lightAdjust;
+    float ao00 = (float)(sideA0 + sideB0 + corner00) * aoAdjust;
+    float ao01 = (float)(sideA1 + sideB0 + corner10) * aoAdjust;
+    float ao10 = (float)(sideA0 + sideB1 + corner01) * aoAdjust;
+    float ao11 = (float)(sideA1 + sideB1 + corner11) * aoAdjust;
 
-    float densityColorShift = 1 - (isoSurface - density[idx]) * 2;
-
-    color *= densityColorShift * densityColorShift;
+    float densityLightShift = 1 - (isoSurface - density[idx]) * 2;
+    light *= densityLightShift * densityLightShift;
 
     uint32_t vertIdx = (uint32_t)verts.size();
-    verts.emplace_back( pos00, color * (1.0f - light00) );
-    verts.emplace_back( pos01, color * (1.0f - light01) );
-    verts.emplace_back( pos10, color * (1.0f - light10) );
-    verts.emplace_back( pos11, color * (1.0f - light11) );
+    verts.emplace_back( pos00, (1.0f - ao00) * light );
+    verts.emplace_back( pos01, (1.0f - ao01) * light );
+    verts.emplace_back( pos10, (1.0f - ao10) * light );
+    verts.emplace_back( pos11, (1.0f - ao11) * light );
 
-    if( light00 + light11 < light01 + light10 )
-    {
-        indicies.push_back( vertIdx );
-        indicies.push_back( vertIdx + 3 );
-        indicies.push_back( vertIdx + 2 );
-        indicies.push_back( vertIdx + 3 );
-        indicies.push_back( vertIdx );
-        indicies.push_back( vertIdx + 1 );
-    }
-    else
-    {
-        indicies.push_back( vertIdx );
-        indicies.push_back( vertIdx + 1 );
-        indicies.push_back( vertIdx + 2 );
-        indicies.push_back( vertIdx + 3 );
-        indicies.push_back( vertIdx + 2 );
-        indicies.push_back( vertIdx + 1 );
-    }
+    // Rotate tris to give best visuals for AO lighting
+    uint32_t triRotation = ( ao00 + ao11 > ao01 + ao10 ) * 2;    
+    indicies.push_back( vertIdx );
+    indicies.push_back( vertIdx + 3 - triRotation );
+    indicies.push_back( vertIdx + 2 );
+    indicies.push_back( vertIdx + 3 );
+    indicies.push_back( vertIdx + triRotation );
+    indicies.push_back( vertIdx + 1 );
 }
 
-MeshNoisePreview::VertexColorShader::VertexColorShader()
+MeshNoisePreview::VertexLightShader::VertexLightShader()
 {
-#ifdef MAGNUM_BUILD_STATIC
-    if( !Utility::Resource::hasGroup( "MagnumShadersGL" ) )
-        importShaderResources();
-#endif
-
-    Utility::Resource rs( "MagnumShadersGL" );
+    Utility::Resource noiseToolResources( "NoiseTool" );
 
 #ifndef MAGNUM_TARGET_GLES
     const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GL320, GL::Version::GL310, GL::Version::GL300, GL::Version::GL210 } );
 #else
     const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GLES300, GL::Version::GLES200 } );
 #endif
-
-    std::string fragShader( rs.get( "VertexColor.frag" ) );
-    std::string mainStart( "void main() {" );
-    size_t mainStartIdx = fragShader.find( mainStart );
-
-    CORRADE_INTERNAL_ASSERT_OUTPUT( mainStartIdx != std::string::npos );
-    fragShader.insert( mainStartIdx + mainStart.length(), "if( !gl_FrontFacing ){ fragmentColor = (1.0 - interpolatedColor) * 0.05; return; }" );
-
-    GL::Shader vert = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Vertex );
-    GL::Shader frag = Shaders::Implementation::createCompatibilityShader( rs, version, GL::Shader::Type::Fragment );
-
+    
+    GL::Shader vert = CreateShader( version, GL::Shader::Type::Vertex );
+    GL::Shader frag = CreateShader( version, GL::Shader::Type::Fragment );
+    
     CORRADE_INTERNAL_ASSERT_OUTPUT(
-        vert.addSource( "#define THREE_DIMENSIONS\n" )
-            .addSource( rs.get( "generic.glsl" ) )
-            .addSource( rs.get( "VertexColor.vert" ) ).compile() );
+        vert.addSource( noiseToolResources.get( "VertexColor.vert" ) ).compile() );
     CORRADE_INTERNAL_ASSERT_OUTPUT( 
-        frag.addSource( rs.get( "generic.glsl" ) )
-            .addSource( fragShader ).compile() );
+        frag.addSource( noiseToolResources.get( "VertexColor.frag" ) ).compile() );
 
     attachShader( vert );
     attachShader( frag );
@@ -497,8 +467,7 @@ MeshNoisePreview::VertexColorShader::VertexColorShader()
     if( !GL::Context::current().isExtensionSupported<GL::Extensions::ARB::explicit_attrib_location>( version ) )
 #endif
     {
-        bindAttributeLocation( Position::Location, "position" );
-        bindAttributeLocation( Color3::Location, "color" ); /* Color4 is the same */
+        bindAttributeLocation( PositionLight::Location, "positionLight" );
     }
 #endif
 
@@ -509,17 +478,53 @@ MeshNoisePreview::VertexColorShader::VertexColorShader()
 #endif
     {
         mTransformationProjectionMatrixUniform = uniformLocation( "transformationProjectionMatrix" );
+        mColorTintUniform = uniformLocation( "colorTint" );
     }
 
     /* Set defaults in OpenGL ES (for desktop they are set in shader code itself) */
 #ifdef MAGNUM_TARGET_GLES
-    setTransformationProjectionMatrix( Matrix4{} );
+    SetTransformationProjectionMatrix( Matrix4{} );
+    SetColorTint( Color3 { 1.0f } );
 #endif
 }
 
-MeshNoisePreview::VertexColorShader& MeshNoisePreview::VertexColorShader::setTransformationProjectionMatrix( const Matrix4& matrix )
+GL::Shader MeshNoisePreview::VertexLightShader::CreateShader( GL::Version version, GL::Shader::Type type )
+{
+    GL::Shader shader( version, type );
+
+#ifndef MAGNUM_TARGET_GLES
+    if( GL::Context::current().isExtensionDisabled<GL::Extensions::ARB::explicit_attrib_location>( version ) )
+        shader.addSource( "#define DISABLE_GL_ARB_explicit_attrib_location\n" );
+    if( GL::Context::current().isExtensionDisabled<GL::Extensions::ARB::shading_language_420pack>( version ) )
+        shader.addSource( "#define DISABLE_GL_ARB_shading_language_420pack\n" );
+    if( GL::Context::current().isExtensionDisabled<GL::Extensions::ARB::explicit_uniform_location>( version ) )
+        shader.addSource( "#define DISABLE_GL_ARB_explicit_uniform_location\n" );
+#endif
+
+#ifndef MAGNUM_TARGET_GLES2
+    if( type == GL::Shader::Type::Vertex && GL::Context::current().isExtensionDisabled<GL::Extensions::MAGNUM::shader_vertex_id>( version ) )
+        shader.addSource( "#define DISABLE_GL_MAGNUM_shader_vertex_id\n" );
+#endif
+
+/* My Android emulator (running on NVidia) doesn't define GL_ES
+       preprocessor macro, thus *all* the stock shaders fail to compile */
+/** @todo remove this when Android emulator is sane */
+#ifdef CORRADE_TARGET_ANDROID
+    shader.addSource( "#ifndef GL_ES\n#define GL_ES 1\n#endif\n" );
+#endif
+
+    return shader;
+}
+
+MeshNoisePreview::VertexLightShader& MeshNoisePreview::VertexLightShader::SetTransformationProjectionMatrix( const Matrix4& matrix )
 {
     setUniform( mTransformationProjectionMatrixUniform, matrix );
+    return *this;
+}
+
+MeshNoisePreview::VertexLightShader& MeshNoisePreview::VertexLightShader::SetColorTint( const Color3& color )
+{
+    setUniform( mColorTintUniform, Vector4( color, 1.0f ) );
     return *this;
 }
 

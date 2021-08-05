@@ -73,6 +73,7 @@ find_package(ImGui REQUIRED SourcesMiscCpp)
 
 # Bundle a better font
 # Configure resource file for imgui source dir variable
+set(NoiseTool_RESOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 configure_file("resources.conf" "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
 corrade_add_resource(NoiseTool_RESOURCES "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
 
