@@ -25,7 +25,8 @@ Supports:
 - Clang
 - GCC
 
-[C# bindings for FastNoise2](https://github.com/Auburn/FastNoise2Bindings)
+Bindings:
+- [C#](https://github.com/Auburn/FastNoise2Bindings)
 
 ## Noise Tool
 
