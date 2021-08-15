@@ -25,6 +25,8 @@ Supports:
 - Clang
 - GCC
 
+[C# bindings for FastNoise2](https://github.com/Auburn/FastNoise2Bindings)
+
 ## Noise Tool
 
 The FastNoise2 noise tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. The noise tool has 2D and 3D previews for the node graph output, see screenshots below for examples.
