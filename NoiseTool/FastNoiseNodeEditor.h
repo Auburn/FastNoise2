@@ -34,6 +34,7 @@ namespace Magnum
             Node( FastNoiseNodeEditor&, std::unique_ptr<FastNoise::NodeData>&& nodeData );
             void GeneratePreview( bool nodeTreeChanged = true );
             std::vector<int> GetNodeIDLinks();
+            uint64_t GetLocalGenerateNs();
             void SetNodeLink( int attributeId, FastNoise::NodeData* nodeData );
             void AutoPositionChildNodes( ImVec2 nodePos, float verticalSpacing = 380.0f );
 
@@ -65,6 +66,7 @@ namespace Magnum
             FastNoiseNodeEditor& editor;
             std::unique_ptr<FastNoise::NodeData> data;
             std::string serialised;
+            int64_t totalGenerateNs = 0;
 
             static const int NoiseSize = 224;
             GL::Texture2D noiseTexture;
@@ -104,6 +106,8 @@ namespace Magnum
         Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
         bool AddNodeFromEncodedString( const char* string, ImVec2 nodePos );
         FastNoise::SmartNode<> GenerateSelectedPreview();
+        FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
+        void BenchmarkOverhead();
         void ChangeSelectedNode( int newId );
         void CheckLinks();
         void DoHelp();
@@ -124,10 +128,13 @@ namespace Magnum
         NoiseTexture mNoiseTexture;
 
         int mSelectedNode = 0;
+        int64_t mConstantOverhead = 0;
+
         float mNodeFrequency = 0.02f;
         int mNodeSeed = 1337;
+        NoiseTexture::GenType mNodeGenType = NoiseTexture::GenType_2D;
 
-        FastSIMD::eLevel mMaxSIMDLevel = FastSIMD::Level_Null;
+        FastSIMD::eLevel mMaxSIMDLevel    = FastSIMD::Level_Null;
         FastSIMD::eLevel mActualSIMDLevel = FastSIMD::Level_Null;
     };
 }

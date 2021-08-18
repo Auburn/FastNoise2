@@ -3,6 +3,7 @@
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 #include <imnodes.h>
+#include <sstream>
 
 #include "FastNoiseNodeEditor.h"
 #include "DemoNodeTrees.inl"
@@ -69,7 +70,7 @@ FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, std::unique_ptr<FastNoi
 
 void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
 {
-    static std::array<float, NoiseSize* NoiseSize> noiseData;
+    static std::array<float, NoiseSize * NoiseSize> noiseData;
 
     serialised = FastNoise::Metadata::SerialiseNodeData( data.get(), true );
     auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str(), editor.mMaxSIMDLevel );
@@ -78,21 +79,24 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged )
     {
         auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxSIMDLevel );
         genRGB->SetSource( generator );
+        
+        auto startTime = std::chrono::high_resolution_clock::now();
 
-        float frequency = editor.mNodeFrequency;
+        editor.GenerateNodePreviewNoise( genRGB.get(), noiseData.data() );
 
-        genRGB->GenUniformGrid2D( noiseData.data(), NoiseSize / -2, NoiseSize / -2, NoiseSize, NoiseSize, frequency, editor.mNodeSeed );
+        totalGenerateNs = std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now() - startTime ).count();
+        totalGenerateNs = std::max<int64_t>( 0, totalGenerateNs - editor.mConstantOverhead );
     }
     else
     {
         std::fill( noiseData.begin(), noiseData.end(), 0.0f );
         serialised.clear();
+        totalGenerateNs = 0;
     }
 
     ImageView2D noiseImage( PixelFormat::RGBA8Unorm, { NoiseSize, NoiseSize }, noiseData );
 
-    noiseTexture.setStorage( 1, GL::TextureFormat::RGBA8, noiseImage.size() )
-        .setSubImage( 0, {}, noiseImage );
+    noiseTexture.setStorage( 1, GL::TextureFormat::RGBA8, noiseImage.size() ).setSubImage( 0, {}, noiseImage );
 
     int myNodeId = GetNodeID();
 
@@ -131,6 +135,23 @@ std::vector<int> FastNoiseNodeEditor::Node::GetNodeIDLinks()
     assert( links.size() < 16 );
 
     return links;
+}
+
+uint64_t Magnum::FastNoiseNodeEditor::Node::GetLocalGenerateNs()
+{
+    int64_t localTotal = totalGenerateNs;
+
+    for( int link : GetNodeIDLinks() )
+    {
+        auto find = editor.mNodes.find( link );
+
+        if( find != editor.mNodes.end() )
+        {
+            localTotal -= find->second.totalGenerateNs;
+        }           
+    }
+
+    return std::max<int64_t>( localTotal, 0 );
 }
 
 void FastNoiseNodeEditor::Node::SetNodeLink( int attributeId, FastNoise::NodeData* nodeData )
@@ -275,10 +296,36 @@ FastNoiseNodeEditor::FastNoiseNodeEditor()
         metaDataGroup->items.emplace_back( mContextMetadata.emplace_back( new MetadataMenuItem( metadata ) ).get() );
         std::sort( metaDataGroup->items.begin(), metaDataGroup->items.end(), menuSort );
     }
+
+    BenchmarkOverhead();
+}
+
+void FastNoiseNodeEditor::BenchmarkOverhead()
+{
+    // Benchmark node overhead
+    static std::array<float, Node::NoiseSize * Node::NoiseSize> noiseData;
+
+    mConstantOverhead = UINT64_MAX;
+    auto constant = FastNoise::New<FastNoise::Constant>( mMaxSIMDLevel );
+    auto rgb = FastNoise::New<FastNoise::ConvertRGBA8>( mMaxSIMDLevel );
+    rgb->SetSource( constant );
+
+    for( int i = 0; i < 16; i++ )
+    {
+        auto startTime = std::chrono::high_resolution_clock::now();
+
+        GenerateNodePreviewNoise( rgb.get(), noiseData.data() );
+
+        mConstantOverhead = std::min<uint64_t>( std::chrono::duration_cast<std::chrono::nanoseconds>( std::chrono::high_resolution_clock::now() - startTime ).count(), mConstantOverhead );
+    }
 }
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+    std::string simdTxt = "Current SIMD Level: ";
+    simdTxt += GetSIMDLevelName( mActualSIMDLevel );
+    ImGui::TextUnformatted( simdTxt.c_str() );
+
     ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
     ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
     if( ImGui::Begin( "Node Editor" ) )
@@ -286,42 +333,32 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         UpdateSelected();
 
         bool edited = false;
-        ImGui::PushItemWidth( 60.0f );
+        ImGui::PushItemWidth( 82.0f );
+
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
         ImGui::SameLine();
-        edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );
+        edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );    
+        ImGui::SameLine();    
+        
+        bool editedGenType = false;
+        editedGenType |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenTypeStrings );
+        editedGenType |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenType_Count );
+
         ImGui::PopItemWidth();
 
+        edited |= editedGenType;
+
+        if( editedGenType )
+        {
+            BenchmarkOverhead();
+        }
         if( edited )
         {
             for( auto& node : mNodes )
             {
                 node.second.GeneratePreview( false );
             }
-        }
-        auto find = mNodes.find( mSelectedNode );
-
-        std::string serialised;
-        
-
-        if( find != mNodes.end() )
-        {
-            serialised = find->second.serialised;
-        }
-
-        const char* serialisedLabel = "Encoded Node Tree";
-        const char* buttonLabel = "To CLI";
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth( ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize( serialisedLabel ).x - 210 - ImGui::CalcTextSize( buttonLabel ).x );
-        ImGui::InputText( serialisedLabel, serialised.data(), serialised.size(), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_AutoSelectAll );
-        ImGui::SameLine();
-        if(ImGui::Button(buttonLabel))
-            printf("\n%s\n", serialised.data());
-        
-        std::string simdTxt = "Current SIMD Level: ";
-        simdTxt += GetSIMDLevelName( mActualSIMDLevel );
-        ImGui::SameLine( ImGui::GetWindowContentRegionWidth() - ImGui::CalcTextSize( simdTxt.c_str() ).x );
-        ImGui::TextUnformatted( simdTxt.c_str() );
+        }                
 
         imnodes::BeginNodeEditor();
         
@@ -482,6 +519,8 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
 {
     mMaxSIMDLevel = lvl;
 
+    BenchmarkOverhead();
+
     for( auto& node : mNodes )
     {
         node.second.GeneratePreview();
@@ -497,12 +536,29 @@ void FastNoiseNodeEditor::DoNodes()
         imnodes::BeginNodeTitleBar();
         std::string formatName = FastNoise::Metadata::FormatMetadataNodeName( node.second.data->metadata );
         ImGui::TextUnformatted( formatName.c_str() );
+
+        std::stringstream performanceStream;
+        performanceStream.precision( 3 );
+        performanceStream << node.second.GetLocalGenerateNs() / 1e+3 << "us";
+        std::string performanceString = performanceStream.str();
+
+        ImGui::SameLine( Node::NoiseSize - ImGui::CalcTextSize( performanceString.c_str() ).x );
+        ImGui::TextUnformatted( performanceString.c_str() );
         imnodes::EndNodeTitleBar();
 
         // Right click node title to change node type
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
         if( ImGui::BeginPopupContextItem() )
         {
+            if( ImGui::MenuItem( "Copy Encoded Node Tree" ) )
+            {
+                ImGui::SetClipboardText( node.second.serialised.c_str() );
+                Debug{} << node.second.serialised.c_str();
+            }
+
+            ImGui::Separator();
+            ImGui::MenuItem( "Convert To:", nullptr, nullptr, false );
+
             auto& nodeMetadata = node.second.data->metadata;
             auto newMetadata = mContextMetadata.front()->DrawUI( [nodeMetadata]( const FastNoise::Metadata* metadata )
             {
@@ -726,9 +782,9 @@ void FastNoiseNodeEditor::DoHelp()
     if( ImGui::IsItemHovered() )
     {
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
+        ImGui::BeginTooltip();
         constexpr float alignPx = 110;
 
-        ImGui::BeginTooltip();
         ImGui::Text( "Add nodes" );
         ImGui::SameLine( alignPx );
         ImGui::Text( "Right mouse click" );
@@ -740,8 +796,12 @@ void FastNoiseNodeEditor::DoHelp()
         ImGui::Text( "Delete node/link" );
         ImGui::SameLine( alignPx );
         ImGui::Text( "Backspace or Delete" );
-        ImGui::EndTooltip();
 
+        ImGui::Text( "Node options" );
+        ImGui::SameLine( alignPx );
+        ImGui::Text( "Right click node" );
+
+        ImGui::EndTooltip();
         ImGui::PopStyleVar();
     }
 }
@@ -754,7 +814,7 @@ void FastNoiseNodeEditor::DoContextMenu()
     bool openImportModal = false;
 
     ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
-    if( distance < 5.0f && ImGui::BeginPopupContextWindow( "new_node", 1, false ) )
+    if( distance < 5.0f && ImGui::BeginPopupContextWindow( "new_node", 1 ) )
     {
         mContextStartPos = ImGui::GetMousePosOnOpeningCurrentPopup();
 
@@ -865,6 +925,31 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
     mNoiseTexture.ReGenerate( generator );
 
     return generator;
+}
+
+FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise )
+{
+    switch( mNodeGenType )
+    {
+    case NoiseTexture::GenType_2D:
+        return gen->GenUniformGrid2D( noise,
+            Node::NoiseSize / -2, Node::NoiseSize / -2,
+            Node::NoiseSize, Node::NoiseSize,
+            mNodeFrequency, mNodeSeed );
+
+    case NoiseTexture::GenType_2DTiled:
+        return gen->GenTileable2D( noise,
+            Node::NoiseSize, Node::NoiseSize,
+            mNodeFrequency, mNodeSeed );
+
+    case NoiseTexture::GenType_3D:
+        return gen->GenUniformGrid3D( noise,
+            Node::NoiseSize / -2, Node::NoiseSize / -2, 0,
+            Node::NoiseSize, Node::NoiseSize, 1,
+            mNodeFrequency, mNodeSeed );
+    }
+
+    return {};
 }
 
 void FastNoiseNodeEditor::ChangeSelectedNode( int newId )

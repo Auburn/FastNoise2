@@ -17,6 +17,19 @@ namespace Magnum
     class NoiseTexture
     {
     public:
+        enum GenType
+        {
+            GenType_2D,
+            GenType_2DTiled,
+            GenType_3D,
+            GenType_Count
+        };
+
+        inline static const char* GenTypeStrings = 
+            "2D\0"
+            "2D Tiled\0"
+            "3D Slice\0";
+
         NoiseTexture();
         ~NoiseTexture();
 
@@ -33,13 +46,7 @@ namespace Magnum
             float frequency;
             int32_t seed;
             uint64_t iteration;
-
-            enum
-            {
-                GenType_2D,
-                GenType_2DTiled,
-                GenType_3D
-            } generationType;            
+            GenType generationType;            
         };
 
         struct TextureData

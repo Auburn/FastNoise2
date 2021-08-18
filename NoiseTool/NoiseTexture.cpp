@@ -21,7 +21,7 @@ NoiseTexture::NoiseTexture()
     mBuildData.seed = 1337;
     mBuildData.size = { -1, -1 };
     mBuildData.offset = { 0, 0, 0 };
-    mBuildData.generationType = BuildData::GenType_2D;
+    mBuildData.generationType = GenType_2D;
 
     for( size_t i = 0; i < 2; i++ )
     {
@@ -65,8 +65,8 @@ void NoiseTexture::Draw()
         edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
         ImGui::SameLine();
 
-        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), "2D\0" "2D Tiled\0" "3D Slice\0" );
-        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), 3 );
+        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), GenTypeStrings );
+        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), GenType_Count );
 
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
 
@@ -145,20 +145,20 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
 
     switch( buildData.generationType )
     {
-    case BuildData::GenType_2D:
+    case GenType_2D:
         minMax = genRGB->GenUniformGrid2D( noiseData.data(),
             buildData.size.x() / -2, buildData.size.y() / -2,
             buildData.size.x(), buildData.size.y(),
             buildData.frequency, buildData.seed );
         break;
 
-    case BuildData::GenType_2DTiled:
+    case GenType_2DTiled:
         minMax = genRGB->GenTileable2D( noiseData.data(),
             buildData.size.x(), buildData.size.y(),
             buildData.frequency, buildData.seed );
         break;
 
-    case BuildData::GenType_3D:
+    case GenType_3D:
         minMax = genRGB->GenUniformGrid3D( noiseData.data(),
             buildData.size.x() / -2, buildData.size.y() / -2, 0,
             buildData.size.x(), buildData.size.y(), 1,

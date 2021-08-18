@@ -202,7 +202,8 @@
             "variables": [
                 {
                     "name": "CMAKE_CXX_FLAGS",
-                    "value": "-m32"
+                    "value": "-m32",
+                    "type": "STRING"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -227,7 +228,8 @@
             "variables": [
                 {
                     "name": "CMAKE_CXX_FLAGS",
-                    "value": "-m32"
+                    "value": "-m32",
+                    "type": "STRING"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
