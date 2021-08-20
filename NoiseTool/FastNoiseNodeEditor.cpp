@@ -318,7 +318,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
         std::sort( metaDataGroup->items.begin(), metaDataGroup->items.end(), menuSort );
     }
     
-    mOverheadNode.data = std::make_unique<FastNoise::NodeData>( FastNoise::Metadata::GetMetadataClass( FastNoise::New<FastNoise::Constant>()->GetMetadata().id ) );
+    mOverheadNode.data = std::make_unique<FastNoise::NodeData>( &FastNoise::New<FastNoise::Constant>()->GetMetadata() );
 }
 
 void FastNoiseNodeEditor::DoNodeBenchmarks()
