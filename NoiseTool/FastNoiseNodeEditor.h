@@ -30,9 +30,10 @@ namespace Magnum
     private:
         struct Node
         {
-            Node( FastNoiseNodeEditor&, FastNoise::NodeData* nodeData );
-            Node( FastNoiseNodeEditor&, std::unique_ptr<FastNoise::NodeData>&& nodeData );
-            void GeneratePreview( bool nodeTreeChanged = true );
+            Node( FastNoiseNodeEditor& editor );
+            Node( FastNoiseNodeEditor& editor, FastNoise::NodeData* nodeData );
+            Node( FastNoiseNodeEditor& editor, std::unique_ptr<FastNoise::NodeData>&& nodeData );
+            void GeneratePreview( bool nodeTreeChanged = true, bool benchmark = false );
             std::vector<int> GetNodeIDLinks();
             uint64_t GetLocalGenerateNs();
             void SetNodeLink( int attributeId, FastNoise::NodeData* nodeData );
@@ -66,7 +67,9 @@ namespace Magnum
             FastNoiseNodeEditor& editor;
             std::unique_ptr<FastNoise::NodeData> data;
             std::string serialised;
+
             int64_t totalGenerateNs = 0;
+            std::vector<int64_t> generateAverages;
 
             static const int NoiseSize = 224;
             GL::Texture2D noiseTexture;
@@ -107,7 +110,7 @@ namespace Magnum
         bool AddNodeFromEncodedString( const char* string, ImVec2 nodePos );
         FastNoise::SmartNode<> GenerateSelectedPreview();
         FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
-        void BenchmarkOverhead();
+        void DoNodeBenchmarks();
         void ChangeSelectedNode( int newId );
         void CheckLinks();
         void DoHelp();
@@ -128,7 +131,9 @@ namespace Magnum
         NoiseTexture mNoiseTexture;
 
         int mSelectedNode = 0;
-        int64_t mConstantOverhead = 0;
+        Node mOverheadNode;
+        int32_t mNodeBenchmarkIndex = 0;
+        int32_t mNodeBenchmarkMax = 128;
 
         float mNodeFrequency = 0.02f;
         int mNodeSeed = 1337;
