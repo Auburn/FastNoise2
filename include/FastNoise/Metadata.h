@@ -17,7 +17,7 @@ namespace FastNoise
     namespace Impl
     {
         template<typename T>
-        const struct FastNoise::Metadata& GetMetadata();
+        FASTNOISE_API const struct FastNoise::Metadata& GetMetadata();
     }
 
     // Stores definition of a FastNoise node class

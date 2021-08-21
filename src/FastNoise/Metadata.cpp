@@ -460,7 +460,7 @@ std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* classNam
 
 #define FASTSIMD_BUILD_CLASS2( CLASS ) \
 const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
-template<> const FastNoise::Metadata& FastNoise::Impl::GetMetadata<CLASS>()\
+template<> FASTNOISE_API const FastNoise::Metadata& FastNoise::Impl::GetMetadata<CLASS>()\
 {\
     return *g ## CLASS ## Metadata;\
 }\
