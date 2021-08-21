@@ -14,6 +14,12 @@ namespace FastNoise
     struct PerDimensionVariable;
     struct NodeData;
 
+    namespace Impl
+    {
+        template<typename T>
+        const struct FastNoise::Metadata& GetMetadata();
+    }
+
     // Stores definition of a FastNoise node class
     // Node name, member name+types, functions to set members
     struct FASTNOISE_API Metadata
@@ -21,20 +27,27 @@ namespace FastNoise
         virtual ~Metadata() = default;
 
         /// <returns>Array containing metadata for every FastNoise node type</returns>
-        static const std::vector<const Metadata*>& GetMetadataClasses()
+        static const std::vector<const Metadata*>& GetAll()
         {
-            return sMetadataClasses;
+            return sAllMetadata;
         }
 
         /// <returns>Metadata for given Metadata::id</returns>
-        static const Metadata* GetMetadataClass( std::uint16_t nodeId )
+        static const Metadata* GetFromId( std::uint16_t nodeId )
         {
-            if( nodeId < sMetadataClasses.size() )
+            if( nodeId < sAllMetadata.size() )
             {
-                return sMetadataClasses[nodeId];
+                return sAllMetadata[nodeId];
             }
 
             return nullptr;
+        }
+
+        /// <returns>Metadata for given node class</returns>
+        template<typename T>
+        static const Metadata& Get()
+        {
+            return Impl::GetMetadata<T>();
         }
 
         /// <summary>
@@ -171,18 +184,18 @@ namespace FastNoise
     protected:
         Metadata()
         {
-            id = AddMetadataClass( this );
+            id = AddMetadata( this );
         }
 
     private:
-        static std::uint16_t AddMetadataClass( const Metadata* newMetadata )
+        static std::uint16_t AddMetadata( const Metadata* newMetadata )
         {
-            sMetadataClasses.emplace_back( newMetadata );
+            sAllMetadata.emplace_back( newMetadata );
 
-            return (std::uint16_t)sMetadataClasses.size() - 1;
+            return (std::uint16_t)sAllMetadata.size() - 1;
         }
 
-        static std::vector<const Metadata*> sMetadataClasses;
+        static std::vector<const Metadata*> sAllMetadata;
     };
 
     // Stores data to create an instance of a FastNoise node

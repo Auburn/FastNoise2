@@ -20,7 +20,7 @@ FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise:
         if( !memberNode.setFunc( generator.get(), source ) )
         {
             // If constant source is not valid try all other node types in order
-            for( const FastNoise::Metadata* tryMetadata : FastNoise::Metadata::GetMetadataClasses() )
+            for( const FastNoise::Metadata* tryMetadata : FastNoise::Metadata::GetAll() )
             {
                 FastNoise::SmartNode<> trySource = tryMetadata->CreateNode( level );
 
@@ -152,7 +152,7 @@ int main( int argc, char** argv )
             continue;
         }
 
-        for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
+        for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetAll() )
         {
             const char* groupName = "Misc";
 

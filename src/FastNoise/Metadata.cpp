@@ -12,7 +12,7 @@
 
 using namespace FastNoise;
 
-std::vector<const Metadata*> Metadata::sMetadataClasses;
+std::vector<const Metadata*> Metadata::sAllMetadata;
 
 NodeData::NodeData( const Metadata* data )
 {
@@ -222,7 +222,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
     }
 
     // Create node from nodeId
-    const Metadata* metadata = Metadata::GetMetadataClass( nodeId );
+    const Metadata* metadata = Metadata::GetFromId( nodeId );
 
     if( !metadata )
     {
@@ -331,7 +331,7 @@ NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNod
     }
 
     // Create node from nodeId
-    const Metadata* metadata = Metadata::GetMetadataClass( nodeId );
+    const Metadata* metadata = Metadata::GetFromId( nodeId );
 
     if( !metadata )
     {
@@ -447,9 +447,9 @@ namespace FastNoise
 template<typename T>
 std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
 {
-    MetadataT<T>* newMetadata( new MetadataT<T> );
+    auto* newMetadata = new MetadataT<T>;
     newMetadata->name = className;
-    return std::unique_ptr<const MetadataT<T>>{ newMetadata };
+    return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 
 #if FASTNOISE_USE_SHARED_PTR
@@ -460,9 +460,13 @@ std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* classNam
 
 #define FASTSIMD_BUILD_CLASS2( CLASS ) \
 const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
-const FastNoise::Metadata& CLASS::GetMetadata() const\
+template<> const FastNoise::Metadata& FastNoise::Impl::GetMetadata<CLASS>()\
 {\
     return *g ## CLASS ## Metadata;\
+}\
+const FastNoise::Metadata& CLASS::GetMetadata() const\
+{\
+    return FastNoise::Impl::GetMetadata<CLASS>();\
 }\
 SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::eLevel l ) const\
 {\

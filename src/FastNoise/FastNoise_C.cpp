@@ -97,12 +97,12 @@ void fnGenTileable2D( const void* node, float* noiseOut, int xSize, int ySize, f
 
 int fnGetMetadataCount()
 {
-    return (int)FastNoise::Metadata::GetMetadataClasses().size();
+    return (int)FastNoise::Metadata::GetAll().size();
 }
 
 const char* fnGetMetadataName( int id )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         return metadata->name;
     }
@@ -111,7 +111,7 @@ const char* fnGetMetadataName( int id )
 
 void* fnNewFromMetadata( int id, unsigned simdLevel )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         return new FastNoise::SmartNode<>( metadata->CreateNode( (FastSIMD::eLevel)simdLevel ) );
     }
@@ -120,7 +120,7 @@ void* fnNewFromMetadata( int id, unsigned simdLevel )
 
 int fnGetMetadataVariableCount( int id )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         return (int)metadata->memberVariables.size();
     }
@@ -129,7 +129,7 @@ int fnGetMetadataVariableCount( int id )
 
 const char* fnGetMetadataVariableName( int id, int variableIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)variableIndex < metadata->memberVariables.size() )
         {
@@ -142,7 +142,7 @@ const char* fnGetMetadataVariableName( int id, int variableIndex )
 
 int fnGetMetadataVariableType( int id, int variableIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)variableIndex < metadata->memberVariables.size() )
         {
@@ -155,7 +155,7 @@ int fnGetMetadataVariableType( int id, int variableIndex )
 
 int fnGetMetadataVariableDimensionIdx( int id, int variableIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)variableIndex < metadata->memberVariables.size() )
         {
@@ -168,7 +168,7 @@ int fnGetMetadataVariableDimensionIdx( int id, int variableIndex )
 
 int fnGetMetadataEnumCount( int id, int variableIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)variableIndex < metadata->memberVariables.size() )
         {
@@ -181,7 +181,7 @@ int fnGetMetadataEnumCount( int id, int variableIndex )
 
 const char* fnGetMetadataEnumName( int id, int variableIndex, int enumIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)variableIndex < metadata->memberVariables.size() )
         {
@@ -218,7 +218,7 @@ bool fnSetVariableIntEnum( void* node, int variableIndex, int value )
 
 int fnGetMetadataNodeLookupCount( int id )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         return (int)metadata->memberNodeLookups.size();
     }
@@ -227,7 +227,7 @@ int fnGetMetadataNodeLookupCount( int id )
 
 const char* fnGetMetadataNodeLookupName( int id, int nodeLookupIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)nodeLookupIndex < metadata->memberNodeLookups.size() )
         {
@@ -240,7 +240,7 @@ const char* fnGetMetadataNodeLookupName( int id, int nodeLookupIndex )
 
 int fnGetMetadataNodeLookupDimensionIdx( int id, int nodeLookupIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)nodeLookupIndex < metadata->memberNodeLookups.size() )
         {
@@ -263,7 +263,7 @@ bool fnSetNodeLookup( void* node, int nodeLookupIndex, const void* nodeLookup )
 
 int fnGetMetadataHybridCount( int id )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         return (int)metadata->memberHybrids.size();
     }
@@ -272,7 +272,7 @@ int fnGetMetadataHybridCount( int id )
 
 const char* fnGetMetadataHybridName( int id, int hybridIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)hybridIndex < metadata->memberHybrids.size() )
         {
@@ -285,7 +285,7 @@ const char* fnGetMetadataHybridName( int id, int hybridIndex )
 
 int fnGetMetadataHybridDimensionIdx( int id, int hybridIndex )
 {
-    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetMetadataClass( (uint16_t)id ) )
+    if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
         if( (size_t)hybridIndex < metadata->memberHybrids.size() )
         {

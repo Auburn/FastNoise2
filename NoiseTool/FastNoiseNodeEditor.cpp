@@ -290,7 +290,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 
     auto menuSort = []( const MetadataMenu* a, const MetadataMenu* b ) { return std::strcmp( a->GetName(), b->GetName() ) < 0; };
 
-    for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetMetadataClasses() )
+    for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetAll() )
     {
         auto* metaDataGroup = root;
 
@@ -318,7 +318,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
         std::sort( metaDataGroup->items.begin(), metaDataGroup->items.end(), menuSort );
     }
     
-    mOverheadNode.data = std::make_unique<FastNoise::NodeData>( &FastNoise::New<FastNoise::Constant>()->GetMetadata() );
+    mOverheadNode.data = std::make_unique<FastNoise::NodeData>( &FastNoise::Metadata::Get<FastNoise::Constant>() );
 }
 
 void FastNoiseNodeEditor::DoNodeBenchmarks()
