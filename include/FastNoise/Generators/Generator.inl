@@ -76,8 +76,6 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
     {
-        assert( xSize >= (int32_t)FS_Size_32() || ySize == 1 );
-
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -93,6 +91,8 @@ public:
         int32_t index = 0;
 
         xIdx += int32v::FS_Incremented();
+
+        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
         while( index < totalValues - (int32_t)FS_Size_32() )
         {
@@ -110,9 +110,7 @@ public:
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
 
-            mask32v xReset = xIdx > xMax;
-            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
-            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
+            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
         }
 
         float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
@@ -125,8 +123,6 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t xSize, int32_t ySize, int32_t zSize, float frequency, int32_t seed ) const final
     {
-        assert( xSize >= (int32_t)FS_Size_32() || (ySize == 1 && zSize == 1) );
-
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -146,6 +142,9 @@ public:
 
         xIdx += int32v::FS_Incremented();
 
+        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
+        AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
+
         while( index < totalValues - (int32_t)FS_Size_32() )
         {
             float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
@@ -162,14 +161,9 @@ public:
 
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
-
-            mask32v xReset = xIdx > xMax;
-            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
-            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
-
-            mask32v yReset = yIdx > yMax;
-            zIdx = FS_MaskedIncrement_i32( zIdx, yReset );
-            yIdx = FS_MaskedSub_i32( yIdx, ySizeV, yReset );
+            
+            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+            AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         }
 
         float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
@@ -183,8 +177,6 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int32_t xStart, int32_t yStart, int32_t zStart, int32_t wStart, int32_t xSize, int32_t ySize, int32_t zSize, int32_t wSize, float frequency, int32_t seed ) const final
     {
-        assert( xSize >= (int32_t)FS_Size_32() || (ySize == 1 && zSize == 1 && wSize == 1) );
-
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -207,6 +199,10 @@ public:
 
         xIdx += int32v::FS_Incremented();
 
+        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
+        AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
+        AxisReset<true>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
+
         while( index < totalValues - (int32_t)FS_Size_32() )
         {
             float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
@@ -225,17 +221,9 @@ public:
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
 
-            mask32v xReset = xIdx > xMax;
-            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
-            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
-
-            mask32v yReset = yIdx > yMax;
-            zIdx = FS_MaskedIncrement_i32( zIdx, yReset );
-            yIdx = FS_MaskedSub_i32( yIdx, ySizeV, yReset );
-
-            mask32v zReset = zIdx > zMax;
-            wIdx = FS_MaskedIncrement_i32( wIdx, zReset );
-            zIdx = FS_MaskedSub_i32( zIdx, zSizeV, zReset );
+            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+            AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
+            AxisReset<false>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
         }
 
         float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
@@ -358,8 +346,6 @@ public:
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int32_t xSize, int32_t ySize, float frequency, int32_t seed ) const final
     {
-        assert( xSize >= (int32_t)FS_Size_32() );
-
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -383,6 +369,8 @@ public:
 
         xIdx += int32v::FS_Incremented();
 
+        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
+
         while( index < totalValues - (int32_t)FS_Size_32() )
         {
             float32v xF = FS_Converti32_f32( xIdx ) * xMul;
@@ -404,9 +392,7 @@ public:
             index += FS_Size_32();
             xIdx += int32v( FS_Size_32() );
 
-            mask32v xReset = xIdx > xMax;
-            yIdx = FS_MaskedIncrement_i32( yIdx, xReset );
-            xIdx = FS_MaskedSub_i32( xIdx, xSizeV, xReset );
+            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
         }
 
         float32v xF = FS_Converti32_f32( xIdx ) * xMul;
@@ -423,6 +409,17 @@ public:
     }
 
 private:
+    template<bool INITIAL>
+    static FS_INLINE void AxisReset( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, int32_t aStep )
+    {
+        for( int32_t resetLoop = INITIAL ? aStep : 0; resetLoop < (int32_t)FS_Size_32(); resetLoop += aStep )
+        {
+            mask32v aReset = aIdx > aMax;
+            bIdx = FS_MaskedIncrement_i32( bIdx, aReset );
+            aIdx = FS_MaskedSub_i32( aIdx, aSize, aReset );
+        }
+    }
+
     static FS_INLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, int32_t totalValues, int32_t index, float32v min, float32v max, float32v finalGen )
     {
         FastNoise::OutputMinMax minMax;
