@@ -4,7 +4,6 @@
 
 #include <FastNoise/SmartNode.h>
 
-#include <cstdlib>
 #include <mutex>
 #include <atomic>
 #include <vector>
@@ -139,7 +138,7 @@ namespace FastNoise
             return slot->pos;
         }
 
-        void* TryAlloc( uint32_t& pos, size_t size, size_t align )
+        void* TryAlloc( size_t size, size_t align )
         {
             align = std::max( align, alignof( SlotHeader ) );
 
@@ -171,8 +170,7 @@ namespace FastNoise
                     assert( freeSlots[idx].size >= slotSize );
                     
                     usedSlots.emplace_back( Slot{ freeSlots[idx].pos, slotSize } );
-
-                    pos = freeSlots[idx].pos;
+                    
                     freeSlots[idx].pos += slotSize;
                     freeSlots[idx].size -= slotSize;
 
@@ -326,9 +324,7 @@ namespace FastNoise
 
             for( auto& poolItr : mPools )
             {
-                uint32_t newId;
-
-                if( void* ptr = poolItr.TryAlloc( newId, size, align ) )
+                if( void* ptr = poolItr.TryAlloc( size, align ) )
                 {
                     return ptr;
                 }
