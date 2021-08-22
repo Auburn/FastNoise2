@@ -28,13 +28,12 @@ namespace FastNoise
     {
         static constexpr uint32_t kInvalidSlot = (uint32_t)-1;
 
-        struct SlotInfo
+        struct SlotHeader
         {
-            uint32_t size;
             std::atomic<uint32_t> references;
         };
 
-        struct FreeSlot
+        struct Slot
         {
             uint32_t pos;
             uint32_t size;            
@@ -42,15 +41,17 @@ namespace FastNoise
 
         SmartNodeManagerPool( uint32_t size )
         {
-            uint32_t alignOffset = size % alignof( SlotInfo );
+            size = std::min<uint32_t>( size, INT32_MAX );
+
+            uint32_t alignOffset = size % alignof( SlotHeader );
             if( alignOffset )
             {
-                // pool size needs to be multiple of `alignof( SlotInfo )` (likely 4)
-                size += alignof( SlotInfo ) - alignOffset;
+                // pool size needs to be multiple of `alignof( SlotHeader )` (likely 4)
+                size += alignof( SlotHeader ) - alignOffset;
             }
 
             poolSize = size;
-            pool = (uint8_t*)new SlotInfo[size / sizeof( SlotInfo )];
+            pool = (uint8_t*)new SlotHeader[size / sizeof( SlotHeader )];
 
             freeSlots = { { 0, poolSize } };
         }
@@ -60,10 +61,38 @@ namespace FastNoise
 
         ~SmartNodeManagerPool()
         {
+            assert( usedSlots.empty() );
+
             delete[] pool;
         }
+
+        auto GetUsedSlotItr( const void* ptr ) const
+        {
+            if( ptr > pool && ptr < pool + poolSize )
+            {
+                for( auto itr = usedSlots.begin(); itr != usedSlots.end(); ++itr )
+                {
+                    const uint8_t* start = pool + itr->pos;
+
+                    if( start < ptr && start + itr->size > ptr )
+                    {
+                        return itr;
+                    }
+                }
+            }
+
+            return usedSlots.end();
+        }
+
+        auto GetUsedSlotItr( uint32_t pos ) const
+        {
+            return std::find_if( usedSlots.begin(), usedSlots.end(), [pos]( const Slot& slot ) 
+            {
+                return slot.pos == pos;    
+            } );
+        }
         
-        bool ValidatePtr( uint32_t pos, void* ptr ) const
+        bool ValidatePtr( uint32_t pos, const void* ptr ) const
         {            
             if( pos >= poolSize )
             {
@@ -71,17 +100,17 @@ namespace FastNoise
                 return false;
             }
 
-            SlotInfo* slot = (SlotInfo*)( pool + pos );
+            auto slot = GetUsedSlotItr( ptr );
 
             // Check pos pointing at garbage data
-            if( slot->size <= sizeof( SlotInfo ) || slot->size > poolSize )
+            if( slot == usedSlots.end() )
             {
                 assert( 0 );
                 return false;
             }
 
-            // ptr not contained in slot
-            if( ptr < ( pool + pos + sizeof( SlotInfo ) ) || ptr >= ( pool + pos + slot->size ))
+            // Check pos is correct
+            if( slot->pos != pos )
             {
                 assert( 0 );
                 return false;
@@ -91,41 +120,57 @@ namespace FastNoise
 
         std::atomic<uint32_t>& GetReferenceCount( uint32_t pos ) const
         {
-            SlotInfo* slot = (SlotInfo*)( pool + pos );
+            SlotHeader* slot = (SlotHeader*)( pool + pos );
 
-            assert( pos < poolSize && slot->size < poolSize );
+            assert( pos < poolSize );
 
             return slot->references;
         }
 
+        uint32_t GetReferenceId( const void* ptr ) const
+        {
+            auto slot = GetUsedSlotItr( ptr );
+
+            if( slot == usedSlots.end() )
+            {
+                return UINT32_MAX;
+            }
+
+            return slot->pos;
+        }
+
         void* TryAlloc( uint32_t& pos, size_t size, size_t align )
         {
+            align = std::max( align, alignof( SlotHeader ) );
+
             for( uint32_t idx = 0; idx < freeSlots.size(); idx++ )
             {
-                if( freeSlots[idx].size < size + sizeof( SlotInfo ) )
+                if( freeSlots[idx].size < size + sizeof( SlotHeader ) )
                 {
                     continue;
                 }
 
-                void* ptr = pool + freeSlots[idx].pos + sizeof( SlotInfo );
-                size_t space = freeSlots[idx].size - sizeof( SlotInfo );
+                void* ptr = pool + freeSlots[idx].pos + sizeof( SlotHeader );
+                size_t space = freeSlots[idx].size - sizeof( SlotHeader );
 
                 if( std::align( align, size, ptr, space ) )
                 {                   
                     uint8_t* startSlot = pool + freeSlots[idx].pos;
                     uint8_t* endSlot = (uint8_t*)ptr + size;
 
-                    // Align next slot correctly for SlotInfo
-                    size_t alignmentOffset = (size_t)endSlot % alignof( SlotInfo );
+                    // Align next slot correctly for SlotHeader
+                    size_t alignmentOffset = (size_t)endSlot % alignof( SlotHeader );
 
                     if( alignmentOffset )
                     {
-                        endSlot += alignof( SlotInfo ) - alignmentOffset;
+                        endSlot += alignof( SlotHeader ) - alignmentOffset;
                     }
 
                     uint32_t slotSize = (uint32_t)( endSlot - startSlot );
 
                     assert( freeSlots[idx].size >= slotSize );
+                    
+                    usedSlots.emplace_back( Slot{ freeSlots[idx].pos, slotSize } );
 
                     pos = freeSlots[idx].pos;
                     freeSlots[idx].pos += slotSize;
@@ -137,9 +182,9 @@ namespace FastNoise
                         freeSlots.erase( freeSlots.cbegin() + idx );
                     }
 
-                    SlotInfo* newSlot = new( startSlot ) SlotInfo{ slotSize, (uint32_t)0 };
-
-                    return newSlot + 1;
+                    new( startSlot ) SlotHeader { 0u };
+                    
+                    return ptr;
                 }
             }
 
@@ -149,13 +194,15 @@ namespace FastNoise
 
         void DeAlloc( uint32_t pos )
         {
-            SlotInfo* slot = (SlotInfo*)( pool + pos );
+            SlotHeader* slotHeader = (SlotHeader*)( pool + pos );
+            auto slot = GetUsedSlotItr( pos );
 
-            assert( slot->references == 0 );
+            assert( slot != usedSlots.end() );            
+            assert( slotHeader->references == 0 );
             assert( slot->size < poolSize );
 
             // Merge free slots as necessary
-            FreeSlot* expandedBefore = nullptr;
+            Slot* expandedBefore = nullptr;
             uint32_t idx = 0;
 
             for( ; idx < freeSlots.size(); idx++ )
@@ -191,16 +238,19 @@ namespace FastNoise
             }
             else if( !expandedBefore ) // No slots before or after, create new
             {
-                freeSlots.emplace( freeSlots.begin() + idx, FreeSlot { pos, slot->size } );
+                freeSlots.emplace( freeSlots.begin() + idx, Slot { pos, slot->size } );
             }
             
-            assert( memset( slot, 255, slot->size ) );
-            slot->~SlotInfo();
+            slotHeader->~SlotHeader();
+            assert( memset( slotHeader, 255, slot->size ) );
+
+            usedSlots.erase( slot );
         }
 
         uint32_t poolSize;
         uint8_t* pool;
-        std::vector<FreeSlot> freeSlots;
+        std::vector<Slot> freeSlots;
+        std::vector<Slot> usedSlots;
     };
     
     class SmartNodeMemoryAllocator
@@ -208,9 +258,7 @@ namespace FastNoise
     public:
         static inline uint32_t sNewPoolSize = 256 * 1024;
 
-        static thread_local inline SmartNodeReference sLastAlloc = { SmartNodeManager::kInvalidReferenceId };
-
-        bool ValidatePtr( SmartNodeReference ref, void* ptr )
+        bool ValidatePtr( SmartNodeReference ref, const void* ptr )
         {
             std::lock_guard lock( mMutex );
 
@@ -226,6 +274,28 @@ namespace FastNoise
         std::atomic<uint32_t>& GetReferenceCount( SmartNodeReference ref ) const
         {
             return std::next( mPools.begin(), ref.u32.pool )->GetReferenceCount( ref.u32.id );
+        }
+
+        SmartNodeReference GetReference( const void* ptr )
+        {
+            std::lock_guard lock( mMutex );
+
+            SmartNodeReference ref = { 0 };
+
+            for( auto& poolItr : mPools )
+            {
+                ref.u32.id = poolItr.GetReferenceId( ptr );
+                if( ref.u32.id != UINT32_MAX )
+                {
+                    return ref;
+                }
+
+                ref.u32.pool++;
+            }
+
+            // Could not find ptr in pools, probably not allocated using this class
+            assert( 0 );
+            return { SmartNodeManager::kInvalidReferenceId };
         }
 
         void* Alloc( size_t size, size_t align ) 
@@ -260,11 +330,6 @@ namespace FastNoise
 
                 if( void* ptr = poolItr.TryAlloc( newId, size, align ) )
                 {
-                    assert( sLastAlloc.u64 == SmartNodeManager::kInvalidReferenceId );
-
-                    sLastAlloc.u32.pool = idx;
-                    sLastAlloc.u32.id = newId;
-
                     return ptr;
                 }
 
@@ -273,7 +338,7 @@ namespace FastNoise
             return nullptr;
         }
 
-        // std::list is used to allow lock free access to pools
+        // std::list is used to allow lock free reads to pools
         // In most use cases there should only be 1 pool so performance is not a concern
         std::list<SmartNodeManagerPool> mPools;
         std::mutex mMutex;
@@ -286,14 +351,11 @@ namespace FastNoise
         SmartNodeMemoryAllocator::sNewPoolSize = size;
     }
 
-    uint64_t SmartNodeManager::GetLastAllocID( void* ptr )
+    uint64_t SmartNodeManager::GetReference( const void* ptr )
     {
-        uint64_t id = SmartNodeMemoryAllocator::sLastAlloc.u64;
+        assert( ptr );
 
-        assert( gMemoryAllocator.ValidatePtr( { id }, ptr ) );
-
-        SmartNodeMemoryAllocator::sLastAlloc.u64 = kInvalidReferenceId;
-        return id;
+        return gMemoryAllocator.GetReference( ptr ).u64;
     }
 
     void SmartNodeManager::IncReference( uint64_t id )

@@ -29,7 +29,7 @@ namespace FastNoise
         template<typename T>
         friend SmartNode<T> New( FastSIMD::eLevel );
 
-        static uint64_t GetLastAllocID( void* ptr );
+        static uint64_t GetReference( const void* ptr );
 
         static void IncReference( uint64_t id );
 
@@ -233,7 +233,7 @@ namespace FastNoise
         friend class SmartNode;
 
         explicit SmartNode( T* ptr ) :
-            mReferenceId( SmartNodeManager::GetLastAllocID( ptr ) ),
+            mReferenceId( SmartNodeManager::GetReference( ptr ) ),
             mPtr( ptr )
         {
             SmartNodeManager::IncReference( mReferenceId );
