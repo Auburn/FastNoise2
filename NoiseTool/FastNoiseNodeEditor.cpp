@@ -1003,6 +1003,12 @@ FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0,
             Node::NoiseSize, Node::NoiseSize, 1,
             mNodeFrequency, mNodeSeed );
+
+    case NoiseTexture::GenType_4D:
+        return gen->GenUniformGrid4D( noise,
+            Node::NoiseSize / -2, Node::NoiseSize / -2, 0, 0,
+            Node::NoiseSize, Node::NoiseSize, 1, 1,
+            mNodeFrequency, mNodeSeed );
     }
 
     return {};

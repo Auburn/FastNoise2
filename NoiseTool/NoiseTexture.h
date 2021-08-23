@@ -8,6 +8,7 @@
 #include <Magnum/GL/GL.h>
 #include <Magnum/GL/Texture.h>
 #include <Magnum/ImageView.h>
+#include <Magnum/Math/Vector4.h>
 
 #include "FastNoise/FastNoise.h"
 #include "MultiThreadQueues.h"
@@ -22,13 +23,15 @@ namespace Magnum
             GenType_2D,
             GenType_2DTiled,
             GenType_3D,
+            GenType_4D,
             GenType_Count
         };
 
         inline static const char* GenTypeStrings = 
             "2D\0"
             "2D Tiled\0"
-            "3D Slice\0";
+            "3D Slice\0"
+            "4D Slice\0";
 
         NoiseTexture();
         ~NoiseTexture();
@@ -42,7 +45,7 @@ namespace Magnum
         {
             FastNoise::SmartNode<const FastNoise::Generator> generator;
             Vector2i size;
-            Vector3 offset;
+            Vector4 offset;
             float frequency;
             int32_t seed;
             uint64_t iteration;
