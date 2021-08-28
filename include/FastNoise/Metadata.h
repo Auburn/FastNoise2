@@ -7,6 +7,9 @@
 
 #include "FastNoise_Config.h"
 
+#pragma warning( push )
+#pragma warning( disable : 4251 )
+
 namespace FastNoise
 {
     class Generator;
@@ -218,3 +221,5 @@ namespace FastNoise
         }
     };
 }
+
+#pragma warning( pop )
