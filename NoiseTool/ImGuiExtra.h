@@ -1,9 +1,18 @@
 #pragma once
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 namespace ImGuiExtra
 {
+    inline void MarkSettingsDirty()
+    {
+        if( ImGui::GetCurrentContext() && ImGui::GetCurrentContext()->SettingsDirtyTimer <= 0.0f )
+        {
+            ImGui::GetCurrentContext()->SettingsDirtyTimer = ImGui::GetIO().IniSavingRate;
+        }
+    }
+
     inline bool ScrollCombo( int* comboIndex, int comboCount )
     {
         if( ImGui::IsItemHovered() )

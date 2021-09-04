@@ -1,7 +1,7 @@
 #include "MeshNoisePreview.h"
+#include "ImGuiExtra.h"
 
 #include <algorithm>
-#include <imgui.h>
 #include <thread>
 #include <cmath>
 
@@ -29,6 +29,8 @@ MeshNoisePreview::MeshNoisePreview()
     {
         mThreads.emplace_back( GenerateLoopThread, std::ref( mGenerateQueue ), std::ref( mCompleteQueue ) );
     }
+
+    SetupSettingsHandlers();
 }
 
 MeshNoisePreview::~MeshNoisePreview()
@@ -64,7 +66,8 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 {
     if( ImGui::Checkbox( "Generate Mesh Preview", &mEnabled ) )
     {
-        ReGenerate( mBuildData.generator );        
+        ReGenerate( mBuildData.generator );    
+        ImGuiExtra::MarkSettingsDirty();    
     }
 
     if( !mBuildData.generator || !mEnabled )
@@ -111,12 +114,14 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     if( ImGui::DragFloat( "Triangle Limit", &triLimitMil, 1, 10.0f, 300.0f, "%0.1fM" ) )
     {
         mTriLimit = (uint32_t)(triLimitMil * 1000000);
+        ImGuiExtra::MarkSettingsDirty();
     }
 
 
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) )
     {        
         mShader.SetColorTint( mBuildData.color );
+        ImGuiExtra::MarkSettingsDirty();
     }
 
     if( ImGui::DragInt( "Seed", &mBuildData.seed ) |
@@ -124,6 +129,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
         ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f ) )
     {
         ReGenerate( mBuildData.generator );
+        ImGuiExtra::MarkSettingsDirty();
     }
 
     UpdateChunksForPosition( cameraPosition );
@@ -536,4 +542,51 @@ void MeshNoisePreview::StartTimer()
 float MeshNoisePreview::GetTimerDurationMs()
 {
     return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - mTimerStart).count() / 1e3f;
+}
+
+void MeshNoisePreview::SetupSettingsHandlers()
+{
+    ImGuiSettingsHandler editorSettings;
+    editorSettings.TypeName = "NoiseToolMeshNoisePreview";
+    editorSettings.TypeHash = ImHashStr( editorSettings.TypeName );
+    editorSettings.UserData = this;
+    editorSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf ) {
+        auto* meshNoisePreview = (MeshNoisePreview*)handler->UserData;
+        outBuf->appendf( "\n[%s][Settings]\n", handler->TypeName );
+
+        outBuf->appendf( "tri_limit=%d\n", (int)meshNoisePreview->mTriLimit );
+        outBuf->appendf( "frequency=%f\n", meshNoisePreview->mBuildData.frequency );
+        outBuf->appendf( "iso_surface=%f\n", meshNoisePreview->mBuildData.isoSurface );
+        outBuf->appendf( "seed=%d\n", meshNoisePreview->mBuildData.seed );
+        outBuf->appendf( "color=%d\n", (int)meshNoisePreview->mBuildData.color.toSrgbInt() );
+        outBuf->appendf( "enabled=%d\n", (int)meshNoisePreview->mEnabled );
+    };
+    editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
+        if( strcmp( name, "Settings" ) == 0 )
+        {
+            return handler->UserData;
+        }
+
+        return nullptr;
+    };
+    editorSettings.ReadLineFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line ) {
+        auto* meshNoisePreview = (MeshNoisePreview*)handler->UserData;
+
+        sscanf_s( line, "tri_limit=%d", &meshNoisePreview->mTriLimit );
+        sscanf_s( line, "frequency=%f", &meshNoisePreview->mBuildData.frequency );
+        sscanf_s( line, "iso_surface=%f", &meshNoisePreview->mBuildData.isoSurface );
+        sscanf_s( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
+
+        int i;
+        if( sscanf_s( line, "color=%d", &i ) == 1 )
+        {
+            meshNoisePreview->mBuildData.color = Color3::fromSrgb( i );
+        }
+        else if( sscanf_s( line, "enabled=%d", &i ) == 1 )
+        {
+            meshNoisePreview->mEnabled = i;
+        }
+    };
+
+    ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
 }

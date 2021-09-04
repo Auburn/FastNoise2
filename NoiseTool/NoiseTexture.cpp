@@ -27,6 +27,8 @@ NoiseTexture::NoiseTexture()
     {
         mThreads.emplace_back( GenerateLoopThread, std::ref( mGenerateQueue ), std::ref( mCompleteQueue ) );
     }
+
+    SetupSettingsHandlers();
 }
 
 NoiseTexture::~NoiseTexture()
@@ -95,6 +97,11 @@ void NoiseTexture::Draw()
             mBuildData.offset.xy() -= Vector2( newSize - mBuildData.size ) / 2;
             mBuildData.size = newSize;
             ReGenerate( mBuildData.generator );
+        }
+
+        if( edited )
+        {
+            ImGuiExtra::MarkSettingsDirty();
         }
 
         ImGui::PushStyleColor( ImGuiCol_Button, 0 );
@@ -233,4 +240,37 @@ void NoiseTexture::GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, 
             texData.Free();
         }
     }
+}
+
+void NoiseTexture::SetupSettingsHandlers()
+{
+    ImGuiSettingsHandler editorSettings;
+    editorSettings.TypeName = "NoiseToolNoiseTexture";
+    editorSettings.TypeHash = ImHashStr( editorSettings.TypeName );
+    editorSettings.UserData = this;
+    editorSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf ) {
+        auto* noiseTexture = (NoiseTexture*)handler->UserData;
+        outBuf->appendf( "\n[%s][Settings]\n", handler->TypeName );        
+
+        outBuf->appendf( "frequency=%f\n", noiseTexture->mBuildData.frequency );
+        outBuf->appendf( "seed=%d\n", noiseTexture->mBuildData.seed );
+        outBuf->appendf( "gen_type=%d\n", (int)noiseTexture->mBuildData.generationType );
+    };
+    editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
+        if( strcmp( name, "Settings" ) == 0 )
+        {
+            return handler->UserData;
+        }
+
+        return nullptr;
+    };
+    editorSettings.ReadLineFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line ) {
+        auto* noiseTexture = (NoiseTexture*)handler->UserData;
+        
+        sscanf_s( line, "frequency=%f", &noiseTexture->mBuildData.frequency );
+        sscanf_s( line, "seed=%d", &noiseTexture->mBuildData.seed );
+        sscanf_s( line, "gen_type=%d", &noiseTexture->mBuildData.generationType );
+    };
+
+    ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
 }

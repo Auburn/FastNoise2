@@ -85,6 +85,7 @@ namespace Magnum
 
         static TextureData BuildTexture( const BuildData& buildData );
         static void GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, CompleteQueue<TextureData>& completeQueue );
+        void SetupSettingsHandlers();
 
         void SetPreviewTexture( ImageView2D& imageView );
 

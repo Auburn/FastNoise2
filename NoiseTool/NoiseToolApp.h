@@ -16,6 +16,7 @@ namespace Magnum
     {
     public:
         explicit NoiseToolApp( const Arguments& arguments );
+        ~NoiseToolApp();
 
     private:
         void drawEvent() override;
@@ -36,13 +37,14 @@ namespace Magnum
         SceneGraph::Camera3D mCamera{ mCameraObject };
         Timeline mFrameTime;
 
-        ImGuiIntegration::Context mImGuiContext{ NoCreate };
         Color3 mClearColor{ 0.122f };
         bool mBackFaceCulling = false;
         int mMaxSIMDLevel = 0;
         std::vector<const char*> mLevelNames;
         std::vector<FastSIMD::eLevel> mLevelEnums;
 
+        ImGuiIntegration::Context mImGuiIntegrationContext;
+        ImGuiContext* mImGuiContext;
         FastNoiseNodeEditor mNodeEditor;
 
         enum Key

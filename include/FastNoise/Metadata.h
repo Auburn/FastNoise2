@@ -15,12 +15,13 @@ namespace FastNoise
     class Generator;
     template<typename T>
     struct PerDimensionVariable;
+    struct Metadata;
     struct NodeData;
 
     namespace Impl
     {
         template<typename T>
-        FASTNOISE_API const struct FastNoise::Metadata& GetMetadata();
+        FASTNOISE_API const Metadata& GetMetadata();
     }
 
     // Stores definition of a FastNoise node class
@@ -209,14 +210,14 @@ namespace FastNoise
 
         const Metadata* metadata;
         std::vector<Metadata::MemberVariable::ValueUnion> variables;
-        std::vector<NodeData*> nodes;
+        std::vector<NodeData*> nodeLookups;
         std::vector<std::pair<NodeData*, float>> hybrids;
 
         bool operator ==( const NodeData& rhs ) const
         {
             return metadata == rhs.metadata &&
                 variables == rhs.variables &&
-                nodes == rhs.nodes &&
+                nodeLookups == rhs.nodeLookups &&
                 hybrids == rhs.hybrids;
         }
     };

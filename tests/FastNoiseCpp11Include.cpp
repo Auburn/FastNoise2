@@ -5,16 +5,18 @@
 
 int main()
 {
-    auto node = FastNoise::New<FastNoise::FractalFBm>();
+    auto node = FastNoise::New<FastNoise::FractalFBm>(FastSIMD::Level_SSE2);
 
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
     node->SetGain( FastNoise::New<FastNoise::Value>() );
 
+#if !FASTNOISE_USE_SHARED_PTR
     {
         FastNoise::SmartNode<> base = FastNoise::New<FastNoise::Simplex>();
 
         FastNoise::SmartNode<FastNoise::Simplex> simplex = FastNoise::SmartNode<FastNoise::Simplex>::DynamicCast( base );
     }
+#endif
 
     const int size = 16;
 

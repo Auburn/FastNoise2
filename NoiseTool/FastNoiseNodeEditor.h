@@ -30,43 +30,37 @@ namespace Magnum
     private:
         struct Node
         {
-            Node( FastNoiseNodeEditor& editor );
-            Node( FastNoiseNodeEditor& editor, FastNoise::NodeData* nodeData );
-            Node( FastNoiseNodeEditor& editor, std::unique_ptr<FastNoise::NodeData>&& nodeData );
+            Node( FastNoiseNodeEditor& editor, FastNoise::NodeData* nodeData, bool generatePreview = true, int id = 0 );
+            Node( FastNoiseNodeEditor& editor, std::unique_ptr<FastNoise::NodeData>&& nodeData, bool generatePreview = true, int id = 0 );
             void GeneratePreview( bool nodeTreeChanged = true, bool benchmark = false );
-            std::vector<int> GetNodeIDLinks();
+            std::vector<FastNoise::NodeData*> GetNodeIDLinks();
             uint64_t GetLocalGenerateNs();
-            void SetNodeLink( int attributeId, FastNoise::NodeData* nodeData );
+            FastNoise::NodeData*& GetNodeLink( int attributeId );
             void AutoPositionChildNodes( ImVec2 nodePos, float verticalSpacing = 380.0f );
+            void SerialiseIncludingDependancies( struct ImGuiSettingsHandler* handler, struct ImGuiTextBuffer* buffer, std::unordered_set<int>& serialisedNodeIds );
 
-            static int GetNodeID( const FastNoise::NodeData* nodeData )
+            static constexpr int AttributeBitCount = 8;
+            static constexpr int AttributeBitMask = ( 1 << AttributeBitCount ) - 1;
+
+            static int GetNodeIdFromAttribute( int attributeId )
             {
-                return (int)((intptr_t)nodeData / sizeof( FastNoise::NodeData )) & (INT_MAX >> 3);
+                return (int)((unsigned int)attributeId >> AttributeBitCount);
             }
 
-            int GetNodeID()
+            int GetStartingAttributeId() const 
             {
-                return GetNodeID( data.get() );
+                return nodeId << AttributeBitCount;
             }
 
-            static int GetNodeID( int attributeId )
+            int GetOutputAttributeId() const
             {
-                return (int)((unsigned int)attributeId >> 4);
-            }
-
-            int GetStartingAttributeID()
-            {
-                return GetNodeID() << 4;
-            }
-
-            static int GetOutputAttributeId( int nodeId )
-            {
-                return (nodeId << 4) | 15;
+                return GetStartingAttributeId() | AttributeBitMask;
             }
 
             FastNoiseNodeEditor& editor;
             std::unique_ptr<FastNoise::NodeData> data;
             std::string serialised;
+            const int nodeId;
 
             int64_t totalGenerateNs = 0;
             std::vector<int64_t> generateAverages;
@@ -106,20 +100,25 @@ namespace Magnum
             std::vector<const MetadataMenu*> items;
         };
 
-        Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata );
+        Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata, bool generatePreview = true );
         bool AddNodeFromEncodedString( const char* string, ImVec2 nodePos );
         FastNoise::SmartNode<> GenerateSelectedPreview();
         FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
+        Node* FindNodeFromId( int id );
+        int GetFreeNodeId();
+        void ChangeSelectedNode( FastNoise::NodeData* newId );
+        void DeleteNode( FastNoise::NodeData* nodeData );
         void DoNodeBenchmarks();
-        void ChangeSelectedNode( int newId );
+        void SetupSettingsHandlers();
+
         void CheckLinks();
         void DoHelp();
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();
 
-        std::unordered_map<int, Node> mNodes;
-        FastNoise::NodeData* mDroppedLinkNodeId = nullptr;
+        std::unordered_map<FastNoise::NodeData*, Node> mNodes;
+        FastNoise::NodeData* mDroppedLinkNode = nullptr;
         bool mDroppedLink = false;
 
         ImVec2 mContextStartPos;
@@ -130,7 +129,7 @@ namespace Magnum
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;
 
-        int mSelectedNode = 0;
+        FastNoise::NodeData* mSelectedNode = nullptr;
         Node mOverheadNode;
         int32_t mNodeBenchmarkIndex = 0;
         int32_t mNodeBenchmarkMax = 128;

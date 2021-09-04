@@ -25,7 +25,9 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ),
     GLConfiguration{}
     .setSampleCount( 4 )
-    }
+    },
+    mImGuiIntegrationContext{ NoCreate },
+    mImGuiContext{ ImGui::CreateContext() }
 {
     InitResources();
 
@@ -39,7 +41,7 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), (int)font.size(), 14.0f * framebufferSize().x() / size.x(), &fontConfig );
     }
 
-    mImGuiContext = ImGuiIntegration::Context( *ImGui::GetCurrentContext(), size, windowSize(), framebufferSize() );
+    mImGuiIntegrationContext = ImGuiIntegration::Context( *mImGuiContext, size, windowSize(), framebufferSize() );
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
@@ -72,11 +74,18 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     }
 }
 
+NoiseToolApp::~NoiseToolApp()
+{
+    // Avoid trying to save settings after node editor is already destroyed
+    ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
+    ImGui::GetIO().IniFilename = nullptr;
+}
+
 void NoiseToolApp::drawEvent()
 {
     GL::defaultFramebuffer.clear( GL::FramebufferClear::Color | GL::FramebufferClear::Depth );
 
-    mImGuiContext.newFrame();
+    mImGuiIntegrationContext.newFrame();
 
     /* Enable text input, if needed */
     if( ImGui::GetIO().WantTextInput && !isTextInputActive() )
@@ -85,6 +94,14 @@ void NoiseToolApp::drawEvent()
         stopTextInput();
 
     {
+        if( ImGui::Button( "Reset State" ) )
+        {
+            ImGui::ClearIniSettings();
+            mNodeEditor.~FastNoiseNodeEditor();
+            new( &mNodeEditor ) FastNoiseNodeEditor();
+            ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
+        }
+
         if( ImGui::ColorEdit3( "Clear Color", mClearColor.data() ) )
             GL::Renderer::setClearColor( mClearColor );
 
@@ -155,8 +172,8 @@ void NoiseToolApp::drawEvent()
     GL::Renderer::disable( GL::Renderer::Feature::DepthTest );
     GL::Renderer::disable( GL::Renderer::Feature::FaceCulling );
 
-    mImGuiContext.updateApplicationCursor( *this );
-    mImGuiContext.drawFrame();
+    mImGuiIntegrationContext.updateApplicationCursor( *this );
+    mImGuiIntegrationContext.drawFrame();
 
     /* Reset state. Only needed if you want to draw something else with
        different state after. */
@@ -175,19 +192,21 @@ void NoiseToolApp::viewportEvent( ViewportEvent& event )
 
     UpdatePespectiveProjection();
 
-    mImGuiContext.relayout( Vector2{ event.windowSize() } / event.dpiScaling(), event.windowSize(), event.framebufferSize() );
+    mImGuiIntegrationContext.relayout( Vector2 { event.windowSize() } / event.dpiScaling(), event.windowSize(), event.framebufferSize() );
 }
 
 void NoiseToolApp::keyPressEvent( KeyEvent& event )
 {
-    if( mImGuiContext.handleKeyPressEvent( event ) ) return;
+    if( mImGuiIntegrationContext.handleKeyPressEvent( event ) )
+        return;
 
     HandleKeyEvent( event.key(), true );
 }
 
 void NoiseToolApp::keyReleaseEvent( KeyEvent& event )
 {
-    if( mImGuiContext.handleKeyReleaseEvent( event ) ) return;
+    if( mImGuiIntegrationContext.handleKeyReleaseEvent( event ) )
+        return;
 
     HandleKeyEvent( event.key(), false );
 }
@@ -245,21 +264,24 @@ void NoiseToolApp::HandleKeyEvent( KeyEvent::Key key, bool value )
 
 void NoiseToolApp::mousePressEvent( MouseEvent& event )
 {
-    if( mImGuiContext.handleMousePressEvent( event ) ) return;
-    if( event.button() != MouseEvent::Button::Left ) return;
+    if( mImGuiIntegrationContext.handleMousePressEvent( event ) )
+        return;
+    if( event.button() != MouseEvent::Button::Left )
+        return;
 
     event.setAccepted();
 }
 
 void NoiseToolApp::mouseReleaseEvent( MouseEvent& event )
 {
-    if( mImGuiContext.handleMouseReleaseEvent( event ) ) return;
+    if( mImGuiIntegrationContext.handleMouseReleaseEvent( event ) )
+        return;
 
     event.setAccepted();
 }
 
 void NoiseToolApp::mouseScrollEvent( MouseScrollEvent& event ) {
-    if( mImGuiContext.handleMouseScrollEvent( event ) )
+    if( mImGuiIntegrationContext.handleMouseScrollEvent( event ) )
     {
         /* Prevent scrolling the page */
         event.setAccepted();
@@ -269,8 +291,10 @@ void NoiseToolApp::mouseScrollEvent( MouseScrollEvent& event ) {
 
 void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
 {
-    if( mImGuiContext.handleMouseMoveEvent( event ) ) return;
-    if( !(event.buttons() & MouseMoveEvent::Button::Left) ) return;
+    if( mImGuiIntegrationContext.handleMouseMoveEvent( event ) )
+        return;
+    if( !(event.buttons() & MouseMoveEvent::Button::Left) )
+        return;
 
     const Matrix4 transform = mCameraObject.transformation();
 
@@ -291,7 +315,8 @@ void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
 
 void NoiseToolApp::textInputEvent( TextInputEvent& event )
 {
-    if( mImGuiContext.handleTextInputEvent( event ) ) return;
+    if( mImGuiIntegrationContext.handleTextInputEvent( event ) )
+        return;
 }
 
 void NoiseToolApp::UpdatePespectiveProjection()

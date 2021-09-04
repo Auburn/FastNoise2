@@ -149,6 +149,7 @@ namespace Magnum
 
         void StartTimer();
         float GetTimerDurationMs();
+        void SetupSettingsHandlers();
 
         std::unordered_map<Vector3i, Chunk, Vector3iHash> mChunks;
         std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;

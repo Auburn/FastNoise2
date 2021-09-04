@@ -60,8 +60,8 @@ CPMAddPackage(
   
 CPMAddPackage(
     NAME imnodes
-    VERSION 0.4
-    GITHUB_REPOSITORY Nelarius/imnodes
+    GITHUB_REPOSITORY Auburn/imnodes
+    GIT_TAG c986af0bbaf45f2adadabca42f48e972e8339dd5
 )
 
 # Use modules from magnum-integration since it has everything we need

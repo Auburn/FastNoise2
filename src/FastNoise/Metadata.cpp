@@ -28,7 +28,7 @@ NodeData::NodeData( const Metadata* data )
         for( const auto& value : metadata->memberNodeLookups )
         {
             (void)value;
-            nodes.push_back( nullptr );
+            nodeLookups.push_back( nullptr );
         }
 
         for( const auto& value : metadata->memberHybrids )
@@ -55,7 +55,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
 
     if( !metadata ||
         nodeData->variables.size() != metadata->memberVariables.size()   ||
-        nodeData->nodes.size()     != metadata->memberNodeLookups.size() ||
+        nodeData->nodeLookups.size()     != metadata->memberNodeLookups.size() ||
         nodeData->hybrids.size()   != metadata->memberHybrids.size()     )
     {
         assert( 0 ); // Member size mismatch with metadata
@@ -67,7 +67,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
         dependencies.insert( nodeData );
 
         // Null any dependency loops 
-        for( auto& node : nodeData->nodes )
+        for( auto& node : nodeData->nodeLookups )
         {
             if( dependencies.find( node ) != dependencies.end() )
             {
@@ -108,20 +108,20 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     // Member nodes
     for( size_t i = 0; i < metadata->memberNodeLookups.size(); i++ )
     {
-        if( fixUp && nodeData->nodes[i] )
+        if( fixUp && nodeData->nodeLookups[i] )
         {
             // Create test node to see if source is a valid node type
             SmartNode<> test = metadata->CreateNode();
-            SmartNode<> node = nodeData->nodes[i]->metadata->CreateNode();
+            SmartNode<> node = nodeData->nodeLookups[i]->metadata->CreateNode();
 
             if( !metadata->memberNodeLookups[i].setFunc( test.get(), node ) )
             {
-                nodeData->nodes[i] = nullptr;
+                nodeData->nodeLookups[i] = nullptr;
                 return false;
             }
         }
 
-        if( !nodeData->nodes[i] || !SerialiseNodeDataInternal( nodeData->nodes[i], fixUp, dataStream, referenceIds, dependencies ) )
+        if( !nodeData->nodeLookups[i] || !SerialiseNodeDataInternal( nodeData->nodeLookups[i], fixUp, dataStream, referenceIds, dependencies ) )
         {
             return false;
         }
@@ -350,7 +350,7 @@ NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNod
     }
 
     // Member nodes
-    for( auto& node : nodeData->nodes )
+    for( auto& node : nodeData->nodeLookups )
     {
         node = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, serialIdx );
 
