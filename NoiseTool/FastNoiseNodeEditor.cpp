@@ -1,14 +1,12 @@
+#include <sstream>
+#include <random>
+#include <cstdio>
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 #include <imnodes.h>
-#include <sstream>
-#include <random>
-
-#include "FastNoiseNodeEditor.h"
-
-#include "DemoNodeTrees.inl"
 
 #include <Magnum/PixelFormat.h>
 #include <Magnum/GL/TextureFormat.h>
@@ -16,6 +14,8 @@
 #include <Corrade/Containers/ArrayViewStl.h>
 
 #include "ImGuiExtra.h"
+#include "FastNoiseNodeEditor.h"
+#include "DemoNodeTrees.inl"
 
 using namespace Magnum;
 
@@ -350,7 +350,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         auto* nodeEditor = (FastNoiseNodeEditor*)handler->UserData;
         
         int metadataId;
-        if( sscanf_s( name, "Node:%d", &metadataId ) == 1 )
+        if( sscanf( name, "Node:%d", &metadataId ) == 1 )
         {
             if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( metadataId ) )
             {
@@ -372,7 +372,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         ImVec2 imVec2;
         float f;
         int i;
-        if( sscanf_s( line, "grid_pos=%f:%f", &imVec2.x, &imVec2.y ) == 2 )
+        if( sscanf( line, "grid_pos=%f:%f", &imVec2.x, &imVec2.y ) == 2 )
         {
             auto find = nodeEditor->mNodes.find( nodeData );
             if( find != nodeEditor->mNodes.end() )
@@ -380,23 +380,23 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
                 ImNodes::SetNodeGridSpacePos( find->second.nodeId, imVec2 );
             }
         }
-        else if( sscanf_s( line, "variable=%d", &i ) == 1 )
+        else if( sscanf( line, "variable=%d", &i ) == 1 )
         {
             nodeData->variables.push_back( i );
         }
-        else if( sscanf_s( line, "node=%d", &i ) == 1 )
+        else if( sscanf( line, "node=%d", &i ) == 1 )
         {
             Node* link = nodeEditor->FindNodeFromId( i );
 
             nodeData->nodeLookups.push_back( link ? link->data.get() : nullptr );            
         }
-        else if( sscanf_s( line, "hybrid=%d:%f", &i, &f ) == 2 )
+        else if( sscanf( line, "hybrid=%d:%f", &i, &f ) == 2 )
         {
             Node* link = nodeEditor->FindNodeFromId( i );
 
             nodeData->hybrids.emplace_back( link ? link->data.get() : nullptr, f );            
         }
-        else if( sscanf_s( line, "id=%d", &i ) == 1 )
+        else if( sscanf( line, "id=%d", &i ) == 1 )
         {
             // Check the data is valid (node class may have changed)
             if( nodeData->variables.size() == nodeData->metadata->memberVariables.size() &&
@@ -444,14 +444,14 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         auto* nodeEditor = (FastNoiseNodeEditor*)handler->UserData;
 
         ImVec2 imVec2;
-        if( sscanf_s( line, "grid_offset=%f:%f", &imVec2.x, &imVec2.y ) == 2 )
+        if( sscanf( line, "grid_offset=%f:%f", &imVec2.x, &imVec2.y ) == 2 )
         {
             ImNodes::EditorContextResetPanning( imVec2 );
         }
 
-        sscanf_s( line, "frequency=%f", &nodeEditor->mNodeFrequency );
-        sscanf_s( line, "seed=%d", &nodeEditor->mNodeSeed );
-        sscanf_s( line, "gen_type=%d", &nodeEditor->mNodeGenType );
+        sscanf( line, "frequency=%f", &nodeEditor->mNodeFrequency );
+        sscanf( line, "seed=%d", &nodeEditor->mNodeSeed );
+        sscanf( line, "gen_type=%d", &nodeEditor->mNodeGenType );
     };
 
     ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
@@ -776,7 +776,7 @@ void FastNoiseNodeEditor::DoNodes()
         std::string performanceString = performanceStream.str();
 
         ImGui::SameLine( Node::NoiseSize - ImGui::CalcTextSize( performanceString.c_str() ).x );
-        ImGui::Text( performanceString.c_str() );
+        ImGui::TextUnformatted( performanceString.c_str() );
 
         if( ImGui::IsItemHovered() )
         {

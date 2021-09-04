@@ -107,6 +107,10 @@ if (UNIX)
     target_link_options(NoiseTool PRIVATE -pthread)
 endif()
 
+if (MSVC)
+    target_compile_definitions(NoiseTool PRIVATE _CRT_SECURE_NO_WARNINGS=1)
+endif()
+
 set(install_targets ${install_targets} NoiseTool PARENT_SCOPE)
 
 # Make the executable a default target to build & run in Visual Studio

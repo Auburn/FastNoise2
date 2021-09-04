@@ -1,6 +1,3 @@
-#include "MeshNoisePreview.h"
-#include "ImGuiExtra.h"
-
 #include <algorithm>
 #include <thread>
 #include <cmath>
@@ -11,6 +8,9 @@
 #include <Magnum/Math/Frustum.h>
 #include <Magnum/Math/Intersection.h>
 #include <Magnum/Shaders/Implementation/CreateCompatibilityShader.h>
+
+#include "ImGuiExtra.h"
+#include "MeshNoisePreview.h"
 
 using namespace Magnum;
 
@@ -572,17 +572,17 @@ void MeshNoisePreview::SetupSettingsHandlers()
     editorSettings.ReadLineFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line ) {
         auto* meshNoisePreview = (MeshNoisePreview*)handler->UserData;
 
-        sscanf_s( line, "tri_limit=%d", &meshNoisePreview->mTriLimit );
-        sscanf_s( line, "frequency=%f", &meshNoisePreview->mBuildData.frequency );
-        sscanf_s( line, "iso_surface=%f", &meshNoisePreview->mBuildData.isoSurface );
-        sscanf_s( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
+        sscanf( line, "tri_limit=%d", &meshNoisePreview->mTriLimit );
+        sscanf( line, "frequency=%f", &meshNoisePreview->mBuildData.frequency );
+        sscanf( line, "iso_surface=%f", &meshNoisePreview->mBuildData.isoSurface );
+        sscanf( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
 
         int i;
-        if( sscanf_s( line, "color=%d", &i ) == 1 )
+        if( sscanf( line, "color=%d", &i ) == 1 )
         {
             meshNoisePreview->mBuildData.color = Color3::fromSrgb( i );
         }
-        else if( sscanf_s( line, "enabled=%d", &i ) == 1 )
+        else if( sscanf( line, "enabled=%d", &i ) == 1 )
         {
             meshNoisePreview->mEnabled = i;
         }

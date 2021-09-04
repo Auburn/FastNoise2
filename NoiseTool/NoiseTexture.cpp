@@ -1,8 +1,8 @@
+#include <cstdio>
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <imgui_internal.h>
-
-#include "NoiseTexture.h"
 
 #include <Corrade/Containers/ArrayViewStl.h>
 #include <Magnum/PixelFormat.h>
@@ -10,7 +10,9 @@
 #include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 
+#include "NoiseTexture.h"
 #include "ImGuiExtra.h"
+
 
 using namespace Magnum;
 
@@ -267,9 +269,9 @@ void NoiseTexture::SetupSettingsHandlers()
     editorSettings.ReadLineFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line ) {
         auto* noiseTexture = (NoiseTexture*)handler->UserData;
         
-        sscanf_s( line, "frequency=%f", &noiseTexture->mBuildData.frequency );
-        sscanf_s( line, "seed=%d", &noiseTexture->mBuildData.seed );
-        sscanf_s( line, "gen_type=%d", &noiseTexture->mBuildData.generationType );
+        sscanf( line, "frequency=%f", &noiseTexture->mBuildData.frequency );
+        sscanf( line, "seed=%d", &noiseTexture->mBuildData.seed );
+        sscanf( line, "gen_type=%d", &noiseTexture->mBuildData.generationType );
     };
 
     ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
