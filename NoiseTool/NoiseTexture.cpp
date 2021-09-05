@@ -219,6 +219,8 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
             buildData.size.x(), buildData.size.y(), 1, 1,
             buildData.frequency, buildData.seed );
         break;
+    case GenType_Count:
+        break;
     }
 
     return TextureData( buildData.iteration, buildData.size, minMax, noiseData );

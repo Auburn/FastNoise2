@@ -5,7 +5,7 @@
 
 int main()
 {
-    auto node = FastNoise::New<FastNoise::FractalFBm>(FastSIMD::Level_SSE2);
+    auto node = FastNoise::New<FastNoise::FractalFBm>();
 
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
     node->SetGain( FastNoise::New<FastNoise::Value>() );

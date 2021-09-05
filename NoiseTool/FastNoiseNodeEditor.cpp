@@ -347,8 +347,6 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
     };
     nodeSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void*
     {
-        auto* nodeEditor = (FastNoiseNodeEditor*)handler->UserData;
-        
         int metadataId;
         if( sscanf( name, "Node:%d", &metadataId ) == 1 )
         {
@@ -1195,6 +1193,8 @@ FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0, 0,
             Node::NoiseSize, Node::NoiseSize, 1, 1,
             mNodeFrequency, mNodeSeed );
+    case NoiseTexture::GenType_Count:
+        break;
     }
 
     return {};
