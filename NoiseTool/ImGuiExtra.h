@@ -13,6 +13,18 @@ namespace ImGuiExtra
         }
     }
 
+    inline void AddOrReplaceSettingsHandler( ImGuiSettingsHandler& settings )
+    {
+        if( auto* existing = ImGui::FindSettingsHandler( settings.TypeName ) )
+        {
+            *existing = settings;
+        }
+        else
+        {
+            ImGui::GetCurrentContext()->SettingsHandlers.push_back( settings );            
+        }
+    }
+
     inline bool ScrollCombo( int* comboIndex, int comboCount )
     {
         if( ImGui::IsItemHovered() )

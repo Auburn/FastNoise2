@@ -452,8 +452,8 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         sscanf( line, "gen_type=%d", (int*)&nodeEditor->mNodeGenType );
     };
 
-    ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
-    ImGui::GetCurrentContext()->SettingsHandlers.push_back( nodeSettings );
+    ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );
+    ImGuiExtra::AddOrReplaceSettingsHandler( nodeSettings );
 }
 
 FastNoiseNodeEditor::FastNoiseNodeEditor() :

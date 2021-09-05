@@ -276,5 +276,5 @@ void NoiseTexture::SetupSettingsHandlers()
         sscanf( line, "gen_type=%d", (int*)&noiseTexture->mBuildData.generationType );
     };
 
-    ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
+    ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );
 }

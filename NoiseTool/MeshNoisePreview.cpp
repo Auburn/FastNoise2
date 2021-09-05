@@ -588,5 +588,5 @@ void MeshNoisePreview::SetupSettingsHandlers()
         }
     };
 
-    ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
+    ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );
 }
