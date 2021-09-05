@@ -10,14 +10,6 @@ int main()
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
     node->SetGain( FastNoise::New<FastNoise::Value>() );
 
-#if !FASTNOISE_USE_SHARED_PTR
-    {
-        FastNoise::SmartNode<> base = FastNoise::New<FastNoise::Simplex>();
-
-        FastNoise::SmartNode<FastNoise::Simplex> simplex = FastNoise::SmartNode<FastNoise::Simplex>::DynamicCast( base );
-    }
-#endif
-
     const int size = 16;
 
     float noise[size * size];
@@ -28,4 +20,13 @@ int main()
     {
         std::cout << noise[i] << std::endl;
     }
+
+    // SmartNode down cast example
+#if !FASTNOISE_USE_SHARED_PTR
+    {
+        FastNoise::SmartNode<> base = FastNoise::New<FastNoise::Simplex>();
+
+        FastNoise::SmartNode<FastNoise::Simplex> simplex = FastNoise::SmartNode<FastNoise::Simplex>::DynamicCast( base );
+    }
+#endif
 }

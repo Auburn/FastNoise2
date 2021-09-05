@@ -449,7 +449,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
 
         sscanf( line, "frequency=%f", &nodeEditor->mNodeFrequency );
         sscanf( line, "seed=%d", &nodeEditor->mNodeSeed );
-        sscanf( line, "gen_type=%d", &nodeEditor->mNodeGenType );
+        sscanf( line, "gen_type=%d", (int*)&nodeEditor->mNodeGenType );
     };
 
     ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );

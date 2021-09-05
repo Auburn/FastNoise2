@@ -273,7 +273,7 @@ void NoiseTexture::SetupSettingsHandlers()
         
         sscanf( line, "frequency=%f", &noiseTexture->mBuildData.frequency );
         sscanf( line, "seed=%d", &noiseTexture->mBuildData.seed );
-        sscanf( line, "gen_type=%d", &noiseTexture->mBuildData.generationType );
+        sscanf( line, "gen_type=%d", (int*)&noiseTexture->mBuildData.generationType );
     };
 
     ImGui::GetCurrentContext()->SettingsHandlers.push_back( editorSettings );
