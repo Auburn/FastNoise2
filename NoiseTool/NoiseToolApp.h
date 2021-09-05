@@ -35,6 +35,7 @@ namespace Magnum
 
         SceneGraph::Object<SceneGraph::MatrixTransformation3D> mCameraObject;
         SceneGraph::Camera3D mCamera{ mCameraObject };
+        Vector2 mLookAngle{ 0 };
         Timeline mFrameTime;
 
         Color3 mClearColor{ 0.122f };

@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <cmath>
+
 #include <imgui.h>
 #include <Corrade/Utility/Resource.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
@@ -297,21 +300,21 @@ void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
     if( !(event.buttons() & MouseMoveEvent::Button::Left) )
         return;
 
-    const Matrix4 transform = mCameraObject.transformation();
+    constexpr float mouseSensitivity = 0.22f;
+    Vector2 angleDelta = Vector2( event.relativePosition() ) * mouseSensitivity;
 
-    constexpr float angleScale = 0.004f;
-    float angleX = event.relativePosition().x() * angleScale;
-    float angleY = event.relativePosition().y() * angleScale;
+    if( !angleDelta.isZero() ) 
+    {    
+        mLookAngle.x() = std::fmodf( mLookAngle.x() - angleDelta.x(), 360.0f );
+        mLookAngle.y() = std::clamp( mLookAngle.y() - angleDelta.y(), -89.f, 89.f );
 
-    if( angleX != 0.0f || angleY != 0.0f ) 
-    {
-        mCameraObject.setTransformation( Matrix4::lookAt( transform.translation(),
-            transform.translation() - transform.rotationScaling() * Vector3 { -angleX, angleY, 1.0f },
-            Vector3::yAxis() ) );
+        const Vector3 translation = mCameraObject.transformation().translation();
+        const Matrix4 rotation = Matrix4::rotationY( Deg{ mLookAngle.x() } ) * Matrix4::rotationX( Deg{ mLookAngle.y() } );
+
+        mCameraObject.setTransformation( Matrix4::lookAt( translation, translation - rotation.rotationNormalized() * Vector3::zAxis(), Vector3::yAxis() ) );
     }
 
     event.setAccepted();
-    redraw();
 }
 
 void NoiseToolApp::textInputEvent( TextInputEvent& event )
