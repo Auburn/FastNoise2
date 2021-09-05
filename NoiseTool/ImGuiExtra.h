@@ -29,6 +29,8 @@ namespace ImGuiExtra
     {
         if( ImGui::IsItemHovered() )
         {
+            ImGui::SetItemUsingMouseWheel();
+
             if( ImGui::GetIO().MouseWheel < 0 && *comboIndex < comboCount - 1 )
             {
                 (*comboIndex)++;

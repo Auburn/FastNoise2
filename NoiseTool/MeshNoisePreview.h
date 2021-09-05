@@ -29,6 +29,17 @@ namespace Magnum
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
 
     private:
+        enum MeshType
+        {
+            MeshType_Voxel3D,
+            MeshType_Heightmap2D,
+            MeshType_Count
+        };
+
+        inline static const char* MeshTypeStrings =
+            "Voxel 3D\0"
+            "Heightmap 2D\0";
+
         class VertexLightShader : public GL::AbstractShaderProgram
         {
         public:
@@ -106,12 +117,15 @@ namespace Magnum
                 FastNoise::SmartNode<const FastNoise::Generator> generator;
                 Vector3i pos;
                 Color3 color;
-                float frequency, isoSurface;
+                float frequency, isoSurface, heightmapMultiplier;
                 int32_t seed;
+                MeshType meshType;
                 uint32_t genVersion;
             };
 
             static MeshData BuildMeshData( const BuildData& buildData );
+            static FastNoise::OutputMinMax BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
+            static FastNoise::OutputMinMax BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
 
             Chunk( MeshData& meshData );
 

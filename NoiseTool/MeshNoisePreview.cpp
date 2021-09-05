@@ -19,7 +19,9 @@ MeshNoisePreview::MeshNoisePreview()
     mBuildData.frequency = 0.005f;
     mBuildData.seed = 1338;
     mBuildData.isoSurface = 0.0f;
+    mBuildData.heightmapMultiplier = 100.0f;
     mBuildData.color = Color3( 1.0f );
+    mBuildData.meshType = MeshType_Voxel3D;
 
     uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
 
@@ -93,9 +95,16 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
         {
             mTriCount += meshTriCount;
 
-            Range3Di bbox( pos, pos + Vector3i( Chunk::SIZE + 1 ) );
+            Vector3 posf( pos );
+            Range3D bbox( posf, posf + Vector3( Chunk::SIZE + 1 ) );
 
-            if( Math::Intersection::rangeFrustum( Range3D( bbox ), camFrustrum ) )
+            if( mBuildData.meshType == MeshType_Heightmap2D )
+            {
+                bbox.min().y() = mMinMax.min * mBuildData.heightmapMultiplier;
+                bbox.max().y() = mMinMax.max * mBuildData.heightmapMultiplier;
+            }
+
+            if( Math::Intersection::rangeFrustum( bbox, camFrustrum ) )
             {
                 drawnTriCount += meshTriCount;
                 mShader.draw( mesh );
@@ -104,33 +113,47 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     }
     mTriCount /= 3;
 
-    //ImGui::Text( "Generating Queue Count: %llu", mGenerateQueue.Count() );
-    ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
-    ImGui::Text( "   Voxel Count: %0.1fK", (mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE) / 1000.0 );
-    ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
-    ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
-
-    float triLimitMil = (float)mTriLimit / 1000000.0f;
-    if( ImGui::DragFloat( "Triangle Limit", &triLimitMil, 1, 10.0f, 300.0f, "%0.1fM" ) )
-    {
-        mTriLimit = (uint32_t)(triLimitMil * 1000000);
-        ImGuiExtra::MarkSettingsDirty();
-    }
-
-
+    bool edited = false;
+    edited |= ImGui::Combo( "Mesh Type", reinterpret_cast<int*>( &mBuildData.meshType ), MeshTypeStrings );
+    edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.meshType ), MeshType_Count );
+    
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) )
     {        
         mShader.SetColorTint( mBuildData.color );
         ImGuiExtra::MarkSettingsDirty();
     }
 
-    if( ImGui::DragInt( "Seed", &mBuildData.seed ) |
-        ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" ) |
-        ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f ) )
+    edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
+    edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" );
+
+    if( mBuildData.meshType == MeshType_Heightmap2D )
+    {
+        edited |= ImGui::DragFloat( "Heightmap Multiplier", &mBuildData.heightmapMultiplier, 0.5f );        
+    }
+    else
+    {
+        edited |= ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f );
+    }
+
+    if( edited )
     {
         ReGenerate( mBuildData.generator );
         ImGuiExtra::MarkSettingsDirty();
     }
+
+    float triLimitMil = (float)mTriLimit / 1000000.0f;
+    if( ImGui::DragFloat( "Triangle Limit", &triLimitMil, 1, 10.0f, 300.0f, "%0.1fM" ) )
+    {
+        mTriLimit = (uint32_t)( triLimitMil * 1000000 );
+        ImGuiExtra::MarkSettingsDirty();
+    }
+
+    ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
+    ImGui::Text( "Voxel Count: %0.1fK", ( mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE ) / 1000.0 );
+    ImGui::Text( "Loaded Chunks: %zu", mDistanceOrderedChunks.size() );
+    ImGui::Text( "Meshing Chunks: %zu", mInProgressChunks.size() - mCompleteQueue.Count() );
+    ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
+    ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
 
     UpdateChunksForPosition( cameraPosition );
 }
@@ -193,11 +216,9 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         }
     }
 
-    ImGui::Text( "Meshing Chunks: %zu", mInProgressChunks.size() - mCompleteQueue.Count() );
-    ImGui::Text( " Queued Chunks: %zu", queueCount );
-    ImGui::Text( "    New Chunks: %zu (%0.1f)", newChunks, mAvgNewChunks );
-    ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
-    ImGui::Text( " Loaded Chunks: %zu", mDistanceOrderedChunks.size() );
+    //ImGui::Text( " Queued Chunks: %zu", queueCount );
+    //ImGui::Text( "    New Chunks: %zu (%0.1f)", newChunks, mAvgNewChunks );
+    //ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
 
     // Increase load range if queue is not full
     if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < 20 * mAvgNewChunks )
@@ -235,14 +256,24 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 
         for( int y = -chunkRange; y <= chunkRange; y++ )
         {
-            chunkPos.y() = y * Chunk::SIZE + chunkCenter.y();
+            if( mBuildData.meshType == MeshType_Heightmap2D )
+            {
+                positionI.y() = 0;
+                chunkPos.y() = 0;
+                y = chunkRange;
+            }
+            else
+            {
+                chunkPos.y() = y * Chunk::SIZE + chunkCenter.y();
+            }
 
             for( int z = -chunkRange; z <= chunkRange; z++ )
             {
                 chunkPos.z() = z * Chunk::SIZE + chunkCenter.z();
 
-                if( (positionI - chunkPos).dot() <= loadRangeSq && 
-                    mChunks.find( chunkPos ) == mChunks.end() && 
+
+                if( ( positionI - chunkPos ).dot() <= loadRangeSq &&
+                    mChunks.find( chunkPos ) == mChunks.end() &&
                     mInProgressChunks.find( chunkPos ) == mInProgressChunks.end() )
                 {
                     chunkPositions.push_back( chunkPos );
@@ -292,25 +323,43 @@ void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& gene
     }
 }
 
-
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const BuildData& buildData )
 {
     thread_local static std::vector<float> densityValues( SIZE_GEN * SIZE_GEN * SIZE_GEN );
     thread_local static std::vector<VertexData> vertexData;
     thread_local static std::vector<uint32_t> indicies;
-
-    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues.data(),
-        buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
-        SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
-
+    
     vertexData.clear();
     indicies.clear();
+
+    FastNoise::OutputMinMax minMax;
+
+    switch( buildData.meshType )
+    {
+    case MeshType_Voxel3D:
+        minMax = BuildVoxel3DMesh( buildData, densityValues.data(), vertexData, indicies );
+        break;
+    case MeshType_Heightmap2D:
+        minMax = BuildHeightMap2DMesh( buildData, densityValues.data(), vertexData, indicies );
+        break;
+    case MeshType_Count:
+        break;
+    }           
+
+    return MeshData( buildData.pos, minMax, vertexData, indicies );
+}
+
+FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
+{
+    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues,
+                                                                            buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
+                                                                            SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
 
 #if FASTNOISE_CALC_MIN_MAX
     if( minMax.min <= buildData.isoSurface && minMax.max >= buildData.isoSurface )
 #endif
     {
-        Vector3 light = LIGHT_DIR.normalized() * (1.0f - AMBIENT_LIGHT) + Vector3( AMBIENT_LIGHT );
+        Vector3 light = LIGHT_DIR.normalized() * ( 1.0f - AMBIENT_LIGHT ) + Vector3( AMBIENT_LIGHT );
 
         float xLight = std::abs( light.x() );
         float yLight = std::abs( light.y() );
@@ -338,37 +387,37 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
                     {
                         if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
                                        Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - xLight,
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - xLight,
                                        Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, yLight,
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, yLight,
                                        Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - yLight,
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - yLight,
                                        Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, zLight,
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, zLight,
                                        Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
                         {
-                            AddQuadAO( vertexData, indicies, densityValues.data(), buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - zLight,
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - zLight,
                                        Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                         }
                     }
@@ -382,27 +431,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
         }
     }
 
-    MeshData meshData( buildData.pos, minMax, vertexData, indicies );
-
-    return meshData;
-}
-
-MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
-{
-    mPos = meshData.pos;
-
-    if( !meshData.vertexData.empty() )
-    {
-        //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
-
-        mMesh = GL::Mesh( GL::MeshPrimitive::Triangles );
-
-        mMesh.setCount( (Int)meshData.indicies.size() )
-            .setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, (UnsignedInt)meshData.vertexData.size() - 1 )
-            .addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
-    }
-
-    meshData.Free();
+    return minMax;
 }
 
 void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
@@ -444,6 +473,88 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
     indicies.push_back( vertIdx + 3 );
     indicies.push_back( vertIdx + triRotation );
     indicies.push_back( vertIdx + 1 );
+}
+
+FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
+{
+    constexpr uint32_t SIZE_GEN_HEIGHTMAP = SIZE + 1;
+
+    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid2D( densityValues,
+                                                                            buildData.pos.x(), buildData.pos.z(),
+                                                                            SIZE_GEN_HEIGHTMAP, SIZE_GEN_HEIGHTMAP, buildData.frequency, buildData.seed );
+    constexpr int32_t STEP_X = 1;
+    constexpr int32_t STEP_Y = SIZE_GEN_HEIGHTMAP;
+
+    Vector3 sunLight = LIGHT_DIR.normalized() * ( 1.0f - AMBIENT_LIGHT ) + Vector3( AMBIENT_LIGHT );
+
+    int32_t noiseIdx = 0;
+
+    for( uint32_t y = 0; y < SIZE; y++ )
+    {
+        float yf = y + (float)buildData.pos.z();
+
+        for( uint32_t x = 0; x < SIZE; x++ )
+        {
+            float xf = x + (float)buildData.pos.x();
+
+            Vector3 v00( xf, densityValues[noiseIdx] * buildData.heightmapMultiplier, yf );
+            Vector3 v01( xf, densityValues[noiseIdx + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );
+            Vector3 v10( xf + 1, densityValues[noiseIdx + STEP_X] * buildData.heightmapMultiplier, yf );
+            Vector3 v11( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );            
+
+            // Normal for quad
+            float light = ( sunLight * (
+                Math::cross( v10 - v11, v00 - v11 ).normalized() +
+                Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
+
+            uint32_t vertIdx = (uint32_t)vertexData.size();
+            vertexData.emplace_back( v00, light );
+            vertexData.emplace_back( v01, light );
+            vertexData.emplace_back( v10, light );
+            vertexData.emplace_back( v11, light );
+
+            // Slice quad along longest split
+            uint32_t triRotation = 2 * ( (v00 + v11).dot() < (v01 + v10).dot() );            
+            indicies.push_back( vertIdx );
+            indicies.push_back( vertIdx + 3 - triRotation );
+            indicies.push_back( vertIdx + 2 );
+            indicies.push_back( vertIdx + 3 );
+            indicies.push_back( vertIdx + triRotation );
+            indicies.push_back( vertIdx + 1 );
+
+            noiseIdx++;
+        }
+
+        noiseIdx += STEP_X;
+    }
+
+    return minMax;
+}
+
+MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
+{
+    mPos = meshData.pos;
+
+    if( !meshData.vertexData.empty() )
+    {
+        //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
+
+        mMesh = GL::Mesh( GL::MeshPrimitive::Triangles );
+
+        mMesh.addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
+
+        if( meshData.indicies.empty() )
+        {
+            mMesh.setCount( meshData.vertexData.size() );
+        }
+        else
+        {
+            mMesh.setCount( (Int)meshData.indicies.size() );
+            mMesh.setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, (UnsignedInt)meshData.vertexData.size() - 1 );
+        }
+    }
+
+    meshData.Free();
 }
 
 MeshNoisePreview::VertexLightShader::VertexLightShader()
@@ -557,8 +668,10 @@ void MeshNoisePreview::SetupSettingsHandlers()
         outBuf->appendf( "tri_limit=%d\n", (int)meshNoisePreview->mTriLimit );
         outBuf->appendf( "frequency=%f\n", meshNoisePreview->mBuildData.frequency );
         outBuf->appendf( "iso_surface=%f\n", meshNoisePreview->mBuildData.isoSurface );
+        outBuf->appendf( "heightmap_multiplier=%f\n", meshNoisePreview->mBuildData.heightmapMultiplier );
         outBuf->appendf( "seed=%d\n", meshNoisePreview->mBuildData.seed );
         outBuf->appendf( "color=%d\n", (int)meshNoisePreview->mBuildData.color.toSrgbInt() );
+        outBuf->appendf( "mesh_type=%d\n", (int)meshNoisePreview->mBuildData.meshType );
         outBuf->appendf( "enabled=%d\n", (int)meshNoisePreview->mEnabled );
     };
     editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
@@ -575,7 +688,9 @@ void MeshNoisePreview::SetupSettingsHandlers()
         sscanf( line, "tri_limit=%d", &meshNoisePreview->mTriLimit );
         sscanf( line, "frequency=%f", &meshNoisePreview->mBuildData.frequency );
         sscanf( line, "iso_surface=%f", &meshNoisePreview->mBuildData.isoSurface );
+        sscanf( line, "heightmap_multiplier=%f", &meshNoisePreview->mBuildData.heightmapMultiplier );
         sscanf( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
+        sscanf( line, "mesh_type=%d", (int*)&meshNoisePreview->mBuildData.meshType );
 
         int i;
         if( sscanf( line, "color=%d", &i ) == 1 )
