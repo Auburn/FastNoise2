@@ -305,7 +305,7 @@ void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
 
     if( !angleDelta.isZero() ) 
     {    
-        mLookAngle.x() = std::fmodf( mLookAngle.x() - angleDelta.x(), 360.0f );
+        mLookAngle.x() = std::fmod( mLookAngle.x() - angleDelta.x(), 360.0f );
         mLookAngle.y() = std::clamp( mLookAngle.y() - angleDelta.y(), -89.f, 89.f );
 
         const Vector3 translation = mCameraObject.transformation().translation();
