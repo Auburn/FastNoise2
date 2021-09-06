@@ -14,7 +14,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -37,7 +37,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -60,7 +60,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -83,7 +83,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -106,7 +106,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -129,7 +129,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -152,7 +152,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -175,7 +175,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -201,7 +201,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -227,7 +227,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "FASTNOISE2_TESTS",
@@ -253,7 +253,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "CMAKE_CXX_FLAGS",
@@ -284,7 +284,7 @@
                 {
                     "name": "CPM_SOURCE_CACHE",
                     "value": "${projectDir}\\out\\build\\cpm-cache",
-                    "type": "STRING"
+                    "type": "PATH"
                 },
                 {
                     "name": "CMAKE_CXX_FLAGS",
