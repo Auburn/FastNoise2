@@ -470,6 +470,8 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
     ImGui::StyleColorsDark();
     ImNodes::StyleColorsDark();
 
+    ImNodes::GetStyle().MiniMapPadding = ImVec2( 8, 8 );
+
 #ifdef _DEBUG
     mNodeBenchmarkMax = 1;
 #endif
@@ -601,6 +603,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         DoContextMenu();
 
         DoNodes();
+
+        ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
 
         ImNodes::EndNodeEditor();
 
