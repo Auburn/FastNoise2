@@ -49,7 +49,10 @@ void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
     mLoadRange = 200.0f;
     mBuildData.generator = generator;
     mBuildData.pos = Vector3i( 0 );
+
     mMinMax = {};
+    mMinAirY = INFINITY;
+    mMaxSolidY = -INFINITY;
 
     mChunks.clear();
     mInProgressChunks.clear();
@@ -81,7 +84,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
     Matrix4 transformationProjection = projection * transformation;
 
-    Frustum camFrustrum = Frustum::fromMatrix( transformationProjection );
+    Frustum camFrustum = Frustum::fromMatrix( transformationProjection );
     mShader.SetTransformationProjectionMatrix( transformationProjection );
 
     mTriCount = 0;
@@ -104,7 +107,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
                 bbox.max().y() = mMinMax.max * mBuildData.heightmapMultiplier;
             }
 
-            if( Math::Intersection::rangeFrustum( bbox, camFrustrum ) )
+            if( Math::Intersection::rangeFrustum( bbox, camFrustum ) )
             {
                 drawnTriCount += meshTriCount;
                 mShader.draw( mesh );
@@ -149,11 +152,16 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     }
 
     ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
-    ImGui::Text( "Voxel Count: %0.1fK", ( mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE ) / 1000.0 );
+    ImGui::Text( "Voxel Count: %0.1fM", ( mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE ) / 1000000.0 );
     ImGui::Text( "Loaded Chunks: %zu", mDistanceOrderedChunks.size() );
     ImGui::Text( "Meshing Chunks: %zu", mInProgressChunks.size() - mCompleteQueue.Count() );
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
     ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
+
+    if( mBuildData.meshType != MeshType_Heightmap2D )
+    {
+        ImGui::Text( "Min Air Y(%0.1f) Max Solid Y(%0.1f)", mMinAirY, mMaxSolidY );
+    }
 
     UpdateChunksForPosition( cameraPosition );
 }
@@ -186,6 +194,9 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
             mDistanceOrderedChunks.push_back( meshData.pos );
 
             mMinMax << meshData.minMax;
+            mMinAirY = std::min( mMinAirY, meshData.minAirY );
+            mMaxSolidY = std::max( mMaxSolidY, meshData.maxSolidY );
+
             mChunks.emplace( meshData.pos, meshData );
             newChunks++;
         }
@@ -221,7 +232,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
     //ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
 
     // Increase load range if queue is not full
-    if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < 20 * mAvgNewChunks )
+    if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < mThreads.size() * mAvgNewChunks )
     {
         mLoadRange = std::min( mLoadRange * (1 + GetLoadRangeModifier()), 2000.0f );
     }
@@ -331,32 +342,40 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     
     vertexData.clear();
     indicies.clear();
-
-    FastNoise::OutputMinMax minMax;
-
+    
     switch( buildData.meshType )
     {
     case MeshType_Voxel3D:
-        minMax = BuildVoxel3DMesh( buildData, densityValues.data(), vertexData, indicies );
-        break;
+        return BuildVoxel3DMesh( buildData, densityValues.data(), vertexData, indicies );
+
     case MeshType_Heightmap2D:
-        minMax = BuildHeightMap2DMesh( buildData, densityValues.data(), vertexData, indicies );
-        break;
+        return BuildHeightMap2DMesh( buildData, densityValues.data(), vertexData, indicies );
+
     case MeshType_Count:
         break;
     }           
 
-    return MeshData( buildData.pos, minMax, vertexData, indicies );
+    return MeshData( buildData.pos, {}, vertexData, indicies );
 }
 
-FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
+MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
     FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues,
                                                                             buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
                                                                             SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
+    float minAir = INFINITY;
+    float maxSolid = -INFINITY;
 
 #if FASTNOISE_CALC_MIN_MAX
-    if( minMax.min <= buildData.isoSurface && minMax.max >= buildData.isoSurface )
+    if( minMax.min > buildData.isoSurface )
+    {
+        minAir = buildData.pos.y();
+    }
+    else if( minMax.max < buildData.isoSurface )
+    {
+        maxSolid = buildData.pos.y() - 1.0f + SIZE;
+    }
+    else
 #endif
     {
         Vector3 light = LIGHT_DIR.normalized() * ( 1.0f - AMBIENT_LIGHT ) + Vector3( AMBIENT_LIGHT );
@@ -385,6 +404,8 @@ FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildDa
 
                     if( densityValues[noiseIdx] <= buildData.isoSurface ) // Is Solid?
                     {
+                        maxSolid = std::max( yf, maxSolid );
+
                         if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                         {
                             AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
@@ -421,6 +442,10 @@ FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildDa
                                        Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                         }
                     }
+                    else
+                    {
+                        minAir = std::min( yf, minAir );
+                    }
                     noiseIdx++;
                 }
 
@@ -431,7 +456,7 @@ FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildDa
         }
     }
 
-    return minMax;
+    return MeshData( buildData.pos, minMax, vertexData, indicies, minAir, maxSolid );
 }
 
 void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
@@ -475,7 +500,7 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
     indicies.push_back( vertIdx + 1 );
 }
 
-FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
+MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
     constexpr uint32_t SIZE_GEN_HEIGHTMAP = SIZE + 1;
 
@@ -528,7 +553,7 @@ FastNoise::OutputMinMax MeshNoisePreview::Chunk::BuildHeightMap2DMesh( const Bui
         noiseIdx += STEP_X;
     }
 
-    return minMax;
+    return MeshData( buildData.pos, minMax, vertexData, indicies );
 }
 
 MeshNoisePreview::Chunk::Chunk( MeshData& meshData )

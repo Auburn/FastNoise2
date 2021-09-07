@@ -78,7 +78,10 @@ namespace Magnum
             {
                 MeshData() = default;
 
-                MeshData( Vector3i p, FastNoise::OutputMinMax mm, const std::vector<VertexData>& v, const std::vector<uint32_t>& i ) : pos( p ), minMax( mm )
+                MeshData( Vector3i p, FastNoise::OutputMinMax mm,
+                          const std::vector<VertexData>& v, const std::vector<uint32_t>& i,
+                          float minAir = INFINITY, float maxSolid = -INFINITY ) :
+                          pos( p ), minMax( mm ), minAirY( minAir ), maxSolidY( maxSolid )
                 {
                     if( v.empty() )
                     {
@@ -110,6 +113,7 @@ namespace Magnum
                 Containers::ArrayView<VertexData> vertexData;
                 Containers::ArrayView<uint32_t> indicies;
                 FastNoise::OutputMinMax minMax;
+                float minAirY, maxSolidY;
             };
 
             struct BuildData
@@ -124,8 +128,8 @@ namespace Magnum
             };
 
             static MeshData BuildMeshData( const BuildData& buildData );
-            static FastNoise::OutputMinMax BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
-            static FastNoise::OutputMinMax BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
+            static MeshNoisePreview::Chunk::MeshData BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
+            static MeshNoisePreview::Chunk::MeshData BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
 
             Chunk( MeshData& meshData );
 
@@ -176,7 +180,9 @@ namespace Magnum
         uint32_t mTriLimit = 35000000; // 35 mil
         uint32_t mTriCount = 0;
         int mStaggerCheck = 0;
+
         FastNoise::OutputMinMax mMinMax;
+        float mMinAirY, mMaxSolidY;
 
         GenerateQueue<Chunk::BuildData> mGenerateQueue;
         CompleteQueue<Chunk::MeshData> mCompleteQueue;
