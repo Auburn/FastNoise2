@@ -63,6 +63,12 @@ CPMAddPackage(
     GITHUB_REPOSITORY Auburn/imnodes
     GIT_TAG a295b4af69045645d657363d5d135e2d8a3785f6
 )
+  
+CPMAddPackage(
+    NAME robinhoodhashing
+    GITHUB_REPOSITORY martinus/robin-hood-hashing
+    GIT_TAG 3.11.3
+)
 
 # Use modules from magnum-integration since it has everything we need
 set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_PATH})
@@ -86,8 +92,10 @@ add_executable(NoiseTool
     ${NoiseTool_RESOURCES}
 ) 
 
-# Include imnodes in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
-target_include_directories(NoiseTool PRIVATE "${imnodes_SOURCE_DIR}")
+# Include imnodes & rhh in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
+target_include_directories(NoiseTool PRIVATE 
+    "${imnodes_SOURCE_DIR}"
+    "${robinhoodhashing_SOURCE_DIR}/src/include")
 
 target_link_libraries(NoiseTool PRIVATE
     FastNoise

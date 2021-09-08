@@ -13,6 +13,8 @@
 #include <Magnum/GL/AbstractShaderProgram.h>
 #include <Magnum/GL/Shader.h>
 
+#include <robin_hood.h>
+
 #include "FastNoise/FastNoise.h"
 #include "MultiThreadQueues.h"
 
@@ -155,7 +157,10 @@ namespace Magnum
         {
             size_t operator()( const Vector3i& v ) const
             {
-                return (size_t)v.x() ^ ((size_t)v.y() << sizeof( size_t ) * 2) ^ ((size_t)v.z() << sizeof( size_t ) * 4);
+                return robin_hood::hash<size_t>()( 
+                    (size_t)v.x() ^ 
+                    ((size_t)v.y() << sizeof( size_t ) * 2) ^ 
+                    ((size_t)v.z() << sizeof( size_t ) * 4) );
             }
         };
 
@@ -169,8 +174,8 @@ namespace Magnum
         float GetTimerDurationMs();
         void SetupSettingsHandlers();
 
-        std::unordered_map<Vector3i, Chunk, Vector3iHash> mChunks;
-        std::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
+        robin_hood::unordered_node_map<Vector3i, Chunk, Vector3iHash> mChunks;
+        robin_hood::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
         std::vector<Vector3i> mDistanceOrderedChunks;
 
         bool mEnabled = true;

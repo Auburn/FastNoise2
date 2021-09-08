@@ -191,13 +191,13 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         while( GetTimerDurationMs() < 14 && mCompleteQueue.Pop( meshData ) )
         {
             mInProgressChunks.erase( meshData.pos );
-            mDistanceOrderedChunks.push_back( meshData.pos );
+            mDistanceOrderedChunks.emplace_back( meshData.pos );
 
             mMinMax << meshData.minMax;
             mMinAirY = std::min( mMinAirY, meshData.minAirY );
             mMaxSolidY = std::max( mMaxSolidY, meshData.maxSolidY );
 
-            mChunks.emplace( meshData.pos, meshData );
+            mChunks.try_emplace( meshData.pos, meshData );
             newChunks++;
         }
         mAvgNewChunks += (newChunks - mAvgNewChunks) * 0.01f;
@@ -234,7 +234,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
     // Increase load range if queue is not full
     if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < mThreads.size() * mAvgNewChunks )
     {
-        mLoadRange = std::min( mLoadRange * (1 + GetLoadRangeModifier()), 2000.0f );
+        mLoadRange = std::min( mLoadRange * (1 + GetLoadRangeModifier()), 3000.0f );
     }
 
 }
@@ -284,8 +284,8 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 
 
                 if( ( positionI - chunkPos ).dot() <= loadRangeSq &&
-                    mChunks.find( chunkPos ) == mChunks.end() &&
-                    mInProgressChunks.find( chunkPos ) == mInProgressChunks.end() )
+                    !mChunks.contains( chunkPos ) &&
+                    !mInProgressChunks.contains( chunkPos ) )
                 {
                     chunkPositions.push_back( chunkPos );
                 }
@@ -311,7 +311,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
         }
     }
 
-    //ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
+    ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
 }
 
 void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
