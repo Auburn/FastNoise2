@@ -135,7 +135,7 @@ namespace Magnum
 
             Chunk( MeshData& meshData );
 
-            GL::Mesh& GetMesh() { return mMesh; }
+            GL::Mesh* GetMesh() { return mMesh.get(); }
             Vector3i GetPos() const { return mPos; }
 
             static constexpr uint32_t SIZE          = 128;
@@ -150,7 +150,7 @@ namespace Magnum
             static constexpr uint32_t SIZE_GEN = SIZE + 2;
 
             Vector3i mPos;
-            GL::Mesh mMesh{ NoCreate };
+            std::unique_ptr<GL::Mesh> mMesh;
         };
 
         struct Vector3iHash
@@ -173,10 +173,9 @@ namespace Magnum
         void StartTimer();
         float GetTimerDurationMs();
         void SetupSettingsHandlers();
-
-        robin_hood::unordered_node_map<Vector3i, Chunk, Vector3iHash> mChunks;
-        robin_hood::unordered_set<Vector3i, Vector3iHash> mInProgressChunks;
-        std::vector<Vector3i> mDistanceOrderedChunks;
+        
+        robin_hood::unordered_set<Vector3i, Vector3iHash> mRegisteredChunkPositions;
+        std::vector<Chunk> mChunks;
 
         bool mEnabled = true;
         Chunk::BuildData mBuildData;
@@ -184,6 +183,7 @@ namespace Magnum
         float mAvgNewChunks = 1.0f;
         uint32_t mTriLimit = 35000000; // 35 mil
         uint32_t mTriCount = 0;
+        uint32_t mMeshesCount = 0;
         int mStaggerCheck = 0;
 
         FastNoise::OutputMinMax mMinMax;

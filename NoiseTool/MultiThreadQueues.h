@@ -25,6 +25,12 @@ public:
         mQueue = {};
     }
 
+    size_t Count()
+    {
+        std::unique_lock<std::mutex> lock( mMutex );
+        return mQueue.size();
+    }
+
     T Pop()
     {
         std::unique_lock<std::mutex> lock( mMutex );

@@ -36,7 +36,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -59,7 +59,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -82,7 +82,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -105,7 +105,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -128,7 +128,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -151,7 +151,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -174,7 +174,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -200,7 +200,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -226,7 +226,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -252,7 +252,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {
@@ -283,7 +283,7 @@
             "variables": [
                 {
                     "name": "CPM_SOURCE_CACHE",
-                    "value": "${projectDir}\\out\\build\\cpm-cache",
+                    "value": "${projectDir}\\cpm-cache",
                     "type": "PATH"
                 },
                 {

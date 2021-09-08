@@ -54,9 +54,8 @@ void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
     mMinAirY = INFINITY;
     mMaxSolidY = -INFINITY;
 
+    mRegisteredChunkPositions.clear();
     mChunks.clear();
-    mInProgressChunks.clear();
-    mDistanceOrderedChunks.clear();
     mGenerateQueue.Clear();
     mBuildData.genVersion = mCompleteQueue.IncVersion();
 
@@ -88,17 +87,19 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     mShader.SetTransformationProjectionMatrix( transformationProjection );
 
     mTriCount = 0;
+    mMeshesCount = 0;
     uint32_t drawnTriCount = 0;
 
-    for( const Vector3i& pos : mDistanceOrderedChunks )
+    for( Chunk& chunk : mChunks )
     {
-        GL::Mesh& mesh = mChunks.at( pos ).GetMesh();
-
-        if( uint32_t meshTriCount = mesh.count() )
+        if( GL::Mesh* mesh = chunk.GetMesh() )
         {
-            mTriCount += meshTriCount;
+            int32_t meshTriCount = mesh->count();
 
-            Vector3 posf( pos );
+            mTriCount += meshTriCount;
+            mMeshesCount++;
+
+            Vector3 posf( chunk.GetPos());
             Range3D bbox( posf, posf + Vector3( Chunk::SIZE + 1 ) );
 
             if( mBuildData.meshType == MeshType_Heightmap2D )
@@ -110,7 +111,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
             if( Math::Intersection::rangeFrustum( bbox, camFrustum ) )
             {
                 drawnTriCount += meshTriCount;
-                mShader.draw( mesh );
+                mShader.draw( *mesh );
             }
         }
     }
@@ -153,14 +154,16 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
     ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
     ImGui::Text( "Voxel Count: %0.1fM", ( mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE ) / 1000000.0 );
-    ImGui::Text( "Loaded Chunks: %zu", mDistanceOrderedChunks.size() );
-    ImGui::Text( "Meshing Chunks: %zu", mInProgressChunks.size() - mCompleteQueue.Count() );
+    ImGui::Text( "Loaded Chunks: %zu (%d)", mChunks.size(), mMeshesCount );
+
+    size_t generateCount = mGenerateQueue.Count();
+    ImGui::Text( "Meshing Chunks: %zu (%zu)", mRegisteredChunkPositions.size() - mChunks.size() - generateCount, generateCount );
     ImGui::Text( "Chunk Load Range: %0.1f", mLoadRange );
-    ImGui::Text( "Generated Min(%0.6f) Max(%0.6f)", mMinMax.min, mMinMax.max );
+    ImGui::Text( "Generated Min (%0.6f) : Max (%0.6f)", mMinMax.min, mMinMax.max );
 
     if( mBuildData.meshType != MeshType_Heightmap2D )
     {
-        ImGui::Text( "Min Air Y(%0.1f) Max Solid Y(%0.1f)", mMinAirY, mMaxSolidY );
+        ImGui::Text( "Min Air Y (%0.1f) : Max Solid Y (%0.1f)", mMinAirY, mMaxSolidY );
     }
 
     UpdateChunksForPosition( cameraPosition );
@@ -190,35 +193,32 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
 
         while( GetTimerDurationMs() < 14 && mCompleteQueue.Pop( meshData ) )
         {
-            mInProgressChunks.erase( meshData.pos );
-            mDistanceOrderedChunks.emplace_back( meshData.pos );
-
             mMinMax << meshData.minMax;
             mMinAirY = std::min( mMinAirY, meshData.minAirY );
             mMaxSolidY = std::max( mMaxSolidY, meshData.maxSolidY );
-
-            mChunks.try_emplace( meshData.pos, meshData );
+            
+            mChunks.emplace_back( meshData );
             newChunks++;
         }
         mAvgNewChunks += (newChunks - mAvgNewChunks) * 0.01f;
     }
 
-    std::sort( mDistanceOrderedChunks.begin(), mDistanceOrderedChunks.end(), 
-        [chunkPos]( const Vector3i& a, const Vector3i& b )
+    std::sort( mChunks.begin(), mChunks.end(), 
+        [chunkPos]( const Chunk& a, const Chunk& b )
         {
-            return (chunkPos - a).dot() < (chunkPos - b).dot();
+            return (chunkPos - a.GetPos()).dot() < (chunkPos - b.GetPos()).dot();
         } );
 
     // Unload further chunk if out of load range
     size_t deletedChunks = 0;
-    while( !mDistanceOrderedChunks.empty() )
+    while( !mChunks.empty() )
     {
-        Vector3i backChunkPos = mDistanceOrderedChunks.back();
+        Vector3i backChunkPos = mChunks.back().GetPos();
         float unloadRange = mLoadRange * 1.1f;
         if( GetTimerDurationMs() < 15 && (chunkPos - backChunkPos).dot() > unloadRange * unloadRange )
         {
-            mChunks.erase( backChunkPos );
-            mDistanceOrderedChunks.pop_back();
+            mRegisteredChunkPositions.erase( backChunkPos );
+            mChunks.pop_back();
             deletedChunks++;
         }
         else
@@ -232,7 +232,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
     //ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
 
     // Increase load range if queue is not full
-    if( (double)mTriCount < mTriLimit * 0.85 && mInProgressChunks.size() < mThreads.size() * mAvgNewChunks )
+    if( (double)mTriCount < mTriLimit * 0.85 && (mRegisteredChunkPositions.size() - mChunks.size()) < mThreads.size() * mAvgNewChunks )
     {
         mLoadRange = std::min( mLoadRange * (1 + GetLoadRangeModifier()), 3000.0f );
     }
@@ -244,7 +244,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
     //StartTimer();
     int chunkRange = (int)ceilf( mLoadRange / Chunk::SIZE );
 
-    position -= Vector3( Chunk::SIZE / 2.0f );
+    position -= Vector3( Chunk::SIZE * 0.5f );
     Vector3i positionI = Vector3i( position );
 
     Vector3i chunkCenter = (positionI / Chunk::SIZE) * Chunk::SIZE;
@@ -284,8 +284,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 
 
                 if( ( positionI - chunkPos ).dot() <= loadRangeSq &&
-                    !mChunks.contains( chunkPos ) &&
-                    !mInProgressChunks.contains( chunkPos ) )
+                    !mRegisteredChunkPositions.contains( chunkPos ) )
                 {
                     chunkPositions.push_back( chunkPos );
                 }
@@ -303,7 +302,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
     for( const Vector3i& pos : chunkPositions )
     {
         mBuildData.pos = pos;
-        mInProgressChunks.insert( pos );
+        mRegisteredChunkPositions.insert( pos );
 
         if( mGenerateQueue.Push( mBuildData ) >= mThreads.size() * 16 )
         {
@@ -311,7 +310,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
         }
     }
 
-    ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
+    //ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
 }
 
 void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
@@ -564,18 +563,18 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
     {
         //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
 
-        mMesh = GL::Mesh( GL::MeshPrimitive::Triangles );
+        mMesh = std::make_unique<GL::Mesh>( GL::MeshPrimitive::Triangles );
 
-        mMesh.addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
+        mMesh->addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
 
         if( meshData.indicies.empty() )
         {
-            mMesh.setCount( meshData.vertexData.size() );
+            mMesh->setCount( meshData.vertexData.size() );
         }
         else
         {
-            mMesh.setCount( (Int)meshData.indicies.size() );
-            mMesh.setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, (UnsignedInt)meshData.vertexData.size() - 1 );
+            mMesh->setCount( (Int)meshData.indicies.size() );
+            mMesh->setIndexBuffer( GL::Buffer( GL::Buffer::TargetHint::ElementArray, meshData.indicies ), 0, GL::MeshIndexType::UnsignedInt, 0, (UnsignedInt)meshData.vertexData.size() - 1 );
         }
     }
 
