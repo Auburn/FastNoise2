@@ -166,6 +166,8 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
         ImGui::Text( "Min Air Y (%0.1f) : Max Solid Y (%0.1f)", mMinAirY, mMaxSolidY );
     }
 
+    ImGui::Text( "Camera Pos: %0.1f, %0.1f, %0.1f", cameraPosition.x(), cameraPosition.y(), cameraPosition.z() );
+
     UpdateChunksForPosition( cameraPosition );
 }
 

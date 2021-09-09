@@ -32,6 +32,7 @@
             "cmakeCommandArgs": "",
             "buildCommandArgs": "-v",
             "ctestCommandArgs": "",
+            "addressSanitizerEnabled": true,
             "inheritEnvironments": [ "msvc_x64" ],
             "variables": [
                 {
