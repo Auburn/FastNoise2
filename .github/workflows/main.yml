@@ -106,8 +106,8 @@ jobs:
       id: tag-exists
       run: |
         echo v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-        echo "::set-output name=output::$(git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }})"
+        echo "::set-output name=tag-ref::$(git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }})"
         
-    - run: echo ${{ steps.tag-exists.outputs.output }}
+    - run: echo ${{ steps.tag-exists.outputs.tag-ref }}
         
       
