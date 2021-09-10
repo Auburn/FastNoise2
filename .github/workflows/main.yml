@@ -95,5 +95,12 @@ jobs:
         text: ${{ steps.file-read.outputs.contents }}
         regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]*)\s*\)'
         
-    - run: echo v${{ steps.regex-match.outputs.group1 }}
+    - name: 'Check alpha version'
+      uses: actions-ecosystem/action-regex-match@v2
+      id: alpha-regex
+      with:
+        text: -alpha${{ steps.regex-match.outputs.group1 }}
+        regex: '(-alpha)0\.'
+        
+    - run: echo v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
       
