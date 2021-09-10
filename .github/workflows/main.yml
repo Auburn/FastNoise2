@@ -93,7 +93,7 @@ jobs:
       id: regex-match
       with:
         text: ${{ steps.file-read.outputs.contents }}
-        regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]*)\s*\)'
+        regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]+)\s*\)'
         
     - name: 'Check alpha version'
       uses: actions-ecosystem/action-regex-match@v2
@@ -101,6 +101,9 @@ jobs:
       with:
         text: -alpha${{ steps.regex-match.outputs.group1 }}
         regex: '(-alpha)0\.'
+     
+    - name: 'Check tag exists'
+      run: |
+        echo "::set-output name=tag-exists::$(git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }})"
         
-    - run: echo v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
       
