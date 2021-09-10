@@ -103,7 +103,10 @@ jobs:
         regex: '(-alpha)0\.'
      
     - name: 'Check tag exists'
+      id: tag-exists
       run: |
-        echo "::set-output name=tag-exists::$(git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }})"
+        echo "::set-output name=output::$(git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }})"
+        
+    - run: echo ${{ steps.tag-exists.outputs.output }}
         
       
