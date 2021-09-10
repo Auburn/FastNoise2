@@ -108,10 +108,12 @@ jobs:
       with: 
         tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-    - if: ${{ steps.tag-exists.outputs.exists == 'true' }}
-      run: echo TRUE      
-     
-    - if: ${{ steps.tag-exists.outputs.exists == 'false' }}
-      run: echo FALSE     
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        
+      
+    - name: 'Create release'
+      uses: marvinpinto/action-automatic-releases@v1.2.1
+      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+        prerelease: true
