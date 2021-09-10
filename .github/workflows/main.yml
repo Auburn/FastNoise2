@@ -103,9 +103,11 @@ jobs:
         regex: '(-alpha)0\.'
      
     - name: 'Check tag exists'
+      uses: mukunku/tag-exists-action@v1.0.0
       id: tag-exists
-      run: git show-ref v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+      with: 
+        tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
         
-    - run: echo ${{ steps.tag-exists.outputs.tag-ref }}
+    - run: echo ${{ steps.tag-exists.outputs.exists }}
         
       
