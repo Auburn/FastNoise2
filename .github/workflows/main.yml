@@ -104,7 +104,9 @@ jobs:
      
     - name: 'Check tag exists'
       id: tag-exists
+      working-directory: ${{ github.repository
       run: |
+        ls
         git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
         echo "::set-output name=tag-ref::$(git show-ref --tags v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }})"
         
