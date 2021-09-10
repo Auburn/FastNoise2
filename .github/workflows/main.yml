@@ -92,7 +92,7 @@ jobs:
       uses: actions-ecosystem/action-regex-match@v2
       id: regex-match
       with:
-        text: ${{ steps.read-file.outputs.contents }}
+        text: ${{ steps.file-read.outputs.contents }}
         regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]*)\s*\)'
         
     - run: echo v${{ steps.regex-match.outputs.group1 }}
