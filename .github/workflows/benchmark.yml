@@ -2,11 +2,15 @@ name: Trigger Benchmark
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'NoiseTool/**'
+      - '.github/**'
+      - '*.md'
 
 jobs:  
   BenchmarkTrigger:
     runs-on: ubuntu-latest
-    steps:                      
+    steps:        
     - name: 'Checkout' 
       uses: actions/checkout@v2            
    
