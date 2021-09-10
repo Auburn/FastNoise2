@@ -110,6 +110,12 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
-    - run: echo ${{ steps.tag-exists.outputs.exists }}
-        
-      
+    - if: ${{ steps.tag-exists.outputs.exists }} == 'true'
+      run: echo ${{ steps.tag-exists.outputs.exists }}        
+     
+    - uses: marvinpinto/action-automatic-releases@v1.2.1
+      if: ${{ steps.tag-exists.outputs.exists }} == 'false'
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+        prerelease: true
