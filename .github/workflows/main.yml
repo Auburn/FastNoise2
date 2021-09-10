@@ -12,7 +12,7 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:  
-  CI-Matrix:
+  ci-matrix:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -75,3 +75,25 @@ jobs:
         file: ${{ github.workspace }}/${{ matrix.name }}.zip
         asset_name: FastNoise2-${{ matrix.name }}.zip
         tag: ${{ github.ref }}
+ 
+  update-tag:
+    runs-on: ubuntu-latest
+    steps:      
+    - name: 'Checkout' 
+      uses: actions/checkout@v2
+      
+    - name: 'Read CMakeLists.txt'
+      id: file-read
+      uses: andstor/file-reader-action@v1
+      with:
+        path: "CMakeLists.txt"
+        
+    - name: 'Extract CMake version'
+      uses: actions-ecosystem/action-regex-match@v2
+      id: regex-match
+      with:
+        text: ${{ steps.read-file.outputs.contents }}
+        regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]*)\s*\)'
+        
+    - run: echo v${{ steps.regex-match.outputs.group1 }}
+      
