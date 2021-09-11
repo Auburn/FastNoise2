@@ -10,6 +10,8 @@ jobs:
     steps:      
     - name: 'Checkout' 
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 0        
       
     - name: 'Read CMakeLists.txt'
       id: file-read
@@ -52,21 +54,15 @@ jobs:
             sha: context.sha
           })
       
-    - name: 'Build changelog'
-      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
-      id: build-changelog
-      uses: Bullrich/generate-release-changelog@2.0.1
-      env:
-        REPO: ${{ github.repository }}   
-
-    - name: 'Create Release'
-      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
-      uses: actions/create-release@v1
+    - uses: fregante/release-with-changelog@v3
       with:
-        tag_name: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-        release_name: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-        body: |
-          ${{steps.build-changelog.outputs.changelog}}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        exclude: '^Update\s\S+\.(md|yml)$'
+        tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
         prerelease: true
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        template: |
+          ### Changelog
+
+          {commits}
+
+          {range}
