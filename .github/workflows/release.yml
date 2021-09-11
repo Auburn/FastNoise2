@@ -3,8 +3,11 @@ name: Release
 on:
   push:
     branches: [master]
+    tags:
+      - v*
+      
   create:  
-   tags:
+    tags:
       - v*
 
 jobs:   
