@@ -65,7 +65,8 @@ jobs:
       with:
         tag_name: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
         release_name: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-        body: ${{steps.build-changelog.outputs.changelog}}
+        body: |
+          ${{steps.build-changelog.outputs.changelog}}
         prerelease: true
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
