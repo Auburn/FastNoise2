@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+jobs:   
+  check-release:
+    runs-on: ubuntu-latest
+    steps:      
+    - name: 'Checkout' 
+      uses: actions/checkout@v2
+      
+    - name: 'Read CMakeLists.txt'
+      id: file-read
+      uses: andstor/file-reader-action@v1
+      with:
+        path: "CMakeLists.txt"
+        
+    - name: 'Extract CMake version'
+      uses: actions-ecosystem/action-regex-match@v2
+      id: regex-match
+      with:
+        text: ${{ steps.file-read.outputs.contents }}
+        regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]+)\s*\)'
+        
+    - name: 'Check alpha version'
+      uses: actions-ecosystem/action-regex-match@v2
+      id: alpha-regex
+      with:
+        text: -alpha${{ steps.regex-match.outputs.group1 }}
+        regex: '(-alpha)0\.'
+     
+    - name: 'Check tag exists'
+      uses: mukunku/tag-exists-action@v1.0.0
+      id: tag-exists
+      with: 
+        tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        
+      
+    - name: 'Create tag'
+      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
+      uses: actions/github-script@v3
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          github.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: "refs/tags/v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}",
+            sha: context.sha
+          })
+      
+    - name: 'Build changelog'
+      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
+      id: build-changelog
+      uses: mikepenz/release-changelog-builder-action@v2.40
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        toTag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+        commitMode: true        
+
+    - name: 'Create Release'
+      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
+      uses: actions/create-release@v1
+      with:
+        tag_name: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+        release_name: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
+        body: ${{steps.build-changelog.outputs.changelog}}
+        prerelease: true
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
