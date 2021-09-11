@@ -3,12 +3,9 @@ name: Release
 on:
   push:
     branches: [master]
-    tags:
-      - v*
-      
-  create:  
-    tags:
-      - v*
+  
+  repository_dispatch:
+    types: [check-release]
 
 jobs:   
   check-release:
@@ -18,7 +15,15 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: master
-        fetch-depth: 0        
+        fetch-depth: 0    
+        
+    - name: 'Ensure no parallel instances'
+      uses: softprops/turnstyle@v1
+      with:
+        abort-after-seconds: 180
+        poll-interval-seconds: 10
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
     - name: 'Check new CMake version'
       id: cmake-ver
@@ -59,8 +64,9 @@ jobs:
             sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
           })
     
-    - uses: fregante/release-with-changelog@main
+    - name: 'Create release'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
+      uses: fregante/release-with-changelog@main
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         exclude: '^Update\s\S+\.(md|yml)$'
@@ -72,3 +78,11 @@ jobs:
           {commits}
 
           {range}
+
+    - name: 'Repeat workflow'
+      if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
+      uses: peter-evans/repository-dispatch@v1
+      with:
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        event-type: check-release
+        
