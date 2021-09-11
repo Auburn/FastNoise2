@@ -30,6 +30,7 @@ jobs:
           if git show-ref --tags $cmake_ver --quiet; then
             echo "$cmake_ver exists"
             if git tag "$prev_cmake_ver" $prev_commit; then
+              git push origin master --tags
               echo "::set-output name=new-tag::$prev_cmake_ver"
             fi
             break
@@ -38,8 +39,8 @@ jobs:
             prev_commit=$commit
             prev_cmake_ver=$cmake_ver
           fi
-        done      
-            
+        done
+        
     - uses: fregante/release-with-changelog@main
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       with:
