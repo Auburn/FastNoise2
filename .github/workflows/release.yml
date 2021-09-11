@@ -13,53 +13,38 @@ jobs:
       with:
         fetch-depth: 0        
       
-    - name: 'Read CMakeLists.txt'
-      id: file-read
-      uses: andstor/file-reader-action@v1
-      with:
-        path: "CMakeLists.txt"
-        
-    - name: 'Extract CMake version'
-      uses: actions-ecosystem/action-regex-match@v2
-      id: regex-match
-      with:
-        text: ${{ steps.file-read.outputs.contents }}
-        regex: 'project\s*\(\s*FastNoise2.*VERSION\s*([\d|\.]+)\s*\)'
-        
-    - name: 'Check alpha version'
-      uses: actions-ecosystem/action-regex-match@v2
-      id: alpha-regex
-      with:
-        text: -alpha${{ steps.regex-match.outputs.group1 }}
-        regex: '(-alpha)0\.'
-     
-    - name: 'Check tag exists'
-      uses: mukunku/tag-exists-action@v1.0.0
-      id: tag-exists
-      with: 
-        tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        
-      
-    - name: 'Create tag'
-      if: ${{ steps.tag-exists.outputs.exists == 'false' }}
-      uses: actions/github-script@v3
-      with:
-        github-token: ${{ github.token }}
-        script: |
-          github.git.createRef({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: "refs/tags/v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}",
-            sha: context.sha
-          })
-      
-    - uses: fregante/release-with-changelog@v3
+    - name: 'Check new CMake version'
+      id: cmake-ver
+      run: |
+        for commit in $(git rev-list master)
+        do
+          git checkout --quiet $commit
+          cmake_ver=v$(grep -oEi 'project\s*\(\s*FastNoise2.*VERSION\s+([[:digit:]\.]+)\s*\)' CMakeLists.txt | grep -oEi '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+')
+          
+          if echo "$cmake_ver" | grep '^v0\.'; then 
+            cmake_ver="${cmake_ver}-alpha"
+          fi
+          
+          if git show-ref --tags $cmake_ver --quiet; then
+            echo "$cmake_ver exists"
+            if git tag "$prev_cmake_ver" $prev_commit; then
+              echo "::set-output name=new-tag::$prev_cmake_ver"
+            fi
+            break
+          else
+            echo "$cmake_ver not found"
+            prev_commit=$commit
+            prev_cmake_ver=$cmake_ver
+          fi
+        done      
+            
+    - uses: fregante/release-with-changelog@master
+      if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         exclude: '^Update\s\S+\.(md|yml)$'
-        tag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-        prerelease: true
+        tag: ${{ steps.cmake-ver.outputs.new-tag }}
+        draft: true
         template: |
           ### Changelog
 
