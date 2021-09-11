@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     branches: [master]
-    tags:
+  create:  
+   tags:
       - v*
 
 jobs:   
@@ -13,6 +14,7 @@ jobs:
     - name: 'Checkout' 
       uses: actions/checkout@v2
       with:
+        ref: master
         fetch-depth: 0        
       
     - name: 'Check new CMake version'
