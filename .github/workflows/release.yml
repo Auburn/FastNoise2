@@ -47,7 +47,7 @@ jobs:
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       uses: actions/github-script@v3
       with:
-        github-token: ${{ github.token }}
+        github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
         script: |
           github.git.createRef({
             owner: context.repo.owner,
@@ -59,7 +59,7 @@ jobs:
     - uses: fregante/release-with-changelog@main
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
         exclude: '^Update\s\S+\.(md|yml)$'
         tag: ${{ steps.cmake-ver.outputs.new-tag }}
         draft: true
