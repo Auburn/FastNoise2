@@ -38,7 +38,7 @@ jobs:
           fi
         done      
             
-    - uses: fregante/release-with-changelog@master
+    - uses: fregante/release-with-changelog@main
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
