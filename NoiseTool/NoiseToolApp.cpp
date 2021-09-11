@@ -325,7 +325,7 @@ void NoiseToolApp::textInputEvent( TextInputEvent& event )
 
 void NoiseToolApp::UpdatePespectiveProjection()
 {
-    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 2.0f, 2300.0f ) );
+    mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 2.0f, 3500.0f ) );
 }
 
 
