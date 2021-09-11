@@ -55,12 +55,9 @@ jobs:
     - name: 'Build changelog'
       if: ${{ steps.tag-exists.outputs.exists == 'false' }}
       id: build-changelog
-      uses: mikepenz/release-changelog-builder-action@v2.4.0
+      uses: Bullrich/generate-release-changelog@2.0.1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        toTag: v${{ steps.regex-match.outputs.group1 }}${{ steps.alpha-regex.outputs.group1 }}
-        commitMode: true        
+        REPO: ${{ github.repository }}   
 
     - name: 'Create Release'
       if: ${{ steps.tag-exists.outputs.exists == 'false' }}
