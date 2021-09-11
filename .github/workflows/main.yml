@@ -73,5 +73,5 @@ jobs:
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ github.workspace }}/${{ matrix.name }}.zip
-        asset_name: FastNoise2-${{ matrix.name }}.zip
+        asset_name: FastNoise2-${{ github.event.release.tag_name }}-${{ matrix.name }}.zip
         tag: ${{ github.ref }}
