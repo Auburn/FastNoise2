@@ -30,7 +30,7 @@ jobs:
           if git show-ref --tags $cmake_ver --quiet; then
             echo "$cmake_ver exists"
             if git tag "$prev_cmake_ver" $prev_commit; then
-              git push origin master --tags
+              git push origin $prev_cmake_ver
               echo "::set-output name=new-tag::$prev_cmake_ver"
             fi
             break
