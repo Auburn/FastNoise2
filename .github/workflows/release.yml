@@ -29,10 +29,9 @@ jobs:
           
           if git show-ref --tags $cmake_ver --quiet; then
             echo "$cmake_ver exists"
-            git pull origin master
-            if git tag "$prev_cmake_ver" $prev_commit; then
-              git push origin $prev_cmake_ver
+            if echo $cmake_ver | grep -oEi '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+'; then
               echo "::set-output name=new-tag::$prev_cmake_ver"
+              echo "::set-output name=tag-commit::$prev_commit"
             fi
             break
           else
@@ -41,7 +40,20 @@ jobs:
             prev_cmake_ver=$cmake_ver
           fi
         done
-        
+    
+    - name: 'Create tag'
+      if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
+      uses: actions/github-script@v3
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          github.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: "refs/tags/${{ steps.cmake-ver.outputs.new-tag }}",
+            sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
+          })
+    
     - uses: fregante/release-with-changelog@main
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       with:
