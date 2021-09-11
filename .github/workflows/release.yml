@@ -55,7 +55,7 @@ jobs:
     - name: 'Build changelog'
       if: ${{ steps.tag-exists.outputs.exists == 'false' }}
       id: build-changelog
-      uses: mikepenz/release-changelog-builder-action@v2.40
+      uses: mikepenz/release-changelog-builder-action@v2.4.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
