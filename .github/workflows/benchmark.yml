@@ -25,7 +25,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Linux64-BenchmarkBin
-        path: ${{ runner.workspace }}/build/tests/FastNoiseBenchmark
+        path: ${{ runner.workspace }}/build/Release/bin/FastNoiseBenchmark
         if-no-files-found: error
         
     - id: message-format-1
