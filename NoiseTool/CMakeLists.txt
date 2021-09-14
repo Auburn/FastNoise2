@@ -77,6 +77,14 @@ find_package(Magnum REQUIRED GL GlfwApplication)
 find_package(MagnumIntegration REQUIRED ImGui)
 find_package(ImGui REQUIRED SourcesMiscCpp)
 
+# Ensure FastNoise.dll is built into the same dir as NoiseTool.exe
+set_target_properties(FastNoise
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+)
+
 # Bundle a better font
 # Configure resource file for imgui source dir variable
 set(NoiseTool_RESOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR})

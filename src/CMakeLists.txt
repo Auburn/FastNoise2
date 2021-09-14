@@ -65,13 +65,12 @@ target_include_directories(FastNoise PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 
-if(BUILD_SHARED_LIBS)
-    target_compile_definitions(FastNoise PRIVATE FASTNOISE_EXPORT)
-else()    
+if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(FastNoise PUBLIC FASTNOISE_STATIC_LIB)
 endif()
 
 set_target_properties(FastNoise PROPERTIES
+    DEFINE_SYMBOL FASTNOISE_EXPORT
     DEBUG_POSTFIX D
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
 

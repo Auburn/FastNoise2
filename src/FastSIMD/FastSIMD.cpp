@@ -79,7 +79,7 @@ static int64_t xgetbv( int ctr )
 }
 #endif
 
-FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
+FASTSIMD_API FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
 {
     static eLevel simdLevel = Level_Null;
 
