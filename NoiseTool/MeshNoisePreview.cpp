@@ -597,9 +597,9 @@ MeshNoisePreview::VertexLightShader::VertexLightShader()
     GL::Shader frag = CreateShader( version, GL::Shader::Type::Fragment );
     
     CORRADE_INTERNAL_ASSERT_OUTPUT(
-        vert.addSource( noiseToolResources.get( "VertexColor.vert" ) ).compile() );
+        vert.addSource( noiseToolResources.get( "VertexLight.vert" ) ).compile() );
     CORRADE_INTERNAL_ASSERT_OUTPUT( 
-        frag.addSource( noiseToolResources.get( "VertexColor.frag" ) ).compile() );
+        frag.addSource( noiseToolResources.get( "VertexLight.frag" ) ).compile() );
 
     attachShader( vert );
     attachShader( frag );

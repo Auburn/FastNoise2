@@ -51,6 +51,9 @@ namespace FastNoise
         template<typename T>
         static const Metadata& Get()
         {
+            static_assert( std::is_base_of<Generator, T>::value, "This function should only be used for FastNoise node classes, for example FastNoise::Simplex" );
+            static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot get Metadata for abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
+
             return Impl::GetMetadata<T>();
         }
 
