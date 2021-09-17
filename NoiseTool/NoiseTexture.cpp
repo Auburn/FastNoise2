@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <fstream>
+#include <filesystem>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -197,22 +198,22 @@ void NoiseTexture::DoExport()
             {
                 auto data = BuildTexture( buildData );
 
-                std::string filename( buildData.generator->GetMetadata().name );
-                std::string filenameIdx = filename + ".bmp";
+                const char* nodeName = buildData.generator->GetMetadata().name;
+                std::string filename = nodeName;
+                filename += ".bmp";
 
-                // Iterate through file names if file is locked
-                std::ofstream file;
-                for( int i = 1; i < 32; i++ )
-                {                   
-                    file.open( filenameIdx.c_str(), std::ofstream::binary | std::ofstream::out | std::ofstream::trunc );
-
-                    if( file.is_open() )
+                // Iterate through file names if filename exists
+                for( int i = 1; i < 1024; i++ )
+                {
+                    if( !std::filesystem::exists( filename.c_str() ) )
                     {
                         break;
                     }
-                    filenameIdx = filename;
-                    filenameIdx.append( "_" ).append( std::to_string( i ) ).append( ".bmp" );
+                    filename = nodeName;
+                    filename += '_' + std::to_string( i ) + ".bmp";
                 }   
+
+                std::ofstream file( filename.c_str(), std::ofstream::binary | std::ofstream::out | std::ofstream::trunc );
 
                 if( file.is_open() )
                 {
