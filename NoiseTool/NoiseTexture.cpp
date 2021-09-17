@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <fstream>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -9,6 +10,8 @@
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/Math/Functions.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
+
+#include <FastNoise/Metadata.h>
 
 #include "NoiseTexture.h"
 #include "ImGuiExtra.h"
@@ -25,6 +28,8 @@ NoiseTexture::NoiseTexture()
     mBuildData.offset = {};
     mBuildData.generationType = GenType_2D;
 
+    mExportBuildData.size = { 4096, 4096 };
+
     for( size_t i = 0; i < 2; i++ )
     {
         mThreads.emplace_back( GenerateLoopThread, std::ref( mGenerateQueue ), std::ref( mCompleteQueue ) );
@@ -39,6 +44,11 @@ NoiseTexture::~NoiseTexture()
     {
         mGenerateQueue.KillThreads();
         thread.join();
+    }
+    
+    if( mExportThread.joinable() )
+    {
+        mExportThread.join();
     }
 }
 
@@ -63,23 +73,19 @@ void NoiseTexture::Draw()
         //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
 
         ImGui::PushItemWidth( 82.0f );
-        bool edited = ImGui::DragInt( "Seed", &mBuildData.seed );
-        ImGui::SameLine();
-
-        edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
-        ImGui::SameLine();
+        bool edited = false;
 
         edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), GenTypeStrings );
         edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), GenType_Count );
-
+        
         ImVec2 contentSize = ImGui::GetContentRegionAvail();
-
-        int texSize[2] = { mBuildData.size.x(), mBuildData.size.y() };
         ImGui::SameLine();
 
-        if( ImGui::DragInt2( "Size", texSize, 2, 4, 8192 ) )
+        Vector2i texSize = { mBuildData.size.x(), mBuildData.size.y() };
+
+        if( ImGui::DragInt2( "Size", texSize.data(), 2, 4, 8192 ) )
         {
-            ImVec2 delta( (float)(texSize[0] - mBuildData.size.x()), (float)(texSize[1] - mBuildData.size.y()) );
+            ImVec2 delta( Vector2{ texSize - mBuildData.size } );
 
             ImVec2 windowSize = ImGui::GetWindowSize();
 
@@ -87,6 +93,21 @@ void NoiseTexture::Draw()
             contentSize += delta;
 
             ImGui::SetWindowSize( windowSize );
+        }
+        ImGui::SameLine();
+
+        edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
+        ImGui::SameLine();
+
+        edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
+        ImGui::SameLine();
+
+        if( mBuildData.generator && ImGui::Button( "Export BMP" ) )
+        {
+            auto size = mExportBuildData.size;
+            mExportBuildData = mBuildData;
+            mExportBuildData.size = size;
+            ImGui::OpenPopup( "Export BMP" );
         }
 
         ImGui::PopItemWidth();
@@ -143,8 +164,108 @@ void NoiseTexture::Draw()
                 ReGenerate( mBuildData.generator );
             }
         }
+
+        DoExport();
     }
     ImGui::End();
+}
+
+void NoiseTexture::DoExport()
+{
+    if( ImGui::BeginPopupModal( "Export BMP", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings  ) )
+    {
+        ImGui::PushItemWidth( 82.0f );
+        if( ImGui::DragInt2( "Size", mExportBuildData.size.data(), 2, 4, 8192 * 4 ) )
+        {
+            ImGuiExtra::MarkSettingsDirty();
+        }
+
+        if( ImGui::Button( "Export (async)" ) )
+        {
+            ImGui::CloseCurrentPopup();
+
+            float relativeScale = (mExportBuildData.size.sum() * 0.5f) / (mBuildData.size.sum() * 0.5f);
+            
+            mExportBuildData.frequency /= relativeScale;
+            mExportBuildData.offset *= relativeScale;
+
+            if( mExportThread.joinable() )
+            {
+                mExportThread.join();
+            }
+            mExportThread = std::thread([buildData = mExportBuildData]()
+            {
+                auto data = BuildTexture( buildData );
+
+                std::string filename( buildData.generator->GetMetadata().name );
+                filename.append( ".bmp" );
+
+                std::ofstream file( filename.c_str(), std::ofstream::binary | std::ofstream::out | std::ofstream::trunc );
+
+                if( file.is_open() )
+                {
+                    struct BmpHeader
+                    {
+                        // File header (14)
+                        // char b = 'B';
+                        // char m = 'M';
+                        uint32_t fileSize;
+                        uint32_t reserved = 0;
+                        uint32_t dataOffset = 14u + 12u + (256u * 3u);
+                        // Bmp Info Header (12)
+                        uint32_t headerSize = 12u;
+                        uint16_t sizeX;
+                        uint16_t sizeY;
+                        uint16_t colorPlanes = 1u;
+                        uint16_t bitDepth = 8u;
+                    };
+
+                    int paddedSizeX = buildData.size.x();
+                    int padding = paddedSizeX % 4;
+                    if( padding )
+                    {
+                        padding = 4 - padding;
+                        paddedSizeX += padding;
+                    }
+
+                    BmpHeader header;
+                    header.fileSize = header.dataOffset + (uint32_t)(paddedSizeX * buildData.size.y());
+                    header.sizeX = (uint16_t)buildData.size.x();
+                    header.sizeY = (uint16_t)buildData.size.y();
+
+                    file << 'B' << 'M';
+                    file.write( reinterpret_cast<char*>( &header ), sizeof( BmpHeader ) );
+
+                    // Colour map
+                    for (int i = 0; i < 256; i++)
+                    {
+                        Vector3ub b3( (uint8_t)i );
+                        file.write( reinterpret_cast<char*>( b3.data() ), 3 );
+                    }
+
+                    int xIdx = padding ? buildData.size.x() : 0;
+
+                    for( uint32_t pix : data.textureData ) 
+                    {
+                        file.write( reinterpret_cast<char*>( &pix ), 1 );
+
+                        if( --xIdx == 0 )
+                        {
+                            xIdx = buildData.size.x();
+
+                            Vector3ub b3( 0 );
+                            file.write( reinterpret_cast<char*>( b3.data() ), padding );                        
+                        }
+                    }
+
+                    file.close();
+                }
+            } );
+        }
+
+        ImGui::PopItemWidth();
+        ImGui::EndPopup();
+    }
 }
 
 void NoiseTexture::SetPreviewTexture( ImageView2D& imageView )
@@ -186,35 +307,35 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     static thread_local std::vector<float> noiseData;
     noiseData.resize( (size_t)buildData.size.x() * buildData.size.y() );
 
-    auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetSIMDLevel() );
+    auto gen = FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetSIMDLevel() );
+    gen->SetSource( buildData.generator );
 
-    genRGB->SetSource( buildData.generator );
     FastNoise::OutputMinMax minMax;
 
     switch( buildData.generationType )
     {
     case GenType_2D:
-        minMax = genRGB->GenUniformGrid2D( noiseData.data(), 
+        minMax = gen->GenUniformGrid2D( noiseData.data(), 
             (int)buildData.offset.x(), (int)buildData.offset.y(),
             buildData.size.x(), buildData.size.y(),
             buildData.frequency, buildData.seed );
         break;
 
     case GenType_2DTiled:
-        minMax = genRGB->GenTileable2D( noiseData.data(),
+        minMax = gen->GenTileable2D( noiseData.data(),
             buildData.size.x(), buildData.size.y(),
             buildData.frequency, buildData.seed );
         break;
 
     case GenType_3D:
-        minMax = genRGB->GenUniformGrid3D( noiseData.data(),
+        minMax = gen->GenUniformGrid3D( noiseData.data(),
             (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(),
             buildData.size.x(), buildData.size.y(), 1,
             buildData.frequency, buildData.seed );
         break;
 
     case GenType_4D:
-        minMax = genRGB->GenUniformGrid4D( noiseData.data(),
+        minMax = gen->GenUniformGrid4D( noiseData.data(),
             (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(), (int)buildData.offset.w(),
             buildData.size.x(), buildData.size.y(), 1, 1,
             buildData.frequency, buildData.seed );
@@ -259,6 +380,7 @@ void NoiseTexture::SetupSettingsHandlers()
         outBuf->appendf( "frequency=%f\n", noiseTexture->mBuildData.frequency );
         outBuf->appendf( "seed=%d\n", noiseTexture->mBuildData.seed );
         outBuf->appendf( "gen_type=%d\n", (int)noiseTexture->mBuildData.generationType );
+        outBuf->appendf( "export_size=%d:%d\n", noiseTexture->mExportBuildData.size.x(), noiseTexture->mExportBuildData.size.y() );
     };
     editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
         if( strcmp( name, "Settings" ) == 0 )
@@ -274,6 +396,7 @@ void NoiseTexture::SetupSettingsHandlers()
         sscanf( line, "frequency=%f", &noiseTexture->mBuildData.frequency );
         sscanf( line, "seed=%d", &noiseTexture->mBuildData.seed );
         sscanf( line, "gen_type=%d", (int*)&noiseTexture->mBuildData.generationType );
+        sscanf( line, "export_size=%d:%d", &noiseTexture->mExportBuildData.size.x() , &noiseTexture->mExportBuildData.size.y() );
     };
 
     ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );

@@ -41,15 +41,6 @@ target_link_libraries(FastNoiseCpp11Test
     FastNoise
 )
 
-
-add_library(FastNoiseMetadataIncludeTest
-    "FastNoiseMetadataInclude.cpp")
-
-target_link_libraries(FastNoiseMetadataIncludeTest 
-    FastNoise
-)
-
-
 add_executable(FastSIMDTest
     "SIMDUnitTest.cpp"
 )

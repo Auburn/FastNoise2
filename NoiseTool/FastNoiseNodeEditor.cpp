@@ -560,15 +560,15 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         bool edited = false;
         ImGui::PushItemWidth( 82.0f );
+        
+        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenTypeStrings );
+        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenType_Count ); 
+        ImGui::SameLine();  
 
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
         ImGui::SameLine();
         edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );    
         ImGui::SameLine();    
-        
-        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenTypeStrings );
-        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenType_Count );
-        ImGui::SameLine();   
 
         if( ImGui::Button( "Retest Node Performance" ) )
         {

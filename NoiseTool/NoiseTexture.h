@@ -39,7 +39,6 @@ namespace Magnum
         void Draw();
         void ReGenerate( FastNoise::SmartNodeArg<> generator );
 
-
     private:
         struct BuildData
         {
@@ -49,7 +48,7 @@ namespace Magnum
             float frequency;
             int32_t seed;
             uint64_t iteration;
-            GenType generationType;            
+            GenType generationType;          
         };
 
         struct TextureData
@@ -85,16 +84,19 @@ namespace Magnum
 
         static TextureData BuildTexture( const BuildData& buildData );
         static void GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, CompleteQueue<TextureData>& completeQueue );
+        
+        void DoExport();
         void SetupSettingsHandlers();
-
         void SetPreviewTexture( ImageView2D& imageView );
 
         GL::Texture2D mNoiseTexture;
         uint64_t mCurrentIteration = 0;
 
         BuildData mBuildData;
+        BuildData mExportBuildData;
         FastNoise::OutputMinMax mMinMax;
 
+        std::thread mExportThread;
         std::vector<std::thread> mThreads;
         GenerateQueue<BuildData> mGenerateQueue;
         CompleteQueue<TextureData> mCompleteQueue;
