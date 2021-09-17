@@ -184,7 +184,7 @@ void NoiseTexture::DoExport()
         {
             ImGui::CloseCurrentPopup();
 
-            float relativeScale = (mExportBuildData.size.sum() * 0.5f) / (mBuildData.size.sum() * 0.5f);
+            float relativeScale = (float)mExportBuildData.size.sum() / mBuildData.size.sum();
             
             mExportBuildData.frequency /= relativeScale;
             mExportBuildData.offset *= relativeScale;
@@ -198,9 +198,21 @@ void NoiseTexture::DoExport()
                 auto data = BuildTexture( buildData );
 
                 std::string filename( buildData.generator->GetMetadata().name );
-                filename.append( ".bmp" );
+                std::string filenameIdx = filename + ".bmp";
 
-                std::ofstream file( filename.c_str(), std::ofstream::binary | std::ofstream::out | std::ofstream::trunc );
+                // Iterate through file names if file is locked
+                std::ofstream file;
+                for( int i = 1; i < 32; i++ )
+                {                   
+                    file.open( filenameIdx.c_str(), std::ofstream::binary | std::ofstream::out | std::ofstream::trunc );
+
+                    if( file.is_open() )
+                    {
+                        break;
+                    }
+                    filenameIdx = filename;
+                    filenameIdx.append( "_" ).append( std::to_string( i ) ).append( ".bmp" );
+                }   
 
                 if( file.is_open() )
                 {
