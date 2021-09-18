@@ -546,6 +546,9 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::DockSpaceOverViewport( viewport );
+
     std::string simdTxt = "Current SIMD Level: ";
     simdTxt += GetSIMDLevelName( mActualSIMDLevel );
     ImGui::TextUnformatted( simdTxt.c_str() );

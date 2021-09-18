@@ -370,11 +370,11 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( con
 #if FASTNOISE_CALC_MIN_MAX
     if( minMax.min > buildData.isoSurface )
     {
-        minAir = buildData.pos.y();
+        minAir = (float)buildData.pos.y();
     }
     else if( minMax.max < buildData.isoSurface )
     {
-        maxSolid = buildData.pos.y() - 1.0f + SIZE;
+        maxSolid = (float)buildData.pos.y() - 1.0f + SIZE;
     }
     else
 #endif
@@ -571,7 +571,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
         if( meshData.indicies.empty() )
         {
-            mMesh->setCount( meshData.vertexData.size() );
+            mMesh->setCount( (int)meshData.vertexData.size() );
         }
         else
         {
