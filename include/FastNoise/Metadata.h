@@ -37,7 +37,7 @@ namespace FastNoise
         }
 
         /// <returns>Metadata for given Metadata::id</returns>
-        static const Metadata* GetFromId( std::uint16_t nodeId )
+        static const Metadata* GetFromId( uint16_t nodeId )
         {
             if( nodeId < sAllMetadata.size() )
             {
@@ -109,14 +109,14 @@ namespace FastNoise
             union ValueUnion
             {
                 float f;
-                std::int32_t i;
+                int i;
 
                 ValueUnion( float v = 0 )
                 {
                     f = v;
                 }
 
-                ValueUnion( std::int32_t v )
+                ValueUnion( int v )
                 {
                     i = v;
                 }
@@ -126,7 +126,7 @@ namespace FastNoise
                     return f;
                 }
 
-                operator std::int32_t()
+                operator int()
                 {
                     return i;
                 }
@@ -169,7 +169,7 @@ namespace FastNoise
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
-        std::uint16_t id;
+        uint16_t id;
         const char* name;
         std::vector<const char*> groups;
 
@@ -195,11 +195,11 @@ namespace FastNoise
         }
 
     private:
-        static std::uint16_t AddMetadata( const Metadata* newMetadata )
+        static uint16_t AddMetadata( const Metadata* newMetadata )
         {
             sAllMetadata.emplace_back( newMetadata );
 
-            return (std::uint16_t)sAllMetadata.size() - 1;
+            return (uint16_t)sAllMetadata.size() - 1;
         }
 
         static std::vector<const Metadata*> sAllMetadata;
