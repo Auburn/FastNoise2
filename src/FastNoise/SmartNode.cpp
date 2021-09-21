@@ -10,6 +10,7 @@
 #include <list>
 #include <cstring>
 #include <memory>
+#include <algorithm>
 
 namespace FastNoise
 {
