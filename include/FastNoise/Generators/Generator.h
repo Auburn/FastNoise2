@@ -1,7 +1,6 @@
 #pragma once
 #include <cassert>
 #include <cmath>
-#include <limits>
 #include <algorithm>
 
 #include "FastNoise/FastNoise_Config.h"
@@ -43,8 +42,8 @@ namespace FastNoise
 
     struct OutputMinMax
     {
-        float min = std::numeric_limits<float>::infinity();
-        float max = -std::numeric_limits<float>::infinity();
+        float min =  INFINITY;
+        float max = -INFINITY;
 
         OutputMinMax& operator <<( float v )
         {
@@ -99,41 +98,39 @@ namespace FastNoise
         virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
         virtual const Metadata& GetMetadata() const = 0;
 
-        virtual OutputMinMax GenUniformGrid2D( float* noiseOut,
-            int32_t xStart, int32_t yStart,
-            int32_t xSize, int32_t ySize,
-            float frequency, int32_t seed ) const = 0;
+        virtual OutputMinMax GenUniformGrid2D( float* out,
+            int xStart, int yStart,
+            int xSize,  int ySize,
+            float frequency, int seed ) const = 0;
 
-        virtual OutputMinMax GenUniformGrid3D( float* noiseOut,
-            int32_t xStart, int32_t yStart, int32_t zStart,
-            int32_t xSize,  int32_t ySize,  int32_t zSize,
-            float frequency, int32_t seed ) const = 0;
+        virtual OutputMinMax GenUniformGrid3D( float* out,
+            int xStart, int yStart, int zStart, 
+            int xSize,  int ySize,  int zSize, 
+            float frequency, int seed ) const = 0;
 
-        virtual OutputMinMax GenUniformGrid4D( float* noiseOut,
-            int32_t xStart, int32_t yStart, int32_t zStart, int32_t wStart,
-            int32_t xSize,  int32_t ySize,  int32_t zSize,  int32_t wSize,
-            float frequency, int32_t seed ) const = 0;
+        virtual OutputMinMax GenUniformGrid4D( float* out,
+            int xStart, int yStart, int zStart, int wStart,
+            int xSize,  int ySize,  int zSize,  int wSize,
+            float frequency, int seed ) const = 0;
 
-        virtual OutputMinMax GenPositionArray2D( float* noiseOut, int32_t count,
+        virtual OutputMinMax GenTileable2D( float* out,
+            int xSize, int ySize, float frequency, int seed ) const = 0; 
+
+        virtual OutputMinMax GenPositionArray2D( float* out, int count,
             const float* xPosArray, const float* yPosArray,
-            float xOffset, float yOffset, int32_t seed ) const = 0;
+            float xOffset, float yOffset, int seed ) const = 0;
 
-        virtual OutputMinMax GenPositionArray3D( float* noiseOut, int32_t count,
+        virtual OutputMinMax GenPositionArray3D( float* out, int count,
             const float* xPosArray, const float* yPosArray, const float* zPosArray, 
-            float xOffset, float yOffset, float zOffset, int32_t seed ) const = 0;
+            float xOffset, float yOffset, float zOffset, int seed ) const = 0;
 
-        virtual OutputMinMax GenPositionArray4D( float* noiseOut, int32_t count,
+        virtual OutputMinMax GenPositionArray4D( float* out, int count,
             const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, 
-            float xOffset, float yOffset, float zOffset, float wOffset, int32_t seed ) const = 0;
+            float xOffset, float yOffset, float zOffset, float wOffset, int seed ) const = 0;
 
-        virtual float GenSingle2D( float x, float y, int32_t seed ) const = 0;
-        virtual float GenSingle3D( float x, float y, float z, int32_t seed ) const = 0;
-        virtual float GenSingle4D( float x, float y, float z, float w, int32_t seed ) const = 0;
-
-        virtual OutputMinMax GenTileable2D( float* noiseOut,
-            int32_t xSize,  int32_t ySize, 
-            float frequency, int32_t seed ) const = 0;  
-
+        virtual float GenSingle2D( float x, float y, int seed ) const = 0;
+        virtual float GenSingle3D( float x, float y, float z, int seed ) const = 0;
+        virtual float GenSingle4D( float x, float y, float z, float w, int seed ) const = 0;
 
     protected:
         template<typename T>
@@ -240,7 +237,7 @@ namespace FastNoise
             MemberVariable member;
             member.name = name;
             member.type = MemberVariable::EEnum;
-            member.valueDefault = (int32_t)defaultV;
+            member.valueDefault = (int)defaultV;
             member.enumNames = { enumNames... };
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
@@ -262,7 +259,7 @@ namespace FastNoise
             MemberVariable member;
             member.name = name;
             member.type = MemberVariable::EEnum;
-            member.valueDefault = (int32_t)defaultV;
+            member.valueDefault = (int)defaultV;
             member.enumNames = { enumNames, enumNames + ENUM_NAMES };
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
@@ -439,7 +436,7 @@ namespace FastNoise
         template<typename F, typename Ret, typename... Args>
         static std::tuple<Args...> GetArg_Helper( Ret( F::* )(Args...) const );
 
-        template<typename F, std::size_t I>
+        template<typename F, size_t I>
         using GetArg = std::tuple_element_t<I, decltype(GetArg_Helper( &F::operator() ))>;
     };
 #endif

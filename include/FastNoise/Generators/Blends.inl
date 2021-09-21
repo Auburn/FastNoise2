@@ -79,7 +79,7 @@ class FS_T<FastNoise::PowInt, FS> : public virtual FastNoise::PowInt, public FS_
         float32v value = this->GetSourceValue( mValue, seed, pos... );
         float32v pow = value * value;
 
-        for( int32_t i = 2; i < mPow; i++ )
+        for( int i = 2; i < mPow; i++ )
         {
             pow *= value;
         }

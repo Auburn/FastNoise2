@@ -184,11 +184,11 @@ namespace FastNoise
         const Metadata& GetMetadata() const override;
 
         void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
-        void SetPow( int32_t value ) { mPow = value; }
+        void SetPow( int value ) { mPow = value; }
 
     protected:
         GeneratorSource mValue;
-        int32_t mPow = 2;
+        int mPow = 2;
     };
 
 #ifdef FASTNOISE_METADATA
