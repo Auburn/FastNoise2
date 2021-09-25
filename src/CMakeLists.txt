@@ -60,6 +60,8 @@ add_library(FastNoise
     ${FastSIMD_sources}
 )
 
+add_library(FastNoise2 ALIAS FastNoise)
+
 target_include_directories(FastNoise PUBLIC 
     $<BUILD_INTERFACE:${FastNoise2_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
