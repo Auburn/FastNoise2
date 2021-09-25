@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <type_traits>
+#include <limits>
 #include <cassert>
 #include <cstdint>
 
@@ -91,7 +92,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     {
         // UINT16_MAX where node ID should be
         // Referenced by index in reference array, array ordering will match on decode
-        AddToDataStream( dataStream, UINT16_MAX );
+        AddToDataStream( dataStream, std::numeric_limits<uint16_t>::max() );
         AddToDataStream( dataStream, reference->second );
         return true;
     }
@@ -205,7 +206,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
     }
 
     // UINT16_MAX indicates a reference node
-    if( nodeId == UINT16_MAX )
+    if( nodeId == std::numeric_limits<uint16_t>::max() )
     {
         uint16_t referenceId;
         if( !GetFromDataStream( serialisedNodeData, serialIdx, referenceId ) )
@@ -314,7 +315,7 @@ NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNod
     }
 
     // UINT16_MAX indicates a reference node
-    if( nodeId == UINT16_MAX )
+    if( nodeId == std::numeric_limits<uint16_t>::max() )
     {
         uint16_t referenceId;
         if( !GetFromDataStream( serialisedNodeData, serialIdx, referenceId ) )
