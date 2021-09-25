@@ -43,6 +43,7 @@ CPMAddPackage(
     NAME imgui
     GITHUB_REPOSITORY ocornut/imgui
     GIT_TAG 7bfc379a23e97b6777eb80aafb50a8e6248904cd
+    EXCLUDE_FROM_ALL YES
 )
 # Set dir for find_package(ImGui)
 set(IMGUI_DIR ${imgui_SOURCE_DIR})
@@ -62,12 +63,14 @@ CPMAddPackage(
     NAME imnodes
     GITHUB_REPOSITORY Auburn/imnodes
     GIT_TAG a295b4af69045645d657363d5d135e2d8a3785f6
+    EXCLUDE_FROM_ALL YES
 )
   
 CPMAddPackage(
     NAME robinhoodhashing
     GITHUB_REPOSITORY martinus/robin-hood-hashing
-    GIT_TAG 3.11.3
+    GIT_TAG 3.11.3    
+    EXCLUDE_FROM_ALL YES
 )
 
 # Use modules from magnum-integration since it has everything we need
@@ -100,10 +103,9 @@ add_executable(NoiseTool
     ${NoiseTool_RESOURCES}
 ) 
 
-# Include imnodes & rhh in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
+# Include imnodes in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
 target_include_directories(NoiseTool PRIVATE 
-    "${imnodes_SOURCE_DIR}"
-    "${robinhoodhashing_SOURCE_DIR}/src/include")
+    "${imnodes_SOURCE_DIR}")
 
 target_link_libraries(NoiseTool PRIVATE
     FastNoise
@@ -112,6 +114,7 @@ target_link_libraries(NoiseTool PRIVATE
     Magnum::SceneGraph
     MagnumIntegration::ImGui
     ImGui::SourcesMiscCpp
+    robin_hood
 )
 
 # Windows HiDPI support
