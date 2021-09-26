@@ -1,7 +1,7 @@
 # CMakeList.txt : CMake project for FastNoise
 cmake_minimum_required(VERSION 3.7.1)
 
-project(FastNoise2 VERSION 0.9.0)
+project(FastNoise2 VERSION 0.9.1)
 set(CMAKE_CXX_STANDARD 17)
 
 # Build DLL
