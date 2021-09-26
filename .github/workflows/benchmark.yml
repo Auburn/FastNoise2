@@ -1,6 +1,8 @@
 name: Trigger Benchmark
 on:
   push:
+    tags-ignore:
+      - '*.*'
     paths-ignore:
       - 'NoiseTool/**'
       - '.github/**'
