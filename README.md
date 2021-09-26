@@ -35,7 +35,7 @@ Roadmap:
 
 The FastNoise2 noise tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. The noise tool has 2D and 3D previews for the node graph output, see screenshots below for examples.
 
-Check the [releases](https://github.com/Auburn/FastNoise2/releases) for early versions of the Noise Tool
+Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled NoiseTool binaries
 
 ![NoiseTool](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
 
