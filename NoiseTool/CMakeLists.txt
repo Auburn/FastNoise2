@@ -124,6 +124,8 @@ endif()
 
 if (UNIX)
     target_link_options(NoiseTool PRIVATE -pthread)
+    set_property(TARGET NoiseTool PROPERTY
+        INSTALL_RPATH "\$ORIGIN/../lib")
 endif()
 
 if (MSVC)
