@@ -1,5 +1,7 @@
 name: Trigger Benchmark
 on:
+  workflow_dispatch:
+    
   push:
     tags-ignore:
       - '*.*'
@@ -9,24 +11,34 @@ on:
       - '*.md'
 
 jobs:  
-  BenchmarkTrigger:
-    runs-on: ubuntu-latest
+  benchmark-matrix:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Win64-MSVC
+            cmake_options: -A x64
+          - os: ubuntu-latest
+            name: Linux64-GCC
+            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     steps:        
     - name: 'Checkout' 
       uses: actions/checkout@v2            
+    
+    - name: 'CMake Configure'
+      run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=ON ${{ matrix.cmake_options }}
    
     - name: 'CMake Build'
-      uses: ashutoshvarma/action-cmake-build@master
-      with:
-        build-dir: ${{ runner.workspace }}/build
-        build-type: Release
-        configure-options: -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=ON -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+      run: cmake --build ${{ github.workspace }}/build --config Release --target FastNoiseBenchmark
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
-        name: Linux64-BenchmarkBin
-        path: ${{ runner.workspace }}/build/Release/bin/FastNoiseBenchmark
+        name: ${{ matrix.name }}-BenchmarkBin
+        path: ${{ runner.workspace }}/build/Release/bin/FastNoiseBenchmark*
         if-no-files-found: error
         
     - id: message-format-1
@@ -44,9 +56,10 @@ jobs:
         replacement: ""
         
     - name: Repository Dispatch
+      if: false
       uses: peter-evans/repository-dispatch@v1
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         repository: Auburn/FastNoise2Benchmarking
         event-type: benchmark
-        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "runid": "${{ github.run_id }}", "msg": "${{ steps.message-format.outputs.value }}"}'
+        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "runid": "${{ github.run_id }}", "name": "${{ matrix.name }}", "msg": "${{ steps.message-format.outputs.value }}"}'
