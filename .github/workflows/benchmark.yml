@@ -19,11 +19,11 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            name: Win64-MSVC
+            name: win64-msvc
             cmake_options: -A x64
-          #- os: ubuntu-latest
-          #  name: Linux64-GCC
-          #  cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+          - os: ubuntu-latest
+            name: linux64-gcc
+            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
     steps:        
     - name: 'Checkout' 
       uses: actions/checkout@v2            
