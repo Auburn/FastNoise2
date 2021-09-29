@@ -1,7 +1,5 @@
 name: Trigger Benchmark
 on:
-  workflow_dispatch:
-    
   push:
     tags-ignore:
       - '*.*'
