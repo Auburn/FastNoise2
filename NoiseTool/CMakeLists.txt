@@ -124,8 +124,14 @@ endif()
 
 if (UNIX)
     target_link_options(NoiseTool PRIVATE -pthread)
-    set_property(TARGET NoiseTool PROPERTY
-        INSTALL_RPATH "\$ORIGIN/../lib")
+
+    if(APPLE)
+        set_property(TARGET NoiseTool PROPERTY
+            INSTALL_RPATH "@loader_path/../lib")
+    else()
+        set_property(TARGET NoiseTool PROPERTY
+            INSTALL_RPATH "\$ORIGIN/../lib")
+    endif()
 endif()
 
 if (MSVC)
