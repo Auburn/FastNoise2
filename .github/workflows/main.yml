@@ -60,6 +60,9 @@ jobs:
     - name: 'CMake Install Release'
       run: cmake --build ${{ github.workspace }}/release --config Release --target install --parallel 4
     
+    - if: runner.os != 'Windows'
+      run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NoiseTool
+    
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
