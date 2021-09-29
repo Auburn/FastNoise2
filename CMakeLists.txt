@@ -1,4 +1,4 @@
-# CMakeList.txt : CMake project for FastNoise
+# CMakeList.txt : CMake project for FastNoise2
 cmake_minimum_required(VERSION 3.7.1)
 
 project(FastNoise2 VERSION 0.9.2)
