@@ -37,7 +37,7 @@ jobs:
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.name }}-BenchmarkBin
+        name: ${{ matrix.name }}-benchmark-bin
         path: ${{ github.workspace }}/build/Release/bin/
         if-no-files-found: error
         
