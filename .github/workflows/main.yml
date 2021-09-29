@@ -24,13 +24,20 @@ jobs:
             cmake_options: -A Win32
           - os: windows-latest
             name: Win64-MSVC
-            cmake_options: -A x64
+            cmake_options: -A x64            
+          - os: windows-latest
+            name: Win64-ClangCL
+            cmake_options: -A x64 -T ClangCL
           - os: ubuntu-latest
             name: Linux64-GCC
-            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+            cmake_options: -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++      
+          - os: ubuntu-latest
+            name: Linux64-Clang
+            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           - os: macos-latest
             name: MacOS64-Clang
-            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            
     steps:                
     - name: 'Install OpenGL & xorg'
       if: matrix.os == 'ubuntu-latest'
