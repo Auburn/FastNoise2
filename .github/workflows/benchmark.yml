@@ -17,9 +17,16 @@ jobs:
           - os: windows-latest
             name: win64-msvc
             cmake_options: -A x64
+          - os: windows-latest
+            name: win64-clangcl
+            cmake_options: -A x64 -T ClangCL
           - os: ubuntu-latest
             name: linux64-gcc
-            cmake_options: -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64
+            cmake_options: -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++      
+          - os: ubuntu-latest
+            name: linux64-clang
+            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            
     steps:        
     - name: 'Checkout' 
       uses: actions/checkout@v2            
