@@ -92,9 +92,9 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
-        target_compile_options(FastNoise PRIVATE /GS- /fp:fast)
+        target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast)
     else()
-        target_compile_options(FastNoise PRIVATE "-ffast-math")        
+        target_compile_options(FastNoise PRIVATE -ffast-math -fno-stack-protector)        
     endif()
 
     if(CMAKE_SIZEOF_VOID_P EQUAL 4 OR "${CMAKE_CXX_FLAGS}" MATCHES "-m32")
