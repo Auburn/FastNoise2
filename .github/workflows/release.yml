@@ -66,7 +66,7 @@ jobs:
     
     - name: 'Create release'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
-      uses: fregante/release-with-changelog@main
+      uses: fregante/release-with-changelog@v3
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         exclude: '^Update\s\S+\.(md|yml)$'
