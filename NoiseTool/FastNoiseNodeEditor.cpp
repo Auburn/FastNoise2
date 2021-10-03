@@ -472,7 +472,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 
     ImNodes::GetStyle().MiniMapPadding = ImVec2( 8, 8 );
 
-#ifdef _DEBUG
+#ifndef NDEBUG
     mNodeBenchmarkMax = 1;
 #endif
     
@@ -547,7 +547,7 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::DockSpaceOverViewport( viewport );
+    ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
 
     std::string simdTxt = "Current SIMD Level: ";
     simdTxt += GetSIMDLevelName( mActualSIMDLevel );
