@@ -97,7 +97,7 @@ void fnGenTileable2D( const void* node, float* noiseOut, int xSize, int ySize, f
 
 void fnGenTileable2DRepeat( const void* node, float* noiseOut, int xStart, int yStart, int xSize, int ySize, float xRepeat, float yRepeat, float frequency, int seed, float* outputMinMax )
 {
-    StoreMinMax( outputMinMax, ToGen( node )->GenTilable2DRepeat( noiseOut, xStart, yStart, xSize, ySize, xRepeat, yRepeat, frequency, seed ) );
+    StoreMinMax( outputMinMax, ToGen( node )->GenTileable2DRepeat( noiseOut, xStart, yStart, xSize, ySize, xRepeat, yRepeat, frequency, seed ) );
 }
 
 int fnGetMetadataCount()
