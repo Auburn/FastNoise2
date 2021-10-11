@@ -424,8 +424,8 @@ public:
         size_t index = 0;
 
         float pi2Recip( 0.15915493667f );
-        float xSizePi = repeatX * pi2Recip;
-        float ySizePi = repeatY * pi2Recip;
+        float xSizePi = xRepeat * pi2Recip;
+        float ySizePi = yRepeat * pi2Recip;
         float32v xFreq = float32v( frequency * xSizePi );
         float32v yFreq = float32v( frequency * ySizePi );
         float32v xMul = float32v( 1 / xSizePi );

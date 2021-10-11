@@ -48,6 +48,13 @@ FASTNOISE_API void fnGenTileable2D( const void* node, float* noiseOut,
                                     int xSize, int ySize,
                                     float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
+FASTNOISE_API void fnGenTileable2DRepeat( const void* node, float* noiseOut,
+                                    int xStart, int yStart,
+                                    int xSize, int ySize,
+                                    float xRepeat, float yRepeat,
+                                    float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
+                                    
+
 FASTNOISE_API float fnGenSingle2D( const void* node, float x, float y, int seed );
 FASTNOISE_API float fnGenSingle3D( const void* node, float x, float y, float z, int seed );
 FASTNOISE_API float fnGenSingle4D( const void* node, float x, float y, float z, float w, int seed );
