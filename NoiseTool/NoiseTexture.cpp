@@ -340,6 +340,14 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
             buildData.frequency, buildData.seed );
         break;
 
+
+    case GenType_2DTiledRepeat:
+        minMax = gen->GenTileable2DRepeat(noiseData.data(), 0, 0,
+           buildData.size.x(), buildData.size.y(),
+           256, 256,
+           buildData.frequency, buildData.seed );
+        break;
+
     case GenType_3D:
         minMax = gen->GenUniformGrid3D( noiseData.data(),
             (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(),

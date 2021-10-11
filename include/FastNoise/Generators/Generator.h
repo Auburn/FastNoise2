@@ -114,7 +114,13 @@ namespace FastNoise
             float frequency, int seed ) const = 0;
 
         virtual OutputMinMax GenTileable2D( float* out,
-            int xSize, int ySize, float frequency, int seed ) const = 0; 
+            int xSize, int ySize, float frequency, int seed ) const = 0;
+
+        virtual FastNoise::OutputMinMax GenTileable2DRepeat(float* noiseOut,
+           int xStart, int yStart,
+           int xSize, int ySize,
+           float xRepeat, float yRepeat,
+           float frequency, int seed) const = 0;
 
         virtual OutputMinMax GenPositionArray2D( float* out, int count,
             const float* xPosArray, const float* yPosArray,

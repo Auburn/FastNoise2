@@ -408,6 +408,70 @@ public:
         return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
+    FastNoise::OutputMinMax GenTileable2DRepeat(float* noiseOut, int xStart, int yStart, int xSize, int ySize, float xRepeat, float yRepeat, float frequency, int seed) const final
+    {
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
+        int32v xIdx( xStart );
+        int32v yIdx( yStart );
+
+        int32v xSizeV( xSize );
+        int32v ySizeV( ySize );
+        int32v xMax = xSizeV + xIdx + int32v( -1 );
+
+        size_t totalValues = xSize * ySize;
+        size_t index = 0;
+
+        float pi2Recip( 0.15915493667f );
+        float xSizePi = repeatX * pi2Recip;
+        float ySizePi = repeatY * pi2Recip;
+        float32v xFreq = float32v( frequency * xSizePi );
+        float32v yFreq = float32v( frequency * ySizePi );
+        float32v xMul = float32v( 1 / xSizePi );
+        float32v yMul = float32v( 1 / ySizePi );
+
+        xIdx += int32v::FS_Incremented();
+
+        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
+
+        while( index < totalValues - FS_Size_32() )
+        {
+            float32v xF = FS_Converti32_f32( xIdx ) * xMul;
+            float32v yF = FS_Converti32_f32( yIdx ) * yMul;
+
+            float32v xPos = FS_Cos_f32( xF ) * xFreq;
+            float32v yPos = FS_Cos_f32( yF ) * yFreq;
+            float32v zPos = FS_Sin_f32( xF ) * xFreq;
+            float32v wPos = FS_Sin_f32( yF ) * yFreq;
+
+            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
+            index += FS_Size_32();
+            xIdx += int32v( FS_Size_32() );
+
+            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+        }
+
+        float32v xF = FS_Converti32_f32( xIdx ) * xMul;
+        float32v yF = FS_Converti32_f32( yIdx ) * yMul;
+
+        float32v xPos = FS_Cos_f32( xF ) * xFreq;
+        float32v yPos = FS_Cos_f32( yF ) * yFreq;
+        float32v zPos = FS_Sin_f32( xF ) * xFreq;
+        float32v wPos = FS_Sin_f32( yF ) * yFreq;
+
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+
+        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
+    }
+
 private:
     template<bool INITIAL>
     static FS_INLINE void AxisReset( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep )

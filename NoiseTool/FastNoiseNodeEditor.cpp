@@ -1189,6 +1189,12 @@ FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise
             Node::NoiseSize, Node::NoiseSize,
             mNodeFrequency, mNodeSeed );
 
+    case NoiseTexture::GenType_2DTiledRepeat:
+        return gen->GenTileable2DRepeat(noise, 0, 0,
+            Node::NoiseSize, Node::NoiseSize,
+            Node::NoiseSize, Node::NoiseSize,
+            mNodeFrequency, mNodeSeed);
+
     case NoiseTexture::GenType_3D:
         return gen->GenUniformGrid3D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0,

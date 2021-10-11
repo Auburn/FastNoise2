@@ -24,6 +24,7 @@ namespace Magnum
             GenType_2DTiled,
             GenType_3D,
             GenType_4D,
+            GenType_2DTiledRepeat,
             GenType_Count
         };
 
@@ -31,7 +32,9 @@ namespace Magnum
             "2D\0"
             "2D Tiled\0"
             "3D Slice\0"
-            "4D Slice\0";
+            "4D Slice\0"
+            "2D Tiled Repeat\0";
+
 
         NoiseTexture();
         ~NoiseTexture();
