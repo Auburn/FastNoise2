@@ -27,7 +27,8 @@ Supports:
 
 Bindings:
 - [C#](https://github.com/Auburn/FastNoise2Bindings)
-- [Unreal Engine](https://github.com/DoubleDeez/UnrealFastNoise2)
+- [Unreal Engine CMake](https://github.com/caseymcc/UE4_FastNoise2)
+- [Unreal Engine Blueprint](https://github.com/DoubleDeez/UnrealFastNoise2)
 
 Roadmap:
 - [Vague collection of ideas](https://github.com/users/Auburn/projects/1)
