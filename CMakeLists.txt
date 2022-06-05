@@ -4,10 +4,19 @@ cmake_minimum_required(VERSION 3.7.1)
 project(FastNoise2 VERSION 0.9.4)
 set(CMAKE_CXX_STANDARD 17)
 
+# determine whether this is a standalone project or included by other projects
+if (NOT DEFINED FASTNOISE2_STANDALONE_PROJECT)
+    if (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+        set(FASTNOISE2_STANDALONE_PROJECT ON)
+    else()
+        set(FASTNOISE2_STANDALONE_PROJECT OFF)
+    endif ()
+endif()
+
 # Build DLL
 #set(BUILD_SHARED_LIBS ON) 
 
-option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ON)
+option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ${FASTNOISE2_STANDALONE_PROJECT})
 option(FASTNOISE2_TESTS "Build tests" OFF)
 
 if(MSVC)
