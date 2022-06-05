@@ -959,7 +959,6 @@ void FastNoiseNodeEditor::DoNodes()
             ChangeSelectedNode( node.first );
         }
         ImNodes::EndOutputAttribute();
-        ImNodes::PopAttributeFlag();
 
         ImNodes::EndNode();
     }

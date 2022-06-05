@@ -1,7 +1,7 @@
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
-    GIT_TAG a8065db3c55aec214aa4e4887c4073289b2988e2
+    GIT_TAG d44ca683c12ed28fce1d27662f24edee2d7e2c6a
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -13,7 +13,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME GLFW
     GITHUB_REPOSITORY glfw/glfw
-    GIT_TAG 3.3.4
+    GIT_TAG 3.3.7
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_SHARED_LIBS OFF"
@@ -26,7 +26,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG 360ca834e17870e56f987bb6ecca308ab9889409
+    GIT_TAG a218ddfa9434201aaca207ea9c8e87fea91a0757
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -42,7 +42,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME imgui
     GITHUB_REPOSITORY ocornut/imgui
-    GIT_TAG 7bfc379a23e97b6777eb80aafb50a8e6248904cd
+    GIT_TAG 1ee252772ae9c0a971d06257bb5c89f628fa696a
     EXCLUDE_FROM_ALL YES
 )
 # Set dir for find_package(ImGui)
@@ -51,7 +51,7 @@ set(IMGUI_DIR ${imgui_SOURCE_DIR})
 CPMAddPackage(
     NAME magnum-integration
     GITHUB_REPOSITORY mosra/magnum-integration
-    GIT_TAG 789f8132842536f077548bc4f2d2c3685e9f491e
+    GIT_TAG 6fa1a7754bf8bc612befdc9ec543f8420a0111cc
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -62,14 +62,16 @@ CPMAddPackage(
 CPMAddPackage(
     NAME imnodes
     GITHUB_REPOSITORY Auburn/imnodes
-    GIT_TAG a295b4af69045645d657363d5d135e2d8a3785f6
+    GIT_TAG d88f99125bb72cdb71b4c27ff6eb7f318d89a4c5
+    GIT_SUBMODULES ".github"
     EXCLUDE_FROM_ALL YES
+    DOWNLOAD_ONLY YES
 )
   
 CPMAddPackage(
     NAME robinhoodhashing
     GITHUB_REPOSITORY martinus/robin-hood-hashing
-    GIT_TAG 3.11.3    
+    GIT_TAG 3.11.5    
     EXCLUDE_FROM_ALL YES
 )
 
