@@ -1,5 +1,7 @@
 name: Trigger Benchmark
 on:
+  workflow_dispatch:
+  
   push:
     branches:
       - '**'
@@ -7,6 +9,7 @@ on:
       - 'NoiseTool/**'
       - '.github/**'
       - '*.md'
+
 
 jobs:  
   benchmark-matrix:
