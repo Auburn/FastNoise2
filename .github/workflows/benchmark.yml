@@ -10,7 +10,6 @@ on:
       - '.github/**'
       - '*.md'
 
-
 jobs:  
   benchmark-matrix:
     name: ${{ matrix.name }}
@@ -47,12 +46,15 @@ jobs:
       with:
         name: ${{ matrix.name }}-benchmark-bin
         path: ${{ github.workspace }}/build/Release/bin/
-        if-no-files-found: error
+        if-no-files-found: error        
+        
+    - id: get-commit-msg
+      run: echo "::set-output name=msg::$(git log --format=%B -n 1 ${{ github.sha }})"
         
     - id: message-format-1
       uses: ashley-taylor/regex-property-action@1.2
       with:
-        value: ${{ github.event.head_commit.message }}
+        value: ${{ steps.get-commit-msg.outputs.msg }}
         regex: "^\\s*|[^a-zA-Z0-9_&\\(\\) -]"
         replacement: ""
 
