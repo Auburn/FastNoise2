@@ -24,10 +24,10 @@ jobs:
             cmake_options: -A x64 -T ClangCL
           - os: ubuntu-latest
             name: linux64-gcc
-            cmake_options: -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++      
+            cmake_options: -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10
           - os: ubuntu-latest
             name: linux64-clang
-            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            cmake_options: -DCMAKE_C_COMPILER=clang-12 -DCMAKE_CXX_COMPILER=clang++-12
             
     steps:        
     - name: 'Checkout' 
