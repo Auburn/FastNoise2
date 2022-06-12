@@ -36,15 +36,14 @@ endif()
 include(GNUInstallDirs) 
 set(install_targets "")
 
+include(cmake/CPM.cmake)
 add_subdirectory(src)
 
 if(FASTNOISE2_NOISETOOL)
-    include(cmake/CPM.cmake)
     add_subdirectory(NoiseTool)
 endif()
 
 if(FASTNOISE2_TESTS)
-    include(cmake/CPM.cmake)  
     add_subdirectory(tests)
 endif()
 
