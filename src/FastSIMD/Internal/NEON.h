@@ -55,16 +55,31 @@ struct NEON_f32x4
 
     FS_INLINE NEON_f32x4& operator/=( const NEON_f32x4& rhs )
     {
-        float32x4_t reciprocal = vrecpeq_f32( rhs );
-        // use a couple Newton-Raphson steps to refine the estimate.  Depending on your
-        // application's accuracy requirements, you may be able to get away with only
-        // one refinement (instead of the two used here).  Be sure to test!
-        reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
-        reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
-
-        // and finally, compute a/b = a*(1/b)
-        *this = vmulq_f32( *this, reciprocal );
+        *this = vdivq_f32( *this, rhs );
         return *this;
+    }
+    
+    FS_INLINE NEON_f32x4& operator&=( const NEON_f32x4& rhs )
+    {
+        *this = vreinterpretq_f32_u32( vandq_u32( vreinterpretq_u32_f32( *this ), vreinterpretq_u32_f32( rhs ) ) );
+        return *this;
+    }
+    
+    FS_INLINE NEON_f32x4& operator|=( const NEON_f32x4& rhs )
+    {
+        *this = vreinterpretq_f32_u32( vorrq_u32( vreinterpretq_u32_f32( *this ), vreinterpretq_u32_f32( rhs ) ) );
+        return *this;
+    }
+    
+    FS_INLINE NEON_f32x4& operator^=( const NEON_f32x4& rhs )
+    {
+        *this = vreinterpretq_f32_u32( veorq_u32( vreinterpretq_u32_f32( *this ), vreinterpretq_u32_f32( rhs ) ) );
+        return *this;
+    }
+    
+    FS_INLINE NEON_f32x4 operator~() const
+    {
+        return vreinterpretq_f32_u32( vmvnq_u32( vreinterpretq_u32_f32( *this ) ) );
     }
 
     FS_INLINE NEON_f32x4 operator-() const
@@ -145,13 +160,13 @@ struct NEON_i32x4
 
     FS_INLINE NEON_i32x4& operator>>=( const int32_t rhs )
     {
-        *this = vshrq_n_s32( *this, rhs );
+        *this = vshlq_s32( *this, vdupq_n_s32( -rhs ) );
         return *this;
     }
 
     FS_INLINE NEON_i32x4& operator<<=( const int32_t rhs )
     {
-        *this = vshlq_n_s32( *this, rhs );
+        *this = vshlq_s32( *this, vdupq_n_s32( rhs ) );
         return *this;
     }
 
@@ -231,7 +246,7 @@ public:
 
     FS_INLINE static mask32v Equal_f32( float32v a, float32v b )
     {
-        return vreinterpretq_s32_u32( vceq_f32( a, b ) );
+        return vreinterpretq_s32_u32( vceqq_f32( a, b ) );
     }
 
     FS_INLINE static mask32v GreaterThan_f32( float32v a, float32v b )
@@ -256,7 +271,7 @@ public:
 
     FS_INLINE static mask32v Equal_i32( int32v a, int32v b )
     {
-        return vceq_s32( a, b );
+        return vceqq_s32( a, b );
     }
 
     FS_INLINE static mask32v GreaterThan_i32( int32v a, int32v b )
@@ -273,12 +288,12 @@ public:
 
     FS_INLINE static float32v Select_f32( mask32v m, float32v a, float32v b )
     {
-        return vbslq_f32( vreinterpretq_u32_s32( mask ), b, a );
+        return vbslq_f32( vreinterpretq_u32_s32( m ), b, a );
     }
 
     FS_INLINE static int32v Select_i32( mask32v m, int32v a, int32v b )
     {
-        return vbslq_s32( vreinterpretq_u32_s32( mask ), b, a );
+        return vbslq_s32( vreinterpretq_u32_s32( m ), b, a );
     }
 
     // Min, Max
@@ -322,17 +337,17 @@ public:
 
     FS_INLINE static float32v BitwiseNot_f32( float32v a )
     {
-        return vreinterpretq_f32_s32( vmvn_s32( vreinterpretq_s32_f32( a ), vreinterpretq_s32_f32( b ) ) );
+        return vreinterpretq_f32_s32( vmvnq_s32( vreinterpretq_s32_f32( a ) ) );
     }
 
     FS_INLINE static float32v BitwiseAndNot_f32( float32v a, float32v b )
     {
-        return vreinterpretq_f32_s32( vandq_s32( vreinterpretq_s32_f32( a ), vmvn_s32( vreinterpretq_s32_f32( b ) ) ) );
+        return vreinterpretq_f32_s32( vandq_s32( vreinterpretq_s32_f32( a ), vmvnq_s32( vreinterpretq_s32_f32( b ) ) ) );
     }
 
     FS_INLINE static int32v BitwiseAndNot_i32( int32v a, int32v b )
     {
-        return vandq_s32( a , vmvn_s32( b ) );
+        return vandq_s32( a , vmvnq_s32( b ) );
     }
 
     // Abs
@@ -376,32 +391,16 @@ public:
     FS_INLINE static float32v Ceil_f32( float32v a )
     {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-        const __m128 f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
+        const float32x4_t f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
 #else
-        const __m128 f1 = vdupq_n_f32( 1.0f );
+        const float32x4_t f1 = vdupq_n_f32( 1.0f );
 #endif
         float32x4_t fval = vrndmq_f32( a );
 
         return vaddq_f32( fval, BitwiseAnd_f32( vcltq_f32( a, fval ), f1 ) );
     }
 
-    template<FastSIMD::eLevel L = LEVEL_T>
-    FS_INLINE static FS_ENABLE_IF( L < FastSIMD::ELevel_SSE41, float32v ) Round_f32( float32v a )
-    {
-#if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-        const __m128 nearest2 = _mm_castsi128_ps( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 2 ) );
-#else
-        const __m128 nearest2 = vdupq_n_f32( 1.99999988079071044921875f );
-#endif
-        __m128 aTrunc = _mm_cvtepi32_ps( _mm_cvttps_epi32( a ) );       // truncate a
-        __m128 rmd = _mm_sub_ps( a, aTrunc );                           // get remainder
-        __m128 rmd2 = _mm_mul_ps( rmd, nearest2 );                      // mul remainder by near 2 will yield the needed offset
-        __m128 rmd2Trunc = _mm_cvtepi32_ps( _mm_cvttps_epi32( rmd2 ) ); // after being truncated of course
-        return _mm_add_ps( aTrunc, rmd2Trunc );
-    }
-
-    template<FastSIMD::eLevel L = LEVEL_T>
-    FS_INLINE static FS_ENABLE_IF( L >= FastSIMD::ELevel_SSE41, float32v ) Round_f32( float32v a )
+    FS_INLINE static float32v Round_f32( float32v a )
     {
         return vrndnq_f32( a );
     }
@@ -420,5 +419,8 @@ public:
 };
 
 #if FASTSIMD_COMPILE_NEON
-typedef FastSIMD_SSE_T<FastSIMD::ELevel_NEON> FastSIMD_NEON;
+namespace FastSIMD
+{
+    typedef FastSIMD_NEON_T<FastSIMD::Level_NEON> NEON;
+}
 #endif
