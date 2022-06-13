@@ -24,7 +24,7 @@ namespace FastNoise
         static constexpr float ROOT2 = 1.4142135623730950488f;
         static constexpr float ROOT3 = 1.7320508075688772935f;
 
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
+        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level < FastSIMD::Level_AVX2 || SIMD::SIMD_Level == FastSIMD::Level_NEON>* = nullptr>
         FS_INLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
         {
             int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
@@ -96,7 +96,7 @@ namespace FastNoise
         }
 
 
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
+        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level < FastSIMD::Level_AVX2 || SIMD::SIMD_Level == FastSIMD::Level_NEON>* = nullptr>
         FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
         {
             // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )

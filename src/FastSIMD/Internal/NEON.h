@@ -55,7 +55,19 @@ struct NEON_f32x4
 
     FS_INLINE NEON_f32x4& operator/=( const NEON_f32x4& rhs )
     {
+#if defined(__aarch64__)
         *this = vdivq_f32( *this, rhs );
+#else
+        float32x4_t reciprocal = vrecpeq_f32( rhs );
+        // use a couple Newton-Raphson steps to refine the estimate.  Depending on your
+        // application's accuracy requirements, you may be able to get away with only
+        // one refinement (instead of the two used here).  Be sure to test!
+        reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
+        reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
+
+        // and finally, compute a/b = a*(1/b)
+        *this = vmulq_f32( *this, reciprocal );
+#endif
         return *this;
     }
     
@@ -188,7 +200,9 @@ class FastSIMD_NEON_T
 {
 public:
     static const FastSIMD::eLevel SIMD_Level = LEVEL_T;
-    static const size_t VectorSize = 128 / 8;
+    
+    template<size_t ElementSize>
+    static constexpr size_t VectorSize = (128 / 8) / ElementSize;
 
     typedef NEON_f32x4 float32v;
     typedef NEON_i32x4 int32v;
@@ -216,6 +230,13 @@ public:
     FS_INLINE static void Store_i32( void* p, int32v a )
     {
         vst1q_s32( reinterpret_cast<int32_t*>(p), a );
+    }
+    
+    // Extract
+    
+    FS_INLINE static float Extract0_f32( float32v a )
+    {
+        return vgetq_lane_f32( a, 0);
     }
 
     // Cast
@@ -349,6 +370,11 @@ public:
     {
         return vandq_s32( a , vmvnq_s32( b ) );
     }
+    
+    FS_INLINE static int32v BitwiseShiftRightZX_i32( int32v a, int32_t b )
+    {
+        return vshlq_s32( a, vdupq_n_s32( -b ) );
+    }
 
     // Abs
 
@@ -372,6 +398,14 @@ public:
     FS_INLINE static float32v InvSqrt_f32( float32v a )
     {
         return vrsqrteq_f32( a );
+    }
+    
+    FS_INLINE static float32v Reciprocal_f32( float32v a )
+    {
+        float32v reciprocal = vrecpeq_f32( a );
+        reciprocal = vmulq_f32( vrecpsq_f32( a, reciprocal ), reciprocal );
+        reciprocal = vmulq_f32( vrecpsq_f32( a, reciprocal ), reciprocal );
+        return reciprocal;
     }
 
     // Floor, Ceil, Round: http://dss.stephanierct.com/DevBlog/?p=8
@@ -415,6 +449,22 @@ public:
     FS_INLINE static float32v Mask_f32( float32v a, mask32v m )
     {
         return BitwiseAnd_f32( a, vreinterpretq_f32_s32( m ) );
+    }
+    
+    FS_INLINE static int32v NMask_i32( int32v a, mask32v m )
+    {
+        return a & ~m;
+    }
+    
+    FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
+    {
+        return BitwiseAndNot_f32( a, vreinterpretq_f32_s32( m ) );
+    }
+    
+    FS_INLINE static bool AnyMask_bool( mask32v m )
+    {
+        int64x2_t mAnd = vandq_s64( vreinterpretq_s64_s32( m ), vreinterpretq_s64_s32( m ) );
+        return vgetq_lane_s64( mAnd, 0 ) | vgetq_lane_s64( mAnd, 1 );
     }
 };
 
