@@ -24,12 +24,12 @@ jobs:
           - os: windows-latest
             name: win64-clangcl
             cmake_options: -A x64 -T ClangCL
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             name: linux64-gcc
-            cmake_options: -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10
-          - os: ubuntu-latest
+            cmake_options: -DCMAKE_C_COMPILER=gcc-11 -DCMAKE_CXX_COMPILER=g++-11
+          - os: ubuntu-22.04
             name: linux64-clang
-            cmake_options: -DCMAKE_C_COMPILER=clang-12 -DCMAKE_CXX_COMPILER=clang++-12
+            cmake_options: -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14
             
     steps:        
     - name: 'Checkout' 
