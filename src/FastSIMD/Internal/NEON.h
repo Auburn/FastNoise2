@@ -271,17 +271,17 @@ public:
 
     FS_INLINE static mask32v Equal_i32( int32v a, int32v b )
     {
-        return vceqq_s32( a, b );
+        return vreinterpretq_s32_u32( vceqq_s32( a, b ) );
     }
 
     FS_INLINE static mask32v GreaterThan_i32( int32v a, int32v b )
     {
-        return vcgtq_s32( a, b );
+        return vreinterpretq_s32_u32( vcgtq_s32( a, b ) );
     }
 
     FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
     {
-        return vcltq_s32( a, b );
+        return vreinterpretq_s32_u32( vcltq_s32( a, b ) );
     }
 
     // Select
@@ -379,25 +379,25 @@ public:
     FS_INLINE static float32v Floor_f32( float32v a )
     {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-        const float32x4_t f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
+        const float32v f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
 #else
-        const float32x4_t f1 = vdupq_n_f32( 1.0f );
+        const float32v f1 = vdupq_n_f32( 1.0f );
 #endif
-        float32x4_t fval = vrndmq_f32( a );
+        float32v fval = vrndmq_f32( a );
 
-        return vsubq_f32( fval, BitwiseAnd_f32( vcltq_f32( a, fval ), f1 ) );
+        return vsubq_f32( fval, BitwiseAnd_f32( vreinterpretq_f32_u32( vcltq_f32( a, fval ) ), f1 ) );
     }
 
     FS_INLINE static float32v Ceil_f32( float32v a )
     {
 #if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-        const float32x4_t f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
+        const float32v f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
 #else
-        const float32x4_t f1 = vdupq_n_f32( 1.0f );
+        const float32v f1 = vdupq_n_f32( 1.0f );
 #endif
-        float32x4_t fval = vrndmq_f32( a );
+        float32v fval = vrndmq_f32( a );
 
-        return vaddq_f32( fval, BitwiseAnd_f32( vcltq_f32( a, fval ), f1 ) );
+        return vaddq_f32( fval, BitwiseAnd_f32( vreinterpretq_f32_u32( vcltq_f32( a, fval ) ), f1 ) );
     }
 
     FS_INLINE static float32v Round_f32( float32v a )

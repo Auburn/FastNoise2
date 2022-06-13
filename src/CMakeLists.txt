@@ -14,18 +14,27 @@ list(APPEND FastSIMD_headers ${FastSIMD_inline})
 list(APPEND FastSIMD_headers ${FastSIMD_include_inl})
 list(APPEND FastSIMD_internal_headers ${FastSIMD_internal_inl})
 
-set(FastSIMD_sources
-    FastSIMD/FastSIMD.cpp
-    FastSIMD/FastSIMD_Level_AVX2.cpp
-    FastSIMD/FastSIMD_Level_AVX512.cpp
-    FastSIMD/FastSIMD_Level_NEON.cpp
-    FastSIMD/FastSIMD_Level_Scalar.cpp
-    FastSIMD/FastSIMD_Level_SSE2.cpp
-    FastSIMD/FastSIMD_Level_SSE3.cpp
-    FastSIMD/FastSIMD_Level_SSE41.cpp
-    FastSIMD/FastSIMD_Level_SSE42.cpp
-    FastSIMD/FastSIMD_Level_SSSE3.cpp
-)
+message("FastSIMD Arch: ${CMAKE_SYSTEM_PROCESSOR}") 
+
+if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "(arm)|(aarch)")
+    set(FastSIMD_sources
+        FastSIMD/FastSIMD.cpp
+        FastSIMD/FastSIMD_Level_Scalar.cpp
+        FastSIMD/FastSIMD_Level_NEON.cpp
+    )
+else()
+    set(FastSIMD_sources
+        FastSIMD/FastSIMD.cpp
+        FastSIMD/FastSIMD_Level_AVX2.cpp
+        FastSIMD/FastSIMD_Level_AVX512.cpp
+        FastSIMD/FastSIMD_Level_Scalar.cpp
+        FastSIMD/FastSIMD_Level_SSE2.cpp
+        FastSIMD/FastSIMD_Level_SSE3.cpp
+        FastSIMD/FastSIMD_Level_SSE41.cpp
+        FastSIMD/FastSIMD_Level_SSE42.cpp
+        FastSIMD/FastSIMD_Level_SSSE3.cpp
+    )
+endif()
 
 file(GLOB FastNoise_headers "../include/FastNoise/*.h")
 file(GLOB FastNoise_inl "../include/FastNoise/*.inl")
