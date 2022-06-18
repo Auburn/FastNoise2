@@ -236,7 +236,42 @@ public:
     
     FS_INLINE static float Extract0_f32( float32v a )
     {
-        return vgetq_lane_f32( a, 0);
+        return vgetq_lane_f32( a, 0 );
+    }
+    
+    FS_INLINE static int32_t Extract0_i32( int32v a )
+    {
+        return vgetq_lane_s32( a, 0 );
+    }
+    
+    FS_INLINE static float Extract_f32( float32v a, size_t idx )
+    {
+        switch ( idx & 3 ) {
+            default:
+            case 0:
+                return vgetq_lane_f32( a, 0 );
+            case 1:
+                return vgetq_lane_f32( a, 1 );
+            case 2:
+                return vgetq_lane_f32( a, 2 );
+            case 3:
+                return vgetq_lane_f32( a, 3 );
+        }
+    }
+
+    FS_INLINE static int32_t Extract_i32( int32v a, size_t idx )
+    {
+        switch ( idx & 3 ) {
+            default:
+            case 0:
+                return vgetq_lane_s32( a, 0 );
+            case 1:
+                return vgetq_lane_s32( a, 1 );
+            case 2:
+                return vgetq_lane_s32( a, 2 );
+            case 3:
+                return vgetq_lane_s32( a, 3 );
+        }
     }
 
     // Cast
@@ -309,12 +344,12 @@ public:
 
     FS_INLINE static float32v Select_f32( mask32v m, float32v a, float32v b )
     {
-        return vbslq_f32( vreinterpretq_u32_s32( m ), b, a );
+        return vbslq_f32( vreinterpretq_u32_s32( m ), a, b );
     }
 
     FS_INLINE static int32v Select_i32( mask32v m, int32v a, int32v b )
     {
-        return vbslq_s32( vreinterpretq_u32_s32( m ), b, a );
+        return vbslq_s32( vreinterpretq_u32_s32( m ), a, b );
     }
 
     // Min, Max
@@ -392,12 +427,22 @@ public:
 
     FS_INLINE static float32v Sqrt_f32( float32v a )
     {
+#if defined(__aarch64__)
         return vsqrtq_f32( a );
+#else
+        float32x4_t reciprocal = vrsqrteq_f32( a );
+        reciprocal = vmulq_f32( vrsqrtsq_f32( vmulq_f32( a, reciprocal ), reciprocal ), reciprocal );
+        reciprocal = vmulq_f32( vrsqrtsq_f32( vmulq_f32( a, reciprocal ), reciprocal ), reciprocal );
+        return vmulq_f32( a, reciprocal );
+#endif
     }
 
     FS_INLINE static float32v InvSqrt_f32( float32v a )
     {
-        return vrsqrteq_f32( a );
+        float32x4_t reciprocal = vrsqrteq_f32( a );
+        reciprocal = vmulq_f32( vrsqrtsq_f32( vmulq_f32( a, reciprocal ), reciprocal ), reciprocal );
+        reciprocal = vmulq_f32( vrsqrtsq_f32( vmulq_f32( a, reciprocal ), reciprocal ), reciprocal );
+        return reciprocal;
     }
     
     FS_INLINE static float32v Reciprocal_f32( float32v a )
@@ -412,38 +457,45 @@ public:
 
     FS_INLINE static float32v Floor_f32( float32v a )
     {
-#if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-        const float32v f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
+#if defined(__aarch64__)
+        return vrndmq_f32( a );
 #else
         const float32v f1 = vdupq_n_f32( 1.0f );
+        float32v fval = vcvtq_f32_s32( vcvtq_s32_f32( a ) );
+        return vsubq_f32( fval, BitwiseAnd_f32( vreinterpretq_f32_u32( vcgtq_f32( fval, a ) ), f1 ) );
 #endif
-        float32v fval = vrndmq_f32( a );
-
-        return vsubq_f32( fval, BitwiseAnd_f32( vreinterpretq_f32_u32( vcltq_f32( a, fval ) ), f1 ) );
     }
 
     FS_INLINE static float32v Ceil_f32( float32v a )
     {
-#if FASTSIMD_CONFIG_GENERATE_CONSTANTS
-        const float32v f1 = vdupq_n_f32( 1.0f ); //_mm_castsi128_ps( _mm_slli_epi32( _mm_srli_epi32( _mm_cmpeq_epi32( _mm_setzero_si128(), _mm_setzero_si128() ), 25 ), 23 ) );
+#if defined(__aarch64__)
+        return vrndpq_f32( a );
 #else
         const float32v f1 = vdupq_n_f32( 1.0f );
+        float32v fval = vcvtq_f32_s32( vcvtq_s32_f32( a ) );
+        return vaddq_f32( fval, BitwiseAnd_f32( vreinterpretq_f32_u32( vcltq_f32( fval, a ) ), f1 ) );
 #endif
-        float32v fval = vrndmq_f32( a );
-
-        return vaddq_f32( fval, BitwiseAnd_f32( vreinterpretq_f32_u32( vcltq_f32( a, fval ) ), f1 ) );
     }
 
     FS_INLINE static float32v Round_f32( float32v a )
     {
-        return vrndnq_f32( a );
+#if defined(__aarch64__)
+        return vrndxq_f32( a );
+#else
+        const float32v f2 = vdupq_n_f32( 2.f );
+        float32x4_t aTrunc = vcvtq_f32_s32( vcvtq_s32_f32( a ) );
+        float32x4_t rmd = vsubq_f32( a, aTrunc );
+        float32x4_t rmd2 = vmulq_f32( rmd, f2 );
+        float32x4_t rmd2Trunc = vcvtq_f32_s32( vcvtq_s32_f32( rmd2 ) );
+        return vaddq_f32( aTrunc, rmd2Trunc );
+#endif
     }
 
     // Mask
 
     FS_INLINE static int32v Mask_i32( int32v a, mask32v m )
     {
-        return a & m;
+        return vandq_s32( a, m );
     }
 
     FS_INLINE static float32v Mask_f32( float32v a, mask32v m )
@@ -453,7 +505,7 @@ public:
     
     FS_INLINE static int32v NMask_i32( int32v a, mask32v m )
     {
-        return a & ~m;
+        return vandq_s32( a, vmvnq_s32( m ) );
     }
     
     FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
