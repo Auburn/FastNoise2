@@ -150,12 +150,12 @@ namespace FastNoise
                     continue;
                 }
 
-                void* ptr = pool + freeSlots[idx].pos + sizeof( SlotHeader );
+                uint8_t* startSlot = pool + freeSlots[idx].pos;
+                void* ptr = startSlot + sizeof( SlotHeader );
                 size_t space = freeSlots[idx].size - sizeof( SlotHeader );
 
                 if( std::align( align, size, ptr, space ) )
                 {                   
-                    uint8_t* startSlot = pool + freeSlots[idx].pos;
                     uint8_t* endSlot = (uint8_t*)ptr + size;
 
                     // Align next slot correctly for SlotHeader
@@ -171,15 +171,16 @@ namespace FastNoise
                     assert( freeSlots[idx].size >= slotSize );
                     
                     usedSlots.emplace_back( Slot{ freeSlots[idx].pos, slotSize } );
-                    
-                    freeSlots[idx].pos += slotSize;
-                    freeSlots[idx].size -= slotSize;
 
                     // Check if remaining free slot is empty
-                    if( freeSlots[idx].size == 0 )
+                    if( freeSlots[idx].size <= slotSize )
                     {
+                        assert( freeSlots[idx].size == slotSize );
                         freeSlots.erase( freeSlots.cbegin() + idx );
                     }
+
+                    freeSlots[idx].pos += slotSize;
+                    freeSlots[idx].size -= slotSize;
 
                     new( startSlot ) SlotHeader { 0u };
                     
