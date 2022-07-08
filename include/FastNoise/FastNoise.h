@@ -25,15 +25,15 @@ namespace FastNoise
     /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
     /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
     template<typename T>
-    SmartNode<T> New( FastSIMD::eLevel maxSimdLevel /*= FastSIMD::Level_Null*/ )
+    SmartNode<T> New( FastSIMD::FeatureSet maxFeatureSet /*= FastSIMD::FeatureSet::Max*/ )
     {
-        static_assert( std::is_base_of<Generator, T>::value, "This function should only be used for FastNoise node classes, for example FastNoise::Simplex" );
-        static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot create abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
+        //static_assert( std::is_base_of<Generator, T>::value, "This function should only be used for FastNoise node classes, for example FastNoise::Simplex" );
+        //static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot create abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
 
 #if FASTNOISE_USE_SHARED_PTR
-        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel ) );
+        return SmartNode<T>( FastSIMD::NewDispatchClass<T>( maxSimdLevel ) );
 #else
-        return SmartNode<T>( FastSIMD::New<T>( maxSimdLevel, &SmartNodeManager::Allocate ) );
+        return SmartNode<T>( FastSIMD::NewDispatchClass<T>( maxFeatureSet, &SmartNodeManager::Allocate ) );
 #endif
     }
 
@@ -46,5 +46,5 @@ namespace FastNoise
     /// <param name="encodedNodeTreeString">Can be generated using the NoiseTool</param>
     /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
     /// <returns>Root node of the tree, nullptr for invalid strings</returns>
-    FASTNOISE_API SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null );
+    FASTNOISE_API SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max );
 }

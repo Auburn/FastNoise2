@@ -1,18 +1,17 @@
 #include <cassert>
 #include <cstring>
-#include "FastSIMD/InlInclude.h"
 
 #include "Generator.h"
 
-#ifdef FS_SIMD_CLASS
 #pragma warning( disable:4250 )
-#endif
 
-template<typename FS>
-class FS_T<FastNoise::Generator, FS> : public virtual FastNoise::Generator
+using float32v = FS::NativeRegister<float>;
+using int32v = FS::NativeRegister<std::int32_t>;
+using mask32v = FS::NativeRegister<FS::Mask<32>>;
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::Generator, SIMD> : public virtual FastNoise::Generator
 {
-    FASTSIMD_DECLARE_FS_TYPES;
-
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
@@ -23,12 +22,12 @@ public:
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }\
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const override { return GenT( seed, x, y, z, w ); }
 
-    FastSIMD::eLevel GetSIMDLevel() const final
+    FastSIMD::FeatureSet GetSIMDLevel() const final
     {
-        return FS::SIMD_Level;
+        return FASTSIMD_DEFAULT_FEATURE_SET;
     }
 
-    using VoidPtrStorageType = const FS_T<Generator, FS>*;
+    using VoidPtrStorageType = const DispatchClass<Generator, SIMD>*;
 
     void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) final
     {
@@ -44,7 +43,7 @@ public:
     }
 
     template<typename T, typename... POS>
-    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const FastNoise::HybridSourceT<T>& memberVariable, int32v seed, POS... pos ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GetSourceValue( const FastNoise::HybridSourceT<T>& memberVariable, int32v seed, POS... pos ) const
     {
         if( memberVariable.simdGeneratorPtr )
         {
@@ -56,7 +55,7 @@ public:
     }
 
     template<typename T, typename... POS>
-    FS_INLINE float32v FS_VECTORCALL GetSourceValue( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GetSourceValue( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, POS... pos ) const
     {
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
@@ -65,12 +64,12 @@ public:
     }
 
     template<typename T>
-    FS_INLINE const FS_T<T, FS>* GetSourceSIMD( const FastNoise::GeneratorSourceT<T>& memberVariable ) const
+    FS_FORCEINLINE const DispatchClass<T, SIMD>* GetSourceSIMD( const FastNoise::GeneratorSourceT<T>& memberVariable ) const
     {
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        auto simdT = static_cast<const FS_T<T, FS>*>( simdGen );
+        auto simdT = static_cast<const FastSIMD::DispatchClass<T, SIMD>*>( simdGen );
         return simdT;
     }
 
@@ -90,31 +89,31 @@ public:
         size_t totalValues = xSize * ySize;
         size_t index = 0;
 
-        xIdx += int32v::FS_Incremented();
+        xIdx += FS::Incremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
-        while( index < totalValues - FS_Size_32() )
+        while( index < totalValues - int32v::ElementCount )
         {
-            float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
-            float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
+            float32v xPos = FS::Convert<float>( xIdx ) * freqV;
+            float32v yPos = FS::Convert<float>( yIdx ) * freqV;
 
             float32v gen = Gen( int32v( seed ), xPos, yPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
 
-            index += FS_Size_32();
-            xIdx += int32v( FS_Size_32() );
+            index += int32v::ElementCount;
+            xIdx += int32v( int32v::ElementCount );
 
             AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
         }
 
-        float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
-        float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
+        float32v xPos = FS::Convert<float>( xIdx ) * freqV;
+        float32v yPos = FS::Convert<float>( yIdx ) * freqV;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
@@ -140,35 +139,35 @@ public:
         size_t totalValues = xSize * ySize * zSize;
         size_t index = 0;
 
-        xIdx += int32v::FS_Incremented();
+        xIdx += FS::Incremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
 
-        while( index < totalValues - FS_Size_32() )
+        while( index < totalValues - int32v::ElementCount )
         {
-            float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
-            float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
-            float32v zPos = FS_Converti32_f32( zIdx ) * freqV;
+            float32v xPos = FS::Convert<float>( xIdx ) * freqV;
+            float32v yPos = FS::Convert<float>( yIdx ) * freqV;
+            float32v zPos = FS::Convert<float>( zIdx ) * freqV;
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
 
-            index += FS_Size_32();
-            xIdx += int32v( FS_Size_32() );
+            index += int32v::ElementCount;
+            xIdx += int32v( int32v::ElementCount );
             
             AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
             AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         }
 
-        float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
-        float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
-        float32v zPos = FS_Converti32_f32( zIdx ) * freqV;
+        float32v xPos = FS::Convert<float>( xIdx ) * freqV;
+        float32v yPos = FS::Convert<float>( yIdx ) * freqV;
+        float32v zPos = FS::Convert<float>( zIdx ) * freqV;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
@@ -197,39 +196,39 @@ public:
         size_t totalValues = xSize * ySize * zSize * wSize;
         size_t index = 0;
 
-        xIdx += int32v::FS_Incremented();
+        xIdx += FS::Incremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         AxisReset<true>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
 
-        while( index < totalValues - FS_Size_32() )
+        while( index < totalValues - int32v::ElementCount )
         {
-            float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
-            float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
-            float32v zPos = FS_Converti32_f32( zIdx ) * freqV;
-            float32v wPos = FS_Converti32_f32( wIdx ) * freqV;
+            float32v xPos = FS::Convert<float>( xIdx ) * freqV;
+            float32v yPos = FS::Convert<float>( yIdx ) * freqV;
+            float32v zPos = FS::Convert<float>( zIdx ) * freqV;
+            float32v wPos = FS::Convert<float>( wIdx ) * freqV;
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
 
-            index += FS_Size_32();
-            xIdx += int32v( FS_Size_32() );
+            index += int32v::ElementCount;
+            xIdx += int32v( int32v::ElementCount );
 
             AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
             AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
             AxisReset<false>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
         }
 
-        float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
-        float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
-        float32v zPos = FS_Converti32_f32( zIdx ) * freqV;
-        float32v wPos = FS_Converti32_f32( wIdx ) * freqV;
+        float32v xPos = FS::Convert<float>( xIdx ) * freqV;
+        float32v yPos = FS::Convert<float>( yIdx ) * freqV;
+        float32v zPos = FS::Convert<float>( zIdx ) * freqV;
+        float32v wPos = FS::Convert<float>( wIdx ) * freqV;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
@@ -242,23 +241,23 @@ public:
         float32v max( -INFINITY );
 
         size_t index = 0;
-        while( index < count - FS_Size_32() )
+        while( index < count - int32v::ElementCount )
         {
-            float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
-            float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
+            float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+            float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
-            index += FS_Size_32();
+            index += int32v::ElementCount;
         }
 
-        float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
-        float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
+        float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+        float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
@@ -271,25 +270,25 @@ public:
         float32v max( -INFINITY );
 
         size_t index = 0;
-        while( index < count - FS_Size_32() )
+        while( index < count - int32v::ElementCount )
         {
-            float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
-            float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
-            float32v zPos = float32v( zOffset ) + FS_Load_f32( &zPosArray[index] );
+            float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+            float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+            float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
-            index += FS_Size_32();
+            index += int32v::ElementCount;
         }
 
-        float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
-        float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
-        float32v zPos = float32v( zOffset ) + FS_Load_f32( &zPosArray[index] );
+        float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+        float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+        float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
@@ -302,27 +301,27 @@ public:
         float32v max( -INFINITY );
 
         size_t index = 0;
-        while( index < count - FS_Size_32() )
+        while( index < count - int32v::ElementCount )
         {
-            float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
-            float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
-            float32v zPos = float32v( zOffset ) + FS_Load_f32( &zPosArray[index] );
-            float32v wPos = float32v( wOffset ) + FS_Load_f32( &wPosArray[index] );
+            float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+            float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+            float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
+            float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
-            index += FS_Size_32();
+            index += int32v::ElementCount;
         }
 
-        float32v xPos = float32v( xOffset ) + FS_Load_f32( &xPosArray[index] );
-        float32v yPos = float32v( yOffset ) + FS_Load_f32( &yPosArray[index] );
-        float32v zPos = float32v( zOffset ) + FS_Load_f32( &zPosArray[index] );
-        float32v wPos = float32v( wOffset ) + FS_Load_f32( &wPosArray[index] );
+        float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+        float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+        float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
+        float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
@@ -331,17 +330,17 @@ public:
 
     float GenSingle2D( float x, float y, int seed ) const final
     {
-        return FS_Extract0_f32( Gen( int32v( seed ), float32v( x ), float32v( y ) ) );
+        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ) ) );
     }
 
     float GenSingle3D( float x, float y, float z, int seed ) const final
     {
-        return FS_Extract0_f32( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
+        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
     }
 
     float GenSingle4D( float x, float y, float z, float w, int seed ) const final
     {
-        return FS_Extract0_f32( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
+        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
     }
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float frequency, int seed ) const final
@@ -367,41 +366,41 @@ public:
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 
-        xIdx += int32v::FS_Incremented();
+        xIdx += FS::Incremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
-        while( index < totalValues - FS_Size_32() )
+        while( index < totalValues - int32v::ElementCount )
         {
-            float32v xF = FS_Converti32_f32( xIdx ) * xMul;
-            float32v yF = FS_Converti32_f32( yIdx ) * yMul;
+            float32v xF = FS::Convert<float>( xIdx ) * xMul;
+            float32v yF = FS::Convert<float>( yIdx ) * yMul;
 
-            float32v xPos = FS_Cos_f32( xF ) * xFreq;
-            float32v yPos = FS_Cos_f32( yF ) * yFreq;
-            float32v zPos = FS_Sin_f32( xF ) * xFreq;
-            float32v wPos = FS_Sin_f32( yF ) * yFreq;
+            float32v xPos = FS::Cos( xF ) * xFreq;
+            float32v yPos = FS::Cos( yF ) * yFreq;
+            float32v zPos = FS::Sin( xF ) * xFreq;
+            float32v wPos = FS::Sin( yF ) * yFreq;
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
-            FS_Store_f32( &noiseOut[index], gen );
+            FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, gen );
-            max = FS_Max_f32( max, gen );
+            min = FS::Min( min, gen );
+            max = FS::Max( max, gen );
 #endif
 
-            index += FS_Size_32();
-            xIdx += int32v( FS_Size_32() );
+            index += int32v::ElementCount;
+            xIdx += int32v( int32v::ElementCount );
 
             AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
         }
 
-        float32v xF = FS_Converti32_f32( xIdx ) * xMul;
-        float32v yF = FS_Converti32_f32( yIdx ) * yMul;
+        float32v xF = FS::Convert<float>( xIdx ) * xMul;
+        float32v yF = FS::Convert<float>( yIdx ) * yMul;
 
-        float32v xPos = FS_Cos_f32( xF ) * xFreq;
-        float32v yPos = FS_Cos_f32( yF ) * yFreq;
-        float32v zPos = FS_Sin_f32( xF ) * xFreq;
-        float32v wPos = FS_Sin_f32( yF ) * yFreq;
+        float32v xPos = FS::Cos( xF ) * xFreq;
+        float32v yPos = FS::Cos( yF ) * yFreq;
+        float32v zPos = FS::Sin( xF ) * xFreq;
+        float32v wPos = FS::Sin( yF ) * yFreq;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
@@ -410,28 +409,28 @@ public:
 
 private:
     template<bool INITIAL>
-    static FS_INLINE void AxisReset( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep )
+    static FS_FORCEINLINE void AxisReset( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep )
     {
-        for( size_t resetLoop = INITIAL ? aStep : 0; resetLoop < FS_Size_32(); resetLoop += aStep )
+        for( size_t resetLoop = INITIAL ? aStep : 0; resetLoop < int32v::ElementCount; resetLoop += aStep )
         {
             mask32v aReset = aIdx > aMax;
-            bIdx = FS_MaskedIncrement_i32( bIdx, aReset );
-            aIdx = FS_MaskedSub_i32( aIdx, aSize, aReset );
+            bIdx = FS::MaskedIncrement( aReset, bIdx );
+            aIdx = FS::MaskedSub( aReset, aIdx, aSize );
         }
     }
 
-    static FS_INLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, size_t totalValues, size_t index, float32v min, float32v max, float32v finalGen )
+    static FS_FORCEINLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, size_t totalValues, size_t index, float32v min, float32v max, float32v finalGen )
     {
         FastNoise::OutputMinMax minMax;
         size_t remaining = totalValues - index;
 
-        if( remaining == FS_Size_32() )
+        if( remaining == int32v::ElementCount )
         {
-            FS_Store_f32( &noiseOut[index], finalGen );
+            FS::Store( &noiseOut[index], finalGen );
 
 #if FASTNOISE_CALC_MIN_MAX
-            min = FS_Min_f32( min, finalGen );
-            max = FS_Max_f32( max, finalGen );
+            min = FS::Min( min, finalGen );
+            max = FS::Max( max, finalGen );
 #endif
         }
         else
@@ -450,7 +449,7 @@ private:
 #if FASTNOISE_CALC_MIN_MAX
         float* minP = reinterpret_cast<float*>(&min);
         float* maxP = reinterpret_cast<float*>(&max);
-        for( size_t i = 0; i < FS_Size_32(); i++ )
+        for( size_t i = 0; i < int32v::ElementCount; i++ )
         {
             minMax << FastNoise::OutputMinMax{ minP[i], maxP[i] };
         }

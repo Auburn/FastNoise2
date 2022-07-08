@@ -146,14 +146,14 @@ std::enable_if_t<!std::is_same<void, FS>::value> TestFunction_##NAME( void* base
     }                                                                                                      \
     else                                                                                                   \
     {                                                                                                      \
-        T result[FS_Size_32()];                                                    \
+        T result[int32v::ElementCount];                                                    \
         int failCount = 0;                                                                                    \
                                                                                                            \
-        for ( std::size_t i = 0; i < TestCount; i += FS_Size_32() )                \
+        for ( std::size_t i = 0; i < TestCount; i += int32v::ElementCount )                \
         {                                                                                                  \
             FUNC;                                                                                          \
                                                                                                            \
-            for ( std::size_t ir = 0; ir < FS_Size_32(); ir++ )                    \
+            for ( std::size_t ir = 0; ir < int32v::ElementCount; ir++ )                    \
             {                                                                                              \
                 if ( isBase )                                                                              \
                 {                                                                                          \
@@ -178,29 +178,29 @@ std::enable_if_t<!std::is_same<void, FS>::value> TestFunction_##NAME( void* base
 }                                                                                                          \
 SIMDUnitTest test_##NAME( TestFunction_##NAME<RETURN_TYPE, LEVEL> );
 
-SIMD_FUNCTION_TEST( LoadStore_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) ) )
+SIMD_FUNCTION_TEST( LoadStore_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) ) )
 
 SIMD_FUNCTION_TEST( LoadStore_i32, int32_t, FS_Store_i32( &result, FS_Load_i32( &rndInts0[i] ) ) )
 
 
-SIMD_FUNCTION_TEST( Casti32_f32, float, FS_Store_f32( &result, FS_Casti32_f32( FS_Load_i32( &rndInts0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Casti32_f32, float, FS::Store( &result, FS_Casti32_f32( FS_Load_i32( &rndInts0[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Castf32_i32, int32_t, FS_Store_i32( &result, FS_Castf32_i32( FS_Load_f32( &rndFloats0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Castf32_i32, int32_t, FS_Store_i32( &result, FS_Castf32_i32( FS::Load( &rndFloats0[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Converti32_f32, float, FS_Store_f32( &result, FS_Converti32_f32( FS_Load_i32( &rndInts0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Converti32_f32, float, FS::Store( &result, FS::Convert<float>( FS_Load_i32( &rndInts0[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Convertf32_i32, int32_t, FS_Store_i32( &result, FS_Convertf32_i32( FS_Load_f32( &rndFloats0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Convertf32_i32, int32_t, FS_Store_i32( &result, FS_Convertf32_i32( FS::Load( &rndFloats0[i] ) ) ) )
 
 
-SIMD_FUNCTION_TEST( Equal_f32, float, FS_Store_f32( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS_Load_f32( &rndFloats0[i] ) == FS_Load_f32( &rndFloats1[i] ) ) ) ) )
+SIMD_FUNCTION_TEST( Equal_f32, float, FS::Store( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS::Load( &rndFloats0[i] ) == FS::Load( &rndFloats1[i] ) ) ) ) )
 
-SIMD_FUNCTION_TEST( GreaterThan_f32, float, FS_Store_f32( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS_Load_f32( &rndFloats0[i] ) > FS_Load_f32( &rndFloats1[i] ) ) ) ) )
+SIMD_FUNCTION_TEST( GreaterThan_f32, float, FS::Store( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS::Load( &rndFloats0[i] ) > FS::Load( &rndFloats1[i] ) ) ) ) )
 
-SIMD_FUNCTION_TEST( LessThan_f32, float, FS_Store_f32( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS_Load_f32( &rndFloats0[i] ) < FS_Load_f32( &rndFloats1[i] ) ) ) ) )
+SIMD_FUNCTION_TEST( LessThan_f32, float, FS::Store( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS::Load( &rndFloats0[i] ) < FS::Load( &rndFloats1[i] ) ) ) ) )
 
-SIMD_FUNCTION_TEST( GreaterEqualThan_f32, float, FS_Store_f32( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS_Load_f32( &rndFloats0[i] ) >= FS_Load_f32( &rndFloats1[i] ) ) ) ) )
+SIMD_FUNCTION_TEST( GreaterEqualThan_f32, float, FS::Store( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS::Load( &rndFloats0[i] ) >= FS::Load( &rndFloats1[i] ) ) ) ) )
 
-SIMD_FUNCTION_TEST( LessEqualThan_f32, float, FS_Store_f32( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS_Load_f32( &rndFloats0[i] ) <= FS_Load_f32( &rndFloats1[i] ) ) ) ) )
+SIMD_FUNCTION_TEST( LessEqualThan_f32, float, FS::Store( &result, FS_Mask_f32( typename FS::float32v( 1 ), ( FS::Load( &rndFloats0[i] ) <= FS::Load( &rndFloats1[i] ) ) ) ) )
 
 SIMD_FUNCTION_TEST( Equal_i32, int32_t, FS_Store_i32( &result, FS_Mask_i32( typename FS::int32v( 1 ), ( FS_Load_i32( &rndInts0[i] ) == FS_Load_i32( &rndInts1[i] ) ) ) ) )
 
@@ -209,56 +209,56 @@ SIMD_FUNCTION_TEST( GreaterThan_i32, int32_t, FS_Store_i32( &result, FS_Mask_i32
 SIMD_FUNCTION_TEST( LessThan_i32, int32_t, FS_Store_i32( &result, FS_Mask_i32( typename FS::int32v( 1 ), ( FS_Load_i32( &rndInts0[i] ) < FS_Load_i32( &rndInts1[i] ) ) ) ) )
 
 
-SIMD_FUNCTION_TEST( Select_f32, float, FS_Store_f32( &result, FS_Select_f32( ( FS_Load_f32( &rndFloats0[i] ) > FS_Load_f32( &rndFloats1[i] ) ), FS_Load_f32( &rndFloats0[i] ), FS_Load_f32( &rndFloats1[i] ) ) ) )
+SIMD_FUNCTION_TEST( Select_f32, float, FS::Store( &result, FS_Select_f32( ( FS::Load( &rndFloats0[i] ) > FS::Load( &rndFloats1[i] ) ), FS::Load( &rndFloats0[i] ), FS::Load( &rndFloats1[i] ) ) ) )
 
 SIMD_FUNCTION_TEST( Select_i32, int32_t, FS_Store_i32( &result, FS_Select_i32( ( FS_Load_i32( &rndInts0[i] ) > FS_Load_i32( &rndInts1[i] ) ), FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
 
 
-SIMD_FUNCTION_TEST( Min_f32, float, FS_Store_f32( &result, FS_Min_f32( FS_Load_f32( &rndFloats0[i] ), FS_Load_f32( &rndFloats1[i] ) ) ) )
+SIMD_FUNCTION_TEST( Min_f32, float, FS::Store( &result, FS::Min( FS::Load( &rndFloats0[i] ), FS::Load( &rndFloats1[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Max_f32, float, FS_Store_f32( &result, FS_Max_f32( FS_Load_f32( &rndFloats0[i] ), FS_Load_f32( &rndFloats1[i] ) ) ) )
+SIMD_FUNCTION_TEST( Max_f32, float, FS::Store( &result, FS::Max( FS::Load( &rndFloats0[i] ), FS::Load( &rndFloats1[i] ) ) ) )
 
 SIMD_FUNCTION_TEST( Min_i32, int32_t, FS_Store_i32( &result, FS_Min_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
 
 SIMD_FUNCTION_TEST( Max_i32, int32_t, FS_Store_i32( &result, FS_Max_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
 
 
-SIMD_FUNCTION_TEST( BitwiseAndNot_f32, float, FS_Store_f32( &result, FS_BitwiseAndNot_f32( FS_Load_f32( &rndFloats0[i] ), FS_Load_f32( &rndFloats1[i] ) ) ) )
+SIMD_FUNCTION_TEST( BitwiseAndNot_f32, float, FS::Store( &result, FS_BitwiseAndNot_f32( FS::Load( &rndFloats0[i] ), FS::Load( &rndFloats1[i] ) ) ) )
 
 SIMD_FUNCTION_TEST( BitwiseAndNot_i32, int32_t, FS_Store_i32( &result, FS_BitwiseAndNot_i32( FS_Load_i32( &rndInts0[i] ), FS_Load_i32( &rndInts1[i] ) ) ) )
 
 
-SIMD_FUNCTION_TEST( BitwiseShiftRightZX_f32, float, FS_Store_f32( &result, FS_BitwiseShiftRightZX_f32( FS_Load_f32( &rndFloats0[i] ), (rndInts1[i & NonVecMask] & 31) ) ) )
+SIMD_FUNCTION_TEST( BitwiseShiftRightZX_f32, float, FS::Store( &result, FS_BitwiseShiftRightZX_f32( FS::Load( &rndFloats0[i] ), (rndInts1[i & NonVecMask] & 31) ) ) )
 
 SIMD_FUNCTION_TEST( BitwiseShiftRightZX_i32, int32_t, FS_Store_i32( &result, FS_BitwiseShiftRightZX_i32( FS_Load_i32( &rndInts0[i] ), (rndInts1[i & NonVecMask] & 31) ) ) )
 
 
-SIMD_FUNCTION_TEST( Abs_f32, float, FS_Store_f32( &result, FS_Abs_f32( FS_Load_f32( &rndFloats0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Abs_f32, float, FS::Store( &result, FS_Abs_f32( FS::Load( &rndFloats0[i] ) ) ) )
 
 SIMD_FUNCTION_TEST( Abs_i32, int32_t, FS_Store_i32( &result, FS_Abs_i32( FS_Load_i32( &rndInts0[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Sqrt_f32, float, FS_Store_f32( &result, FS_Sqrt_f32( FS_Load_f32( &rndFloats0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Sqrt_f32, float, FS::Store( &result, FS_Sqrt_f32( FS::Load( &rndFloats0[i] ) ) ) )
 
-//SIMD_FUNCTION_TEST( InvSqrt_f32, float, FS_Store_f32( &result, FS_InvSqrt_f32( FS_Load_f32( &rndFloats0[i] ) ) ) )
+//SIMD_FUNCTION_TEST( InvSqrt_f32, float, FS::Store( &result, FS_InvSqrt_f32( FS::Load( &rndFloats0[i] ) ) ) )
 
 
 const float MAX_ROUNDING = (float)INT_MAX / 2.0f;
 
-SIMD_FUNCTION_TEST( Floor_f32, float, FS_Store_f32( &result, FS_Floor_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS_Load_f32( &rndFloats0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Floor_f32, float, FS::Store( &result, FS_Floor_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS::Load( &rndFloats0[i] ) ) ) )
 
-SIMD_FUNCTION_TEST( Ceil_f32, float, FS_Store_f32( &result, FS_Ceil_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS_Load_f32( &rndFloats0[i] ) ) ) )
+SIMD_FUNCTION_TEST( Ceil_f32, float, FS::Store( &result, FS_Ceil_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS::Load( &rndFloats0[i] ) ) ) )
 
-//SIMD_FUNCTION_TEST( Round_f32, float, FS_Store_f32( &result, FS_Round_f32( FS_Min_f32( FS::float32v( MAX_ROUNDING ), FS_Max_f32( FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
+//SIMD_FUNCTION_TEST( Round_f32, float, FS::Store( &result, FS_Round_f32( FS::Min( FS::float32v( MAX_ROUNDING ), FS::Max( FS::float32v( -MAX_ROUNDING ), FS::Load( &rndFloats0[i] ) ) ) ) ) )
 
-SIMD_FUNCTION_TEST( Add_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) + FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Sub_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) - FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Mul_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) * FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Div_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) / FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( And_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) & FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Xor_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) ^ FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Or_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) | FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Not_f32, float, FS_Store_f32( &result, ~FS_Load_f32( &rndFloats1[i] ) ) )
-SIMD_FUNCTION_TEST( Negate_f32, float, FS_Store_f32( &result, -FS_Load_f32( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Add_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) + FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Sub_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) - FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Mul_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) * FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Div_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) / FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( And_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) & FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Xor_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) ^ FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Or_f32, float, FS::Store( &result, FS::Load( &rndFloats0[i] ) | FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Not_f32, float, FS::Store( &result, ~FS::Load( &rndFloats1[i] ) ) )
+SIMD_FUNCTION_TEST( Negate_f32, float, FS::Store( &result, -FS::Load( &rndFloats1[i] ) ) )
 
 SIMD_FUNCTION_TEST( Add_i32, int32_t, FS_Store_i32( &result, FS_Load_i32( &rndInts0[i] ) + FS_Load_i32( &rndInts1[i] ) ) )
 SIMD_FUNCTION_TEST( Sub_i32, int32_t, FS_Store_i32( &result, FS_Load_i32( &rndInts0[i] ) - FS_Load_i32( &rndInts1[i] ) ) )

@@ -32,9 +32,7 @@ namespace FastNoise
 
     class CellularValue : public virtual Cellular
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         static const int kMaxDistanceCount = 4;
 
@@ -48,7 +46,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularValue> : MetadataT<Cellular>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -59,9 +57,7 @@ namespace FastNoise
 
     class CellularDistance : public virtual Cellular
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         enum class ReturnType
         {
@@ -88,7 +84,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularDistance> : MetadataT<Cellular>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -101,9 +97,7 @@ namespace FastNoise
 
     class CellularLookup : public virtual Cellular
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         void SetLookup( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
         void SetLookupFrequency( float freq ) { mLookupFreq = freq; }
@@ -117,7 +111,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularLookup> : MetadataT<Cellular>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

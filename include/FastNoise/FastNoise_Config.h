@@ -1,5 +1,5 @@
 #pragma once
-#include <FastSIMD/FastSIMD.h>
+#include <FastSIMD/DispatchClass.h>
 #include "FastNoise_Export.h"
 
 #define FASTNOISE_CALC_MIN_MAX true
@@ -10,14 +10,7 @@
 #endif
 
 namespace FastNoise
-{
-    const FastSIMD::Level_BitFlags SUPPORTED_SIMD_LEVELS =
-        FastSIMD::Level_Scalar |
-        FastSIMD::Level_SSE2   |
-        FastSIMD::Level_SSE41  |
-        FastSIMD::Level_AVX2   |
-        FastSIMD::Level_AVX512 ;
-    
+{    
     class Generator;
     struct Metadata;
 
@@ -36,7 +29,7 @@ namespace FastNoise
     using SmartNodeArg = const SmartNode<const T>&;
 
     template<typename T>
-    SmartNode<T> New( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null );
+    SmartNode<T> New( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max );
 } // namespace FastNoise
 
 #if !FASTNOISE_USE_SHARED_PTR

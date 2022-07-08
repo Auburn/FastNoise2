@@ -23,9 +23,9 @@ namespace Magnum
     public:
         FastNoiseNodeEditor();
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
-        void SetSIMDLevel( FastSIMD::eLevel lvl );
+        void SetSIMDLevel( FastSIMD::FeatureSet lvl );
 
-        static const char* GetSIMDLevelName( FastSIMD::eLevel lvl );
+        static const char* GetSIMDLevelName( FastSIMD::FeatureSet lvl );
 
     private:
         struct Node
@@ -138,7 +138,7 @@ namespace Magnum
         int mNodeSeed = 1337;
         NoiseTexture::GenType mNodeGenType = NoiseTexture::GenType_2D;
 
-        FastSIMD::eLevel mMaxSIMDLevel    = FastSIMD::Level_Null;
-        FastSIMD::eLevel mActualSIMDLevel = FastSIMD::Level_Null;
+        FastSIMD::FeatureSet mMaxSIMDLevel    = FastSIMD::FeatureSet::Max;
+        FastSIMD::FeatureSet mActualSIMDLevel = FastSIMD::FeatureSet::Null;
     };
 }

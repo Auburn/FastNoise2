@@ -4,11 +4,8 @@
 #include "Utils.inl"
 
 template<typename FS>
-class FS_T<FastNoise::Perlin, FS> : public virtual FastNoise::Perlin, public FS_T<FastNoise::Generator, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::Perlin, FS> : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );

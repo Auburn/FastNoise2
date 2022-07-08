@@ -6,7 +6,6 @@ namespace FastNoise
     class DomainScale : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -21,7 +20,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainScale> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -35,7 +34,6 @@ namespace FastNoise
     class DomainOffset : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -58,7 +56,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainOffset> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -72,7 +70,6 @@ namespace FastNoise
     class DomainRotate : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -120,7 +117,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainRotate> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -136,7 +133,6 @@ namespace FastNoise
     class SeedOffset : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -151,7 +147,7 @@ namespace FastNoise
     template<>
     struct MetadataT<SeedOffset> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -165,7 +161,6 @@ namespace FastNoise
     class Remap : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -186,7 +181,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Remap> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -223,7 +218,6 @@ namespace FastNoise
     class ConvertRGBA8 : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -242,7 +236,7 @@ namespace FastNoise
     template<>
     struct MetadataT<ConvertRGBA8> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -267,7 +261,6 @@ namespace FastNoise
     class Terrace : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -286,7 +279,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Terrace> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -301,7 +294,6 @@ namespace FastNoise
     class DomainAxisScale : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -321,7 +313,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DomainAxisScale> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -335,7 +327,6 @@ namespace FastNoise
     class AddDimension : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -351,7 +342,7 @@ namespace FastNoise
     template<>
     struct MetadataT<AddDimension> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -365,7 +356,6 @@ namespace FastNoise
     class RemoveDimension : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -380,7 +370,7 @@ namespace FastNoise
     template<>
     struct MetadataT<RemoveDimension> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -394,7 +384,6 @@ namespace FastNoise
     class GeneratorCache : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -407,7 +396,7 @@ namespace FastNoise
     template<>
     struct MetadataT<GeneratorCache> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

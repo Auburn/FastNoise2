@@ -9,7 +9,7 @@
 static const size_t gPositionCount = 8192;
 static float gPositionFloats[gPositionCount]; 
 
-FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::eLevel level )
+FastNoise::SmartNode<> BuildGenerator( benchmark::State& state, const FastNoise::Metadata* metadata, FastSIMD::FeatureSet level )
 {    
     FastNoise::SmartNode<> generator = metadata->CreateNode( level );
 
@@ -101,7 +101,7 @@ void BenchFastNoiseGenerator4D( benchmark::State& state, const FastNoise::SmartN
 }
 
 template<typename T>
-void RegisterBenchmarks( FastSIMD::eLevel level, const char* groupName, const char* name, T generatorFunc )
+void RegisterBenchmarks( FastSIMD::FeatureSet level, const char* groupName, const char* name, T generatorFunc )
 {
     std::string benchName = "0D/";
 
@@ -145,7 +145,7 @@ int main( int argc, char** argv )
         gPositionFloats[idx] = (float)idx * 0.6f;
     }
     
-    for( FastSIMD::eLevel level = FastSIMD::CPUMaxSIMDLevel(); level != FastSIMD::Level_Null; level = (FastSIMD::eLevel)(level >> 1) )
+    for( FastSIMD::FeatureSet level = FastSIMD::CPUMaxSIMDLevel(); level != FastSIMD::Level_Null; level = (FastSIMD::FeatureSet)(level >> 1) )
     {
         if( !(level & FastSIMD::COMPILED_SIMD_LEVELS & FastNoise::SUPPORTED_SIMD_LEVELS) )
         {

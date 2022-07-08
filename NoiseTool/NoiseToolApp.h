@@ -42,7 +42,7 @@ namespace Magnum
         bool mBackFaceCulling = false;
         int mMaxSIMDLevel = 0;
         std::vector<const char*> mLevelNames;
-        std::vector<FastSIMD::eLevel> mLevelEnums;
+        std::vector<FastSIMD::FeatureSet> mLevelEnums;
 
         ImGuiIntegration::Context mImGuiIntegrationContext;
         ImGuiContext* mImGuiContext;

@@ -7,7 +7,7 @@
 #include "Utils.inl"
 
 template<typename FS>
-class FS_T<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public FS_T<FastNoise::Generator, FS>
+class FastSIMD::DispatchClass<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
 {
 protected:
     const float kJitter2D = 0.437016f;
@@ -17,11 +17,8 @@ protected:
 };
 
 template<typename FS>
-class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularValue, public FS_T<FastNoise::Cellular, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularValue, public FastSIMD::DispatchClass<FastNoise::Cellular, FS>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         std::array<float32v, kMaxDistanceCount> value;
@@ -33,8 +30,8 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -46,14 +43,14 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
             for( int yi = 0; yi < 3; yi++ )
             {
                 int32v hash = FnUtils::HashPrimesHB( seed, xc, yc );
-                float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
-                float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, yd * yd ) );
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
                 yd = FS_FMulAdd_f32( yd, invMag, ycf );
 
-                float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
+                float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
                 float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
 
                 for( int i = 0; ; i++ )
@@ -98,9 +95,9 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
         int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
         
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
-        float32v zcfBase = FS_Converti32_f32( zcBase ) - z;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
     
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -117,16 +114,16 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
                 for( int zi = 0; zi < 3; zi++ )
                 {
                     int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc );
-                    float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v yd = FS_Converti32_f32( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v zd = FS_Converti32_f32( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v yd = FS::Convert<float>( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v zd = FS::Convert<float>( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 
                     float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, zd * zd ) ) );
                     xd = FS_FMulAdd_f32( xd, invMag, xcf );
                     yd = FS_FMulAdd_f32( yd, invMag, ycf );
                     zd = FS_FMulAdd_f32( zd, invMag, zcf );
                 
-                    float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
+                    float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
                     float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
                 
                     for( int i = 0; ; i++ )
@@ -175,10 +172,10 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
         int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
         int32v wcBase = FS_Convertf32_i32( w ) + int32v( -1 );
         
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
-        float32v zcfBase = FS_Converti32_f32( zcBase ) - z;
-        float32v wcfBase = FS_Converti32_f32( wcBase ) - w;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
+        float32v wcfBase = FS::Convert<float>( wcBase ) - w;
     
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -200,10 +197,10 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
                     for( int wi = 0; wi < 3; wi++ )
                     {
                         int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc, wc );
-                        float32v xd = FS_Converti32_f32( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v yd = FS_Converti32_f32( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v zd = FS_Converti32_f32( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v wd = FS_Converti32_f32( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, FS_FMulAdd_f32( zd, zd, wd * wd ) ) ) );
                         xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -211,7 +208,7 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
                         zd = FS_FMulAdd_f32( zd, invMag, zcf );
                         wd = FS_FMulAdd_f32( wd, invMag, wcf );
 
-                        float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS_Converti32_f32( hash );
+                        float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
                         float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = 0; ; i++ )
@@ -251,11 +248,8 @@ class FS_T<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularVal
 };
 
 template<typename FS>
-class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::CellularDistance, public FS_T<FastNoise::Cellular, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual FastNoise::CellularDistance, public FastSIMD::DispatchClass<FastNoise::Cellular, FS>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
 
@@ -265,8 +259,8 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -278,8 +272,8 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
             for ( int yi = 0; yi < 3; yi++ )
             {
                 int32v hash = FnUtils::HashPrimesHB( seed, xc, yc );
-                float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
-                float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, yd * yd ) );
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -289,10 +283,10 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
 
                 for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                 {
-                    distance[i] = FS_Max_f32( FS_Min_f32( distance[i], newDistance ), distance[i - 1] );
+                    distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
                 }
 
-                distance[0] = FS_Min_f32( distance[0], newDistance );
+                distance[0] = FS::Min( distance[0], newDistance );
 
                 ycf += float32v( 1 );
                 yc += int32v( FnPrimes::Y );
@@ -315,9 +309,9 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
         int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
-        float32v zcfBase = FS_Converti32_f32( zcBase ) - z;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -334,9 +328,9 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
                 for( int zi = 0; zi < 3; zi++ )
                 {
                     int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc );
-                    float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v yd = FS_Converti32_f32( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v zd = FS_Converti32_f32( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
 
                     float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, zd * zd ) ) );
                     xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -347,10 +341,10 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
 
                     for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                     {
-                        distance[i] = FS_Max_f32( FS_Min_f32( distance[i], newDistance ), distance[i - 1] );
+                        distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
                     }
 
-                    distance[0] = FS_Min_f32( distance[0], newDistance );
+                    distance[0] = FS::Min( distance[0], newDistance );
 
                     zcf += float32v( 1 );
                     zc += int32v( FnPrimes::Z );
@@ -377,10 +371,10 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
         int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
         int32v wcBase = FS_Convertf32_i32( w ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
-        float32v zcfBase = FS_Converti32_f32( zcBase ) - z;
-        float32v wcfBase = FS_Converti32_f32( wcBase ) - w;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
+        float32v wcfBase = FS::Convert<float>( wcBase ) - w;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -402,10 +396,10 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
                     for( int wi = 0; wi < 3; wi++ )
                     {
                         int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc, wc );
-                        float32v xd = FS_Converti32_f32( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v yd = FS_Converti32_f32( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v zd = FS_Converti32_f32( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v wd = FS_Converti32_f32( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, FS_FMulAdd_f32( zd, zd, wd * wd ) ) ) );
                         xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -417,10 +411,10 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
 
                         for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                         {
-                            distance[i] = FS_Max_f32( FS_Min_f32( distance[i], newDistance ), distance[i - 1] );
+                            distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
                         }
 
-                        distance[0] = FS_Min_f32( distance[0], newDistance );
+                        distance[0] = FS::Min( distance[0], newDistance );
 
                         wcf += float32v( 1 );
                         wc += int32v( FnPrimes::W );
@@ -438,7 +432,7 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
         return GetReturn( distance );
     }
 
-    FS_INLINE float32v GetReturn( std::array<float32v, kMaxDistanceCount>& distance ) const
+    FS_FORCEINLINE float32v GetReturn( std::array<float32v, kMaxDistanceCount>& distance ) const
     {
         if( mDistanceFunction == FastNoise::DistanceFunction::Euclidean )
         {
@@ -474,11 +468,8 @@ class FS_T<FastNoise::CellularDistance, FS> : public virtual FastNoise::Cellular
 };
 
 template<typename FS>
-class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FS_T<FastNoise::Cellular, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular, FS>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         float32v distance( FLT_MAX );
@@ -487,8 +478,8 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
         int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -500,8 +491,8 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
             for( int yi = 0; yi < 3; yi++ )
             {
                 int32v hash = FnUtils::HashPrimesHB( seed, xc, yc );
-                float32v xd = FS_Converti32_f32( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
-                float32v yd = FS_Converti32_f32( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, yd * yd ) );
                 xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -510,7 +501,7 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
                 float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
 
                 mask32v closer = newDistance < distance;
-                distance = FS_Min_f32( newDistance, distance );
+                distance = FS::Min( newDistance, distance );
 
                 cellX = FS_Select_f32( closer, xd + x, cellX );
                 cellY = FS_Select_f32( closer, yd + y, cellY );
@@ -535,9 +526,9 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
         int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
         int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
-        float32v zcfBase = FS_Converti32_f32( zcBase ) - z;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -554,9 +545,9 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
                 for( int zi = 0; zi < 3; zi++ )
                 {
                     int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc );
-                    float32v xd = FS_Converti32_f32( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v yd = FS_Converti32_f32( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v zd = FS_Converti32_f32( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
 
                     float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, zd * zd ) ) );
                     xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -566,7 +557,7 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
                     float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
-                    distance = FS_Min_f32( newDistance, distance );
+                    distance = FS::Min( newDistance, distance );
 
                     cellX = FS_Select_f32( closer, xd + x, cellX );
                     cellY = FS_Select_f32( closer, yd + y, cellY );
@@ -596,10 +587,10 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
         int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
         int32v wcBase = FS_Convertf32_i32( w ) + int32v( -1 );
 
-        float32v xcf = FS_Converti32_f32( xc ) - x;
-        float32v ycfBase = FS_Converti32_f32( ycBase ) - y;
-        float32v zcfBase = FS_Converti32_f32( zcBase ) - z;
-        float32v wcfBase = FS_Converti32_f32( wcBase ) - w;
+        float32v xcf = FS::Convert<float>( xc ) - x;
+        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
+        float32v wcfBase = FS::Convert<float>( wcBase ) - w;
 
         xc *= int32v( FnPrimes::X );
         ycBase *= int32v( FnPrimes::Y );
@@ -621,10 +612,10 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
                     for( int wi = 0; wi < 3; wi++ )
                     {
                         int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc, wc );
-                        float32v xd = FS_Converti32_f32( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v yd = FS_Converti32_f32( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v zd = FS_Converti32_f32( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v wd = FS_Converti32_f32( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, FS_FMulAdd_f32( zd, zd, wd * wd ) ) ) );
                         xd = FS_FMulAdd_f32( xd, invMag, xcf );
@@ -635,7 +626,7 @@ class FS_T<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLo
                         float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
-                        distance = FS_Min_f32( newDistance, distance );
+                        distance = FS::Min( newDistance, distance );
 
                         cellX = FS_Select_f32( closer, xd + x, cellX );
                         cellY = FS_Select_f32( closer, yd + y, cellY );

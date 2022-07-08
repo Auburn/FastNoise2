@@ -6,7 +6,6 @@ namespace FastNoise
     class Constant : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetValue( float value ) { mValue = value; }
@@ -19,7 +18,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Constant> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -32,7 +31,6 @@ namespace FastNoise
     class White : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
@@ -40,7 +38,7 @@ namespace FastNoise
     template<>
     struct MetadataT<White> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -52,7 +50,6 @@ namespace FastNoise
     class Checkerboard : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSize( float value ) { mSize = value; }
@@ -65,7 +62,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Checkerboard> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -78,20 +75,19 @@ namespace FastNoise
     class SineWave : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
-        void SetScale( float value ) { mScale = value; }
+        void SetScale( float value ) { mScaleInv = 1 / value; }
 
     protected:
-        float mScale = 1.0f;
+        float mScaleInv = 1.0f;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<SineWave> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -104,7 +100,6 @@ namespace FastNoise
     class PositionOutput : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         template<Dim D>
@@ -122,7 +117,7 @@ namespace FastNoise
     template<>
     struct MetadataT<PositionOutput> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -136,7 +131,6 @@ namespace FastNoise
     class DistanceToPoint : public virtual Generator
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -158,7 +152,7 @@ namespace FastNoise
     template<>
     struct MetadataT<DistanceToPoint> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

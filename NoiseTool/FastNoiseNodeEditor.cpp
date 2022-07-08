@@ -88,7 +88,9 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
     if( generator )
     {
         auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxSIMDLevel );
-        genRGB->SetSource( generator );
+        //genRGB->SetSource( generator );
+
+        FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
         
         auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -749,7 +751,7 @@ void FastNoiseNodeEditor::UpdateSelected()
     }
 }
 
-void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
+void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::FeatureSet lvl )
 {
     mMaxSIMDLevel = lvl;
 
@@ -1246,22 +1248,22 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
     }
 }
 
-const char* FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::eLevel lvl )
+const char* FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::FeatureSet lvl )
 {
     switch( lvl )
     {
     default:
-    case FastSIMD::Level_Null:   return "NULL";
-    case FastSIMD::Level_Scalar: return "Scalar";
-    case FastSIMD::Level_SSE:    return "SSE";
-    case FastSIMD::Level_SSE2:   return "SSE2";
-    case FastSIMD::Level_SSE3:   return "SSE3";
-    case FastSIMD::Level_SSSE3:  return "SSSE3";
-    case FastSIMD::Level_SSE41:  return "SSE4.1";
-    case FastSIMD::Level_SSE42:  return "SSE4.2";
-    case FastSIMD::Level_AVX:    return "AVX";
-    case FastSIMD::Level_AVX2:   return "AVX2";
-    case FastSIMD::Level_AVX512: return "AVX512";
-    case FastSIMD::Level_NEON:   return "NEON";
+    case FastSIMD::FeatureSet::Null:   return "NULL";
+    case FastSIMD::FeatureSet::Scalar: return "Scalar";
+    case FastSIMD::FeatureSet::SSE:    return "SSE";
+    case FastSIMD::FeatureSet::SSE2:   return "SSE2";
+    case FastSIMD::FeatureSet::SSE3:   return "SSE3";
+    case FastSIMD::FeatureSet::SSSE3:  return "SSSE3";
+    case FastSIMD::FeatureSet::SSE41:  return "SSE4.1";
+    case FastSIMD::FeatureSet::SSE42:  return "SSE4.2";
+    case FastSIMD::FeatureSet::AVX:    return "AVX";
+    case FastSIMD::FeatureSet::AVX2_FMA:   return "AVX2";
+    case FastSIMD::FeatureSet::AVX512_Baseline_FMA: return "AVX512";
+    case FastSIMD::FeatureSet::NEON:   return "NEON";
     }
 }

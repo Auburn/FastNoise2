@@ -4,11 +4,8 @@
 #include "Utils.inl"
 
 template<typename FS>
-class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public FS_T<FastNoise::Generator, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         const float SQRT3 = 1.7320508075688772935274463415059f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
@@ -38,9 +35,9 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v t1 = FS_FNMulAdd_f32( x1, x1, FS_FNMulAdd_f32( y1, y1, float32v( 0.5f ) ) );
         float32v t2 = FS_FNMulAdd_f32( x2, x2, FS_FNMulAdd_f32( y2, y2, float32v( 0.5f ) ) );
 
-        t0 = FS_Max_f32( t0, float32v( 0 ) );
-        t1 = FS_Max_f32( t1, float32v( 0 ) );
-        t2 = FS_Max_f32( t2, float32v( 0 ) );
+        t0 = FS::Max( t0, float32v( 0 ) );
+        t1 = FS::Max( t1, float32v( 0 ) );
+        t2 = FS::Max( t2, float32v( 0 ) );
 
         t0 *= t0; t0 *= t0;
         t1 *= t1; t1 *= t1;
@@ -106,10 +103,10 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v t2 = FS_FNMulAdd_f32( x2, x2, FS_FNMulAdd_f32( y2, y2, FS_FNMulAdd_f32( z2, z2, float32v( 0.6f ) ) ) );
         float32v t3 = FS_FNMulAdd_f32( x3, x3, FS_FNMulAdd_f32( y3, y3, FS_FNMulAdd_f32( z3, z3, float32v( 0.6f ) ) ) );
 
-        t0 = FS_Max_f32( t0, float32v( 0 ) );
-        t1 = FS_Max_f32( t1, float32v( 0 ) );
-        t2 = FS_Max_f32( t2, float32v( 0 ) );
-        t3 = FS_Max_f32( t3, float32v( 0 ) );
+        t0 = FS::Max( t0, float32v( 0 ) );
+        t1 = FS::Max( t1, float32v( 0 ) );
+        t2 = FS::Max( t2, float32v( 0 ) );
+        t3 = FS::Max( t3, float32v( 0 ) );
 
         t0 *= t0; t0 *= t0;
         t1 *= t1; t1 *= t1;
@@ -162,28 +159,28 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         int32v rankw( 0 );
 
         mask32v x_ge_y = x0 >= y0;
-        rankx = FS_MaskedIncrement_i32( rankx, x_ge_y );
-        ranky = FS_MaskedIncrement_i32( ranky, ~x_ge_y );
+        rankx = FS::MaskedIncrement( rankx, x_ge_y );
+        ranky = FS::MaskedIncrement( ranky, ~x_ge_y );
 
         mask32v x_ge_z = x0 >= z0;
-        rankx = FS_MaskedIncrement_i32( rankx, x_ge_z );
-        rankz = FS_MaskedIncrement_i32( rankz, ~x_ge_z );
+        rankx = FS::MaskedIncrement( rankx, x_ge_z );
+        rankz = FS::MaskedIncrement( rankz, ~x_ge_z );
 
         mask32v x_ge_w = x0 >= w0;
-        rankx = FS_MaskedIncrement_i32( rankx, x_ge_w );
-        rankw = FS_MaskedIncrement_i32( rankw, ~x_ge_w );
+        rankx = FS::MaskedIncrement( rankx, x_ge_w );
+        rankw = FS::MaskedIncrement( rankw, ~x_ge_w );
 
         mask32v y_ge_z = y0 >= z0;
-        ranky = FS_MaskedIncrement_i32( ranky, y_ge_z );
-        rankz = FS_MaskedIncrement_i32( rankz, ~y_ge_z );
+        ranky = FS::MaskedIncrement( ranky, y_ge_z );
+        rankz = FS::MaskedIncrement( rankz, ~y_ge_z );
 
         mask32v y_ge_w = y0 >= w0;
-        ranky = FS_MaskedIncrement_i32( ranky, y_ge_w );
-        rankw = FS_MaskedIncrement_i32( rankw, ~y_ge_w );
+        ranky = FS::MaskedIncrement( ranky, y_ge_w );
+        rankw = FS::MaskedIncrement( rankw, ~y_ge_w );
 
         mask32v z_ge_w = z0 >= w0;
-        rankz = FS_MaskedIncrement_i32( rankz, z_ge_w );
-        rankw = FS_MaskedIncrement_i32( rankw, ~z_ge_w );
+        rankz = FS::MaskedIncrement( rankz, z_ge_w );
+        rankw = FS::MaskedIncrement( rankw, ~z_ge_w );
 
         mask32v i1 = rankx > int32v( 2 );
         mask32v j1 = ranky > int32v( 2 );
@@ -223,11 +220,11 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
         float32v t3 = FS_FNMulAdd_f32( x3, x3, FS_FNMulAdd_f32( y3, y3, FS_FNMulAdd_f32( z3, z3, FS_FNMulAdd_f32( w3, w3, float32v( 0.6f ) ) ) ) );
         float32v t4 = FS_FNMulAdd_f32( x4, x4, FS_FNMulAdd_f32( y4, y4, FS_FNMulAdd_f32( z4, z4, FS_FNMulAdd_f32( w4, w4, float32v( 0.6f ) ) ) ) );
 
-        t0 = FS_Max_f32( t0, float32v( 0 ) );
-        t1 = FS_Max_f32( t1, float32v( 0 ) );
-        t2 = FS_Max_f32( t2, float32v( 0 ) );
-        t3 = FS_Max_f32( t3, float32v( 0 ) );
-        t4 = FS_Max_f32( t4, float32v( 0 ) );
+        t0 = FS::Max( t0, float32v( 0 ) );
+        t1 = FS::Max( t1, float32v( 0 ) );
+        t2 = FS::Max( t2, float32v( 0 ) );
+        t3 = FS::Max( t3, float32v( 0 ) );
+        t4 = FS::Max( t4, float32v( 0 ) );
 
         t0 *= t0; t0 *= t0;
         t1 *= t1; t1 *= t1;
@@ -258,11 +255,8 @@ class FS_T<FastNoise::Simplex, FS> : public virtual FastNoise::Simplex, public F
 };
 
 template<typename FS>
-class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2, public FS_T<FastNoise::Generator, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         const float SQRT3 = 1.7320508075f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
@@ -291,9 +285,9 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
         float32v t1 = float32v( 0.5f ) - (x1 * x1) - (y1 * y1);
         float32v t2 = float32v( 0.5f ) - (x2 * x2) - (y2 * y2);
 
-        t0 = FS_Max_f32( t0, float32v( 0 ) );
-        t1 = FS_Max_f32( t1, float32v( 0 ) );
-        t2 = FS_Max_f32( t2, float32v( 0 ) );
+        t0 = FS::Max( t0, float32v( 0 ) );
+        t1 = FS::Max( t1, float32v( 0 ) );
+        t2 = FS::Max( t2, float32v( 0 ) );
 
         t0 *= t0; t0 *= t0;
         t1 *= t1; t1 *= t1;
@@ -326,8 +320,8 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
             float32v score0xr = FS_Abs_f32( d0xr );
             float32v score0yr = FS_Abs_f32( d0yr );
             float32v score0zr = FS_Abs_f32( d0zr );
-            mask32v dir0xr = FS_Max_f32( score0yr, score0zr ) <= score0xr;
-            mask32v dir0yr = FS_BitwiseAndNot_m32( FS_Max_f32( score0zr, score0xr ) <= score0yr, dir0xr );
+            mask32v dir0xr = FS::Max( score0yr, score0zr ) <= score0xr;
+            mask32v dir0yr = FS_BitwiseAndNot_m32( FS::Max( score0zr, score0xr ) <= score0yr, dir0xr );
             mask32v dir0zr = ~(dir0xr | dir0yr);
             float32v v1xr = FS_MaskedAdd_f32( v0xr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0xr ), dir0xr );
             float32v v1yr = FS_MaskedAdd_f32( v0yr, float32v( 1.0f ) | ( float32v( -1.0f ) & d0yr ), dir0yr );
@@ -346,8 +340,8 @@ class FS_T<FastNoise::OpenSimplex2, FS> : public virtual FastNoise::OpenSimplex2
 
             float32v t0 = FS_FNMulAdd_f32( d0zr, d0zr, FS_FNMulAdd_f32( d0yr, d0yr, FS_FNMulAdd_f32( d0xr, d0xr, float32v( 0.6f ) ) ) );
             float32v t1 = FS_FNMulAdd_f32( d1zr, d1zr, FS_FNMulAdd_f32( d1yr, d1yr, FS_FNMulAdd_f32( d1xr, d1xr, float32v( 0.6f ) ) ) );
-            t0 = FS_Max_f32( t0, float32v( 0 ) );
-            t1 = FS_Max_f32( t1, float32v( 0 ) );
+            t0 = FS::Max( t0, float32v( 0 ) );
+            t1 = FS::Max( t1, float32v( 0 ) );
             t0 *= t0; t0 *= t0;
             t1 *= t1; t1 *= t1;
 

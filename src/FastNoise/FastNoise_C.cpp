@@ -23,7 +23,7 @@ void StoreMinMax( float* floatArray2, FastNoise::OutputMinMax minMax )
 
 void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned simdLevel )
 {
-    if( FastNoise::SmartNode<> node = FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::eLevel)simdLevel ) )
+    if( FastNoise::SmartNode<> node = FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::FeatureSet)simdLevel ) )
     {
         return new FastNoise::SmartNode<>( std::move( node ) );
     }
@@ -113,7 +113,7 @@ void* fnNewFromMetadata( int id, unsigned simdLevel )
 {
     if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
-        return new FastNoise::SmartNode<>( metadata->CreateNode( (FastSIMD::eLevel)simdLevel ) );
+        return new FastNoise::SmartNode<>( metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel ) );
     }
     return nullptr;
 }

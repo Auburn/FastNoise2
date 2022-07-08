@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::eLevel*/ simdLevel /*0 = Auto*/ );
+FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::FeatureSet*/ simdLevel /*0 = Auto*/ );
 
 FASTNOISE_API void fnDeleteNodeRef( void* node );
 
@@ -54,7 +54,7 @@ FASTNOISE_API float fnGenSingle4D( const void* node, float x, float y, float z, 
 
 FASTNOISE_API int fnGetMetadataCount();
 FASTNOISE_API const char* fnGetMetadataName( int id ); // valid IDs up to `fnGetMetadataCount() - 1`
-FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::eLevel*/ simdLevel /*0 = Auto*/ );
+FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::FeatureSet*/ simdLevel /*0 = Auto*/ );
 
 FASTNOISE_API int fnGetMetadataVariableCount( int id );
 FASTNOISE_API const char* fnGetMetadataVariableName( int id, int variableIndex );

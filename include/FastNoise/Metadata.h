@@ -186,7 +186,7 @@ namespace FastNoise
         /// </example>
         /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
         /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
-        virtual SmartNode<> CreateNode( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null ) const = 0;
+        virtual SmartNode<> CreateNode( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max ) const = 0;
 
     protected:
         Metadata()

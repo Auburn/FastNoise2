@@ -3,19 +3,17 @@
 #include "Fractal.h"
 
 template<typename FS, typename T>
-class FS_T<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FS_T<FastNoise::Generator, FS>
+class FastSIMD::DispatchClass<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
 {
 
 };
 
 template<typename FS>
-class FS_T<FastNoise::FractalFBm, FS> : public virtual FastNoise::FractalFBm, public FS_T<FastNoise::Fractal<>, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-    FASTNOISE_IMPL_GEN_T;
+class FastSIMD::DispatchClass<FastNoise::FractalFBm, FS> : public virtual FastNoise::FractalFBm, public FastSIMD::DispatchClass<FastNoise::Fractal<>, FS>
+{    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v gain = this->GetSourceValue( mGain  , seed, pos... );
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );
@@ -40,13 +38,11 @@ class FS_T<FastNoise::FractalFBm, FS> : public virtual FastNoise::FractalFBm, pu
 };
 
 template<typename FS>
-class FS_T<FastNoise::FractalRidged, FS> : public virtual FastNoise::FractalRidged, public FS_T<FastNoise::Fractal<>, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-    FASTNOISE_IMPL_GEN_T;
+class FastSIMD::DispatchClass<FastNoise::FractalRidged, FS> : public virtual FastNoise::FractalRidged, public FastSIMD::DispatchClass<FastNoise::Fractal<>, FS>
+{    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT(int32v seed, P... pos) const
+    FS_FORCEINLINE float32v GenT(int32v seed, P... pos) const
     {
         float32v gain = this->GetSourceValue( mGain, seed, pos... );
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );
@@ -71,10 +67,8 @@ class FS_T<FastNoise::FractalRidged, FS> : public virtual FastNoise::FractalRidg
 };
 
 template<typename FS>
-class FS_T<FastNoise::FractalPingPong, FS> : public virtual FastNoise::FractalPingPong, public FS_T<FastNoise::Fractal<>, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-    FASTNOISE_IMPL_GEN_T;
+class FastSIMD::DispatchClass<FastNoise::FractalPingPong, FS> : public virtual FastNoise::FractalPingPong, public FastSIMD::DispatchClass<FastNoise::Fractal<>, FS>
+{    FASTNOISE_IMPL_GEN_T;
 
     static float32v PingPong( float32v t )
     {
@@ -83,7 +77,7 @@ class FS_T<FastNoise::FractalPingPong, FS> : public virtual FastNoise::FractalPi
     }
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v gain = this->GetSourceValue( mGain  , seed, pos... );
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );

@@ -27,7 +27,7 @@ namespace FastNoise
         friend class SmartNode;
 
         template<typename T>
-        friend SmartNode<T> New( FastSIMD::eLevel );
+        friend SmartNode<T> New( FastSIMD::FeatureSet );
 
         static uint64_t GetReference( const void* ptr );
 
@@ -224,7 +224,7 @@ namespace FastNoise
 
     private:
         template<typename U>
-        friend SmartNode<U> New( FastSIMD::eLevel );
+        friend SmartNode<U> New( FastSIMD::FeatureSet );
 
         template<typename U>
         friend struct MetadataT;
@@ -233,10 +233,10 @@ namespace FastNoise
         friend class SmartNode;
 
         explicit SmartNode( T* ptr ) :
-            mReferenceId( SmartNodeManager::GetReference( ptr ) ),
+            mReferenceId( ptr ? SmartNodeManager::GetReference( ptr ) : SmartNodeManager::kInvalidReferenceId ),
             mPtr( ptr )
         {
-            SmartNodeManager::IncReference( mReferenceId );
+            TryInc( mReferenceId );            
         }
 
         void Release()

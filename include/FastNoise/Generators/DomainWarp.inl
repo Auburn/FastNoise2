@@ -4,13 +4,11 @@
 #include "Utils.inl"
 
 template<typename FS>
-class FS_T<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FS_T<FastNoise::Generator, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-    FASTNOISE_IMPL_GEN_T;
+class FastSIMD::DispatchClass<FastNoise::DomainWarp, FS> : public virtual FastNoise::DomainWarp, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
+{    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), (pos * float32v( mWarpFrequency ))..., pos... );
 
@@ -28,11 +26,8 @@ public:
 };
 
 template<typename FS>
-class FS_T<FastNoise::DomainWarpGradient, FS> : public virtual FastNoise::DomainWarpGradient, public FS_T<FastNoise::DomainWarp, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-
-public:
+class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtual FastNoise::DomainWarpGradient, public FastSIMD::DispatchClass<FastNoise::DomainWarp, FS>
+{public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         float32v xs = FS_Floor_f32( x );
@@ -48,8 +43,8 @@ public:
 
     #define GRADIENT_COORD( _x, _y )\
         int32v hash##_x##_y = FnUtils::HashPrimesHB(seed, x##_x, y##_y );\
-        float32v x##_x##_y = FS_Converti32_f32( hash##_x##_y & int32v( 0xffff ) );\
-        float32v y##_x##_y = FS_Converti32_f32( (hash##_x##_y >> 16) & int32v( 0xffff ) );
+        float32v x##_x##_y = FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) );\
+        float32v y##_x##_y = FS::Convert<float>( (hash##_x##_y >> 16) & int32v( 0xffff ) );
 
         GRADIENT_COORD( 0, 0 );
         GRADIENT_COORD( 1, 0 );
@@ -90,9 +85,9 @@ public:
 
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = FnUtils::HashPrimesHB( seed, x##_x, y##_y, z##_z );\
-        float32v x##_x##_y##_z = FS_Converti32_f32( hash##_x##_y##_z & int32v( 0x3ff ) );\
-        float32v y##_x##_y##_z = FS_Converti32_f32( (hash##_x##_y##_z >> 10) & int32v( 0x3ff ) );\
-        float32v z##_x##_y##_z = FS_Converti32_f32( (hash##_x##_y##_z >> 20) & int32v( 0x3ff ) );
+        float32v x##_x##_y##_z = FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) );\
+        float32v y##_x##_y##_z = FS::Convert<float>( (hash##_x##_y##_z >> 10) & int32v( 0x3ff ) );\
+        float32v z##_x##_y##_z = FS::Convert<float>( (hash##_x##_y##_z >> 20) & int32v( 0x3ff ) );
 
         GRADIENT_COORD( 0, 0, 0 );
         GRADIENT_COORD( 1, 0, 0 );
@@ -151,10 +146,10 @@ public:
 
     #define GRADIENT_COORD( _x, _y, _z, _w )\
         int32v hash##_x##_y##_z##_w = FnUtils::HashPrimesHB( seed, x##_x, y##_y, z##_z, w##_w );\
-        float32v x##_x##_y##_z##_w = FS_Converti32_f32( hash##_x##_y##_z##_w & int32v( 0xff ) );\
-        float32v y##_x##_y##_z##_w = FS_Converti32_f32( (hash##_x##_y##_z##_w >> 8) & int32v( 0xff ) );\
-        float32v z##_x##_y##_z##_w = FS_Converti32_f32( (hash##_x##_y##_z##_w >> 16) & int32v( 0xff ) );\
-        float32v w##_x##_y##_z##_w = FS_Converti32_f32( (hash##_x##_y##_z##_w >> 24) & int32v( 0xff ) );
+        float32v x##_x##_y##_z##_w = FS::Convert<float>( hash##_x##_y##_z##_w & int32v( 0xff ) );\
+        float32v y##_x##_y##_z##_w = FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & int32v( 0xff ) );\
+        float32v z##_x##_y##_z##_w = FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & int32v( 0xff ) );\
+        float32v w##_x##_y##_z##_w = FS::Convert<float>( (hash##_x##_y##_z##_w >> 24) & int32v( 0xff ) );
 
         GRADIENT_COORD( 0, 0, 0, 0 );
         GRADIENT_COORD( 1, 0, 0, 0 );

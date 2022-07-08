@@ -197,7 +197,7 @@ bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& 
     return true;
 }
 
-SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::eLevel level = FastSIMD::Level_Null )
+SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::FeatureSet level = FastSIMD::FeatureSet::Max )
 {
     uint16_t nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
@@ -296,7 +296,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
     return generator;
 }
 
-SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
+SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeData, FastSIMD::FeatureSet level )
 {
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
@@ -469,9 +469,9 @@ const FastNoise::Metadata& CLASS::GetMetadata() const\
 {\
     return FastNoise::Impl::GetMetadata<CLASS>();\
 }\
-SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::eLevel l ) const\
+SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::FeatureSet l ) const\
 {\
-    return SmartNode<>( FastSIMD::New<CLASS>( l FASTNOISE_GET_MEMORY_ALLOCATOR() ) );\
+    return SmartNode<>( FastSIMD::NewDispatchClass<CLASS>( l FASTNOISE_GET_MEMORY_ALLOCATOR() ) );\
 }
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY

@@ -3,13 +3,11 @@
 #include "DomainWarpFractal.h"
 
 template<typename FS>
-class FS_T<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoise::DomainWarpFractalProgressive, public FS_T<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-    FASTNOISE_IMPL_GEN_T;
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoise::DomainWarpFractalProgressive, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
+{    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         auto* warp = this->GetSourceSIMD( mSource );
 
@@ -37,13 +35,11 @@ class FS_T<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoi
 };
 
 template<typename FS>
-class FS_T<FastNoise::DomainWarpFractalIndependant, FS> : public virtual FastNoise::DomainWarpFractalIndependant, public FS_T<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
-{
-    FASTSIMD_DECLARE_FS_TYPES;
-    FASTNOISE_IMPL_GEN_T;
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, FS> : public virtual FastNoise::DomainWarpFractalIndependant, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
+{    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return [this, seed] ( std::remove_reference_t<P>... noisePos, std::remove_reference_t<P>... warpPos )
         {

@@ -95,7 +95,7 @@ namespace FastNoise
 
         virtual ~Generator() = default;
 
-        virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
+        virtual FastSIMD::FeatureSet GetSIMDLevel() const = 0;
         virtual const Metadata& GetMetadata() const = 0;
 
         virtual OutputMinMax GenUniformGrid2D( float* out,
