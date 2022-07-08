@@ -34,21 +34,21 @@ int main()
     const int size = 16;
 
     // Multi-threaded use-case
-    std::array<std::array<float, size * size>, 16U> noise_per_thread;
+    std::array<std::array<float, size * size>, 32U> noise_per_thread;
     tf::Taskflow task_flow;
-    task_flow.for_each_index(0U, 64U, 1U,
-                              [&noise_per_thread, size]( const uint32_t t ) {
+    task_flow.for_each_index( size_t(0), noise_per_thread.size(), size_t(1),
+                              [&noise_per_thread, size]( const size_t t ) {
                                 auto node = FastNoise::New<FastNoise::FractalFBm>();
                                 node->SetSource( FastNoise::New<FastNoise::Simplex>() );
                                 node->SetGain( FastNoise::New<FastNoise::Value>() );
-                                node->GenUniformGrid2D( noise_per_thread[t].data(), 0, 0, size, size, 0.02f, 1337 );
+                                node->GenUniformGrid2D( noise_per_thread.at(t).data(), 0, 0, size, size, 0.02f, 1337 );
                             });
     tf::Executor().run( task_flow ).get();
 
     for( int t = 0; t < noise_per_thread.size(); ++t )
     {
         std::cout << std::endl << "Thread " << t << " noise: ";
-        for( float value: noise_per_thread[t] )
+        for( float value: noise_per_thread.at(t) )
         {
             std::cout << value << ", ";
         }
