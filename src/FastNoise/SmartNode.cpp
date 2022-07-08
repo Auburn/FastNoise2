@@ -170,6 +170,7 @@ namespace FastNoise
 
                     assert( freeSlots[idx].size >= slotSize );
                     
+                    new( startSlot ) SlotHeader { 0u };
                     usedSlots.emplace_back( Slot{ freeSlots[idx].pos, slotSize } );
 
                     // Check if remaining free slot is empty
@@ -177,13 +178,12 @@ namespace FastNoise
                     {
                         assert( freeSlots[idx].size == slotSize );
                         freeSlots.erase( freeSlots.cbegin() + idx );
+                        return ptr;
                     }
 
                     freeSlots[idx].pos += slotSize;
                     freeSlots[idx].size -= slotSize;
 
-                    new( startSlot ) SlotHeader { 0u };
-                    
                     return ptr;
                 }
             }
@@ -273,6 +273,8 @@ namespace FastNoise
 
         std::atomic<uint32_t>& GetReferenceCount( SmartNodeReference ref ) const
         {
+            std::lock_guard lock( mMutex );
+
             return std::next( mPools.begin(), ref.u32.pool )->GetReferenceCount( ref.u32.id );
         }
 
@@ -339,7 +341,7 @@ namespace FastNoise
         // std::list is used to allow lock free reads to pools
         // In most use cases there should only be 1 pool so performance is not a concern
         std::list<SmartNodeManagerPool> mPools;
-        std::mutex mMutex;
+        mutable std::mutex mMutex;
     };
 
     static SmartNodeMemoryAllocator gMemoryAllocator;
