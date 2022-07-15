@@ -88,7 +88,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
     if( generator )
     {
         auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxSIMDLevel );
-        //genRGB->SetSource( generator );
+        genRGB->SetSource( generator );
 
         FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
         

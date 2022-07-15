@@ -1,6 +1,6 @@
 #pragma once
-#include <FastSIMD/DispatchClass.h>
 #include "FastNoise_Export.h"
+#include <FastSIMD/DispatchClass.h>
 
 #define FASTNOISE_CALC_MIN_MAX true
 #define FASTNOISE_USE_SHARED_PTR false

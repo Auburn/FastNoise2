@@ -320,8 +320,8 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     static thread_local std::vector<float> noiseData;
     noiseData.resize( (size_t)buildData.size.x() * buildData.size.y() );
 
-    auto gen = buildData.generator;// FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetSIMDLevel() );
-    //gen->SetSource( buildData.generator );
+    auto gen = FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetSIMDLevel() );
+    gen->SetSource( buildData.generator );
 
     FastNoise::OutputMinMax minMax;
 

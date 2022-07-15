@@ -8,8 +8,6 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
-        //"CMAKE_C_COMPILER": "clang-cl",
-        //"CMAKE_CXX_COMPILER": "clang-cl",
         "CPM_SOURCE_CACHE": {
           "value": "${sourceDir}/out/cpm-cache",
           "type": "PATH"
@@ -17,10 +15,6 @@
         "BUILD_SHARED_LIBS": {
           "value": "True",
           "type": "BOOL"
-        },
-        "CPM_Fast_SIMD_SOURCE": {
-          "value": "../../../../../FastSIMD",
-          "type": "PATH"
         }
       }
     },

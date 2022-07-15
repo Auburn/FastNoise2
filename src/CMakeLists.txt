@@ -3,17 +3,16 @@ set(CMAKE_CXX_STANDARD 17)
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG 8acda378ad0c85d5a8c144a49b399fe9e4599684
+    GIT_TAG 5ff01e0274dd7605d0b80d4957e3affb04c1178f
     EXCLUDE_FROM_ALL YES
-    OPTIONS
-        "BUILD_SHARED_LIBS OFF"
+    #OPTIONS
+    #    "BUILD_SHARED_LIBS OFF"
 )
 
 set(install_targets ${install_targets}
     FastNoise
-    FastSIMD    
+    FastSIMD
     FastSIMD_FastNoise  
-    FastSIMD_DispatchClass 
     PARENT_SCOPE)
 
 
@@ -52,22 +51,22 @@ target_include_directories(FastNoise PUBLIC
     $<BUILD_INTERFACE:${FastNoise2_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-
-if(NOT BUILD_SHARED_LIBS)
-    target_compile_definitions(FastNoise PUBLIC FASTNOISE_STATIC_LIB)
-endif()
+   
+target_compile_definitions(FastNoise PRIVATE FASTNOISE_EXPORT)
 
 set_target_properties(FastNoise PROPERTIES
-    DEFINE_SYMBOL FASTNOISE_EXPORT
     DEBUG_POSTFIX D
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
-
 
 fastsimd_create_simd_library(FastSIMD_FastNoise "../include/FastNoise/FastNoise_BuildList.inl")
 
 target_include_directories(FastSIMD_FastNoise PRIVATE "../include/")
 
-target_link_libraries(FastNoise PUBLIC FastSIMD_FastNoise)
+if(NOT BUILD_SHARED_LIBS)
+    target_compile_definitions(FastNoise PUBLIC FASTNOISE_STATIC_LIB)
+endif()
+
+target_link_libraries(FastNoise PUBLIC FastSIMD PRIVATE FastSIMD_FastNoise)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast /wd4251)
