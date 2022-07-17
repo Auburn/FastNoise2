@@ -78,7 +78,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
     static std::array<float, NoiseSize * NoiseSize> noiseData;
 
     serialised = FastNoise::Metadata::SerialiseNodeData( data.get(), true );
-    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str(), editor.mMaxSIMDLevel );
+    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str(), editor.mMaxFeatureSet );
 
     if( !benchmark && nodeTreeChanged )
     {
@@ -87,7 +87,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
 
     if( generator )
     {
-        auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxSIMDLevel );
+        auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxFeatureSet );
         genRGB->SetSource( generator );
 
         FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
@@ -551,8 +551,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
 
-    std::string simdTxt = "Current SIMD Level: ";
-    simdTxt += GetSIMDLevelName( mActualSIMDLevel );
+    std::string simdTxt = "Current Feature Set: ";
+    simdTxt += GetFeatureSetName( mActualFeatureSet );
     ImGui::TextUnformatted( simdTxt.c_str() );
 
     ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
@@ -753,7 +753,7 @@ void FastNoiseNodeEditor::UpdateSelected()
 
 void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::FeatureSet lvl )
 {
-    mMaxSIMDLevel = lvl;
+    mMaxFeatureSet = lvl;
 
     mOverheadNode.generateAverages.clear();
     DoNodeBenchmarks();
@@ -1162,11 +1162,11 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
 
     if( find != mNodes.end() )
     {
-        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxSIMDLevel );
+        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxFeatureSet );
 
         if( generator )
         {
-            mActualSIMDLevel = generator->GetSIMDLevel();
+            mActualFeatureSet = generator->GetLiveFeatureSet();
         }
     }
 
@@ -1248,7 +1248,7 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
     }
 }
 
-const char* FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::FeatureSet lvl )
+const char* FastNoiseNodeEditor::GetFeatureSetName( FastSIMD::FeatureSet lvl )
 {
     switch( lvl )
     {
@@ -1262,8 +1262,12 @@ const char* FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::FeatureSet lvl )
     case FastSIMD::FeatureSet::SSE41:  return "SSE4.1";
     case FastSIMD::FeatureSet::SSE42:  return "SSE4.2";
     case FastSIMD::FeatureSet::AVX:    return "AVX";
-    case FastSIMD::FeatureSet::AVX2_FMA:   return "AVX2";
-    case FastSIMD::FeatureSet::AVX512_Baseline_FMA: return "AVX512";
+    case FastSIMD::FeatureSet::AVX2:   return "AVX2";
+    case FastSIMD::FeatureSet::AVX2_FMA:   return "AVX2_FMA";
+    case FastSIMD::FeatureSet::AVX512_Baseline: return "AVX512";
+    case FastSIMD::FeatureSet::AVX512_Baseline_FMA: return "AVX512_FMA";
     case FastSIMD::FeatureSet::NEON:   return "NEON";
+    case FastSIMD::FeatureSet::NEON_FMA:   return "NEON_FMA";
+    case FastSIMD::FeatureSet::Max:   return "AUTO";
     }
 }

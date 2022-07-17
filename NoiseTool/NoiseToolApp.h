@@ -40,9 +40,9 @@ namespace Magnum
 
         Color3 mClearColor{ 0.122f };
         bool mBackFaceCulling = false;
-        int mMaxSIMDLevel = 0;
-        std::vector<const char*> mLevelNames;
-        std::vector<FastSIMD::FeatureSet> mLevelEnums;
+        int mMaxFeatureSet = 0;
+        std::vector<FastSIMD::FeatureSet> mFeatureSetSelection;
+        std::vector<const char*> mFeatureSetNames;
 
         ImGuiIntegration::Context mImGuiIntegrationContext;
         ImGuiContext* mImGuiContext;

@@ -62,19 +62,21 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     GL::Renderer::setBlendEquation( GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add );
     GL::Renderer::setBlendFunction( GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha );
 
-    Debug{} << "FastSIMD detected max CPU SIMD Level:" << FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::DetectCpuMaxFeatureSet() );
+    Debug{} << "FastSIMD detected max CPU supported feature set:" << FastNoiseNodeEditor::GetFeatureSetName( FastSIMD::DetectCpuMaxFeatureSet() );
 
-    mLevelNames = { "Auto" };
-    mLevelEnums = { FastSIMD::FeatureSet::Null };
+    mFeatureSetSelection = 
+    { 
+        FastSIMD::FeatureSet::Max,
+        FastSIMD::FeatureSet::Scalar,
+        FastSIMD::FeatureSet::SSE2,
+        FastSIMD::FeatureSet::SSE41,
+        FastSIMD::FeatureSet::AVX2_FMA,
+        FastSIMD::FeatureSet::AVX512_Baseline_FMA,
+    };
 
-    for( int i = 1; i > 0; i <<= 1 )
+    for( FastSIMD::FeatureSet featureSet : mFeatureSetSelection )
     {
-        FastSIMD::FeatureSet lvl = (FastSIMD::FeatureSet)i;
-        /*if( lvl & FastNoise::SUPPORTED_SIMD_LEVELS & FastSIMD::COMPILED_SIMD_LEVELS )
-        {
-            mLevelNames.emplace_back( FastNoiseNodeEditor::GetSIMDLevelName( lvl ) );
-            mLevelEnums.emplace_back( lvl );
-        }*/
+        mFeatureSetNames.push_back( FastNoiseNodeEditor::GetFeatureSetName( featureSet ) );
     }
 }
 
@@ -114,10 +116,10 @@ void NoiseToolApp::drawEvent()
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
 
-        if( ImGui::Combo( "Max SIMD Level", &mMaxSIMDLevel, mLevelNames.data(), (int)mLevelEnums.size() ) ||
-            ImGuiExtra::ScrollCombo( &mMaxSIMDLevel, (int)mLevelEnums.size() ) )
+        if( ImGui::Combo( "Max Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
+            ImGuiExtra::ScrollCombo( &mMaxFeatureSet, (int)mFeatureSetSelection.size() ) )
         {   
-            FastSIMD::FeatureSet newLevel = mLevelEnums[mMaxSIMDLevel];
+            FastSIMD::FeatureSet newLevel = mFeatureSetSelection[mMaxFeatureSet];
             mNodeEditor.SetSIMDLevel( newLevel );
         }
     }
