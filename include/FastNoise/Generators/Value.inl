@@ -5,13 +5,14 @@
 
 template<typename FS>
 class FastSIMD::DispatchClass<FastNoise::Value, FS> : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
-{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );
 
-        int32v x0 = FS_Convertf32_i32( xs ) * int32v( FnPrimes::X );
-        int32v y0 = FS_Convertf32_i32( ys ) * int32v( FnPrimes::Y );
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( FnPrimes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( FnPrimes::Y );
         int32v x1 = x0 + int32v( FnPrimes::X );
         int32v y1 = y0 + int32v( FnPrimes::Y );
 
@@ -29,9 +30,9 @@ class FastSIMD::DispatchClass<FastNoise::Value, FS> : public virtual FastNoise::
         float32v ys = FS_Floor_f32( y );
         float32v zs = FS_Floor_f32( z );
 
-        int32v x0 = FS_Convertf32_i32( xs ) * int32v( FnPrimes::X );
-        int32v y0 = FS_Convertf32_i32( ys ) * int32v( FnPrimes::Y );
-        int32v z0 = FS_Convertf32_i32( zs ) * int32v( FnPrimes::Z );
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( FnPrimes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( FnPrimes::Y );
+        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( FnPrimes::Z );
         int32v x1 = x0 + int32v( FnPrimes::X );
         int32v y1 = y0 + int32v( FnPrimes::Y );
         int32v z1 = z0 + int32v( FnPrimes::Z );
@@ -55,10 +56,10 @@ class FastSIMD::DispatchClass<FastNoise::Value, FS> : public virtual FastNoise::
         float32v zs = FS_Floor_f32( z );
         float32v ws = FS_Floor_f32( w );
 
-        int32v x0 = FS_Convertf32_i32( xs ) * int32v( FnPrimes::X );
-        int32v y0 = FS_Convertf32_i32( ys ) * int32v( FnPrimes::Y );
-        int32v z0 = FS_Convertf32_i32( zs ) * int32v( FnPrimes::Z );
-        int32v w0 = FS_Convertf32_i32( ws ) * int32v( FnPrimes::W );
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( FnPrimes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( FnPrimes::Y );
+        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( FnPrimes::Z );
+        int32v w0 = FS::Convert<int32_t>( ws ) * int32v( FnPrimes::W );
         int32v x1 = x0 + int32v( FnPrimes::X );
         int32v y1 = y0 + int32v( FnPrimes::Y );
         int32v z1 = z0 + int32v( FnPrimes::Z );

@@ -107,13 +107,13 @@ class FastSIMD::DispatchClass<FastNoise::MinSmooth, FS> : public virtual FastNoi
     {
         float32v a = this->GetSourceValue( mLHS, seed, pos... );
         float32v b = this->GetSourceValue( mRHS, seed, pos... );
-        float32v smoothness = FS::Max( float32v( 1.175494351e-38f ), FS_Abs_f32( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
+        float32v smoothness = FS::Max( float32v( 1.175494351e-38f ), FS::Abs( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
 
-        float32v h = FS::Max( smoothness - FS_Abs_f32( a - b ), float32v( 0.0f ) );
+        float32v h = FS::Max( smoothness - FS::Abs( a - b ), float32v( 0.0f ) );
 
         h *= FS_Reciprocal_f32( smoothness );
 
-        return FS_FNMulAdd_f32( float32v( 1.0f / 6.0f ), h * h * h * smoothness, FS::Min( a, b ) );
+        return FS::FNMulAdd( float32v( 1.0f / 6.0f ), h * h * h * smoothness, FS::Min( a, b ) );
     }
 };
 
@@ -126,13 +126,13 @@ class FastSIMD::DispatchClass<FastNoise::MaxSmooth, FS> : public virtual FastNoi
     {
         float32v a = -this->GetSourceValue( mLHS, seed, pos... );
         float32v b = -this->GetSourceValue( mRHS, seed, pos... );
-        float32v smoothness = FS::Max( float32v( 1.175494351e-38f ), FS_Abs_f32( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
+        float32v smoothness = FS::Max( float32v( 1.175494351e-38f ), FS::Abs( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
 
-        float32v h = FS::Max( smoothness - FS_Abs_f32( a - b ), float32v( 0.0f ) );
+        float32v h = FS::Max( smoothness - FS::Abs( a - b ), float32v( 0.0f ) );
 
         h *= FS_Reciprocal_f32( smoothness );
 
-        return -FS_FNMulAdd_f32( float32v( 1.0f / 6.0f ), h * h * h * smoothness, FS::Min( a, b ) );
+        return -FS::FNMulAdd( float32v( 1.0f / 6.0f ), h * h * h * smoothness, FS::Min( a, b ) );
     }
 };
 
@@ -143,9 +143,9 @@ class FastSIMD::DispatchClass<FastNoise::Fade, FS> : public virtual FastNoise::F
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v fade = FS_Abs_f32( this->GetSourceValue( mFade, seed, pos... ) );
+        float32v fade = FS::Abs( this->GetSourceValue( mFade, seed, pos... ) );
 
-        return FS_FMulAdd_f32( this->GetSourceValue( mA, seed, pos... ), float32v( 1 ) - fade, this->GetSourceValue( mB, seed, pos... ) * fade );
+        return FS::FMulAdd( this->GetSourceValue( mA, seed, pos... ), float32v( 1 ) - fade, this->GetSourceValue( mB, seed, pos... ) * fade );
     }
 };
 

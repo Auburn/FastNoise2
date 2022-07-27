@@ -15,8 +15,8 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v x0 = FS_Floor_f32( x + f );
         float32v y0 = FS_Floor_f32( y + f );
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
+        int32v i = FS::Convert<int32_t>( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS::Convert<int32_t>( y0 ) * int32v( FnPrimes::Y );
 
         float32v g = float32v( G2 ) * (x0 + y0);
         x0 = x - (x0 - g);
@@ -31,9 +31,9 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v x2 = x0 + float32v( G2 * 2 - 1 );
         float32v y2 = y0 + float32v( G2 * 2 - 1 );
 
-        float32v t0 = FS_FNMulAdd_f32( x0, x0, FS_FNMulAdd_f32( y0, y0, float32v( 0.5f ) ) );
-        float32v t1 = FS_FNMulAdd_f32( x1, x1, FS_FNMulAdd_f32( y1, y1, float32v( 0.5f ) ) );
-        float32v t2 = FS_FNMulAdd_f32( x2, x2, FS_FNMulAdd_f32( y2, y2, float32v( 0.5f ) ) );
+        float32v t0 = FS::FNMulAdd( x0, x0, FS::FNMulAdd( y0, y0, float32v( 0.5f ) ) );
+        float32v t1 = FS::FNMulAdd( x1, x1, FS::FNMulAdd( y1, y1, float32v( 0.5f ) ) );
+        float32v t2 = FS::FNMulAdd( x2, x2, FS::FNMulAdd( y2, y2, float32v( 0.5f ) ) );
 
         t0 = FS::Max( t0, float32v( 0 ) );
         t1 = FS::Max( t1, float32v( 0 ) );
@@ -47,7 +47,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v n1 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( FnPrimes::Y ), i1 ) ), x1, y1 );
         float32v n2 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ) ), x2, y2 );
 
-        return float32v( 38.283687591552734375f ) * FS_FMulAdd_f32( n0, t0, FS_FMulAdd_f32( n1, t1, n2 * t2 ) );
+        return float32v( 38.283687591552734375f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
@@ -67,9 +67,9 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v yi = y - y0;
         float32v zi = z - z0;
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
-        int32v k = FS_Convertf32_i32( z0 ) * int32v( FnPrimes::Z );
+        int32v i = FS::Convert<int32_t>( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS::Convert<int32_t>( y0 ) * int32v( FnPrimes::Y );
+        int32v k = FS::Convert<int32_t>( z0 ) * int32v( FnPrimes::Z );
 
         mask32v x_ge_y = xi >= yi;
         mask32v y_ge_z = yi >= zi;
@@ -98,10 +98,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v y3 = y0 + float32v( G3 * 3 - 1 );
         float32v z3 = z0 + float32v( G3 * 3 - 1 );
 
-        float32v t0 = FS_FNMulAdd_f32( x0, x0, FS_FNMulAdd_f32( y0, y0, FS_FNMulAdd_f32( z0, z0, float32v( 0.6f ) ) ) );
-        float32v t1 = FS_FNMulAdd_f32( x1, x1, FS_FNMulAdd_f32( y1, y1, FS_FNMulAdd_f32( z1, z1, float32v( 0.6f ) ) ) );
-        float32v t2 = FS_FNMulAdd_f32( x2, x2, FS_FNMulAdd_f32( y2, y2, FS_FNMulAdd_f32( z2, z2, float32v( 0.6f ) ) ) );
-        float32v t3 = FS_FNMulAdd_f32( x3, x3, FS_FNMulAdd_f32( y3, y3, FS_FNMulAdd_f32( z3, z3, float32v( 0.6f ) ) ) );
+        float32v t0 = FS::FNMulAdd( x0, x0, FS::FNMulAdd( y0, y0, FS::FNMulAdd( z0, z0, float32v( 0.6f ) ) ) );
+        float32v t1 = FS::FNMulAdd( x1, x1, FS::FNMulAdd( y1, y1, FS::FNMulAdd( z1, z1, float32v( 0.6f ) ) ) );
+        float32v t2 = FS::FNMulAdd( x2, x2, FS::FNMulAdd( y2, y2, FS::FNMulAdd( z2, z2, float32v( 0.6f ) ) ) );
+        float32v t3 = FS::FNMulAdd( x3, x3, FS::FNMulAdd( y3, y3, FS::FNMulAdd( z3, z3, float32v( 0.6f ) ) ) );
 
         t0 = FS::Max( t0, float32v( 0 ) );
         t1 = FS::Max( t1, float32v( 0 ) );
@@ -118,7 +118,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v n2 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i2 ), FS_MaskedAdd_i32( j, int32v( FnPrimes::Y ), j2 ), FS_NMaskedAdd_i32( k, int32v( FnPrimes::Z ), k2 ) ), x2, y2, z2 );
         float32v n3 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ), k + int32v( FnPrimes::Z ) ), x3, y3, z3 );
 
-        return float32v( 32.69428253173828125f ) * FS_FMulAdd_f32( n0, t0, FS_FMulAdd_f32( n1, t1, FS_FMulAdd_f32( n2, t2, n3 * t3 ) ) );
+        return float32v( 32.69428253173828125f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, n3 * t3 ) ) );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
@@ -142,10 +142,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v zi = z - z0;
         float32v wi = w - w0;
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
-        int32v k = FS_Convertf32_i32( z0 ) * int32v( FnPrimes::Z );
-        int32v l = FS_Convertf32_i32( w0 ) * int32v( FnPrimes::W );
+        int32v i = FS::Convert<int32_t>( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS::Convert<int32_t>( y0 ) * int32v( FnPrimes::Y );
+        int32v k = FS::Convert<int32_t>( z0 ) * int32v( FnPrimes::Z );
+        int32v l = FS::Convert<int32_t>( w0 ) * int32v( FnPrimes::W );
 
         float32v g = float32v( G4 ) * (xi + yi + zi + wi);
         x0 = xi - g;
@@ -214,11 +214,11 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
         float32v z4 = z0 + float32v( G4 * 4 - 1 );
         float32v w4 = w0 + float32v( G4 * 4 - 1 );
 
-        float32v t0 = FS_FNMulAdd_f32( x0, x0, FS_FNMulAdd_f32( y0, y0, FS_FNMulAdd_f32( z0, z0, FS_FNMulAdd_f32( w0, w0, float32v( 0.6f ) ) ) ) );
-        float32v t1 = FS_FNMulAdd_f32( x1, x1, FS_FNMulAdd_f32( y1, y1, FS_FNMulAdd_f32( z1, z1, FS_FNMulAdd_f32( w1, w1, float32v( 0.6f ) ) ) ) );
-        float32v t2 = FS_FNMulAdd_f32( x2, x2, FS_FNMulAdd_f32( y2, y2, FS_FNMulAdd_f32( z2, z2, FS_FNMulAdd_f32( w2, w2, float32v( 0.6f ) ) ) ) );
-        float32v t3 = FS_FNMulAdd_f32( x3, x3, FS_FNMulAdd_f32( y3, y3, FS_FNMulAdd_f32( z3, z3, FS_FNMulAdd_f32( w3, w3, float32v( 0.6f ) ) ) ) );
-        float32v t4 = FS_FNMulAdd_f32( x4, x4, FS_FNMulAdd_f32( y4, y4, FS_FNMulAdd_f32( z4, z4, FS_FNMulAdd_f32( w4, w4, float32v( 0.6f ) ) ) ) );
+        float32v t0 = FS::FNMulAdd( x0, x0, FS::FNMulAdd( y0, y0, FS::FNMulAdd( z0, z0, FS::FNMulAdd( w0, w0, float32v( 0.6f ) ) ) ) );
+        float32v t1 = FS::FNMulAdd( x1, x1, FS::FNMulAdd( y1, y1, FS::FNMulAdd( z1, z1, FS::FNMulAdd( w1, w1, float32v( 0.6f ) ) ) ) );
+        float32v t2 = FS::FNMulAdd( x2, x2, FS::FNMulAdd( y2, y2, FS::FNMulAdd( z2, z2, FS::FNMulAdd( w2, w2, float32v( 0.6f ) ) ) ) );
+        float32v t3 = FS::FNMulAdd( x3, x3, FS::FNMulAdd( y3, y3, FS::FNMulAdd( z3, z3, FS::FNMulAdd( w3, w3, float32v( 0.6f ) ) ) ) );
+        float32v t4 = FS::FNMulAdd( x4, x4, FS::FNMulAdd( y4, y4, FS::FNMulAdd( z4, z4, FS::FNMulAdd( w4, w4, float32v( 0.6f ) ) ) ) );
 
         t0 = FS::Max( t0, float32v( 0 ) );
         t1 = FS::Max( t1, float32v( 0 ) );
@@ -250,7 +250,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, FS> : public virtual FastNoise
             FS_MaskedAdd_i32( l, int32v( FnPrimes::W ), l3 ) ), x3, y3, z3, w3 );
         float32v n4 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ), k + int32v( FnPrimes::Z ), l + int32v( FnPrimes::W ) ), x4, y4, z4, w4 );
 
-        return float32v( 27.f ) * FS_FMulAdd_f32( n0, t0, FS_FMulAdd_f32( n1, t1, FS_FMulAdd_f32( n2, t2, FS_FMulAdd_f32( n3, t3, n4 * t4 ) ) ) );
+        return float32v( 27.f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, FS::FMulAdd( n3, t3, n4 * t4 ) ) ) );
     }
 };
 
@@ -266,8 +266,8 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, FS> : public virtual Fast
         float32v x0 = FS_Floor_f32( x + f );
         float32v y0 = FS_Floor_f32( y + f );
 
-        int32v i = FS_Convertf32_i32( x0 ) * int32v( FnPrimes::X );
-        int32v j = FS_Convertf32_i32( y0 ) * int32v( FnPrimes::Y );
+        int32v i = FS::Convert<int32_t>( x0 ) * int32v( FnPrimes::X );
+        int32v j = FS::Convert<int32_t>( y0 ) * int32v( FnPrimes::Y );
 
         float32v g = float32v( G2 ) * (x0 + y0);
         x0 = x - (x0 - g);
@@ -297,7 +297,7 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, FS> : public virtual Fast
         float32v n1 = FnUtils::GetGradientDotFancy( FnUtils::HashPrimes( seed, FS_MaskedAdd_i32( i, int32v( FnPrimes::X ), i1 ), FS_NMaskedAdd_i32( j, int32v( FnPrimes::Y ), i1 ) ), x1, y1 );
         float32v n2 = FnUtils::GetGradientDotFancy( FnUtils::HashPrimes( seed, i + int32v( FnPrimes::X ), j + int32v( FnPrimes::Y ) ), x2, y2 );
 
-        return float32v( 49.918426513671875f ) * FS_FMulAdd_f32( n0, t0, FS_FMulAdd_f32( n1, t1, n2 * t2 ) );
+        return float32v( 49.918426513671875f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
@@ -310,16 +310,16 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, FS> : public virtual Fast
         float32v val( 0 );
         for( size_t i = 0; ; i++ )
         {
-            float32v v0xr = FS_Round_f32( xr );
-            float32v v0yr = FS_Round_f32( yr );
-            float32v v0zr = FS_Round_f32( zr );
+            float32v v0xr = FS::Round( xr );
+            float32v v0yr = FS::Round( yr );
+            float32v v0zr = FS::Round( zr );
             float32v d0xr = xr - v0xr;
             float32v d0yr = yr - v0yr;
             float32v d0zr = zr - v0zr;
 
-            float32v score0xr = FS_Abs_f32( d0xr );
-            float32v score0yr = FS_Abs_f32( d0yr );
-            float32v score0zr = FS_Abs_f32( d0zr );
+            float32v score0xr = FS::Abs( d0xr );
+            float32v score0yr = FS::Abs( d0yr );
+            float32v score0zr = FS::Abs( d0zr );
             mask32v dir0xr = FS::Max( score0yr, score0zr ) <= score0xr;
             mask32v dir0yr = FS_BitwiseAndNot_m32( FS::Max( score0zr, score0xr ) <= score0yr, dir0xr );
             mask32v dir0zr = ~(dir0xr | dir0yr);
@@ -330,16 +330,16 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, FS> : public virtual Fast
             float32v d1yr = yr - v1yr;
             float32v d1zr = zr - v1zr;
 
-            int32v hv0xr = FS_Convertf32_i32( v0xr ) * int32v( FnPrimes::X );
-            int32v hv0yr = FS_Convertf32_i32( v0yr ) * int32v( FnPrimes::Y );
-            int32v hv0zr = FS_Convertf32_i32( v0zr ) * int32v( FnPrimes::Z );
+            int32v hv0xr = FS::Convert<int32_t>( v0xr ) * int32v( FnPrimes::X );
+            int32v hv0yr = FS::Convert<int32_t>( v0yr ) * int32v( FnPrimes::Y );
+            int32v hv0zr = FS::Convert<int32_t>( v0zr ) * int32v( FnPrimes::Z );
 
-            int32v hv1xr = FS_Convertf32_i32( v1xr ) * int32v( FnPrimes::X );
-            int32v hv1yr = FS_Convertf32_i32( v1yr ) * int32v( FnPrimes::Y );
-            int32v hv1zr = FS_Convertf32_i32( v1zr ) * int32v( FnPrimes::Z );
+            int32v hv1xr = FS::Convert<int32_t>( v1xr ) * int32v( FnPrimes::X );
+            int32v hv1yr = FS::Convert<int32_t>( v1yr ) * int32v( FnPrimes::Y );
+            int32v hv1zr = FS::Convert<int32_t>( v1zr ) * int32v( FnPrimes::Z );
 
-            float32v t0 = FS_FNMulAdd_f32( d0zr, d0zr, FS_FNMulAdd_f32( d0yr, d0yr, FS_FNMulAdd_f32( d0xr, d0xr, float32v( 0.6f ) ) ) );
-            float32v t1 = FS_FNMulAdd_f32( d1zr, d1zr, FS_FNMulAdd_f32( d1yr, d1yr, FS_FNMulAdd_f32( d1xr, d1xr, float32v( 0.6f ) ) ) );
+            float32v t0 = FS::FNMulAdd( d0zr, d0zr, FS::FNMulAdd( d0yr, d0yr, FS::FNMulAdd( d0xr, d0xr, float32v( 0.6f ) ) ) );
+            float32v t1 = FS::FNMulAdd( d1zr, d1zr, FS::FNMulAdd( d1yr, d1yr, FS::FNMulAdd( d1xr, d1xr, float32v( 0.6f ) ) ) );
             t0 = FS::Max( t0, float32v( 0 ) );
             t1 = FS::Max( t1, float32v( 0 ) );
             t0 *= t0; t0 *= t0;
@@ -348,7 +348,7 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, FS> : public virtual Fast
             float32v v0 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, hv0xr, hv0yr, hv0zr ), d0xr, d0yr, d0zr );
             float32v v1 = FnUtils::GetGradientDot( FnUtils::HashPrimes( seed, hv1xr, hv1yr, hv1zr ), d1xr, d1yr, d1zr );
 
-            val = FS_FMulAdd_f32( v0, t0, FS_FMulAdd_f32( v1, t1, val ) );
+            val = FS::FMulAdd( v0, t0, FS::FMulAdd( v1, t1, val ) );
 
             if( i == 1 )
             {

@@ -27,8 +27,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
         value.fill( float32v( INFINITY ) );
         distance.fill( float32v( INFINITY ) );
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -46,9 +46,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
-                float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, yd * yd ) );
-                xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                yd = FS_FMulAdd_f32( yd, invMag, ycf );
+                float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, yd * yd ) );
+                xd = FS::FMulAdd( xd, invMag, xcf );
+                yd = FS::FMulAdd( yd, invMag, ycf );
 
                 float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
                 float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
@@ -60,16 +60,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                     float32v localDistance = distance[i];
                     float32v localCellValue = value[i];
 
-                    distance[i] = FS_Select_f32( closer, newDistance, distance[i] );
-                    value[i] = FS_Select_f32( closer, newCellValue, value[i] );
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
+                    value[i] = FS::Select( closer, newCellValue, value[i] );
 
                     if( i > mValueIndex )
                     {
                         break;
                     }
 
-                    newDistance = FS_Select_f32( closer, localDistance, newDistance );
-                    newCellValue = FS_Select_f32( closer, localCellValue, newCellValue );
+                    newDistance = FS::Select( closer, localDistance, newDistance );
+                    newCellValue = FS::Select( closer, localCellValue, newCellValue );
                 }
 
                 ycf += float32v( 1 );
@@ -91,9 +91,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
         value.fill( float32v( INFINITY ) );
         distance.fill( float32v( INFINITY ) );
         
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
-        int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+        int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
         
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -118,10 +118,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                     float32v yd = FS::Convert<float>( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 
-                    float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, zd * zd ) ) );
-                    xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                    yd = FS_FMulAdd_f32( yd, invMag, ycf );
-                    zd = FS_FMulAdd_f32( zd, invMag, zcf );
+                    float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+                    xd = FS::FMulAdd( xd, invMag, xcf );
+                    yd = FS::FMulAdd( yd, invMag, ycf );
+                    zd = FS::FMulAdd( zd, invMag, zcf );
                 
                     float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
                     float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
@@ -133,16 +133,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                         float32v localDistance = distance[i];
                         float32v localCellValue = value[i];
 
-                        distance[i] = FS_Select_f32( closer, newDistance, distance[i] );
-                        value[i] = FS_Select_f32( closer, newCellValue, value[i] );
+                        distance[i] = FS::Select( closer, newDistance, distance[i] );
+                        value[i] = FS::Select( closer, newCellValue, value[i] );
 
                         if( i > mValueIndex )
                         {
                             break;
                         }
 
-                        newDistance = FS_Select_f32( closer, localDistance, newDistance );
-                        newCellValue = FS_Select_f32( closer, localCellValue, newCellValue );
+                        newDistance = FS::Select( closer, localDistance, newDistance );
+                        newCellValue = FS::Select( closer, localCellValue, newCellValue );
                     }
             
                     zcf += float32v( 1 );
@@ -167,10 +167,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
         value.fill( float32v( INFINITY ) );
         distance.fill( float32v( INFINITY ) );
         
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
-        int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
-        int32v wcBase = FS_Convertf32_i32( w ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+        int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
+        int32v wcBase = FS::Convert<int32_t>( w ) + int32v( -1 );
         
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -202,11 +202,11 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
-                        float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, FS_FMulAdd_f32( zd, zd, wd * wd ) ) ) );
-                        xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                        yd = FS_FMulAdd_f32( yd, invMag, ycf );
-                        zd = FS_FMulAdd_f32( zd, invMag, zcf );
-                        wd = FS_FMulAdd_f32( wd, invMag, wcf );
+                        float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+                        xd = FS::FMulAdd( xd, invMag, xcf );
+                        yd = FS::FMulAdd( yd, invMag, ycf );
+                        zd = FS::FMulAdd( zd, invMag, zcf );
+                        wd = FS::FMulAdd( wd, invMag, wcf );
 
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
                         float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
@@ -218,16 +218,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                             float32v localDistance = distance[i];
                             float32v localCellValue = value[i];
 
-                            distance[i] = FS_Select_f32( closer, newDistance, distance[i] );
-                            value[i] = FS_Select_f32( closer, newCellValue, value[i] );
+                            distance[i] = FS::Select( closer, newDistance, distance[i] );
+                            value[i] = FS::Select( closer, newCellValue, value[i] );
 
                             if( i > mValueIndex )
                             {
                                 break;
                             }
 
-                            newDistance = FS_Select_f32( closer, localDistance, newDistance );
-                            newCellValue = FS_Select_f32( closer, localCellValue, newCellValue );
+                            newDistance = FS::Select( closer, localDistance, newDistance );
+                            newCellValue = FS::Select( closer, localCellValue, newCellValue );
                         }
 
                         wcf += float32v( 1 );
@@ -256,8 +256,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( INFINITY ) );
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -275,9 +275,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
-                float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, yd * yd ) );
-                xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                yd = FS_FMulAdd_f32( yd, invMag, ycf );
+                float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, yd * yd ) );
+                xd = FS::FMulAdd( xd, invMag, xcf );
+                yd = FS::FMulAdd( yd, invMag, ycf );
 
                 float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
 
@@ -305,9 +305,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( INFINITY ) );
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
-        int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+        int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -332,10 +332,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                     float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
 
-                    float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, zd * zd ) ) );
-                    xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                    yd = FS_FMulAdd_f32( yd, invMag, ycf );
-                    zd = FS_FMulAdd_f32( zd, invMag, zcf );
+                    float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+                    xd = FS::FMulAdd( xd, invMag, xcf );
+                    yd = FS::FMulAdd( yd, invMag, ycf );
+                    zd = FS::FMulAdd( zd, invMag, zcf );
 
                     float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
 
@@ -366,10 +366,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( INFINITY ) );
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
-        int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
-        int32v wcBase = FS_Convertf32_i32( w ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+        int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
+        int32v wcBase = FS::Convert<int32_t>( w ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -401,11 +401,11 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
-                        float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, FS_FMulAdd_f32( zd, zd, wd * wd ) ) ) );
-                        xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                        yd = FS_FMulAdd_f32( yd, invMag, ycf );
-                        zd = FS_FMulAdd_f32( zd, invMag, zcf );
-                        wd = FS_FMulAdd_f32( wd, invMag, wcf );
+                        float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+                        xd = FS::FMulAdd( xd, invMag, xcf );
+                        yd = FS::FMulAdd( yd, invMag, ycf );
+                        zd = FS::FMulAdd( zd, invMag, zcf );
+                        wd = FS::FMulAdd( wd, invMag, wcf );
 
                         float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
@@ -475,8 +475,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
         float32v distance( FLT_MAX );
         float32v cellX, cellY;
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -494,17 +494,17 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
-                float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, yd * yd ) );
-                xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                yd = FS_FMulAdd_f32( yd, invMag, ycf );
+                float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, yd * yd ) );
+                xd = FS::FMulAdd( xd, invMag, xcf );
+                yd = FS::FMulAdd( yd, invMag, ycf );
 
                 float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
 
                 mask32v closer = newDistance < distance;
                 distance = FS::Min( newDistance, distance );
 
-                cellX = FS_Select_f32( closer, xd + x, cellX );
-                cellY = FS_Select_f32( closer, yd + y, cellY );
+                cellX = FS::Select( closer, xd + x, cellX );
+                cellY = FS::Select( closer, yd + y, cellY );
 
                 ycf += float32v( 1 );
                 yc += int32v( FnPrimes::Y );
@@ -522,9 +522,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
         float32v distance( FLT_MAX );
         float32v cellX, cellY, cellZ;
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
-        int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+        int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -549,19 +549,19 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                     float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
 
-                    float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, zd * zd ) ) );
-                    xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                    yd = FS_FMulAdd_f32( yd, invMag, ycf );
-                    zd = FS_FMulAdd_f32( zd, invMag, zcf );
+                    float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+                    xd = FS::FMulAdd( xd, invMag, xcf );
+                    yd = FS::FMulAdd( yd, invMag, ycf );
+                    zd = FS::FMulAdd( zd, invMag, zcf );
 
                     float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
                     distance = FS::Min( newDistance, distance );
 
-                    cellX = FS_Select_f32( closer, xd + x, cellX );
-                    cellY = FS_Select_f32( closer, yd + y, cellY );
-                    cellZ = FS_Select_f32( closer, zd + z, cellZ );
+                    cellX = FS::Select( closer, xd + x, cellX );
+                    cellY = FS::Select( closer, yd + y, cellY );
+                    cellZ = FS::Select( closer, zd + z, cellZ );
 
                     zcf += float32v( 1 );
                     zc += int32v( FnPrimes::Z );
@@ -582,10 +582,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
         float32v distance( FLT_MAX );
         float32v cellX, cellY, cellZ, cellW;
 
-        int32v xc = FS_Convertf32_i32( x ) + int32v( -1 );
-        int32v ycBase = FS_Convertf32_i32( y ) + int32v( -1 );
-        int32v zcBase = FS_Convertf32_i32( z ) + int32v( -1 );
-        int32v wcBase = FS_Convertf32_i32( w ) + int32v( -1 );
+        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+        int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
+        int32v wcBase = FS::Convert<int32_t>( w ) + int32v( -1 );
 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
@@ -617,21 +617,21 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
-                        float32v invMag = jitter * FS_InvSqrt_f32( FS_FMulAdd_f32( xd, xd, FS_FMulAdd_f32( yd, yd, FS_FMulAdd_f32( zd, zd, wd * wd ) ) ) );
-                        xd = FS_FMulAdd_f32( xd, invMag, xcf );
-                        yd = FS_FMulAdd_f32( yd, invMag, ycf );
-                        zd = FS_FMulAdd_f32( zd, invMag, zcf );
-                        wd = FS_FMulAdd_f32( wd, invMag, wcf );
+                        float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+                        xd = FS::FMulAdd( xd, invMag, xcf );
+                        yd = FS::FMulAdd( yd, invMag, ycf );
+                        zd = FS::FMulAdd( zd, invMag, zcf );
+                        wd = FS::FMulAdd( wd, invMag, wcf );
 
                         float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
                         distance = FS::Min( newDistance, distance );
 
-                        cellX = FS_Select_f32( closer, xd + x, cellX );
-                        cellY = FS_Select_f32( closer, yd + y, cellY );
-                        cellZ = FS_Select_f32( closer, zd + z, cellZ );
-                        cellW = FS_Select_f32( closer, wd + w, cellW );
+                        cellX = FS::Select( closer, xd + x, cellX );
+                        cellY = FS::Select( closer, yd + y, cellY );
+                        cellZ = FS::Select( closer, zd + z, cellZ );
+                        cellW = FS::Select( closer, wd + w, cellW );
 
                         wcf += float32v( 1 );
                         wc += int32v( FnPrimes::W );

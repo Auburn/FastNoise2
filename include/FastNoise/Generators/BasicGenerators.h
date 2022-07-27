@@ -52,10 +52,10 @@ namespace FastNoise
     public:
         const Metadata& GetMetadata() const override;
 
-        void SetSize( float value ) { mSize = value; }
+        void SetSize( float value ) { mSizeInv = 1 / value; }
 
     protected:
-        float mSize = 1.0f;
+        float mSizeInv = 1.0f;
     };
 
 #ifdef FASTNOISE_METADATA

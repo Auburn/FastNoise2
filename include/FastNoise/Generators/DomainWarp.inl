@@ -33,8 +33,8 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtua
         float32v xs = FS_Floor_f32( x );
         float32v ys = FS_Floor_f32( y );
 
-        int32v x0 = FS_Convertf32_i32( xs ) * int32v( FnPrimes::X );
-        int32v y0 = FS_Convertf32_i32( ys ) * int32v( FnPrimes::Y );
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( FnPrimes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( FnPrimes::Y );
         int32v x1 = x0 + int32v( FnPrimes::X );
         int32v y1 = y0 + int32v( FnPrimes::Y );
 
@@ -58,10 +58,10 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtua
         float32v xWarp = (FnUtils::Lerp( FnUtils::Lerp( x00, x10, xs ), FnUtils::Lerp( x01, x11, xs ), ys ) - float32v( 0xffff / 2.0f )) * normalise;
         float32v yWarp = (FnUtils::Lerp( FnUtils::Lerp( y00, y10, xs ), FnUtils::Lerp( y01, y11, xs ), ys ) - float32v( 0xffff / 2.0f )) * normalise;
 
-        xOut = FS_FMulAdd_f32( xWarp, warpAmp, xOut );
-        yOut = FS_FMulAdd_f32( yWarp, warpAmp, yOut );
+        xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
 
-        float32v warpLengthSq = FS_FMulAdd_f32( xWarp, xWarp, yWarp * yWarp );
+        float32v warpLengthSq = FS::FMulAdd( xWarp, xWarp, yWarp * yWarp );
 
         return warpLengthSq * FS_InvSqrt_f32( warpLengthSq );
     }
@@ -72,9 +72,9 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtua
         float32v ys = FS_Floor_f32( y );
         float32v zs = FS_Floor_f32( z );
 
-        int32v x0 = FS_Convertf32_i32( xs ) * int32v( FnPrimes::X );
-        int32v y0 = FS_Convertf32_i32( ys ) * int32v( FnPrimes::Y );
-        int32v z0 = FS_Convertf32_i32( zs ) * int32v( FnPrimes::Z );
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( FnPrimes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( FnPrimes::Y );
+        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( FnPrimes::Z );
         int32v x1 = x0 + int32v( FnPrimes::X );
         int32v y1 = y0 + int32v( FnPrimes::Y );
         int32v z1 = z0 + int32v( FnPrimes::Z );
@@ -114,11 +114,11 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtua
         float32v yWarp = (FnUtils::Lerp( y0z, y1z, zs ) - float32v( 0x3ff / 2.0f )) * normalise;
         float32v zWarp = (FnUtils::Lerp( z0z, z1z, zs ) - float32v( 0x3ff / 2.0f )) * normalise;
 
-        xOut = FS_FMulAdd_f32( xWarp, warpAmp, xOut );
-        yOut = FS_FMulAdd_f32( yWarp, warpAmp, yOut );
-        zOut = FS_FMulAdd_f32( zWarp, warpAmp, zOut );
+        xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
+        zOut = FS::FMulAdd( zWarp, warpAmp, zOut );
 
-        float32v warpLengthSq = FS_FMulAdd_f32( xWarp, xWarp, FS_FMulAdd_f32( yWarp, yWarp, zWarp * zWarp ) );
+        float32v warpLengthSq = FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
 
         return warpLengthSq * FS_InvSqrt_f32( warpLengthSq );
     }
@@ -130,10 +130,10 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtua
         float32v zs = FS_Floor_f32( z );
         float32v ws = FS_Floor_f32( w );
 
-        int32v x0 = FS_Convertf32_i32( xs ) * int32v( FnPrimes::X );
-        int32v y0 = FS_Convertf32_i32( ys ) * int32v( FnPrimes::Y );
-        int32v z0 = FS_Convertf32_i32( zs ) * int32v( FnPrimes::Z );
-        int32v w0 = FS_Convertf32_i32( ws ) * int32v( FnPrimes::W );
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( FnPrimes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( FnPrimes::Y );
+        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( FnPrimes::Z );
+        int32v w0 = FS::Convert<int32_t>( ws ) * int32v( FnPrimes::W );
         int32v x1 = x0 + int32v( FnPrimes::X );
         int32v y1 = y0 + int32v( FnPrimes::Y );
         int32v z1 = z0 + int32v( FnPrimes::Z );
@@ -187,12 +187,12 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, FS> : public virtua
         float32v zWarp = (FnUtils::Lerp( z0w, z1w, ws ) - float32v( 0xff / 2.0f )) * normalise;
         float32v wWarp = (FnUtils::Lerp( w0w, w1w, ws ) - float32v( 0xff / 2.0f )) * normalise;
 
-        xOut = FS_FMulAdd_f32( xWarp, warpAmp, xOut );
-        yOut = FS_FMulAdd_f32( yWarp, warpAmp, yOut );
-        zOut = FS_FMulAdd_f32( zWarp, warpAmp, zOut );
-        wOut = FS_FMulAdd_f32( wWarp, warpAmp, wOut );
+        xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
+        zOut = FS::FMulAdd( zWarp, warpAmp, zOut );
+        wOut = FS::FMulAdd( wWarp, warpAmp, wOut );
 
-        float32v warpLengthSq = FS_FMulAdd_f32( xWarp, xWarp, FS_FMulAdd_f32( yWarp, yWarp, FS_FMulAdd_f32( zWarp, zWarp, wWarp * wWarp ) ) );
+        float32v warpLengthSq = FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, FS::FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
 
         return warpLengthSq * FS_InvSqrt_f32( warpLengthSq );
     }

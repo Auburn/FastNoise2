@@ -48,7 +48,7 @@ class FastSIMD::DispatchClass<FastNoise::FractalRidged, FS> : public virtual Fas
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );
         float32v lacunarity( mLacunarity );
         float32v amp( mFractalBounding );
-        float32v noise = FS_Abs_f32( this->GetSourceValue( mSource, seed, pos... ) );
+        float32v noise = FS::Abs( this->GetSourceValue( mSource, seed, pos... ) );
 
         float32v sum = (noise * float32v( -2 ) + float32v( 1 )) * amp;
 
@@ -58,7 +58,7 @@ class FastSIMD::DispatchClass<FastNoise::FractalRidged, FS> : public virtual Fas
             amp *= FnUtils::Lerp( float32v( 1 ), float32v( 1 ) - noise, weightedStrength );
             amp *= gain;
 
-            noise = FS_Abs_f32( this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) );
+            noise = FS::Abs( this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) );
             sum += (noise * float32v( -2 ) + float32v( 1 )) * amp;
         }
 
@@ -72,8 +72,8 @@ class FastSIMD::DispatchClass<FastNoise::FractalPingPong, FS> : public virtual F
 
     static float32v PingPong( float32v t )
     {
-        t -= FS_Round_f32( t * float32v( 0.5f ) ) * float32v( 2 );
-        return FS_Select_f32( t < float32v( 1 ), t, float32v( 2 ) - t );
+        t -= FS::Round( t * float32v( 0.5f ) ) * float32v( 2 );
+        return FS::Select( t < float32v( 1 ), t, float32v( 2 ) - t );
     }
 
     template<typename... P>

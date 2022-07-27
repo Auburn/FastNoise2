@@ -38,8 +38,8 @@ class FastSIMD::DispatchClass<FastNoise::DomainRotate, SIMD> : public virtual Fa
         if( mPitchSin == 0.0f && mRollSin == 0.0f )
         {
             return this->GetSourceValue( mSource, seed,
-                FS_FNMulAdd_f32( y, float32v( mYawSin ), x * float32v( mYawCos ) ),
-                FS_FMulAdd_f32( x, float32v( mYawSin ), y * float32v( mYawCos ) ) );
+                FS::FNMulAdd( y, float32v( mYawSin ), x * float32v( mYawCos ) ),
+                FS::FMulAdd( x, float32v( mYawSin ), y * float32v( mYawCos ) ) );
         }
 
         return Gen( seed, x, y, float32v( 0 ) );
@@ -48,9 +48,9 @@ class FastSIMD::DispatchClass<FastNoise::DomainRotate, SIMD> : public virtual Fa
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
     {
         return this->GetSourceValue( mSource, seed,
-            FS_FMulAdd_f32( x, float32v( mXa ), FS_FMulAdd_f32( y, float32v( mXb ), z * float32v( mXc ) ) ),
-            FS_FMulAdd_f32( x, float32v( mYa ), FS_FMulAdd_f32( y, float32v( mYb ), z * float32v( mYc ) ) ),
-            FS_FMulAdd_f32( x, float32v( mZa ), FS_FMulAdd_f32( y, float32v( mZb ), z * float32v( mZc ) ) ) );
+            FS::FMulAdd( x, float32v( mXa ), FS::FMulAdd( y, float32v( mXb ), z * float32v( mXc ) ) ),
+            FS::FMulAdd( x, float32v( mYa ), FS::FMulAdd( y, float32v( mYb ), z * float32v( mYc ) ) ),
+            FS::FMulAdd( x, float32v( mZa ), FS::FMulAdd( y, float32v( mZb ), z * float32v( mZc ) ) ) );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
@@ -124,19 +124,19 @@ class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> : public virtual FastNoi
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
         source *= float32v( mMultiplier );
-        float32v rounded = FS_Round_f32( source );
+        float32v rounded = FS::Round( source );
 
         if( mSmoothness != 0.0f )
         {
             float32v diff = rounded - source;
             mask32v diffSign = diff < float32v( 0 );
 
-            diff = FS_Abs_f32( diff );
+            diff = FS::Abs( diff );
             diff = float32v( 0.5f ) - diff;
 
             diff *= float32v( mSmoothnessRecip );
             diff = FS::Min( diff, float32v( 0.5f ) );
-            diff = FS_Select_f32( diffSign, float32v( 0.5f ) - diff, diff - float32v( 0.5f ) );
+            diff = FS::Select( diffSign, float32v( 0.5f ) - diff, diff - float32v( 0.5f ) );
 
             rounded += diff;
         }
@@ -239,7 +239,7 @@ class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> : public virtual 
 
         for( size_t i = 0; i < sizeof...( P ); i++ )
         {
-            isSame &= !FS_AnyMask_bool( arrayPos[i] != FS::Load( &CachedPos[i] ) );
+            isSame &= !FS_AnyMask_bool( arrayPos[i] != FS::Load<float32v>( &CachedPos[i] ) );
         }
 
         if( !isSame )
@@ -257,6 +257,6 @@ class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> : public virtual 
             return value;
         }
 
-        return FS::Load( &CachedValue );
+        return FS::Load<float32v>( &CachedValue[0] );
     }
 };

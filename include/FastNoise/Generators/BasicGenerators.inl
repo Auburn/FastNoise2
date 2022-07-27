@@ -22,9 +22,9 @@ class FastSIMD::DispatchClass<FastNoise::White, SIMD> : public virtual FastNoise
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         size_t idx = 0;
-        ((pos = SIMD_Casti32_f32( (SIMD_Castf32_i32( pos ) ^ (SIMD_Castf32_i32( pos ) >> 16)) * int32v( FnPrimes::Lookup[idx++] ) )), ...);
+        ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( FnPrimes::Lookup[idx++] ) )), ...);
 
-        return FnUtils::GetValueCoord( seed, SIMD_Castf32_i32( pos )... );
+        return FnUtils::GetValueCoord( seed, FS::Cast<int32_t>( pos )... );
     }
 };
 
@@ -36,11 +36,9 @@ class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> : public virtual Fa
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v multiplier = SIMD_Reciprocal_f32( float32v( mSize ) );
+        int32v value = (FS::Convert<int32_t>( pos * float32v( mSizeInv ) ) ^ ...);
 
-        int32v value = (SIMD_Convertf32_i32( pos * multiplier ) ^ ...);
-
-        return float32v( 1.0f ) ^ SIMD_Casti32_f32( value << 31 );
+        return float32v( 1.0f ) ^ FS::Cast<float>( value << 31 );
     }
 };
 
@@ -64,10 +62,10 @@ class FastSIMD::DispatchClass<FastNoise::PositionOutput, SIMD> : public virtual 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        size_t ofSIMDetIdx = 0;
+        size_t offsetIdx = 0;
         size_t multiplierIdx = 0;
 
-        (((pos += float32v( mOfSIMDet[ofSIMDetIdx++] )) *= float32v( mMultiplier[multiplierIdx++] )), ...);
+        (((pos += float32v( mOffset[offsetIdx++] )) *= float32v( mMultiplier[multiplierIdx++] )), ...);
         return (pos + ...);
     }
 };
