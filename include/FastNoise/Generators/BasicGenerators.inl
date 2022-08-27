@@ -1,5 +1,5 @@
 #include "BasicGenerators.h"
-//#include "Utils.inl"
+#include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> : public virtual FastNoise::Constant, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
@@ -22,9 +22,9 @@ class FastSIMD::DispatchClass<FastNoise::White, SIMD> : public virtual FastNoise
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         size_t idx = 0;
-        ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( FnPrimes::Lookup[idx++] ) )), ...);
+        ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 
-        return FnUtils::GetValueCoord( seed, FS::Cast<int32_t>( pos )... );
+        return GetValueCoord( seed, FS::Cast<int32_t>( pos )... );
     }
 };
 
@@ -81,6 +81,6 @@ class FastSIMD::DispatchClass<FastNoise::DistanceToPoint, SIMD> : public virtual
         size_t pointIdx = 0;
 
         ((pos -= float32v( mPoint[pointIdx++] )), ...);
-        return FnUtils::CalcDistance( mDistanceFunction, pos... );
+        return CalcDistance( mDistanceFunction, pos... );
     }
 };

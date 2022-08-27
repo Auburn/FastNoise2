@@ -64,12 +64,12 @@ template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>
 #else
 #include "Generators/Modifiers.inl"
 #endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Blends.h"
-//#else
-//#include "Generators/Blends.inl"
-//#endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Blends.h"
+#else
+#include "Generators/Blends.inl"
+#endif
 
 // Nodes
 // Order is important!
@@ -77,11 +77,11 @@ template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>
 // inserting will break existing encoded node trees
 
 FASTNOISE_REGISTER_NODE( Constant );
-//FASTNOISE_REGISTER_NODE( White );
+FASTNOISE_REGISTER_NODE( White );
 FASTNOISE_REGISTER_NODE( Checkerboard );
 FASTNOISE_REGISTER_NODE( SineWave );
 FASTNOISE_REGISTER_NODE( PositionOutput );
-//FASTNOISE_REGISTER_NODE( DistanceToPoint );
+FASTNOISE_REGISTER_NODE( DistanceToPoint );
 //                    
 //FASTNOISE_REGISTER_NODE( Value );
 //FASTNOISE_REGISTER_NODE( Perlin );
@@ -106,20 +106,20 @@ FASTNOISE_REGISTER_NODE( DomainRotate );
 FASTNOISE_REGISTER_NODE( SeedOffset );
 FASTNOISE_REGISTER_NODE( Remap );
 FASTNOISE_REGISTER_NODE( ConvertRGBA8 );
-//                    
-//FASTNOISE_REGISTER_NODE( Add );
-//FASTNOISE_REGISTER_NODE( Subtract );
-//FASTNOISE_REGISTER_NODE( Multiply );
-//FASTNOISE_REGISTER_NODE( Divide );
-//FASTNOISE_REGISTER_NODE( Min );
-//FASTNOISE_REGISTER_NODE( Max );
-//FASTNOISE_REGISTER_NODE( MinSmooth );
-//FASTNOISE_REGISTER_NODE( MaxSmooth );
-//FASTNOISE_REGISTER_NODE( Fade );
+                    
+FASTNOISE_REGISTER_NODE( Add );
+FASTNOISE_REGISTER_NODE( Subtract );
+FASTNOISE_REGISTER_NODE( Multiply );
+FASTNOISE_REGISTER_NODE( Divide );
+FASTNOISE_REGISTER_NODE( Min );
+FASTNOISE_REGISTER_NODE( Max );
+FASTNOISE_REGISTER_NODE( MinSmooth );
+FASTNOISE_REGISTER_NODE( MaxSmooth );
+FASTNOISE_REGISTER_NODE( Fade );
                     
 FASTNOISE_REGISTER_NODE( Terrace );
 //FASTNOISE_REGISTER_NODE( PowFloat );
-//FASTNOISE_REGISTER_NODE( PowInt );
+FASTNOISE_REGISTER_NODE( PowInt );
 FASTNOISE_REGISTER_NODE( DomainAxisScale );
 FASTNOISE_REGISTER_NODE( AddDimension );
 FASTNOISE_REGISTER_NODE( RemoveDimension );

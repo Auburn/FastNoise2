@@ -461,7 +461,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         }
         case ReturnType::Index0Div1:
         {
-            return distance[mDistanceIndex0] * FS_Reciprocal_f32( distance[mDistanceIndex1] );
+            return distance[mDistanceIndex0] * FS::Reciprocal( distance[mDistanceIndex1] );
         }
         }
     }

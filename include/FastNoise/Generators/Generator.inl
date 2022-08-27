@@ -5,6 +5,8 @@
 
 #pragma warning( disable:4250 )
 
+using namespace FastNoise;
+
 using float32v = FS::NativeRegister<float>;
 using int32v = FS::NativeRegister<std::int32_t>;
 using mask32v = FS::NativeRegister<FS::Mask<32>>;
