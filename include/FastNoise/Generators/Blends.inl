@@ -56,7 +56,7 @@ class FastSIMD::DispatchClass<FastNoise::PowFloat, SIMD> : public virtual FastNo
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return FS_Pow_f32( this->GetSourceValue( mValue, seed, pos... ), this->GetSourceValue( mPow, seed, pos... ) );
+        return Pow( this->GetSourceValue( mValue, seed, pos... ), this->GetSourceValue( mPow, seed, pos... ) );
     }
 };
 

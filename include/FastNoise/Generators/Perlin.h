@@ -5,7 +5,8 @@ namespace FastNoise
 {
     class Perlin : public virtual Generator
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA

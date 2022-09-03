@@ -1,5 +1,3 @@
-#include "FastSIMD/InlInclude.h"
-
 #include <cfloat>
 #include <array>
 
@@ -33,8 +31,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -42,7 +40,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = FnUtils::HashPrimesHB( seed, xc, yc );
+                int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -51,7 +49,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
-                float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
                 for( int i = 0; ; i++ )
                 {
@@ -73,10 +71,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                 }
 
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return value[mValueIndex];
@@ -99,9 +97,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
         float32v zcfBase = FS::Convert<float>( zcBase ) - z;
     
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
-        zcBase *= int32v( FnPrimes::Z );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
+        zcBase *= int32v( Primes::Z );
     
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -113,7 +111,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
-                    int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc );
+                    int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v yd = FS::Convert<float>( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -124,7 +122,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                     zd = FS::FMulAdd( zd, invMag, zcf );
                 
                     float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
-                    float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
                 
                     for( int i = 0; ; i++ )
                     {
@@ -146,13 +144,13 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                     }
             
                     zcf += float32v( 1 );
-                    zc += int32v( FnPrimes::Z );
+                    zc += int32v( Primes::Z );
                 }
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
     
         return value[mValueIndex];
@@ -177,10 +175,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
         float32v zcfBase = FS::Convert<float>( zcBase ) - z;
         float32v wcfBase = FS::Convert<float>( wcBase ) - w;
     
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
-        zcBase *= int32v( FnPrimes::Z );
-        wcBase *= int32v( FnPrimes::W );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
+        zcBase *= int32v( Primes::Z );
+        wcBase *= int32v( Primes::W );
     
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -196,7 +194,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
                     {
-                        int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc, wc );
+                        int32v hash = HashPrimesHB( seed, xc, yc, zc, wc );
                         float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -209,7 +207,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
-                        float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = 0; ; i++ )
                         {
@@ -231,16 +229,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                         }
 
                         wcf += float32v( 1 );
-                        wc += int32v( FnPrimes::W );
+                        wc += int32v( Primes::W );
                     }
                     zcf += float32v( 1 );
-                    zc += int32v( FnPrimes::Z );
+                    zc += int32v( Primes::Z );
                 }
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
     
         return value[mValueIndex];
@@ -262,8 +260,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -271,7 +269,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
             int32v yc = ycBase;
             for ( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = FnUtils::HashPrimesHB( seed, xc, yc );
+                int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -279,7 +277,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
-                float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
                 for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                 {
@@ -289,10 +287,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                 distance[0] = FS::Min( distance[0], newDistance );
 
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return GetReturn( distance );
@@ -313,9 +311,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
         float32v zcfBase = FS::Convert<float>( zcBase ) - z;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
-        zcBase *= int32v( FnPrimes::Z );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
+        zcBase *= int32v( Primes::Z );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -327,7 +325,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
-                    int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc );
+                    int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -337,7 +335,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
-                    float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                     {
@@ -347,13 +345,13 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                     distance[0] = FS::Min( distance[0], newDistance );
 
                     zcf += float32v( 1 );
-                    zc += int32v( FnPrimes::Z );
+                    zc += int32v( Primes::Z );
                 }
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return GetReturn( distance );
@@ -376,10 +374,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
         float32v zcfBase = FS::Convert<float>( zcBase ) - z;
         float32v wcfBase = FS::Convert<float>( wcBase ) - w;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
-        zcBase *= int32v( FnPrimes::Z );
-        wcBase *= int32v( FnPrimes::W );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
+        zcBase *= int32v( Primes::Z );
+        wcBase *= int32v( Primes::W );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -395,7 +393,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
                     {
-                        int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc, wc );
+                        int32v hash = HashPrimesHB( seed, xc, yc, zc, wc );
                         float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -407,7 +405,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                         zd = FS::FMulAdd( zd, invMag, zcf );
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
-                        float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                         {
@@ -417,16 +415,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                         distance[0] = FS::Min( distance[0], newDistance );
 
                         wcf += float32v( 1 );
-                        wc += int32v( FnPrimes::W );
+                        wc += int32v( Primes::W );
                     }
                     zcf += float32v( 1 );
-                    zc += int32v( FnPrimes::Z );
+                    zc += int32v( Primes::Z );
                 }
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return GetReturn( distance );
@@ -481,8 +479,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
         float32v xcf = FS::Convert<float>( xc ) - x;
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -490,7 +488,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = FnUtils::HashPrimesHB( seed, xc, yc );
+                int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
@@ -498,7 +496,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
-                float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
 
                 mask32v closer = newDistance < distance;
                 distance = FS::Min( newDistance, distance );
@@ -507,10 +505,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                 cellY = FS::Select( closer, yd + y, cellY );
 
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ) );
@@ -530,9 +528,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
         float32v ycfBase = FS::Convert<float>( ycBase ) - y;
         float32v zcfBase = FS::Convert<float>( zcBase ) - z;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
-        zcBase *= int32v( FnPrimes::Z );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
+        zcBase *= int32v( Primes::Z );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -544,7 +542,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
-                    int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc );
+                    int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
@@ -554,7 +552,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
-                    float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
                     distance = FS::Min( newDistance, distance );
@@ -564,13 +562,13 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                     cellZ = FS::Select( closer, zd + z, cellZ );
 
                     zcf += float32v( 1 );
-                    zc += int32v( FnPrimes::Z );
+                    zc += int32v( Primes::Z );
                 }
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ), cellZ * float32v( mLookupFreq ) );
@@ -592,10 +590,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
         float32v zcfBase = FS::Convert<float>( zcBase ) - z;
         float32v wcfBase = FS::Convert<float>( wcBase ) - w;
 
-        xc *= int32v( FnPrimes::X );
-        ycBase *= int32v( FnPrimes::Y );
-        zcBase *= int32v( FnPrimes::Z );
-        wcBase *= int32v( FnPrimes::W );
+        xc *= int32v( Primes::X );
+        ycBase *= int32v( Primes::Y );
+        zcBase *= int32v( Primes::Z );
+        wcBase *= int32v( Primes::W );
 
         for( int xi = 0; xi < 3; xi++ )
         {
@@ -611,7 +609,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
                     {
-                        int32v hash = FnUtils::HashPrimesHB( seed, xc, yc, zc, wc );
+                        int32v hash = HashPrimesHB( seed, xc, yc, zc, wc );
                         float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -623,7 +621,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                         zd = FS::FMulAdd( zd, invMag, zcf );
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
-                        float32v newDistance = FnUtils::CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
                         distance = FS::Min( newDistance, distance );
@@ -634,16 +632,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                         cellW = FS::Select( closer, wd + w, cellW );
 
                         wcf += float32v( 1 );
-                        wc += int32v( FnPrimes::W );
+                        wc += int32v( Primes::W );
                     }
                     zcf += float32v( 1 );
-                    zc += int32v( FnPrimes::Z );
+                    zc += int32v( Primes::Z );
                 }
                 ycf += float32v( 1 );
-                yc += int32v( FnPrimes::Y );
+                yc += int32v( Primes::Y );
             }
             xcf += float32v( 1 );
-            xc += int32v( FnPrimes::X );
+            xc += int32v( Primes::X );
         }
 
         return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ), cellZ * float32v( mLookupFreq ), cellW * float32v( mLookupFreq ) );

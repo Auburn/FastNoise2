@@ -25,7 +25,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, FS> : pub
         {
             seedInc -= int32v( -1 );
             freq *= lacunarity;
-            amp *= FnUtils::Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
+            amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
             amp *= gain;
             strength = warp->Warp( seedInc, amp, (pos * freq)..., pos... );
         }
@@ -59,7 +59,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, FS> : pub
             {
                 seedInc -= int32v( -1 );
                 freq *= lacunarity;
-                amp *= FnUtils::Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
+                amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
                 amp *= gain;
                 strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
             }

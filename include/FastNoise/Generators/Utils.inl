@@ -16,37 +16,39 @@ namespace FastNoise
     static constexpr float ROOT2 = 1.4142135623730950488f;
     static constexpr float ROOT3 = 1.7320508075688772935f;
 
-    //template<FastSIMD::FeatureSet SIMD = FASTSIMD_DEFAULT_FEATURE_SET>
-    //FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
-    //{
-    //    int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+    template<FastSIMD::FeatureSet SIMD = FASTSIMD_DEFAULT_FEATURE_SET>
+    FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+    {
+        int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
-    //    // Bit-4 = Choose X Y ordering
-    //    mask32v xy;
+        // Bit-3 = Choose X Y ordering
+        mask32v bit3;
+        
+        if constexpr( (SIMD & FastSIMD::FeatureFlag::SSE41) && !(SIMD & FastSIMD::FeatureFlag::AVX512_F) )
+        {
+            bit3 = FS::Cast<FS::Mask<32>>( index << 29 );
+        }      
+        else
+        {
+            bit3 = ( index & int32v( 1 << 2 ) ) == int32v( 0 );
+        }
 
-    //    xy = index << 29;
+        float32v a = FS::Select( bit3, fY, fX );
+        float32v b = FS::Select( bit3, fX, fY );
 
-    //    if constexpr( !(SIMD & FastSIMD::FeatureFlag::SSE41) )
-    //    {
-    //        xy >>= 31;
-    //    }        
+        // Bit-1 = b flip sign
+        b ^= FS::Cast<float>( index << 31 );
 
-    //    float32v a = FS::Select( xy, fY, fX );
-    //    float32v b = FS::Select( xy, fX, fY );
+        // Bit-2 = Mul a by 2 or Root3     
+        mask32v bit2 = ( index & int32v( 2 ) ) == int32v( 0 );   
 
-    //    // Bit-1 = b flip sign
-    //    b ^= FS::Cast<float>( index << 31 );
+        a *= FS::Select( bit2, float32v( 2 ), float32v( ROOT3 ) );
+        // b zero value if a mul 2
+        float32v c = FS::MaskedAdd( bit2, a, b );
 
-    //    // Bit-2 = Mul a by 2 or Root3
-    //    mask32v aMul2 = (index << 30) >> 31;        
-
-    //    a *= FS::Select( aMul2, float32v( 2 ), float32v( ROOT3 ) );
-    //    // b zero value if a mul 2
-    //    b = FS_NMask_f32( b, aMul2 );
-
-    //    // Bit-8 = Flip sign of a + b
-    //    return ( a + b ) ^ FS::Cast<float>( (index >> 3) << 31 );
-    //}
+        // Bit-4 = Flip sign of a + b
+        return c ^ FS::Cast<float>( (index >> 3) << 31 );
+    }
 
     //template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
     //FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
@@ -93,22 +95,22 @@ namespace FastNoise
             return FS::FMulAdd( gX, fX, fY * gY );
         }*/
 
-        int32v  bit1 = (hash << 31);
-        int32v  bit2 = (hash >> 1) << 31;
-        mask32v bit4;
-        
-        bit4 = hash << 29;
+        int32v bit1 = hash << 31;
+        int32v bit2 = (hash >> 1) << 31;
+        int32v bit4 = hash << 29;
 
         if constexpr( !( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
         {
             bit4 >>= 31;
-        }        
+        }
+
+        auto bit4Mask = FS::Cast<FS::Mask<32, false>>( bit4 );
 
         fX ^= FS::Cast<float>( bit1 );
         fY ^= FS::Cast<float>( bit2 );
         
-        float32v a = FS::Select( bit4, fY, fX );
-        float32v b = FS::Select( bit4, fX, fY );
+        float32v a = FS::Select( bit4Mask, fY, fX );
+        float32v b = FS::Select( bit4Mask, fX, fY );
         
         return FS::FMulAdd( float32v( 1.0f + ROOT2 ), a, b );
     }
@@ -161,7 +163,7 @@ namespace FastNoise
         float32v b;
         if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
         {
-            b = FS::Select( hash << 27, fY, fZ );
+            b = FS::Select( FS::Cast<FS::Mask<32>>( hash << 27 ), fY, fZ );
         }
         else
         {

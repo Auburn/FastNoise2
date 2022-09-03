@@ -16,25 +16,25 @@ template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>
 #else
 #include "Generators/BasicGenerators.inl"
 #endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Value.h"
-//#else
-//#include "Generators/Value.inl"
-//#endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Perlin.h"
-//#else
-//#include "Generators/Perlin.inl"
-//#endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Simplex.h"
-//#else
-//#include "Generators/Simplex.inl"
-//#endif
-//
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Value.h"
+#else
+#include "Generators/Value.inl"
+#endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Perlin.h"
+#else
+#include "Generators/Perlin.inl"
+#endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Simplex.h"
+#else
+#include "Generators/Simplex.inl"
+#endif
+
 //#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 //#include "Generators/Cellular.h"
 //#else
@@ -82,12 +82,12 @@ FASTNOISE_REGISTER_NODE( Checkerboard );
 FASTNOISE_REGISTER_NODE( SineWave );
 FASTNOISE_REGISTER_NODE( PositionOutput );
 FASTNOISE_REGISTER_NODE( DistanceToPoint );
-//                    
-//FASTNOISE_REGISTER_NODE( Value );
-//FASTNOISE_REGISTER_NODE( Perlin );
-//FASTNOISE_REGISTER_NODE( Simplex );
-//FASTNOISE_REGISTER_NODE( OpenSimplex2 );
-//                    
+
+FASTNOISE_REGISTER_NODE( Value );
+FASTNOISE_REGISTER_NODE( Perlin );
+FASTNOISE_REGISTER_NODE( Simplex );
+FASTNOISE_REGISTER_NODE( OpenSimplex2 );
+               
 //FASTNOISE_REGISTER_NODE( CellularValue );
 //FASTNOISE_REGISTER_NODE( CellularDistance );
 //FASTNOISE_REGISTER_NODE( CellularLookup );
@@ -118,7 +118,7 @@ FASTNOISE_REGISTER_NODE( MaxSmooth );
 FASTNOISE_REGISTER_NODE( Fade );
                     
 FASTNOISE_REGISTER_NODE( Terrace );
-//FASTNOISE_REGISTER_NODE( PowFloat );
+FASTNOISE_REGISTER_NODE( PowFloat );
 FASTNOISE_REGISTER_NODE( PowInt );
 FASTNOISE_REGISTER_NODE( DomainAxisScale );
 FASTNOISE_REGISTER_NODE( AddDimension );
