@@ -112,14 +112,15 @@ void RegisterBenchmarks( FastSIMD::FeatureSet level, const char* groupName, cons
     {
         benchName += enumName.data() + find + 1;
     }
-    else
+    else if( *enumName.data() != 0 )
     {
         benchName += enumName;
     }
-#else
-    benchName += std::to_string( (int)level );
+    else
 #endif
-
+    {
+        benchName += std::to_string( (int)level );
+    }
 
     benchName += '/';
     benchName += groupName;
