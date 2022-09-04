@@ -35,30 +35,30 @@ template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>
 #include "Generators/Simplex.inl"
 #endif
 
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Cellular.h"
-//#else
-//#include "Generators/Cellular.inl"
-//#endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/Fractal.h"
-//#else
-//#include "Generators/Fractal.inl"
-//#endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/DomainWarp.h"
-//#else
-//#include "Generators/DomainWarp.inl"
-//#endif
-//
-//#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-//#include "Generators/DomainWarpFractal.h"
-//#else
-//#include "Generators/DomainWarpFractal.inl"
-//#endif
-//
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Cellular.h"
+#else
+#include "Generators/Cellular.inl"
+#endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/Fractal.h"
+#else
+#include "Generators/Fractal.inl"
+#endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/DomainWarp.h"
+#else
+#include "Generators/DomainWarp.inl"
+#endif
+
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include "Generators/DomainWarpFractal.h"
+#else
+#include "Generators/DomainWarpFractal.inl"
+#endif
+
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
 #include "Generators/Modifiers.h"
 #else
@@ -88,17 +88,17 @@ FASTNOISE_REGISTER_NODE( Perlin );
 FASTNOISE_REGISTER_NODE( Simplex );
 FASTNOISE_REGISTER_NODE( OpenSimplex2 );
                
-//FASTNOISE_REGISTER_NODE( CellularValue );
-//FASTNOISE_REGISTER_NODE( CellularDistance );
-//FASTNOISE_REGISTER_NODE( CellularLookup );
-//                    
-//FASTNOISE_REGISTER_NODE( FractalFBm );
-//FASTNOISE_REGISTER_NODE( FractalPingPong );
-//FASTNOISE_REGISTER_NODE( FractalRidged );
-//                    
-//FASTNOISE_REGISTER_NODE( DomainWarpGradient );
-//FASTNOISE_REGISTER_NODE( DomainWarpFractalProgressive );
-//FASTNOISE_REGISTER_NODE( DomainWarpFractalIndependant );
+FASTNOISE_REGISTER_NODE( CellularValue );
+FASTNOISE_REGISTER_NODE( CellularDistance );
+FASTNOISE_REGISTER_NODE( CellularLookup );
+                    
+FASTNOISE_REGISTER_NODE( FractalFBm );
+FASTNOISE_REGISTER_NODE( FractalPingPong );
+FASTNOISE_REGISTER_NODE( FractalRidged );
+                    
+FASTNOISE_REGISTER_NODE( DomainWarpGradient );
+FASTNOISE_REGISTER_NODE( DomainWarpFractalProgressive );
+FASTNOISE_REGISTER_NODE( DomainWarpFractalIndependant );
                     
 FASTNOISE_REGISTER_NODE( DomainScale );
 FASTNOISE_REGISTER_NODE( DomainOffset );
@@ -123,4 +123,4 @@ FASTNOISE_REGISTER_NODE( PowInt );
 FASTNOISE_REGISTER_NODE( DomainAxisScale );
 FASTNOISE_REGISTER_NODE( AddDimension );
 FASTNOISE_REGISTER_NODE( RemoveDimension );
-//FASTNOISE_REGISTER_NODE( GeneratorCache );
+FASTNOISE_REGISTER_NODE( GeneratorCache );

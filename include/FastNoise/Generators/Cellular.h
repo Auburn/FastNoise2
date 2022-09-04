@@ -32,7 +32,8 @@ namespace FastNoise
 
     class CellularValue : public virtual Cellular
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         static const int kMaxDistanceCount = 4;
 
@@ -57,7 +58,8 @@ namespace FastNoise
 
     class CellularDistance : public virtual Cellular
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         enum class ReturnType
         {
@@ -97,7 +99,8 @@ namespace FastNoise
 
     class CellularLookup : public virtual Cellular
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         void SetLookup( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
         void SetLookupFrequency( float freq ) { mLookupFreq = freq; }

@@ -1,16 +1,15 @@
-#include "FastSIMD/InlInclude.h"
-
 #include "Fractal.h"
 
-template<typename FS, typename T>
-class FastSIMD::DispatchClass<FastNoise::Fractal<T>, FS> : public virtual FastNoise::Fractal<T>, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD, typename T>
+class FastSIMD::DispatchClass<FastNoise::Fractal<T>, SIMD> : public virtual FastNoise::Fractal<T>, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
 
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::FractalFBm, FS> : public virtual FastNoise::FractalFBm, public FastSIMD::DispatchClass<FastNoise::Fractal<>, FS>
-{    FASTNOISE_IMPL_GEN_T;
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::FractalFBm, SIMD> : public virtual FastNoise::FractalFBm, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
@@ -37,9 +36,10 @@ class FastSIMD::DispatchClass<FastNoise::FractalFBm, FS> : public virtual FastNo
     }
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::FractalRidged, FS> : public virtual FastNoise::FractalRidged, public FastSIMD::DispatchClass<FastNoise::Fractal<>, FS>
-{    FASTNOISE_IMPL_GEN_T;
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::FractalRidged, SIMD> : public virtual FastNoise::FractalRidged, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT(int32v seed, P... pos) const
@@ -66,9 +66,10 @@ class FastSIMD::DispatchClass<FastNoise::FractalRidged, FS> : public virtual Fas
     }
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::FractalPingPong, FS> : public virtual FastNoise::FractalPingPong, public FastSIMD::DispatchClass<FastNoise::Fractal<>, FS>
-{    FASTNOISE_IMPL_GEN_T;
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::FractalPingPong, SIMD> : public virtual FastNoise::FractalPingPong, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
 
     static float32v PingPong( float32v t )
     {

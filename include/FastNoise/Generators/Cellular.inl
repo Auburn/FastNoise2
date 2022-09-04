@@ -4,8 +4,8 @@
 #include "Cellular.h"
 #include "Utils.inl"
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::Cellular, FS> : public virtual FastNoise::Cellular, public FastSIMD::DispatchClass<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::Cellular, SIMD> : public virtual FastNoise::Cellular, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
 protected:
     const float kJitter2D = 0.437016f;
@@ -14,9 +14,10 @@ protected:
     const float kJitterIdx23 = 0.190983f;
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual FastNoise::CellularValue, public FastSIMD::DispatchClass<FastNoise::Cellular, FS>
-{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> : public virtual FastNoise::CellularValue, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         std::array<float32v, kMaxDistanceCount> value;
@@ -44,7 +45,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
-                float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, yd * yd ) );
+                float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
@@ -116,7 +117,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                     float32v yd = FS::Convert<float>( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                 
-                    float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+                    float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
                     xd = FS::FMulAdd( xd, invMag, xcf );
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
@@ -200,7 +201,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
-                        float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+                        float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
                         xd = FS::FMulAdd( xd, invMag, xcf );
                         yd = FS::FMulAdd( yd, invMag, ycf );
                         zd = FS::FMulAdd( zd, invMag, zcf );
@@ -245,9 +246,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, FS> : public virtual Fas
     }
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual FastNoise::CellularDistance, public FastSIMD::DispatchClass<FastNoise::Cellular, FS>
-{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> : public virtual FastNoise::CellularDistance, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
 
@@ -273,7 +275,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
-                float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, yd * yd ) );
+                float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
@@ -330,7 +332,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                     float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
 
-                    float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+                    float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
                     xd = FS::FMulAdd( xd, invMag, xcf );
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
@@ -399,7 +401,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
-                        float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+                        float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
                         xd = FS::FMulAdd( xd, invMag, xcf );
                         yd = FS::FMulAdd( yd, invMag, ycf );
                         zd = FS::FMulAdd( zd, invMag, zcf );
@@ -434,8 +436,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
     {
         if( mDistanceFunction == FastNoise::DistanceFunction::Euclidean )
         {
-            distance[mDistanceIndex0] *= FS_InvSqrt_f32( distance[mDistanceIndex0] );
-            distance[mDistanceIndex1] *= FS_InvSqrt_f32( distance[mDistanceIndex1] );
+            distance[mDistanceIndex0] *= FS::InvSqrt( distance[mDistanceIndex0] );
+            distance[mDistanceIndex1] *= FS::InvSqrt( distance[mDistanceIndex1] );
         }
 
         switch( mReturnType )
@@ -465,9 +467,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, FS> : public virtual 
     }
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular, FS>
-{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         float32v distance( FLT_MAX );
@@ -492,7 +495,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
                 float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
 
-                float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, yd * yd ) );
+                float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
@@ -547,7 +550,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                     float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
                     float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
 
-                    float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+                    float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
                     xd = FS::FMulAdd( xd, invMag, xcf );
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
@@ -615,7 +618,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, FS> : public virtual Fa
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
 
-                        float32v invMag = jitter * FS_InvSqrt_f32( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+                        float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
                         xd = FS::FMulAdd( xd, invMag, xcf );
                         yd = FS::FMulAdd( yd, invMag, ycf );
                         zd = FS::FMulAdd( zd, invMag, zcf );

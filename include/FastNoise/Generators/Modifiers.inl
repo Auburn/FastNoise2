@@ -229,17 +229,19 @@ class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> : public virtual 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         thread_local static const void* CachedGenerator = nullptr;
+        thread_local static std::int32_t CachedSeed[int32v::ElementCount];
+        thread_local static float CachedPos[sizeof...(P)][int32v::ElementCount];
         thread_local static float CachedValue[int32v::ElementCount];
-        thread_local static float CachedPos[int32v::ElementCount][sizeof...( P )];
         // TLS is not always aligned (compiler bug), need to avoid using SIMD types
-
-        float32v arrayPos[] = { pos... };
+        
+        const float32v arrayPos[] = { pos... };
 
         bool isSame = (CachedGenerator == mSource.simdGeneratorPtr);
+        isSame &= !FS::AnyMask( seed != FS::Load<int32v>( CachedSeed ) );
 
         for( size_t i = 0; i < sizeof...( P ); i++ )
         {
-            isSame &= !FS_AnyMask_bool( arrayPos[i] != FS::Load<float32v>( &CachedPos[i] ) );
+            isSame &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( CachedPos[i] ) );
         }
 
         if( !isSame )
@@ -247,16 +249,18 @@ class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> : public virtual 
             CachedGenerator = mSource.simdGeneratorPtr;
 
             float32v value = this->GetSourceValue( mSource, seed, pos... );
-            FS::Store( &CachedValue, value );
+
+            FS::Store( CachedValue, value );
+            FS::Store( CachedSeed, seed );
 
             for( size_t i = 0; i < sizeof...(P); i++ )
             {
-                FS::Store( &CachedPos[i], arrayPos[i] );
+                FS::Store( CachedPos[i], arrayPos[i] );
             }
 
             return value;
         }
 
-        return FS::Load<float32v>( &CachedValue[0] );
+        return FS::Load<float32v>( CachedValue );
     }
 };

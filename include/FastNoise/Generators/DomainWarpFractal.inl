@@ -1,10 +1,9 @@
-#include "FastSIMD/InlInclude.h"
-
 #include "DomainWarpFractal.h"
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoise::DomainWarpFractalProgressive, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
-{    FASTNOISE_IMPL_GEN_T;
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> : public virtual FastNoise::DomainWarpFractalProgressive, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
@@ -34,9 +33,10 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, FS> : pub
     }
 };
 
-template<typename FS>
-class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, FS> : public virtual FastNoise::DomainWarpFractalIndependant, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
-{    FASTNOISE_IMPL_GEN_T;
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, SIMD> : public virtual FastNoise::DomainWarpFractalIndependant, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
