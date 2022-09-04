@@ -144,14 +144,11 @@ int main( int argc, char** argv )
     {
         gPositionFloats[idx] = (float)idx * 0.6f;
     }
-    
-    for( FastSIMD::FeatureSet level = FastSIMD::CPUMaxSIMDLevel(); level != FastSIMD::Level_Null; level = (FastSIMD::FeatureSet)(level >> 1) )
-    {
-        if( !(level & FastSIMD::COMPILED_SIMD_LEVELS & FastNoise::SUPPORTED_SIMD_LEVELS) )
-        {
-            continue;
-        }
 
+    FastSIMD::FeatureSet Levels[] = { FastSIMD::FeatureSet::SSE2, FastSIMD::FeatureSet::SSE41 };
+    
+    for( auto level : Levels )
+    {
         for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetAll() )
         {
             const char* groupName = "Misc";
