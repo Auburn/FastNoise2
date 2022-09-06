@@ -130,7 +130,16 @@ namespace FastNoise
         int32v hasha13 = hash & int32v( 13 );
 
         //if h < 8 then x, else y
-        float32v u = FS::Select( hasha13 < int32v( 8 ), fX, fY );
+        mask32v less8;
+        if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+        {
+            less8 = FS::Cast<FS::Mask<32>>( hasha13 << 28 );
+        }
+        else
+        {
+            less8 = hasha13 < int32v( 8 );    
+        }
+        float32v u = FS::Select( less8, fX, fY );
 
         //if h < 4 then y else if h is 12 or 14 then x else z
         float32v v = FS::Select( hasha13 == int32v( 12 ), fX, fZ );
@@ -139,7 +148,7 @@ namespace FastNoise
         //if h1 then -u else u
         //if h2 then -v else v
         float32v h1 = FS::Cast<float>( hash << 31 );
-        float32v h2 = FS::Cast<float>( (hash & int32v( 2 )) << 30 );
+        float32v h2 = FS::Cast<float>( (hash >> 1) << 31 );
         //then add them
         return ( u ^ h1 ) + ( v ^ h2 );
     }
@@ -172,8 +181,8 @@ namespace FastNoise
         float32v c = FS::Select( p > int32v( 2 << 3 ), fZ, fW );
 
         float32v aSign = FS::Cast<float>( hash << 31 );
-        float32v bSign = FS::Cast<float>( (hash << 30) & int32v( 0x80000000 ) );
-        float32v cSign = FS::Cast<float>( (hash << 29) & int32v( 0x80000000 ) );
+        float32v bSign = FS::Cast<float>( (hash >> 1) << 31 );
+        float32v cSign = FS::Cast<float>( (hash >> 2) << 31 );
 
         return ( a ^ aSign ) + ( b ^ bSign ) + ( c ^ cSign );
     }
