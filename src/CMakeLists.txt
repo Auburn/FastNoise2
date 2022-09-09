@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 17)
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG ff74d6350f9e674ef81d28118af3cd3eeb5f27bd
+    GIT_TAG 5d95d8b2e7b2531c73b9afcdf7eb1ea88eb22493
     EXCLUDE_FROM_ALL YES
     #OPTIONS
     #    "BUILD_SHARED_LIBS OFF"
@@ -58,7 +58,7 @@ set_target_properties(FastNoise PROPERTIES
     DEBUG_POSTFIX D
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
 
-fastsimd_create_simd_library(FastSIMD_FastNoise "../include/FastNoise/FastNoise_BuildList.inl")
+fastsimd_create_simd_library(FastSIMD_FastNoise SOURCES "../include/FastNoise/FastNoise_BuildList.inl")
 
 target_include_directories(FastSIMD_FastNoise PRIVATE "../include/")
 
