@@ -23,17 +23,17 @@ namespace FastSIMD
     };
 
     const Level_BitFlags COMPILED_SIMD_LEVELS =
-        (FASTSIMD_COMPILE_SCALAR     ? Level_Scalar : 0) |
-        (FASTSIMD_COMPILE_SSE        ? Level_SSE    : 0) |
-        (FASTSIMD_COMPILE_SSE2       ? Level_SSE2   : 0) |
-        (FASTSIMD_COMPILE_SSE3       ? Level_SSE3   : 0) |
-        (FASTSIMD_COMPILE_SSSE3      ? Level_SSSE3  : 0) |
-        (FASTSIMD_COMPILE_SSE41      ? Level_SSE41  : 0) |
-        (FASTSIMD_COMPILE_SSE42      ? Level_SSE42  : 0) |
-        (FASTSIMD_COMPILE_AVX        ? Level_AVX    : 0) |
-        (FASTSIMD_COMPILE_AVX2       ? Level_AVX2   : 0) |
-        (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : 0) |
-        (FASTSIMD_COMPILE_NEON       ? Level_NEON   : 0) ;
+        (FASTSIMD_COMPILE_SCALAR     ? Level_Scalar : Level_Null) |
+        (FASTSIMD_COMPILE_SSE        ? Level_SSE    : Level_Null) |
+        (FASTSIMD_COMPILE_SSE2       ? Level_SSE2   : Level_Null) |
+        (FASTSIMD_COMPILE_SSE3       ? Level_SSE3   : Level_Null) |
+        (FASTSIMD_COMPILE_SSSE3      ? Level_SSSE3  : Level_Null) |
+        (FASTSIMD_COMPILE_SSE41      ? Level_SSE41  : Level_Null) |
+        (FASTSIMD_COMPILE_SSE42      ? Level_SSE42  : Level_Null) |
+        (FASTSIMD_COMPILE_AVX        ? Level_AVX    : Level_Null) |
+        (FASTSIMD_COMPILE_AVX2       ? Level_AVX2   : Level_Null) |
+        (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : Level_Null) |
+        (FASTSIMD_COMPILE_NEON       ? Level_NEON   : Level_Null) ;
     
     typedef void* (*MemoryAllocator)( size_t size, size_t align );
 
