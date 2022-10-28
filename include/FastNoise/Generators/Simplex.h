@@ -19,6 +19,10 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Coherent Noise" );
+
+            description = 
+                "Smooth gradient noise from N dimensional simplex grid\n"
+                "Developed by Ken Perlin in 2001";
         }
     };
 #endif
@@ -39,6 +43,10 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Coherent Noise" );
+
+            description = 
+                "Smooth gradient noise from N dimensional simplex honeycomb grid\n"
+                "Developed by K.jpg in 2014";
         }
     };
 #endif
