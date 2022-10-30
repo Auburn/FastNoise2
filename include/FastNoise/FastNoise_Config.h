@@ -13,6 +13,7 @@ namespace FastNoise
 {
     const FastSIMD::Level_BitFlags SUPPORTED_SIMD_LEVELS =
         FastSIMD::Level_Scalar |
+        FastSIMD::Level_NEON   |
         FastSIMD::Level_SSE2   |
         FastSIMD::Level_SSE41  |
         FastSIMD::Level_AVX2   |
