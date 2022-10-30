@@ -14,15 +14,7 @@
 
 namespace FastNoise
 {
-    union SmartNodeReference
-    {
-        uint64_t u64;
-        struct
-        {
-            uint32_t pool;
-            uint32_t id;
-        } u32;
-    };
+    using SmartNodeReference = std::atomic<uint32_t>*;
     
     struct SmartNodeManagerPool
     {
@@ -31,6 +23,7 @@ namespace FastNoise
         struct SlotHeader
         {
             std::atomic<uint32_t> references;
+            uint32_t size;
         };
 
         struct Slot
@@ -66,15 +59,20 @@ namespace FastNoise
             delete[] pool;
         }
 
-        auto GetUsedSlotItr( const void* ptr ) const
+        bool Contains( const void* ptr ) const
         {
-            if( ptr > pool && ptr < pool + poolSize )
+            return ptr >= pool && ptr < pool + poolSize;
+        }
+
+        auto GetUsedSlotItr( const void* ref ) const
+        {
+            if( ref >= pool && ref < pool + poolSize )
             {
                 for( auto itr = usedSlots.begin(); itr != usedSlots.end(); ++itr )
                 {
                     const uint8_t* start = pool + itr->pos;
 
-                    if( start < ptr && start + itr->size > ptr )
+                    if( start <= ref && start + itr->size > ref )
                     {
                         return itr;
                     }
@@ -92,9 +90,9 @@ namespace FastNoise
             } );
         }
         
-        bool ValidatePtr( uint32_t pos, const void* ptr ) const
+        bool ValidatePtr( SmartNodeReference pos, const void* ptr ) const
         {            
-            if( pos >= poolSize )
+            if( *pos == 0 )
             {
                 assert( 0 );
                 return false;
@@ -110,7 +108,7 @@ namespace FastNoise
             }
 
             // Check pos is correct
-            if( slot->pos != pos )
+            if( pool + slot->pos != (uint8_t*)pos )
             {
                 assert( 0 );
                 return false;
@@ -127,16 +125,16 @@ namespace FastNoise
             return slot->references;
         }
 
-        uint32_t GetReferenceId( const void* ptr ) const
+        SmartNodeReference GetReferenceId( const void* ptr ) const
         {
             auto slot = GetUsedSlotItr( ptr );
 
             if( slot == usedSlots.end() )
             {
-                return UINT32_MAX;
+                return nullptr;
             }
 
-            return slot->pos;
+            return &reinterpret_cast<SlotHeader*>( pool + slot->pos )->references ;
         }
 
         void* TryAlloc( size_t size, size_t align )
@@ -170,7 +168,7 @@ namespace FastNoise
 
                     assert( freeSlots[idx].size >= slotSize );
                     
-                    new( startSlot ) SlotHeader { 0u };
+                    new( startSlot ) SlotHeader { { 0u }, slotSize };
                     usedSlots.emplace_back( Slot{ freeSlots[idx].pos, slotSize } );
 
                     // Check if remaining free slot is empty
@@ -192,10 +190,10 @@ namespace FastNoise
             return nullptr;
         }
 
-        void DeAlloc( uint32_t pos )
+        void DeAlloc( SmartNodeReference ref )
         {
-            SlotHeader* slotHeader = (SlotHeader*)( pool + pos );
-            auto slot = GetUsedSlotItr( pos );
+            SlotHeader* slotHeader = (SlotHeader*)( ref + offsetof( SlotHeader, references ) );
+            auto slot = GetUsedSlotItr( ref );
 
             assert( slot != usedSlots.end() );            
             assert( slotHeader->references == 0 );
@@ -204,6 +202,7 @@ namespace FastNoise
             // Merge free slots as necessary
             Slot* expandedBefore = nullptr;
             uint32_t idx = 0;
+            uint32_t pos = (uint32_t)((uint8_t*)ref - pool);
 
             for( ; idx < freeSlots.size(); idx++ )
             {
@@ -262,42 +261,35 @@ namespace FastNoise
         {
             std::lock_guard lock( mMutex );
 
-            if( ref.u32.pool >= mPools.size() )
+            for(const auto & pool : mPools)
             {
-                assert( 0 );
-                return false;
+                if( pool.Contains( ptr ) )
+                {
+                    return pool.ValidatePtr( ref, ptr );
+                }
             }
-
-            return std::next( mPools.begin(), ref.u32.pool )->ValidatePtr( ref.u32.id, ptr );
-        }
-
-        std::atomic<uint32_t>& GetReferenceCount( SmartNodeReference ref ) const
-        {
-            std::lock_guard lock( mMutex );
-
-            return std::next( mPools.begin(), ref.u32.pool )->GetReferenceCount( ref.u32.id );
+            
+            return false;
         }
 
         SmartNodeReference GetReference( const void* ptr )
         {
             std::lock_guard lock( mMutex );
 
-            SmartNodeReference ref = { 0 };
+            SmartNodeReference ref = nullptr;
 
             for( auto& poolItr : mPools )
             {
-                ref.u32.id = poolItr.GetReferenceId( ptr );
-                if( ref.u32.id != UINT32_MAX )
+                ref = poolItr.GetReferenceId( ptr );
+                if( ref )
                 {
                     return ref;
                 }
-
-                ref.u32.pool++;
             }
 
             // Could not find ptr in pools, probably not allocated using this class
             assert( 0 );
-            return { SmartNodeManager::kInvalidReferenceId };
+            return nullptr;
         }
 
         void* Alloc( size_t size, size_t align ) 
@@ -318,7 +310,17 @@ namespace FastNoise
         {
             std::lock_guard lock( mMutex );
 
-            std::next( mPools.begin(), ref.u32.pool )->DeAlloc( ref.u32.id );
+            
+            for( auto& poolItr : mPools )
+            {
+                if( poolItr.Contains( ref ) )
+                {
+                    poolItr.DeAlloc( ref );
+                    return;
+                }
+            }
+
+            assert( 0 );
         }
         
     private:
@@ -355,25 +357,25 @@ namespace FastNoise
     {
         assert( ptr );
 
-        return gMemoryAllocator.GetReference( ptr ).u64;
+        return (uint64_t)gMemoryAllocator.GetReference( ptr );
     }
 
     void SmartNodeManager::IncReference( uint64_t id )
     {
         assert( id != kInvalidReferenceId );
 
-        std::atomic<uint32_t>& refCount = gMemoryAllocator.GetReferenceCount( { id } );
+        std::atomic<uint32_t>& refCount = *(SmartNodeReference)id;
 
         ++refCount;
     }
 
     void SmartNodeManager::DecReference( uint64_t id, void* ptr, void ( *destructorFunc )( void* ) )
     {
-        assert( gMemoryAllocator.ValidatePtr( { id }, ptr ) );
+        SmartNodeReference refCount = (SmartNodeReference)id;
 
-        std::atomic<uint32_t>& refCount = gMemoryAllocator.GetReferenceCount( { id } );    
+        assert( gMemoryAllocator.ValidatePtr( refCount, ptr ) );   
 
-        uint32_t previousRefCount = refCount.fetch_sub( 1 );
+        uint32_t previousRefCount = refCount->fetch_sub( 1 );
 
         assert( previousRefCount );
 
@@ -381,15 +383,17 @@ namespace FastNoise
         {
             destructorFunc( ptr );
 
-            gMemoryAllocator.Dealloc( { id } );
+            gMemoryAllocator.Dealloc( refCount );
         }
     }
 
     uint32_t SmartNodeManager::ReferenceCount( uint64_t id )
     {
         assert( id != kInvalidReferenceId );
+
+        SmartNodeReference refCount = (SmartNodeReference)id;
         
-        return gMemoryAllocator.GetReferenceCount( { id } );
+        return *refCount;
     }
 
     void* SmartNodeManager::Allocate( size_t size, size_t align )

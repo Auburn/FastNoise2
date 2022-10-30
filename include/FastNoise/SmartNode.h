@@ -13,7 +13,7 @@ namespace FastNoise
     class FASTNOISE_API SmartNodeManager
     {
     public:
-        static constexpr uint64_t kInvalidReferenceId = (uint64_t)-1;
+        static constexpr uint64_t kInvalidReferenceId = (uint64_t)0;
 
         SmartNodeManager() = delete;
 
