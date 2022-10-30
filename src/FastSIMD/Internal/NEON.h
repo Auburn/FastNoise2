@@ -2,17 +2,132 @@
 
 
 #include <arm_neon.h>
-#include <assert.h>
 
 #include "VecTools.h"
 
-#if defined(__arm__) || !defined(__aarch64__)
+#if defined(__arm__)
 #define FASTSIMD_USE_ARMV7
 #endif
 
 
 namespace FastSIMD
 {
+    
+    struct NEON_i32x4
+    {
+        FASTSIMD_INTERNAL_TYPE_SET( NEON_i32x4, int32x4_t );
+        
+
+        FS_INLINE static NEON_i32x4 Zero()
+        {
+            return vdupq_n_s32( 0 );
+        }
+
+        FS_INLINE static NEON_i32x4 Incremented()
+        {
+            alignas(16) const int32_t f[4]{ 0, 1, 2, 3 };
+            return vld1q_s32( f );
+        }
+
+        FS_INLINE explicit NEON_i32x4( int32_t i )
+        {
+            *this = vdupq_n_s32( i );
+        }
+
+        FS_INLINE explicit NEON_i32x4( int32_t i0, int32_t i1, int32_t i2, int32_t i3 )
+        {
+            alignas(16) const int32_t f[4]{ i0, i1, i2, i3 };
+            *this = vld1q_s32( f );
+        }
+
+        FS_INLINE NEON_i32x4& operator+=( const NEON_i32x4& rhs )
+        {
+            *this = vaddq_s32( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator-=( const NEON_i32x4& rhs )
+        {
+            *this = vsubq_s32( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator*=( const NEON_i32x4& rhs )
+        {
+            *this = vmulq_s32( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator&=( const NEON_i32x4& rhs )
+        {
+            *this = vandq_s32( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator|=( const NEON_i32x4& rhs )
+        {
+            *this = vorrq_s32( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator^=( const NEON_i32x4& rhs )
+        {
+            *this = veorq_s32( *this, rhs );
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator>>=( const int32_t rhs )
+        {
+            int32x4_t rhs2 = vdupq_n_s32( -rhs );
+            *this = vshlq_s32(*this, rhs2);//use shift right by constant for faster execution
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4& operator<<=( const int32_t rhs )
+        {
+            int32x4_t rhs2 = vdupq_n_s32( rhs );
+            *this = vshlq_s32(*this, rhs2);//use shift left by constant for faster execution
+            return *this;
+        }
+
+        FS_INLINE NEON_i32x4 operator~() const
+        {
+            return vmvnq_s32( *this );
+        }
+
+        FS_INLINE NEON_i32x4 operator-() const
+        {
+            return vnegq_s32( *this );
+        }
+        
+        FS_INLINE NEON_i32x4 operator<( const NEON_i32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcltq_s32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator>( const NEON_i32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcgtq_s32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator<=( const NEON_i32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcleq_s32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator>=( const NEON_i32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcgeq_s32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator!=( const NEON_i32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vmvnq_u32 (vceqq_s32( *this, b ) ) );
+        }
+        FS_INLINE NEON_i32x4 operator==( const NEON_i32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vceqq_s32( *this, b ) );
+        }
+    };
+
+    FASTSIMD_INTERNAL_OPERATORS_INT( NEON_i32x4, int32_t )
+    
 
     struct NEON_f32x4
     {
@@ -117,101 +232,38 @@ namespace FastSIMD
         {
             return vreinterpretq_f32_u32( vmvnq_u32( vreinterpretq_u32_f32(*this) ) );
         }
-
+        
+        
+        FS_INLINE NEON_i32x4 operator<( const NEON_f32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcltq_f32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator>( const NEON_f32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcgtq_f32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator<=( const NEON_f32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcleq_f32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator>=( const NEON_f32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vcgeq_f32( *this, b ) );
+        }
+        FS_INLINE NEON_i32x4 operator!=( const NEON_f32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vmvnq_u32 (vceqq_f32( *this, b ) ) );
+        }
+        FS_INLINE NEON_i32x4 operator==( const NEON_f32x4 &b ) const
+        {
+            return vreinterpretq_s32_u32( vceqq_f32( *this, b ) );
+        }
     };
 
     FASTSIMD_INTERNAL_OPERATORS_FLOAT( NEON_f32x4 )
 
 
-    struct NEON_i32x4
-    {
-        FASTSIMD_INTERNAL_TYPE_SET( NEON_i32x4, int32x4_t );
-        
-
-        FS_INLINE static NEON_i32x4 Zero()
-        {
-            return vdupq_n_s32( 0 );
-        }
-
-        FS_INLINE static NEON_i32x4 Incremented()
-        {
-            alignas(16) const int32_t f[4]{ 0, 1, 2, 3 };
-            return vld1q_s32( f );
-        }
-
-        FS_INLINE explicit NEON_i32x4( int32_t i )
-        {
-            *this = vdupq_n_s32( i );
-        }
-
-        FS_INLINE explicit NEON_i32x4( int32_t i0, int32_t i1, int32_t i2, int32_t i3 )
-        {
-            alignas(16) const int32_t f[4]{ i0, i1, i2, i3 };
-            *this = vld1q_s32( f );
-        }
-
-        FS_INLINE NEON_i32x4& operator+=( const NEON_i32x4& rhs )
-        {
-            *this = vaddq_s32( *this, rhs );
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator-=( const NEON_i32x4& rhs )
-        {
-            *this = vsubq_s32( *this, rhs );
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator*=( const NEON_i32x4& rhs )
-        {
-            *this = vmulq_s32( *this, rhs );
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator&=( const NEON_i32x4& rhs )
-        {
-            *this = vandq_s32( *this, rhs );
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator|=( const NEON_i32x4& rhs )
-        {
-            *this = vorrq_s32( *this, rhs );
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator^=( const NEON_i32x4& rhs )
-        {
-            *this = veorq_s32( *this, rhs );
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator>>=( const int32_t rhs )
-        {
-            int32x4_t rhs2 = vdupq_n_s32( -rhs );
-            *this = vshlq_s32(*this, rhs2);//use shift right by constant for faster execution
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4& operator<<=( const int32_t rhs )
-        {
-            int32x4_t rhs2 = vdupq_n_s32( rhs );
-            *this = vshlq_s32(*this, rhs2);//use shift left by constant for faster execution
-            return *this;
-        }
-
-        FS_INLINE NEON_i32x4 operator~() const
-        {
-            return vmvnq_s32( *this );
-        }
-
-        FS_INLINE NEON_i32x4 operator-() const
-        {
-            return vnegq_s32( *this );
-        }
-    };
-
-    FASTSIMD_INTERNAL_OPERATORS_INT( NEON_i32x4, int32_t )
+    
     
 
     template<eLevel LEVEL_T>
@@ -303,17 +355,17 @@ namespace FastSIMD
 
         FS_INLINE static mask32v Equal_i32( int32v a, int32v b )
         {
-            return vceqq_s32( a, b );
+            return vreinterpretq_s32_u32( vceqq_s32( a, b ) );
         }
 
         FS_INLINE static mask32v GreaterThan_i32( int32v a, int32v b )
         {
-            return vcgtq_s32( a, b );
+            return vreinterpretq_s32_u32( vcgtq_s32( a, b ) );
         }
 
         FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
         {
-            return vcltq_s32( a, b );
+            return vreinterpretq_s32_u32( vcltq_s32( a, b ) );
         }
 
         // Select
@@ -413,8 +465,8 @@ namespace FastSIMD
                 static const float32x4_t cmpval = vcvtq_f32_s32( vdupq_n_s32( 0x7FFFFFFF ) );
                 
 
-                float32x4_t cmp1 = vcagtq_f32( a, cmpval );
-                float32x4_t cmp2 = vcaleq_f32( a, cmpval );
+                uint32x4_t cmp1 = vcagtq_f32( a, cmpval );
+                uint32x4_t cmp2 = vcaleq_f32( a, cmpval );
 
                 float32x4_t tr = vcvtq_f32_s32( vcvtq_s32_f32( a ) );
 
@@ -431,7 +483,6 @@ namespace FastSIMD
             FS_INLINE static float32v Floor_f32(float32v a)
             {
                 static const float32x4_t zerox = vdupq_n_f32( 0 );
-                static const float32x4_t min1 = vreinterpretq_u32_f32( a );
 
                 float32x4_t ifl = IntFloor_f32(a);
 
@@ -445,7 +496,6 @@ namespace FastSIMD
             FS_INLINE static float32v Ceil_f32(float32v a)
             {
                 static const float32x4_t zerox = vdupq_n_f32( 0 );
-                static const float32x4_t min1 = vreinterpretq_u32_f32( a );
 
                 float32x4_t ifl = IntFloor_f32(a);
 
@@ -531,17 +581,17 @@ namespace FastSIMD
         FS_INLINE static float32v BitwiseShiftRightZX_f32( float32v a, int32_t b )
         {
             int32x4_t rhs2 = vdupq_n_s32( -b );
-            return vreinterpretq_f32_u32 ( vreinterpretq_u32_f32 ( vshlq_u32( a, rhs2) ) );
+            return vreinterpretq_f32_u32 ( vshlq_u32( vreinterpretq_u32_f32(a), rhs2) );
         }
         
         FS_INLINE static int32v BitwiseShiftRightZX_i32( int32v a, int32_t b )
         {
             int32x4_t rhs2 = vdupq_n_s32( -b );
-            return vshlq_u32( a, rhs2);
+            return vreinterpretq_s32_u32 (vshlq_u32( vreinterpretq_u32_s32(a), rhs2));
         }
         FS_INLINE static bool AnyMask_bool( mask32v m )
         {
-            uint32x2_t tmp = vorr_u32(vget_low_u32(m), vget_high_u32(m));
+            uint32x2_t tmp = vorr_u32(vget_low_u32(vreinterpretq_u32_s32(m)), vget_high_u32(vreinterpretq_u32_s32(m)));
             return vget_lane_u32(vpmax_u32(tmp, tmp), 0);
         }
     };
