@@ -15,11 +15,13 @@ Uses FastSIMD to compile classes with multiple SIMD types and selects the fastes
 - SSE4.1
 - AVX2
 - AVX512
+- NEON
 
 Supports:
 - 32/64 bit
 - Windows
 - Linux
+- Android
 - MacOS
 - MSVC
 - Clang
