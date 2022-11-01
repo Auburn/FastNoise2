@@ -203,7 +203,7 @@ public:
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         AxisReset<true>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
 
-        while( index < totalValues - FS_Size_32() )
+        while( index < totalValues - (intptr_t)FS_Size_32() )
         {
             float32v xPos = FS_Converti32_f32( xIdx ) * freqV;
             float32v yPos = FS_Converti32_f32( yIdx ) * freqV;
