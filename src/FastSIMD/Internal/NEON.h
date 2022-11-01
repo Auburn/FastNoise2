@@ -321,10 +321,7 @@ namespace FastSIMD
             return vcvtq_f32_s32( a );
         }
 
-        FS_INLINE static int32v Convertf32_i32( float32v a )
-        {
-            return vcvtq_s32_f32( a );
-        }
+        
 
         // Comparisons
 
@@ -479,28 +476,36 @@ namespace FastSIMD
                 
                 return res1;
             }
-            
+        
             FS_INLINE static float32v Floor_f32(float32v a)
             {
                 static const float32x4_t zerox = vdupq_n_f32( 0 );
 
                 float32x4_t ifl = IntFloor_f32(a);
 
-                uint32x4_t cmpmask = vcltq_f32(a, zerox);
+                uint32x4_t cond1 = vmvnq_u32(vceqq_f32(a, ifl));
+                uint32x4_t cond2 = vcltq_f32(a, zerox);
+
+                uint32x4_t cmpmask = vandq_u32(cond1, cond2);
                 float32x4_t addx = vcvtq_f32_s32( vreinterpretq_s32_u32(cmpmask) );
 
                 float32x4_t ret0 = vaddq_f32(ifl, addx);
 
                 return ret0;
             }
+
             FS_INLINE static float32v Ceil_f32(float32v a)
             {
                 static const float32x4_t zerox = vdupq_n_f32( 0 );
 
                 float32x4_t ifl = IntFloor_f32(a);
+                
+                uint32x4_t cond1 = vmvnq_u32(vceqq_f32(a, ifl));
+                uint32x4_t cond2 = vcgeq_f32(a, zerox);
 
-                uint32x4_t cmpmask = vcgeq_f32(a, zerox);
+                uint32x4_t cmpmask = vandq_u32(cond1, cond2);
                 float32x4_t addx = vcvtq_f32_s32( vreinterpretq_s32_u32(cmpmask) );
+                
 
                 float32x4_t ret0 = vsubq_f32(ifl, addx);
 
@@ -508,16 +513,31 @@ namespace FastSIMD
             }
             FS_INLINE static float32v Round_f32(float32v a)
             {
+                static const float32x4_t zerox = vdupq_n_f32( 0 );
                 static const float32x4_t halfx = vdupq_n_f32( 0.5f );
+                static const float32x4_t onex = vdupq_n_f32( 1.0f );
+            
+                float32x4_t a2 = vaddq_f32(vabsq_f32(a), halfx);
+                float32x4_t ifl = IntFloor_f32(a2);
+                
+                
+                
+                uint32x4_t cmpmask = vcltq_f32(a, zerox);
+                float32x4_t rhs = vcvtq_f32_s32( vreinterpretq_s32_u32(cmpmask) );
+                float32x4_t rhs2 = vaddq_f32(vmulq_n_f32(rhs, 2.0f), onex);
+                
 
-                return Floor_f32( vaddq_f32( a, halfx ) );
+                return vmulq_f32(ifl, rhs2);
             }
             
             FS_INLINE static float32v Sqrt_f32( float32v a )
             {
                 return Reciprocal_f32(InvSqrt_f32(a));
             }
-        
+            FS_INLINE static int32v Convertf32_i32( float32v a )
+            {
+                return vcvtq_s32_f32( Round_f32(a) );
+            }
         #else
             FS_INLINE static float32v Floor_f32( float32v a )
             {
@@ -534,6 +554,10 @@ namespace FastSIMD
             FS_INLINE static float32v Sqrt_f32( float32v a )
             {
                 return vsqrtq_f32( a );
+            }
+            FS_INLINE static int32v Convertf32_i32( float32v a )
+            {
+                return vcvtq_s32_f32( vrndnq_f32(a) );
             }
         #endif
         
