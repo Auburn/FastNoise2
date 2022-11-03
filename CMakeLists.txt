@@ -4,26 +4,25 @@ cmake_minimum_required(VERSION 3.7.1)
 project(FastNoise2 VERSION 0.9.6)
 set(CMAKE_CXX_STANDARD 17)
 
+message("FastNoise2 Arch: ${CMAKE_SYSTEM_PROCESSOR}") 
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES armv7)
 
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL armv7-a)
-
-set(FASTSIMD_COMPILE_ARMV7 true)
-set(FASTSIMD_COMPILE_ARM true)
-set(FASTSIMD_COMPILE_HAVE_NEON true)
+    set(FASTSIMD_COMPILE_ARMV7 true)
+    set(FASTSIMD_COMPILE_ARM true)
+    set(FASTSIMD_COMPILE_HAVE_NEON true)
 
 elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
 
-set(FASTSIMD_COMPILE_AARCH64 true)
-set(FASTSIMD_COMPILE_ARM true)
-set(FASTSIMD_COMPILE_HAVE_NEON true)
+    set(FASTSIMD_COMPILE_AARCH64 true)
+    set(FASTSIMD_COMPILE_ARM true)
+    set(FASTSIMD_COMPILE_HAVE_NEON true)
 
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL arm)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES arm)
 
-set(FASTSIMD_COMPILE_ARM true)
+    set(FASTSIMD_COMPILE_ARM true)
 
 endif()
-
 
 
 # determine whether this is a standalone project or included by other projects
