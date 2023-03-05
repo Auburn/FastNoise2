@@ -72,19 +72,35 @@ static std::string TimeWithUnits( int64_t time, int significantDigits = 3 )
     return ss.str();
 }
 
+template<typename... Args>
+std::string string_format( const char* format, Args... args )
+{
+    int size_s = std::snprintf( nullptr, 0, format, args... );
+    if( size_s <= 0 )
+    {
+        return "";
+    }
+    auto size = static_cast<size_t>( size_s );
+    std::string buf( size, 0 );
+    std::snprintf( buf.data(), size, format, args... );
+    return buf;
+}
+
 template<typename... T>
 static bool DoHoverPopup( const char* format, T... args )
 {
-    if( !*format )
-    {
-        return false;
-    }
-
     if( ImGui::IsItemHovered() )
     {
+        std::string hoverTxt = string_format( format, args... );
+
+        if( hoverTxt.empty() )
+        {
+            return false;
+        }
+
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
         ImGui::BeginTooltip();
-        ImGui::Text( format, args... );
+        ImGui::TextUnformatted( hoverTxt.c_str() );
         ImGui::EndTooltip();
         ImGui::PopStyleVar();
         return true;
