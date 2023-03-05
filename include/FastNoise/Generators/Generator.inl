@@ -91,7 +91,7 @@ public:
         size_t totalValues = xSize * ySize;
         size_t index = 0;
 
-        xIdx += FS::Incremented<int32v>();
+        xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
@@ -141,7 +141,7 @@ public:
         size_t totalValues = xSize * ySize * zSize;
         size_t index = 0;
 
-        xIdx += FS::Incremented<int32v>();
+        xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
@@ -198,7 +198,7 @@ public:
         size_t totalValues = xSize * ySize * zSize * wSize;
         size_t index = 0;
 
-        xIdx += FS::Incremented<int32v>();
+        xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
@@ -368,7 +368,7 @@ public:
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 
-        xIdx += FS::Incremented<int32v>();
+        xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
