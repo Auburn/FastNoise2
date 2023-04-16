@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <atomic>
 
 #include "FastNoise/FastNoise_Config.h"
 
@@ -93,6 +94,10 @@ namespace FastNoise
         template<typename T>
         friend struct MetadataT;
 
+        Generator() : mReferences( 0 ) {}
+        Generator( const Generator& ) = delete;
+        Generator( Generator&& ) = delete;
+
         virtual ~Generator() = default;
 
         virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
@@ -146,6 +151,11 @@ namespace FastNoise
 
     private:
         virtual void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) = 0;
+
+        template<typename>
+        friend class SmartNode;
+
+        mutable std::atomic<uint32_t> mReferences;
     };
 
     using GeneratorSource = GeneratorSourceT<Generator>;
