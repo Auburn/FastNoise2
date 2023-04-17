@@ -63,17 +63,36 @@ namespace FastNoise
             return startSlot;
         }
 
-        bool DeAlloc( const void* ptr )
+        int32_t Free( const void* ptr )
         {
             if( Contains( ptr ) )
             {
                 uint64_t allocState = mAllocState.fetch_sub( 1, std::memory_order_relaxed );
 
                 assert( (uint32_t)allocState != 0 );
-                return true;
+                return (int32_t)allocState - 1;
             }
 
-            return false;
+            return -1;
+        }
+
+        int32_t AllocCount() const
+        {
+            return (int32_t)mAllocState.load( std::memory_order_relaxed );
+        }
+
+        bool MarkForRemoval()
+        {
+            uint64_t allocState = mAllocState.load( std::memory_order_relaxed );
+
+            if( (uint32_t)allocState != 0 )
+            {
+                return false;
+            }
+
+            uint64_t newAllocState = ( (uint64_t)mPoolSize << 32 ) + 1; // Set as full
+
+            return mAllocState.compare_exchange_strong( allocState, newAllocState, std::memory_order_relaxed );
         }
 
         uint8_t* GetPool() const
@@ -82,7 +101,7 @@ namespace FastNoise
         }
 
         std::atomic<uint64_t> mAllocState;
-        SmartNodeManagerPool* mNextPool;
+        std::atomic<SmartNodeManagerPool*> mNextPool;
         uint32_t mPoolSize;
     };
     
@@ -104,39 +123,57 @@ namespace FastNoise
             {
                 return ptr;
             }
-
-            SmartNodeManagerPool** pool = &mPools;
-
-            while( *pool )
-            {
-                pool = &(*pool)->mNextPool;
-            }            
-
-            if( void* alloc = std::malloc( sNewPoolSize ) )
+      
+            if( void* poolAlloc = std::malloc( std::max( (uint32_t)sizeof( SmartNodeManagerPool ), sNewPoolSize ) ) )
             {        
-                *pool = new( alloc ) SmartNodeManagerPool( sNewPoolSize - (uint32_t)sizeof( SmartNodeManagerPool ) );
+                SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( sNewPoolSize - (uint32_t)sizeof( SmartNodeManagerPool ) );
 
-                return (*pool)->TryAlloc( size, align );  
-            }
+                void* alloc = newPool->TryAlloc( size, align );
+                assert( alloc ); // Alloc too large to fit in empty pool, increase pool size
+
+                if( mPools )
+                {
+                    SmartNodeManagerPool* pool = mPools;
+
+                    while( SmartNodeManagerPool* nextPool = pool->mNextPool.load( std::memory_order_relaxed ) )
+                    {
+                        pool = nextPool;
+                    }  
+
+                    pool->mNextPool.store( newPool, std::memory_order_release );
+                }
+                else
+                {
+                    mPools = newPool;
+                }
+
+                return alloc;
+            } 
 
             return nullptr;
         }
 
-        void Dealloc( const void* ptr )
+        void Free( const void* ptr )
         {
             SmartNodeManagerPool* pool = mPools;
 
             while( pool )
             {
-                if( pool->DeAlloc( ptr ) )
+                int32_t allocCount = pool->Free( ptr );
+
+                if( allocCount >= 0 )
                 {
+                    if( allocCount == 0 )
+                    {
+                        RemoveEmptyPool();
+                    }
                     return;
                 }
 
                 pool = pool->mNextPool;
             }
 
-            assert( 0 );
+            assert( 0 ); // Pointer not in any of the pools
         }
         
     private:
@@ -155,8 +192,44 @@ namespace FastNoise
             }
             return nullptr;
         }
+
+        void RemoveEmptyPool()
+        {
+            SmartNodeManagerPool* pool = mPools;
+            SmartNodeManagerPool* emptyPool = mPools->AllocCount() > 0 ? nullptr : mPools;
+
+            while( SmartNodeManagerPool* nextPool = pool->mNextPool.load( std::memory_order_relaxed ) )
+            {
+                int32_t allocCount = nextPool->AllocCount();
+
+                if( allocCount == 0 )
+                {
+                    if( emptyPool ) // Only remove a pool if we have 2 empty pools
+                    {
+                        std::lock_guard lock( mMutex );
+
+                        SmartNodeManagerPool* toRemove = nextPool;
+
+                        if( toRemove->MarkForRemoval() )
+                        {
+                            pool->mNextPool.store( toRemove->mNextPool.load( std::memory_order_relaxed ) );
+
+                            toRemove->~SmartNodeManagerPool();
+
+                            std::free( toRemove );
+                        }
+
+                        return;
+                    }
+
+                    emptyPool = nextPool;                    
+                }
+
+                pool = nextPool;
+            }
+        }
         
-        SmartNodeManagerPool* mPools;
+        SmartNodeManagerPool* mPools = nullptr;
         mutable std::mutex mMutex;
     };
 
@@ -174,7 +247,7 @@ namespace FastNoise
 
     void SmartNodeManager::Free( const void* ptr )
     {
-        gMemoryAllocator.Dealloc( ptr );        
+        gMemoryAllocator.Free( ptr );        
     }
 } // namespace FastNoise
 
