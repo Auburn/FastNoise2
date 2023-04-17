@@ -80,7 +80,7 @@ std::string string_format( const char* format, Args... args )
     {
         return "";
     }
-    auto size = static_cast<size_t>( size_s );
+    auto size = static_cast<size_t>( size_s + 1 );
     std::string buf( size, 0 );
     std::snprintf( buf.data(), size, format, args... );
     return buf;
