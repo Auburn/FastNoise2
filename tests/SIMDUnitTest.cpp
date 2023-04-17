@@ -40,11 +40,18 @@ struct SIMDClassContainer<HEAD, TAIL...>
 };
 
 typedef SIMDClassContainer<
-    FastSIMD::Scalar,
+    FastSIMD::Scalar
+#if FASTSIMD_x86
+    ,
     FastSIMD::SSE2,
     FastSIMD::SSE41,
     FastSIMD::AVX2,
     FastSIMD::AVX512
+#endif
+#if FASTSIMD_ARM
+    ,
+    FastSIMD::NEON
+#endif
 >
 SIMDClassList;
 
