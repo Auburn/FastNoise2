@@ -94,7 +94,7 @@ namespace FastNoise
         template<typename T>
         friend struct MetadataT;
 
-        Generator() : mReferences( 0 ) {}
+        Generator() = default;
         Generator( const Generator& ) = delete;
         Generator( Generator&& ) = delete;
 
@@ -151,11 +151,10 @@ namespace FastNoise
 
     private:
         virtual void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) = 0;
+        virtual int32_t ReferencesFetchAdd( int32_t add = 0 ) const noexcept = 0;
 
         template<typename>
         friend class SmartNode;
-
-        mutable std::atomic<uint32_t> mReferences;
     };
 
     using GeneratorSource = GeneratorSourceT<Generator>;

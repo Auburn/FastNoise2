@@ -23,6 +23,9 @@ public:
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }\
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const override { return GenT( seed, x, y, z, w ); }
 
+    FS_T() : mReferences( 0 )
+    { }
+
     FastSIMD::eLevel GetSIMDLevel() const final
     {
         return FS::SIMD_Level;
@@ -458,4 +461,16 @@ private:
 
         return minMax;
     }
+
+    int32_t ReferencesFetchAdd( int32_t add ) const noexcept final
+    {
+        if( add )
+        {
+            return mReferences.fetch_add( add, std::memory_order_relaxed );
+        }
+
+        return mReferences.load( std::memory_order_relaxed );
+    }
+    
+    mutable std::atomic<uint32_t> mReferences;
 };

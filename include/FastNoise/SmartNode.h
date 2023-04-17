@@ -69,12 +69,10 @@ namespace FastNoise
         }
 
         template<typename U>
-        SmartNode( const SmartNode<U>& node, T* ptr ) noexcept :
+        SmartNode( const SmartNode<U>&, T* ptr ) noexcept :
             mPtr( ptr )
         {
             TryInc( mPtr );
-
-            assert( &node.mPtr->mReferences == &mPtr->mReferences );
         }
 
         SmartNode( SmartNode&& node ) noexcept :
@@ -154,13 +152,13 @@ namespace FastNoise
 
         T& operator*() const noexcept
         {
-            assert( mPtr->mReferences );
+            assert( mPtr->ReferencesFetchAdd() );
             return *mPtr;
         }
 
         T* operator->() const noexcept
         {
-            assert( mPtr->mReferences );
+            assert( mPtr->ReferencesFetchAdd() );
             return mPtr;
         }
 
@@ -188,7 +186,7 @@ namespace FastNoise
         {
             if( mPtr )
             {
-                return mPtr->mReferences;
+                return mPtr->ReferencesFetchAdd();
             }
 
             return 0;
@@ -221,7 +219,7 @@ namespace FastNoise
 
             if( mPtr )
             {
-                uint32_t previousRefCount = mPtr->mReferences.fetch_sub( 1, std::memory_order_relaxed );
+                int32_t previousRefCount = mPtr->ReferencesFetchAdd( -1 );
 
                 assert( previousRefCount );
 
@@ -241,7 +239,7 @@ namespace FastNoise
         {
             if( ptr )
             {
-                ptr->mReferences.fetch_add( 1, std::memory_order_relaxed );
+                ptr->ReferencesFetchAdd( 1 );
             }
         }
         
