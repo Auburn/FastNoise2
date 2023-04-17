@@ -72,8 +72,8 @@ static std::string TimeWithUnits( int64_t time, int significantDigits = 3 )
     return ss.str();
 }
 
-template<typename... Args>
-std::string string_format( const char* format, Args... args )
+template<size_t N, typename... Args>
+std::string string_format( const char (&format)[N], const Args&... args )
 {
     int size_s = std::snprintf( nullptr, 0, format, args... );
     if( size_s <= 0 )
@@ -86,21 +86,26 @@ std::string string_format( const char* format, Args... args )
     return buf;
 }
 
-template<typename... T>
-static bool DoHoverPopup( const char* format, T... args )
+const char* string_format( const char* txt )
+{
+    return txt;
+}
+
+template<typename T, typename... Args>
+static bool DoHoverPopup( T&& format, const Args&... args )
 {
     if( ImGui::IsItemHovered() )
     {
-        std::string hoverTxt = string_format( format, args... );
+        auto hoverTxt = string_format( format, args... );
 
-        if( hoverTxt.empty() )
+        if( !hoverTxt[0] )
         {
             return false;
         }
 
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
         ImGui::BeginTooltip();
-        ImGui::TextUnformatted( hoverTxt.c_str() );
+        ImGui::TextUnformatted( &hoverTxt[0] );
         ImGui::EndTooltip();
         ImGui::PopStyleVar();
         return true;
