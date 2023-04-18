@@ -64,7 +64,7 @@ jobs:
       run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NoiseTool
     
     - name: 'Upload artifact'
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.name }}
         path: ${{ github.workspace }}/install/
@@ -79,7 +79,7 @@ jobs:
         
     - name: 'Upload release artifacts'
       if: github.event_name == 'release'
-      uses: svenstaro/upload-release-action@v3
+      uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ github.workspace }}/${{ matrix.name }}.zip
