@@ -47,6 +47,7 @@ CPMAddPackage(
     GITHUB_REPOSITORY ocornut/imgui
     GIT_TAG 0ea3b87bd63ecbf359585b7c235839146e84dedb
     EXCLUDE_FROM_ALL YES
+    DOWNLOAD_ONLY YES
 )
 # Set dir for find_package(ImGui)
 set(IMGUI_DIR ${imgui_SOURCE_DIR})
@@ -76,6 +77,7 @@ CPMAddPackage(
     GIT_SUBMODULES ".github"
     EXCLUDE_FROM_ALL YES
     OPTIONS
+        "BUILD_SHARED_LIBS OFF"
         "IMNODES_IMGUI_TARGET_NAME MagnumIntegration::ImGui"
 )
   
