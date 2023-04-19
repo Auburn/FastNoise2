@@ -61,14 +61,22 @@ CPMAddPackage(
         "BUILD_STATIC ON"
         "MAGNUM_WITH_IMGUI ON"
 )
+
+# Use modules from magnum-integration since it has everything we need
+set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_PATH})
+
+find_package(Magnum REQUIRED GL GlfwApplication)
+find_package(MagnumIntegration REQUIRED ImGui)
+find_package(ImGui REQUIRED SourcesMiscCpp)
   
 CPMAddPackage(
     NAME imnodes
     GITHUB_REPOSITORY Auburn/imnodes
-    GIT_TAG 26cc4165e7a0aad94f9db693521164851316bd8e
+    GIT_TAG 1aa48f4af2a4f9f1b9a6ed53fe858ed76646b233
     GIT_SUBMODULES ".github"
     EXCLUDE_FROM_ALL YES
-    DOWNLOAD_ONLY YES
+    OPTIONS
+        "IMNODES_IMGUI_TARGET_NAME MagnumIntegration::ImGui"
 )
   
 CPMAddPackage(
@@ -77,13 +85,6 @@ CPMAddPackage(
     GIT_TAG 3.11.5    
     EXCLUDE_FROM_ALL YES
 )
-
-# Use modules from magnum-integration since it has everything we need
-set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_PATH})
-
-find_package(Magnum REQUIRED GL GlfwApplication)
-find_package(MagnumIntegration REQUIRED ImGui)
-find_package(ImGui REQUIRED SourcesMiscCpp)
 
 # Ensure FastNoise.dll is built into the same dir as NoiseTool.exe
 set_target_properties(FastNoise
@@ -104,13 +105,8 @@ add_executable(NoiseTool
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
-    "${imnodes_SOURCE_DIR}/imnodes.cpp"
     ${NoiseTool_RESOURCES}
 ) 
-
-# Include imnodes in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
-target_include_directories(NoiseTool PRIVATE 
-    "${imnodes_SOURCE_DIR}")
 
 target_link_libraries(NoiseTool PRIVATE
     FastNoise
@@ -119,6 +115,7 @@ target_link_libraries(NoiseTool PRIVATE
     Magnum::SceneGraph
     MagnumIntegration::ImGui
     ImGui::SourcesMiscCpp
+    imnodes
     robin_hood
 )
 
