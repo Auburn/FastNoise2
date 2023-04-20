@@ -660,6 +660,14 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
 
+#if 0
+        if( ImGui::IsWindowHovered() )
+        {
+            auto zoom = ImNodes::EditorContextGetZoom() + ImGui::GetIO().MouseWheel * 0.1f;
+            ImNodes::EditorContextSetZoom( zoom, ImGui::GetMousePos() );
+        }
+#endif
+
         ImNodes::EndNodeEditor();
 
         CheckLinks();
@@ -839,10 +847,7 @@ void FastNoiseNodeEditor::DoNodes()
         if( ImGui::IsItemHovered() )
         {
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
-            ImGui::BeginTooltip();
-
-            ImGui::Text( "Total: %s", TimeWithUnits( node.second.totalGenerateNs ).c_str() );
-            ImGui::EndTooltip();
+            ImGui::SetTooltip( "Total: %s", TimeWithUnits( node.second.totalGenerateNs ).c_str() );            
             ImGui::PopStyleVar();
         }
 
@@ -1089,21 +1094,21 @@ void FastNoiseNodeEditor::DoHelp()
         ImGui::BeginTooltip();
         constexpr float alignPx = 110;
 
-        ImGui::Text( "Add nodes" );
+        ImGui::TextUnformatted( "Add nodes" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right mouse click" );
+        ImGui::TextUnformatted( "Right mouse click" );
 
-        ImGui::Text( "Pan graph" );
+        ImGui::TextUnformatted( "Pan graph" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right mouse drag" );
+        ImGui::TextUnformatted( "Right mouse drag" );
 
-        ImGui::Text( "Delete node/link" );
+        ImGui::TextUnformatted( "Delete node/link" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Backspace or Delete" );
+        ImGui::TextUnformatted( "Backspace or Delete" );
 
-        ImGui::Text( "Node options" );
+        ImGui::TextUnformatted( "Node options" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right click node title" );
+        ImGui::TextUnformatted( "Right click node title" );
 
         ImGui::EndTooltip();
         ImGui::PopStyleVar();
