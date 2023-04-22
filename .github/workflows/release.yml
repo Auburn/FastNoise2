@@ -52,11 +52,17 @@ jobs:
         done
         
     - name: 'Create tag'
-      uses: rickstaa/action-create-tag@v1
+      if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
+      uses: actions/github-script@v6
       with:
-        tag: "${{ steps.cmake-ver.outputs.new-tag }}"
-        tag_exists_error: true
-        commit_sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
+        github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: "refs/tags/${{ steps.cmake-ver.outputs.new-tag }}",
+            sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
+          })
         
     - name: 'Create release'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
