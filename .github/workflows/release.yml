@@ -53,7 +53,7 @@ jobs:
     
     - name: 'Create tag'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
-      uses: actions/github-script@v3
+      uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
         script: |
@@ -81,7 +81,7 @@ jobs:
 
     - name: 'Repeat workflow'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
-      uses: peter-evans/repository-dispatch@v1
+      uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         event-type: check-release
