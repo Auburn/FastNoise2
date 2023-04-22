@@ -1,7 +1,7 @@
 # CMakeList.txt : CMake project for FastNoise2
 cmake_minimum_required(VERSION 3.7.1)
 
-project(FastNoise2 VERSION 0.9.7)
+project(FastNoise2 VERSION 0.10.0)
 set(CMAKE_CXX_STANDARD 17)
 
 message("FastNoise2 Arch: ${CMAKE_SYSTEM_PROCESSOR}") 
