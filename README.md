@@ -22,7 +22,7 @@ Supports:
 - Windows
 - Linux
 - Android
-- MacOS
+- MacOS x86/ARM
 - MSVC
 - Clang
 - GCC
