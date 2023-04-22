@@ -51,11 +51,31 @@ jobs:
           fi
         done
     
+    - name: 'Create tag'
+      if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: "refs/tags/${{ steps.cmake-ver.outputs.new-tag }}",
+            sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
+          })
+    
     - name: 'Create release'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: gh release create ${{ steps.cmake-ver.outputs.new-tag }} --draft --generate-notes --target ${{ steps.cmake-ver.outputs.tag-commit }}
+      uses: fregante/release-with-changelog@v3
+      with:
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        exclude: '^Update\s\S+\.(md|yml)$'
+        tag: ${{ steps.cmake-ver.outputs.new-tag }}
+        draft: true
+        template: |
+          ### Changelog
+          {commits}
+          {range}
 
     - name: 'Repeat workflow'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
