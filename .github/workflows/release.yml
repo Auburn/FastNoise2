@@ -55,13 +55,12 @@ jobs:
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
         script: |
           github.rest.git.createRef({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            ref: "refs/tags/${{ steps.cmake-ver.outputs.new-tag }}",
-            sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
+            ref: 'refs/tags/${{ steps.cmake-ver.outputs.new-tag }}',
+            sha: ${{ steps.cmake-ver.outputs.tag-commit }}
           })
     
     - name: 'Create release'
