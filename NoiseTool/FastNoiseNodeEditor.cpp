@@ -512,8 +512,11 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 {
 #ifdef IMGUI_HAS_DOCK
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 #endif
     ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImNodes::CreateContext();
     ImNodes::GetIO().AltMouseButton = ImGuiMouseButton_Right;
