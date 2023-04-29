@@ -37,9 +37,10 @@ MeshNoisePreview::MeshNoisePreview()
 
 MeshNoisePreview::~MeshNoisePreview()
 {
+    mGenerateQueue.KillThreads();
+
     for( auto& thread : mThreads )
     {
-        mGenerateQueue.KillThreads();
         thread.join();
     }
 }
