@@ -429,7 +429,7 @@ class FS_T<FastNoise::OpenSimplex2S, FS> : public virtual FastNoise::OpenSimplex
 
         int32v h3 = FnUtils::HashPrimes( seed,
             FS_MaskedAdd_i32( xsbp, int32v( FnPrimes::X ), forwardXY ),
-            FS_NMaskedSub_i32( FS_MaskedAdd_i32( ysbp, int32v( FnPrimes::Y * 2 ), forwardY ), int32v( FnPrimes::Y ), forwardXY ) );
+            FS_NMaskedSub_i32( FS_MaskedAdd_i32( ysbp, int32v( (int32_t)( FnPrimes::Y * 2LL ) ), forwardY ), int32v( FnPrimes::Y ), forwardXY ) );
         float32v xi3 = FS_MaskedSub_f32( xi, float32v( 2 * G2 ), forwardY );
         float32v yi3 = yi - FS_Select_f32( forwardY, float32v( 1 + 2 * G2 ), float32v( -1 ) );
         float32v v3 = FnUtils::GetGradientDotFancy( h3, xi3, yi3 );
