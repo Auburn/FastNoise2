@@ -7,7 +7,7 @@ int main()
 {
     auto node = FastNoise::New<FastNoise::FractalFBm>();
 
-    std::cout << (unsigned)node->GetLiveFeatureSet() << std::endl;
+    std::cout << (unsigned)node->GetActiveFeatureSet() << std::endl;
 
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
     node->SetGain( FastNoise::New<FastNoise::Value>() );

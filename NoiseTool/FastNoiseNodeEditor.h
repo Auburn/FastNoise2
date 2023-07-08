@@ -25,8 +25,6 @@ namespace Magnum
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
         void SetSIMDLevel( FastSIMD::FeatureSet lvl );
 
-        static const char* GetFeatureSetName( FastSIMD::FeatureSet lvl );
-
     private:
         struct Node
         {
@@ -139,6 +137,6 @@ namespace Magnum
         NoiseTexture::GenType mNodeGenType = NoiseTexture::GenType_2D;
 
         FastSIMD::FeatureSet mMaxFeatureSet    = FastSIMD::FeatureSet::Max;
-        FastSIMD::FeatureSet mActualFeatureSet = FastSIMD::FeatureSet::Null;
+        FastSIMD::FeatureSet mActualFeatureSet = FastSIMD::FeatureSet::Invalid;
     };
 }

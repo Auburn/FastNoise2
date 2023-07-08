@@ -16,7 +16,7 @@ namespace FastNoise
     static constexpr float ROOT2 = 1.4142135623730950488f;
     static constexpr float ROOT3 = 1.7320508075688772935f;
 
-    template<FastSIMD::FeatureSet SIMD = FASTSIMD_DEFAULT_FEATURE_SET>
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     {
         int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
@@ -74,7 +74,7 @@ namespace FastNoise
     //}
 
 
-    template<FastSIMD::FeatureSet SIMD = FASTSIMD_DEFAULT_FEATURE_SET>
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FS_FORCEINLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
     {
         // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
@@ -115,7 +115,7 @@ namespace FastNoise
         return FS::FMulAdd( float32v( 1.0f + ROOT2 ), a, b );
     }
     
-    template<FastSIMD::FeatureSet SIMD = FASTSIMD_DEFAULT_FEATURE_SET>
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FS_FORCEINLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
     {        
         /*if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
@@ -153,7 +153,7 @@ namespace FastNoise
         return ( u ^ h1 ) + ( v ^ h2 );
     }
     
-    template<FastSIMD::FeatureSet SIMD = FASTSIMD_DEFAULT_FEATURE_SET>
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FS_FORCEINLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
     {
         /*if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
