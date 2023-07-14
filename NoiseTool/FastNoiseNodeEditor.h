@@ -139,6 +139,6 @@ namespace Magnum
         NoiseTexture::GenType mNodeGenType = NoiseTexture::GenType_2D;
 
         FastSIMD::FeatureSet mMaxFeatureSet    = FastSIMD::FeatureSet::Max;
-        FastSIMD::FeatureSet mActualFeatureSet = FastSIMD::FeatureSet::Null;
+        FastSIMD::FeatureSet mActualFeatureSet = FastSIMD::FeatureSet::Invalid;
     };
 }

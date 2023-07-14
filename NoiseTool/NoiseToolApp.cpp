@@ -67,11 +67,11 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     mFeatureSetSelection = 
     { 
         FastSIMD::FeatureSet::Max,
-        FastSIMD::FeatureSet::Scalar,
+        FastSIMD::FeatureSet::SCALAR,
         FastSIMD::FeatureSet::SSE2,
         FastSIMD::FeatureSet::SSE41,
         FastSIMD::FeatureSet::AVX2_FMA,
-        FastSIMD::FeatureSet::AVX512_Baseline_FMA,
+        FastSIMD::FeatureSet::AVX512_FMA,
     };
 
     for( FastSIMD::FeatureSet featureSet : mFeatureSetSelection )

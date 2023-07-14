@@ -26,7 +26,7 @@ public:
 
     FastSIMD::FeatureSet GetLiveFeatureSet() const final
     {
-        return FASTSIMD_DEFAULT_FEATURE_SET;
+        return FastSIMD::FeatureSetDefault();
     }
 
     using VoidPtrStorageType = const DispatchClass<Generator, SIMD>*;

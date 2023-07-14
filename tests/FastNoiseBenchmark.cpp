@@ -102,24 +102,7 @@ template<typename T>
 void RegisterBenchmarks( FastSIMD::FeatureSet level, const char* groupName, const char* name, T generatorFunc )
 {
     std::string benchName = "0D/";
-
-#ifdef MAGIC_ENUM_SUPPORTED
-    auto enumName = magic_enum::flags::enum_name( level );
-    auto find = enumName.find( '_' );
-    if( find != std::string::npos )
-    {
-        benchName += enumName.data() + find + 1;
-    }
-    else if( *enumName.data() != 0 )
-    {
-        benchName += enumName;
-    }
-    else
-#endif
-    {
-        benchName += std::to_string( (int)level );
-    }
-
+    benchName += FastSIMD::GetFeatureSetString( level );  
     benchName += '/';
     benchName += groupName;
     benchName += '/';

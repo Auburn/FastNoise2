@@ -1253,8 +1253,8 @@ const char* FastNoiseNodeEditor::GetFeatureSetName( FastSIMD::FeatureSet lvl )
     switch( lvl )
     {
     default:
-    case FastSIMD::FeatureSet::Null:   return "NULL";
-    case FastSIMD::FeatureSet::Scalar: return "Scalar";
+    case FastSIMD::FeatureSet::Invalid:   return "NULL";
+    case FastSIMD::FeatureSet::SCALAR: return "Scalar";
     case FastSIMD::FeatureSet::SSE:    return "SSE";
     case FastSIMD::FeatureSet::SSE2:   return "SSE2";
     case FastSIMD::FeatureSet::SSE3:   return "SSE3";
@@ -1264,8 +1264,8 @@ const char* FastNoiseNodeEditor::GetFeatureSetName( FastSIMD::FeatureSet lvl )
     case FastSIMD::FeatureSet::AVX:    return "AVX";
     case FastSIMD::FeatureSet::AVX2:   return "AVX2";
     case FastSIMD::FeatureSet::AVX2_FMA:   return "AVX2_FMA";
-    case FastSIMD::FeatureSet::AVX512_Baseline: return "AVX512";
-    case FastSIMD::FeatureSet::AVX512_Baseline_FMA: return "AVX512_FMA";
+    case FastSIMD::FeatureSet::AVX512: return "AVX512";
+    case FastSIMD::FeatureSet::AVX512_FMA: return "AVX512_FMA";
     case FastSIMD::FeatureSet::NEON:   return "NEON";
     case FastSIMD::FeatureSet::NEON_FMA:   return "NEON_FMA";
     case FastSIMD::FeatureSet::Max:   return "AUTO";
