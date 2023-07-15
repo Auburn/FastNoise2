@@ -10,6 +10,7 @@
 
 #include "NoiseToolApp.h"
 #include "ImGuiExtra.h"
+//#include "FastSIMD/FastSIMD_FastNoise_config.h"
 
 using namespace Magnum;
 
@@ -62,21 +63,16 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     GL::Renderer::setBlendEquation( GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add );
     GL::Renderer::setBlendFunction( GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha );
 
-    Debug{} << "FastSIMD detected max CPU supported feature set:" << FastNoiseNodeEditor::GetFeatureSetName( FastSIMD::DetectCpuMaxFeatureSet() );
+    Debug{} << "FastSIMD detected max CPU supported feature set:" << FastSIMD::GetFeatureSetString( FastSIMD::DetectCpuMaxFeatureSet() );
 
-    mFeatureSetSelection = 
-    { 
-        FastSIMD::FeatureSet::Max,
-        FastSIMD::FeatureSet::SCALAR,
-        FastSIMD::FeatureSet::SSE2,
-        FastSIMD::FeatureSet::SSE41,
-        FastSIMD::FeatureSet::AVX2_FMA,
-        FastSIMD::FeatureSet::AVX512_FMA,
-    };
+    mFeatureSetSelection = { FastSIMD::FeatureSet::Max };
+    //mFeatureSetSelection.insert( mFeatureSetSelection.end(),
+    //    std::begin( FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray ), 
+    //    std::end( FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray ) );
 
     for( FastSIMD::FeatureSet featureSet : mFeatureSetSelection )
     {
-        mFeatureSetNames.push_back( FastNoiseNodeEditor::GetFeatureSetName( featureSet ) );
+        mFeatureSetNames.push_back( FastSIMD::GetFeatureSetString( featureSet ) );
     }
 }
 
@@ -116,7 +112,7 @@ void NoiseToolApp::drawEvent()
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
 
-        if( ImGui::Combo( "Max Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
+        if( ImGui::Combo( "Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
             ImGuiExtra::ScrollCombo( &mMaxFeatureSet, (int)mFeatureSetSelection.size() ) )
         {   
             FastSIMD::FeatureSet newLevel = mFeatureSetSelection[mMaxFeatureSet];

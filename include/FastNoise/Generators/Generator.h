@@ -95,7 +95,7 @@ namespace FastNoise
 
         virtual ~Generator() = default;
 
-        virtual FastSIMD::FeatureSet GetLiveFeatureSet() const = 0;
+        virtual FastSIMD::FeatureSet GetActiveFeatureSet() const = 0;
         virtual const Metadata& GetMetadata() const = 0;
 
         virtual OutputMinMax GenUniformGrid2D( float* out,
@@ -138,7 +138,7 @@ namespace FastNoise
         {
             static_assert( std::is_base_of<Generator, T>::value, "T must be child of FastNoise::Generator class" );
 
-            assert( !gen.get() || GetLiveFeatureSet() == gen->GetLiveFeatureSet() ); // Ensure that all SIMD levels match
+            assert( !gen.get() || GetActiveFeatureSet() == gen->GetActiveFeatureSet() ); // Ensure that all SIMD levels match
 
             SetSourceSIMDPtr( dynamic_cast<const Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
             memberVariable.base = gen;

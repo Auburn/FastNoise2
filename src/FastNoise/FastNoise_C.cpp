@@ -37,7 +37,7 @@ void fnDeleteNodeRef( void* node )
 
 unsigned fnGetSIMDLevel( const void* node )
 {
-    return (unsigned)ToGen( node )->GetLiveFeatureSet();
+    return (unsigned)ToGen( node )->GetActiveFeatureSet();
 }
 
 int fnGetMetadataID( const void* node )

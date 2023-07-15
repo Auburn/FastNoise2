@@ -17,7 +17,7 @@ namespace FastNoise
     static constexpr float ROOT3 = 1.7320508075688772935f;
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+    FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     {
         int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 

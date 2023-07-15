@@ -24,7 +24,7 @@ public:
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }\
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const override { return GenT( seed, x, y, z, w ); }
 
-    FastSIMD::FeatureSet GetLiveFeatureSet() const final
+    FastSIMD::FeatureSet GetActiveFeatureSet() const final
     {
         return FastSIMD::FeatureSetDefault();
     }

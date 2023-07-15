@@ -111,6 +111,7 @@ target_include_directories(NoiseTool PRIVATE
 
 target_link_libraries(NoiseTool PRIVATE
     FastNoise
+    #FastSIMD_FastNoise
     Magnum::Application
     Magnum::Shaders
     Magnum::SceneGraph

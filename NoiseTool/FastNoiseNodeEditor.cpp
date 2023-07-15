@@ -552,7 +552,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
 
     std::string simdTxt = "Current Feature Set: ";
-    simdTxt += GetFeatureSetName( mActualFeatureSet );
+    simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
     ImGui::TextUnformatted( simdTxt.c_str() );
 
     ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
@@ -1166,7 +1166,7 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
 
         if( generator )
         {
-            mActualFeatureSet = generator->GetLiveFeatureSet();
+            mActualFeatureSet = generator->GetActiveFeatureSet();
         }
     }
 
@@ -1245,29 +1245,5 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
     if( generator )
     {
         mMeshNoisePreview.ReGenerate( generator );
-    }
-}
-
-const char* FastNoiseNodeEditor::GetFeatureSetName( FastSIMD::FeatureSet lvl )
-{
-    switch( lvl )
-    {
-    default:
-    case FastSIMD::FeatureSet::Invalid:   return "NULL";
-    case FastSIMD::FeatureSet::SCALAR: return "Scalar";
-    case FastSIMD::FeatureSet::SSE:    return "SSE";
-    case FastSIMD::FeatureSet::SSE2:   return "SSE2";
-    case FastSIMD::FeatureSet::SSE3:   return "SSE3";
-    case FastSIMD::FeatureSet::SSSE3:  return "SSSE3";
-    case FastSIMD::FeatureSet::SSE41:  return "SSE4.1";
-    case FastSIMD::FeatureSet::SSE42:  return "SSE4.2";
-    case FastSIMD::FeatureSet::AVX:    return "AVX";
-    case FastSIMD::FeatureSet::AVX2:   return "AVX2";
-    case FastSIMD::FeatureSet::AVX2_FMA:   return "AVX2_FMA";
-    case FastSIMD::FeatureSet::AVX512: return "AVX512";
-    case FastSIMD::FeatureSet::AVX512_FMA: return "AVX512_FMA";
-    case FastSIMD::FeatureSet::NEON:   return "NEON";
-    case FastSIMD::FeatureSet::NEON_FMA:   return "NEON_FMA";
-    case FastSIMD::FeatureSet::Max:   return "AUTO";
     }
 }
