@@ -1,5 +1,6 @@
-[![GitHub Actions CI](https://img.shields.io/github/workflow/status/Auburn/FastNoise2/CI?style=flat-square&logo=GitHub "GitHub Actions CI")](https://github.com/Auburn/FastNoise2/actions?query=workflow%3ACI)
-[![Discord](https://img.shields.io/discord/703636892901441577?style=flat-square&logo=discord "Discord")](https://discord.gg/SHVaVfV)
+[![GitHub Actions CI](https://img.shields.io/github/actions/workflow/status/Auburn/FastNoise2/main.yml?branch=master&style=for-the-badge&logo=GitHub "GitHub Actions CI")](https://github.com/Auburn/FastNoise2/actions?query=workflow%3ACI)
+[![Discord](https://img.shields.io/discord/703636892901441577?style=for-the-badge&logo=discord "Discord")](https://discord.gg/SHVaVfV)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 # FastNoise2
 
@@ -22,7 +23,7 @@ Supports:
 - Windows
 - Linux
 - Android
-- MacOS
+- MacOS x86/ARM
 - MSVC
 - Clang
 - GCC

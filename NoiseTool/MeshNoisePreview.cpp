@@ -37,9 +37,10 @@ MeshNoisePreview::MeshNoisePreview()
 
 MeshNoisePreview::~MeshNoisePreview()
 {
+    mGenerateQueue.KillThreads();
+
     for( auto& thread : mThreads )
     {
-        mGenerateQueue.KillThreads();
         thread.join();
     }
 }
@@ -561,7 +562,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 {
     mPos = meshData.pos;
 
-    if( !meshData.vertexData.empty() )
+    if( !meshData.vertexData.isEmpty() )
     {
         //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
 
@@ -569,7 +570,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
         mMesh->addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
 
-        if( meshData.indicies.empty() )
+        if( meshData.indicies.isEmpty() )
         {
             mMesh->setCount( (int)meshData.vertexData.size() );
         }
@@ -597,9 +598,9 @@ MeshNoisePreview::VertexLightShader::VertexLightShader()
     GL::Shader frag = CreateShader( version, GL::Shader::Type::Fragment );
     
     CORRADE_INTERNAL_ASSERT_OUTPUT(
-        vert.addSource( noiseToolResources.get( "VertexLight.vert" ) ).compile() );
+        vert.addSource( noiseToolResources.getString( "VertexLight.vert" ) ).compile() );
     CORRADE_INTERNAL_ASSERT_OUTPUT( 
-        frag.addSource( noiseToolResources.get( "VertexLight.frag" ) ).compile() );
+        frag.addSource( noiseToolResources.getString( "VertexLight.frag" ) ).compile() );
 
     attachShader( vert );
     attachShader( frag );
@@ -721,7 +722,7 @@ void MeshNoisePreview::SetupSettingsHandlers()
         int i;
         if( sscanf( line, "color=%d", &i ) == 1 )
         {
-            meshNoisePreview->mBuildData.color = Color3::fromSrgb( i );
+            meshNoisePreview->mBuildData.color = Color3::fromSrgbInt( i );
         }
         else if( sscanf( line, "enabled=%d", &i ) == 1 )
         {

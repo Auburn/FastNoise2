@@ -33,7 +33,7 @@ jobs:
             
     steps:        
     - name: 'Checkout' 
-      uses: actions/checkout@v2            
+      uses: actions/checkout@v3            
     
     - name: 'CMake Configure'
       run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=ON ${{ matrix.cmake_options }}
@@ -42,31 +42,31 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --config Release --target FastNoiseBenchmark --parallel 4
     
     - name: 'Upload artifact'
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.name }}-benchmark-bin
         path: ${{ github.workspace }}/build/Release/bin/
         if-no-files-found: error        
         
     - id: get-commit-msg
-      run: echo "::set-output name=msg::$(git log --format=%B -n 1 ${{ github.sha }})"
+      run: echo "msg=$(git log --format=%B -n 1 ${{ github.sha }})" >> $GITHUB_OUTPUT
         
     - id: message-format-1
-      uses: ashley-taylor/regex-property-action@1.2
+      uses: ashley-taylor/regex-property-action@v1
       with:
         value: ${{ steps.get-commit-msg.outputs.msg }}
         regex: "^\\s*|[^a-zA-Z0-9_&\\(\\) -]"
         replacement: ""
 
     - id: message-format
-      uses: ashley-taylor/regex-property-action@1.2
+      uses: ashley-taylor/regex-property-action@v1
       with:
         value: ${{ steps.message-format-1.outputs.value }}
         regex: "(?<=.{50}).*"
         replacement: ""
         
     - name: Repository Dispatch
-      uses: peter-evans/repository-dispatch@v1
+      uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         repository: Auburn/FastNoise2Benchmarking

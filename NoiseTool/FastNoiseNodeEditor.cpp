@@ -4,7 +4,6 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
-#include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 #include <imnodes.h>
 
@@ -518,8 +517,11 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 {
 #ifdef IMGUI_HAS_DOCK
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 #endif
     ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImNodes::CreateContext();
     ImNodes::GetIO().AltMouseButton = ImGuiMouseButton_Right;
@@ -665,6 +667,14 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         DoNodes();
 
         ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
+
+#if 0
+        if( ImGui::IsWindowHovered() )
+        {
+            auto zoom = ImNodes::EditorContextGetZoom() + ImGui::GetIO().MouseWheel * 0.1f;
+            ImNodes::EditorContextSetZoom( zoom, ImGui::GetMousePos() );
+        }
+#endif
 
         ImNodes::EndNodeEditor();
 
@@ -845,10 +855,7 @@ void FastNoiseNodeEditor::DoNodes()
         if( ImGui::IsItemHovered() )
         {
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
-            ImGui::BeginTooltip();
-
-            ImGui::Text( "Total: %s", TimeWithUnits( node.second.totalGenerateNs ).c_str() );
-            ImGui::EndTooltip();
+            ImGui::SetTooltip( "Total: %s", TimeWithUnits( node.second.totalGenerateNs ).c_str() );            
             ImGui::PopStyleVar();
         }
 
@@ -1095,21 +1102,21 @@ void FastNoiseNodeEditor::DoHelp()
         ImGui::BeginTooltip();
         constexpr float alignPx = 110;
 
-        ImGui::Text( "Add nodes" );
+        ImGui::TextUnformatted( "Add nodes" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right mouse click" );
+        ImGui::TextUnformatted( "Right mouse click" );
 
-        ImGui::Text( "Pan graph" );
+        ImGui::TextUnformatted( "Pan graph" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right mouse drag" );
+        ImGui::TextUnformatted( "Right mouse drag" );
 
-        ImGui::Text( "Delete node/link" );
+        ImGui::TextUnformatted( "Delete node/link" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Backspace or Delete" );
+        ImGui::TextUnformatted( "Backspace or Delete" );
 
-        ImGui::Text( "Node options" );
+        ImGui::TextUnformatted( "Node options" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right click node title" );
+        ImGui::TextUnformatted( "Right click node title" );
 
         ImGui::EndTooltip();
         ImGui::PopStyleVar();
