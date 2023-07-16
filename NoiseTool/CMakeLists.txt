@@ -1,19 +1,21 @@
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
-    GIT_TAG d44ca683c12ed28fce1d27662f24edee2d7e2c6a
+    GIT_TAG 83dba87f3c04031235da6362524e0ec475bb21e8
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
-        "BUILD_STATIC ON"
-        "WITH_INTERCONNECT OFF"
-        "WITH_TESTSUITE OFF"
+        "CORRADE_BUILD_STATIC ON"
+        "CORRADE_BUILD_STATIC_UNIQUE_GLOBALS OFF"
+        "CORRADE_MSVC_COMPATIBILITY ON"
+        "CORRADE_WITH_INTERCONNECT OFF"
+        "CORRADE_WITH_TESTSUITE OFF"
 )
 
 CPMAddPackage(
     NAME GLFW
     GITHUB_REPOSITORY glfw/glfw
-    GIT_TAG 3.3.7
+    GIT_TAG 3.3.8
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_SHARED_LIBS OFF"
@@ -26,24 +28,26 @@ CPMAddPackage(
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG a218ddfa9434201aaca207ea9c8e87fea91a0757
+    GIT_TAG c1239b66199926c610cd863e18a4d27a4cef67f1
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
-        "BUILD_STATIC ON"
-        "BUILD_PLUGINS_STATIC ON"
-        "WITH_GLFWAPPLICATION ON"
-        "WITH_MESHTOOLS OFF"
-        "WITH_TRADE OFF"
-        "WITH_TEXT OFF"
-        "WITH_TEXTURETOOLS OFF"
+        "MAGNUM_BUILD_STATIC ON"
+        "MAGNUM_BUILD_PLUGINS_STATIC ON"
+        "MAGNUM_BUILD_STATIC_UNIQUE_GLOBALS OFF"
+        "MAGNUM_WITH_GLFWAPPLICATION ON"
+        "MAGNUM_WITH_MESHTOOLS OFF"
+        "MAGNUM_WITH_TRADE OFF"
+        "MAGNUM_WITH_TEXT OFF"
+        "MAGNUM_WITH_TEXTURETOOLS OFF"
 )
     
 CPMAddPackage(
     NAME imgui
     GITHUB_REPOSITORY ocornut/imgui
-    GIT_TAG 1ee252772ae9c0a971d06257bb5c89f628fa696a
+    GIT_TAG 0ea3b87bd63ecbf359585b7c235839146e84dedb
     EXCLUDE_FROM_ALL YES
+    DOWNLOAD_ONLY YES
 )
 # Set dir for find_package(ImGui)
 set(IMGUI_DIR ${imgui_SOURCE_DIR})
@@ -51,28 +55,12 @@ set(IMGUI_DIR ${imgui_SOURCE_DIR})
 CPMAddPackage(
     NAME magnum-integration
     GITHUB_REPOSITORY mosra/magnum-integration
-    GIT_TAG 6fa1a7754bf8bc612befdc9ec543f8420a0111cc
+    GIT_TAG 1a66b05bd7db0a5484366054ddc678bebf79921e
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_STATIC ON"
-        "WITH_IMGUI ON"
-)
-  
-CPMAddPackage(
-    NAME imnodes
-    GITHUB_REPOSITORY Auburn/imnodes
-    GIT_TAG d88f99125bb72cdb71b4c27ff6eb7f318d89a4c5
-    GIT_SUBMODULES ".github"
-    EXCLUDE_FROM_ALL YES
-    DOWNLOAD_ONLY YES
-)
-  
-CPMAddPackage(
-    NAME robinhoodhashing
-    GITHUB_REPOSITORY martinus/robin-hood-hashing
-    GIT_TAG 3.11.5    
-    EXCLUDE_FROM_ALL YES
+        "MAGNUM_WITH_IMGUI ON"
 )
 
 # Use modules from magnum-integration since it has everything we need
@@ -81,6 +69,24 @@ set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_
 find_package(Magnum REQUIRED GL GlfwApplication)
 find_package(MagnumIntegration REQUIRED ImGui)
 find_package(ImGui REQUIRED SourcesMiscCpp)
+  
+CPMAddPackage(
+    NAME imnodes
+    GITHUB_REPOSITORY Auburn/imnodes
+    GIT_TAG 1aa48f4af2a4f9f1b9a6ed53fe858ed76646b233
+    GIT_SUBMODULES ".github"
+    EXCLUDE_FROM_ALL YES
+    OPTIONS
+        "BUILD_SHARED_LIBS OFF"
+        "IMNODES_IMGUI_TARGET_NAME MagnumIntegration::ImGui"
+)
+  
+CPMAddPackage(
+    NAME robinhoodhashing
+    GITHUB_REPOSITORY martinus/robin-hood-hashing
+    GIT_TAG 3.11.5    
+    EXCLUDE_FROM_ALL YES
+)
 
 # Ensure FastNoise.dll is built into the same dir as NoiseTool.exe
 set_target_properties(FastNoise
@@ -101,13 +107,8 @@ add_executable(NoiseTool
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
-    "${imnodes_SOURCE_DIR}/imnodes.cpp"
     ${NoiseTool_RESOURCES}
 ) 
-
-# Include imnodes in NoiseTool project since setting up separate cmake library with imgui dependancy was causing issues
-target_include_directories(NoiseTool PRIVATE 
-    "${imnodes_SOURCE_DIR}")
 
 target_link_libraries(NoiseTool PRIVATE
     FastNoise
@@ -117,6 +118,7 @@ target_link_libraries(NoiseTool PRIVATE
     Magnum::SceneGraph
     MagnumIntegration::ImGui
     ImGui::SourcesMiscCpp
+    imnodes
     robin_hood
 )
 

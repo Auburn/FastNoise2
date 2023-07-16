@@ -87,26 +87,26 @@ FASTNOISE_REGISTER_NODE( Value );
 FASTNOISE_REGISTER_NODE( Perlin );
 FASTNOISE_REGISTER_NODE( Simplex );
 FASTNOISE_REGISTER_NODE( OpenSimplex2 );
-               
+                       
 FASTNOISE_REGISTER_NODE( CellularValue );
 FASTNOISE_REGISTER_NODE( CellularDistance );
 FASTNOISE_REGISTER_NODE( CellularLookup );
-                    
+                       
 FASTNOISE_REGISTER_NODE( FractalFBm );
 FASTNOISE_REGISTER_NODE( FractalPingPong );
 FASTNOISE_REGISTER_NODE( FractalRidged );
-                    
+                       
 FASTNOISE_REGISTER_NODE( DomainWarpGradient );
 FASTNOISE_REGISTER_NODE( DomainWarpFractalProgressive );
 FASTNOISE_REGISTER_NODE( DomainWarpFractalIndependant );
-                    
+                       
 FASTNOISE_REGISTER_NODE( DomainScale );
 FASTNOISE_REGISTER_NODE( DomainOffset );
 FASTNOISE_REGISTER_NODE( DomainRotate );
 FASTNOISE_REGISTER_NODE( SeedOffset );
 FASTNOISE_REGISTER_NODE( Remap );
 FASTNOISE_REGISTER_NODE( ConvertRGBA8 );
-                    
+                       
 FASTNOISE_REGISTER_NODE( Add );
 FASTNOISE_REGISTER_NODE( Subtract );
 FASTNOISE_REGISTER_NODE( Multiply );
@@ -116,7 +116,7 @@ FASTNOISE_REGISTER_NODE( Max );
 FASTNOISE_REGISTER_NODE( MinSmooth );
 FASTNOISE_REGISTER_NODE( MaxSmooth );
 FASTNOISE_REGISTER_NODE( Fade );
-                    
+                       
 FASTNOISE_REGISTER_NODE( Terrace );
 FASTNOISE_REGISTER_NODE( PowFloat );
 FASTNOISE_REGISTER_NODE( PowInt );
@@ -124,3 +124,5 @@ FASTNOISE_REGISTER_NODE( DomainAxisScale );
 FASTNOISE_REGISTER_NODE( AddDimension );
 FASTNOISE_REGISTER_NODE( RemoveDimension );
 FASTNOISE_REGISTER_NODE( GeneratorCache );
+
+FASTNOISE_REGISTER_NODE( OpenSimplex2S );

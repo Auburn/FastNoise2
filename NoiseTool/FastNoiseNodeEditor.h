@@ -32,7 +32,7 @@ namespace Magnum
             Node( FastNoiseNodeEditor& editor, std::unique_ptr<FastNoise::NodeData>&& nodeData, bool generatePreview = true, int id = 0 );
             void GeneratePreview( bool nodeTreeChanged = true, bool benchmark = false );
             std::vector<FastNoise::NodeData*> GetNodeIDLinks();
-            uint64_t GetLocalGenerateNs();
+            int64_t GetLocalGenerateNs();
             FastNoise::NodeData*& GetNodeLink( int attributeId );
             void AutoPositionChildNodes( ImVec2 nodePos, float verticalSpacing = 380.0f );
             void SerialiseIncludingDependancies( struct ImGuiSettingsHandler* handler, struct ImGuiTextBuffer* buffer, std::unordered_set<int>& serialisedNodeIds );

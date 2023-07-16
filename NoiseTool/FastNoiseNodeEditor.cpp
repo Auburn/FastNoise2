@@ -4,7 +4,6 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
-#include <imgui_internal.h>
 #include <misc/cpp/imgui_stdlib.h>
 #include <imnodes.h>
 
@@ -19,7 +18,7 @@
 
 using namespace Magnum;
 
-bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
+static bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
 {
     std::string aString;
     for( const char* c : a )
@@ -39,7 +38,7 @@ bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const c
 }
 
 template<typename T>
-bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
+static bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
 {
     if( a.size() != b.size() )
     {
@@ -54,6 +53,63 @@ bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
         }
     }
     return true;
+}
+
+static std::string TimeWithUnits( int64_t time, int significantDigits = 3 )
+{
+    if( time == 0 )
+    {
+        return "0us";
+    }
+
+    double f = time / 1e+3;
+          
+    int d = (int)::ceil(::log10(::abs( f ))); /*digits before decimal point*/
+    std::stringstream ss;
+    ss.precision( std::max(significantDigits - d, 0) );
+    ss << std::fixed << f << "us";
+    return ss.str();
+}
+
+template<size_t N, typename... Args>
+std::string string_format( const char (&format)[N], const Args&... args )
+{
+    int size_s = std::snprintf( nullptr, 0, format, args... );
+    if( size_s <= 0 )
+    {
+        return "";
+    }
+    auto size = static_cast<size_t>( size_s + 1 );
+    std::string buf( size, 0 );
+    std::snprintf( buf.data(), size, format, args... );
+    return buf;
+}
+
+const char* string_format( const char* txt )
+{
+    return txt;
+}
+
+template<typename T, typename... Args>
+static bool DoHoverPopup( T&& format, const Args&... args )
+{
+    if( ImGui::IsItemHovered() )
+    {
+        auto hoverTxt = string_format( format, args... );
+
+        if( !hoverTxt[0] )
+        {
+            return false;
+        }
+
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
+        ImGui::BeginTooltip();
+        ImGui::TextUnformatted( &hoverTxt[0] );
+        ImGui::EndTooltip();
+        ImGui::PopStyleVar();
+        return true;
+    }
+    return false;
 }
 
 FastNoiseNodeEditor::Node::Node( FastNoiseNodeEditor& e, FastNoise::NodeData* nodeData, bool generatePreview, int id ) :
@@ -162,11 +218,11 @@ std::vector<FastNoise::NodeData*> FastNoiseNodeEditor::Node::GetNodeIDLinks()
     return links;
 }
 
-uint64_t FastNoiseNodeEditor::Node::GetLocalGenerateNs()
+int64_t FastNoiseNodeEditor::Node::GetLocalGenerateNs()
 {
     int64_t localTotal = totalGenerateNs;
 
-    for( FastNoise::NodeData* link: GetNodeIDLinks() )
+    for( FastNoise::NodeData* link : GetNodeIDLinks() )
     {
         auto find = editor.mNodes.find( link );
 
@@ -463,8 +519,11 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 {
 #ifdef IMGUI_HAS_DOCK
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 #endif
     ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImNodes::CreateContext();
     ImNodes::GetIO().AltMouseButton = ImGuiMouseButton_Right;
@@ -610,6 +669,14 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         DoNodes();
 
         ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
+
+#if 0
+        if( ImGui::IsWindowHovered() )
+        {
+            auto zoom = ImNodes::EditorContextGetZoom() + ImGui::GetIO().MouseWheel * 0.1f;
+            ImNodes::EditorContextSetZoom( zoom, ImGui::GetMousePos() );
+        }
+#endif
 
         ImNodes::EndNodeEditor();
 
@@ -777,10 +844,12 @@ void FastNoiseNodeEditor::DoNodes()
         std::string formatName = FastNoise::Metadata::FormatMetadataNodeName( node.second.data->metadata );
         ImGui::TextUnformatted( formatName.c_str() );
 
-        std::stringstream performanceStream;
-        performanceStream.precision( 3 );
-        performanceStream << node.second.GetLocalGenerateNs() / 1e+3f << "us";
-        std::string performanceString = performanceStream.str();
+#ifdef NDEBUG
+        DoHoverPopup( "%s", node.first->metadata->description );
+#else
+        DoHoverPopup( "%s : %d\n%s", node.first->metadata->name, node.first->metadata->id, node.first->metadata->description );
+#endif
+        std::string performanceString = TimeWithUnits( node.second.GetLocalGenerateNs() );
 
         ImGui::SameLine( Node::NoiseSize - ImGui::CalcTextSize( performanceString.c_str() ).x );
         ImGui::TextUnformatted( performanceString.c_str() );
@@ -788,9 +857,7 @@ void FastNoiseNodeEditor::DoNodes()
         if( ImGui::IsItemHovered() )
         {
             ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
-            ImGui::BeginTooltip();
-            ImGui::Text( "Total: %.3gus", node.second.totalGenerateNs / 1e+3f );
-            ImGui::EndTooltip();
+            ImGui::SetTooltip( "Total: %s", TimeWithUnits( node.second.totalGenerateNs ).c_str() );            
             ImGui::PopStyleVar();
         }
 
@@ -875,6 +942,8 @@ void FastNoiseNodeEditor::DoNodes()
             formatName = FastNoise::Metadata::FormatMetadataMemberName( memberNode );
             ImGui::TextUnformatted( formatName.c_str() );
             ImNodes::EndInputAttribute();
+            
+            DoHoverPopup( memberNode.description );
         }
 
         for( size_t i = 0; i < node.second.data->metadata->memberHybrids.size(); i++ )
@@ -902,6 +971,7 @@ void FastNoiseNodeEditor::DoNodes()
                 ImGui::PopItemFlag();
             }
             ImNodes::EndInputAttribute();
+            DoHoverPopup( nodeMetadata->memberHybrids[i].description );
         }
 
         for( size_t i = 0; i < nodeMetadata->memberVariables.size(); i++ )
@@ -942,6 +1012,7 @@ void FastNoiseNodeEditor::DoNodes()
             }
 
             ImNodes::EndStaticAttribute();
+            DoHoverPopup( nodeMetadata->memberVariables[i].description );
         }
 
         ImGui::PopItemWidth();
@@ -1033,21 +1104,21 @@ void FastNoiseNodeEditor::DoHelp()
         ImGui::BeginTooltip();
         constexpr float alignPx = 110;
 
-        ImGui::Text( "Add nodes" );
+        ImGui::TextUnformatted( "Add nodes" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right mouse click" );
+        ImGui::TextUnformatted( "Right mouse click" );
 
-        ImGui::Text( "Pan graph" );
+        ImGui::TextUnformatted( "Pan graph" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right mouse drag" );
+        ImGui::TextUnformatted( "Right mouse drag" );
 
-        ImGui::Text( "Delete node/link" );
+        ImGui::TextUnformatted( "Delete node/link" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Backspace or Delete" );
+        ImGui::TextUnformatted( "Backspace or Delete" );
 
-        ImGui::Text( "Node options" );
+        ImGui::TextUnformatted( "Node options" );
         ImGui::SameLine( alignPx );
-        ImGui::Text( "Right click node title" );
+        ImGui::TextUnformatted( "Right click node title" );
 
         ImGui::EndTooltip();
         ImGui::PopStyleVar();

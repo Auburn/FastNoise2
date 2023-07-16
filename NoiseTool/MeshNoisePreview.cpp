@@ -37,9 +37,10 @@ MeshNoisePreview::MeshNoisePreview()
 
 MeshNoisePreview::~MeshNoisePreview()
 {
+    mGenerateQueue.KillThreads();
+
     for( auto& thread : mThreads )
     {
-        mGenerateQueue.KillThreads();
         thread.join();
     }
 }
@@ -465,15 +466,15 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
 {
     int32_t facingIdx = idx + facingOffset;
 
-    int32_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
-    int32_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
-    int32_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
-    int32_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
-
-    int32_t corner00 = (sideA0 & sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
-    int32_t corner01 = (sideA0 & sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
-    int32_t corner10 = (sideA1 & sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
-    int32_t corner11 = (sideA1 & sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
+    uint8_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
+    uint8_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
+    uint8_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
+    uint8_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
+    
+    uint8_t corner00 = (sideA0 & sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
+    uint8_t corner01 = (sideA0 & sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
+    uint8_t corner10 = (sideA1 & sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
+    uint8_t corner11 = (sideA1 & sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
 
     constexpr float aoAdjust = AO_STRENGTH / 3.0f; 
 
@@ -721,7 +722,7 @@ void MeshNoisePreview::SetupSettingsHandlers()
         int i;
         if( sscanf( line, "color=%d", &i ) == 1 )
         {
-            meshNoisePreview->mBuildData.color = Color3::fromSrgb( i );
+            meshNoisePreview->mBuildData.color = Color3::fromSrgbInt( i );
         }
         else if( sscanf( line, "enabled=%d", &i ) == 1 )
         {

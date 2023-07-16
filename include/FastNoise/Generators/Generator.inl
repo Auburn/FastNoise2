@@ -88,14 +88,14 @@ public:
         int32v xSizeV( xSize );
         int32v xMax = xSizeV + xIdx + int32v( -1 );
 
-        size_t totalValues = xSize * ySize;
-        size_t index = 0;
+        intptr_t totalValues = xSize * ySize;
+        intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
-        while( index < totalValues - int32v::ElementCount )
+        while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             float32v xPos = FS::Convert<float>( xIdx ) * freqV;
             float32v yPos = FS::Convert<float>( yIdx ) * freqV;
@@ -138,15 +138,15 @@ public:
         int32v ySizeV( ySize );
         int32v yMax = ySizeV + yIdx + int32v( -1 );
 
-        size_t totalValues = xSize * ySize * zSize;
-        size_t index = 0;
+        intptr_t totalValues = xSize * ySize * zSize;
+        intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
 
-        while( index < totalValues - int32v::ElementCount )
+        while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             float32v xPos = FS::Convert<float>( xIdx ) * freqV;
             float32v yPos = FS::Convert<float>( yIdx ) * freqV;
@@ -195,8 +195,8 @@ public:
         int32v zSizeV( zSize );
         int32v zMax = zSizeV + zIdx + int32v( -1 );
 
-        size_t totalValues = xSize * ySize * zSize * wSize;
-        size_t index = 0;
+        intptr_t totalValues = xSize * ySize * zSize * wSize;
+        intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
@@ -204,7 +204,7 @@ public:
         AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         AxisReset<true>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
 
-        while( index < totalValues - int32v::ElementCount )
+        while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             float32v xPos = FS::Convert<float>( xIdx ) * freqV;
             float32v yPos = FS::Convert<float>( yIdx ) * freqV;
@@ -242,8 +242,8 @@ public:
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
-        size_t index = 0;
-        while( index < count - int32v::ElementCount )
+        intptr_t index = 0;
+        while( index < count - (intptr_t)int32v::ElementCount )
         {
             float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
             float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
@@ -271,8 +271,8 @@ public:
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
-        size_t index = 0;
-        while( index < count - int32v::ElementCount )
+        intptr_t index = 0;
+        while( index < count - (intptr_t)int32v::ElementCount )
         {
             float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
             float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
@@ -302,8 +302,8 @@ public:
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
-        size_t index = 0;
-        while( index < count - int32v::ElementCount )
+        intptr_t index = 0;
+        while( index < count - (intptr_t)int32v::ElementCount )
         {
             float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
             float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
@@ -357,8 +357,8 @@ public:
         int32v ySizeV( ySize );
         int32v xMax = xSizeV + xIdx + int32v( -1 );
 
-        size_t totalValues = xSize * ySize;
-        size_t index = 0;
+        intptr_t totalValues = xSize * ySize;
+        intptr_t index = 0;
 
         float pi2Recip( 0.15915493667f );
         float xSizePi = (float)xSize * pi2Recip;
@@ -372,7 +372,7 @@ public:
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
-        while( index < totalValues - int32v::ElementCount )
+        while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             float32v xF = FS::Convert<float>( xIdx ) * xMul;
             float32v yF = FS::Convert<float>( yIdx ) * yMul;
@@ -421,12 +421,12 @@ private:
         }
     }
 
-    static FS_FORCEINLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, size_t totalValues, size_t index, float32v min, float32v max, float32v finalGen )
+    static FS_FORCEINLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, intptr_t totalValues, intptr_t index, float32v min, float32v max, float32v finalGen )
     {
         FastNoise::OutputMinMax minMax;
-        size_t remaining = totalValues - index;
+        intptr_t remaining = totalValues - index;
 
-        if( remaining == int32v::ElementCount )
+        if( remaining == (intptr_t)int32v::ElementCount )
         {
             FS::Store( &noiseOut[index], finalGen );
 
@@ -459,4 +459,16 @@ private:
 
         return minMax;
     }
+
+    int32_t ReferencesFetchAdd( int32_t add ) const noexcept final
+    {
+        if( add )
+        {
+            return mReferences.fetch_add( add, std::memory_order_relaxed );
+        }
+
+        return mReferences.load( std::memory_order_relaxed );
+    }
+    
+    mutable std::atomic<uint32_t> mReferences = 0;
 };

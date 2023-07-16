@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:      
     - name: 'Checkout' 
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3 
       with:
         ref: master
-        fetch-depth: 0    
+        fetch-depth: 0  
         
     - name: 'Ensure no parallel instances'
-      uses: softprops/turnstyle@v1
+      uses: softprops/turnstyle@master
       with:
         abort-after-seconds: 180
         poll-interval-seconds: 10
@@ -40,8 +40,8 @@ jobs:
           if git show-ref --tags $cmake_ver --quiet; then
             echo "$cmake_ver exists"
             if echo $cmake_ver | grep -oEi '[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+'; then
-              echo "::set-output name=new-tag::$prev_cmake_ver"
-              echo "::set-output name=tag-commit::$prev_commit"
+              echo "new-tag=$prev_cmake_ver" >> $GITHUB_OUTPUT
+              echo "tag-commit=$prev_commit" >> $GITHUB_OUTPUT
             fi
             break
           else
@@ -50,20 +50,20 @@ jobs:
             prev_cmake_ver=$cmake_ver
           fi
         done
-    
+        
     - name: 'Create tag'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
-      uses: actions/github-script@v3
+      uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
         script: |
-          github.git.createRef({
+          github.rest.git.createRef({
             owner: context.repo.owner,
             repo: context.repo.repo,
             ref: "refs/tags/${{ steps.cmake-ver.outputs.new-tag }}",
             sha: "${{ steps.cmake-ver.outputs.tag-commit }}"
           })
-    
+        
     - name: 'Create release'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
       uses: fregante/release-with-changelog@v3
@@ -74,14 +74,12 @@ jobs:
         draft: true
         template: |
           ### Changelog
-
           {commits}
-
           {range}
 
     - name: 'Repeat workflow'
       if: ${{ steps.cmake-ver.outputs.new-tag != '' }}
-      uses: peter-evans/repository-dispatch@v1
+      uses: peter-evans/repository-dispatch@v2
       with:
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         event-type: check-release

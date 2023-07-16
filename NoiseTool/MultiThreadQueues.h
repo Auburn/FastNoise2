@@ -9,7 +9,7 @@ class GenerateQueue
 public:
     void KillThreads()
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         mKillThreads = true;
         mCond.notify_all();
     }
@@ -21,19 +21,19 @@ public:
 
     void Clear()
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         mQueue = {};
     }
 
     size_t Count()
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         return mQueue.size();
     }
 
     T Pop()
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         while( mQueue.empty() || mKillThreads )
         {
             if( mKillThreads )
@@ -50,7 +50,7 @@ public:
 
     size_t Push( const T& item )
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         mQueue.push( item );
         size_t size = mQueue.size();
         lock.unlock();
@@ -69,27 +69,21 @@ template<typename T>
 class CompleteQueue
 {
 public:
-    void SetVersion( uint32_t v )
-    {
-        std::unique_lock<std::mutex> lock( mMutex );
-        mVersion = v;
-    }
-
     uint32_t IncVersion()
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         return ++mVersion;
     }
 
     size_t Count()
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         return mQueue.size();
     }
 
     bool Pop( T& out )
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         if( mQueue.empty() )
         {
             return false;
@@ -101,7 +95,7 @@ public:
 
     bool Push( const T& item, uint32_t version = 0 )
     {
-        std::unique_lock<std::mutex> lock( mMutex );
+        std::unique_lock lock( mMutex );
         if( version == mVersion )
         {
             mQueue.push( item );
