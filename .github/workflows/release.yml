@@ -18,7 +18,7 @@ jobs:
         fetch-depth: 0  
         
     - name: 'Ensure no parallel instances'
-      uses: softprops/turnstyle@master
+      uses: zencargo/turnstyle@v2
       with:
         abort-after-seconds: 180
         poll-interval-seconds: 10

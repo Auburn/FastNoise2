@@ -49,7 +49,8 @@ jobs:
         if-no-files-found: error        
         
     - id: get-commit-msg
-      run: echo "msg=$(git log --format=%B -n 1 ${{ github.sha }})" >> $GITHUB_OUTPUT
+      run: echo "msg=$(git log --format=%B -n 1 ${{ github.sha }})" >> "$env:GITHUB_OUTPUT"
+      shell: pwsh
         
     - id: message-format-1
       uses: ashley-taylor/regex-property-action@v1
