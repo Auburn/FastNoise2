@@ -1,3 +1,6 @@
+#include <iostream>
+#include <ostream>
+
 #include <benchmark/benchmark.h>
 #include "FastNoise/FastNoise.h"
 #include "FastNoise/Metadata.h"
@@ -120,6 +123,8 @@ void RegisterBenchmarks( FastSIMD::FeatureSet level, const char* groupName, cons
 
 int main( int argc, char** argv )
 {
+    std::cout << "FastSIMD Max Supported Feature Set: " << FastSIMD::GetFeatureSetString( FastSIMD::DetectCpuMaxFeatureSet() ) << std::endl;
+
     benchmark::Initialize( &argc, argv );
 
     for( size_t idx = 0; idx < gPositionCount; idx++ )
@@ -127,7 +132,7 @@ int main( int argc, char** argv )
         gPositionFloats[idx] = (float)idx * 0.6f;
     }
 
-    FastSIMD::FeatureSet Levels[] = { FastSIMD::FeatureSet::SSE2, FastSIMD::FeatureSet::SSE41 };
+    FastSIMD::FeatureSet Levels[] = { FastSIMD::FeatureSet::SSE2, FastSIMD::FeatureSet::SSE41, FastSIMD::FeatureSet::AVX2_FMA, FastSIMD::FeatureSet::AVX512_FMA };
     
     for( auto level : Levels )
     {
