@@ -4,6 +4,10 @@
 #include <algorithm>
 #include <atomic>
 
+#ifdef FASTNOISE_METADATA
+#include <tuple>
+#endif
+
 #include "FastNoise/FastNoise_Config.h"
 
 #if !defined( FASTNOISE_METADATA ) && defined( __INTELLISENSE__ )
