@@ -7,9 +7,9 @@
 
 using namespace FastNoise;
 
-using float32v = FS::NativeRegister<float>;
-using int32v = FS::NativeRegister<std::int32_t>;
-using mask32v = FS::NativeRegister<FS::Mask<32>>;
+using float32v = FS::Register<float, NativeRegisterCount<float>() * 2>;
+using int32v = FS::Register<std::int32_t, NativeRegisterCount<std::int32_t>() * 2>;
+using mask32v = typename float32v::MaskType;
 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Generator, SIMD> : public virtual FastNoise::Generator
