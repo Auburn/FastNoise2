@@ -58,7 +58,7 @@ set_target_properties(FastNoise PROPERTIES
     DEBUG_POSTFIX D
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
 
-fastsimd_create_dispatch_library(FastSIMD_FastNoise SOURCES "../include/FastNoise/FastNoise_BuildList.inl" FEATURE_SETS SCALAR SSE2 SSE41 AVX2_FMA)
+fastsimd_create_dispatch_library(FastSIMD_FastNoise SOURCES "../include/FastNoise/FastNoise_BuildList.inl")
 
 target_include_directories(FastSIMD_FastNoise PRIVATE "../include/")
 
