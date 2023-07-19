@@ -66,7 +66,7 @@ if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(FastNoise PUBLIC FASTNOISE_STATIC_LIB)
 endif()
 
-target_link_libraries(FastNoise PUBLIC FastSIMD PRIVATE FastSIMD_FastNoise)
+target_link_libraries(FastNoise PUBLIC FastSIMD FastSIMD_FastNoise)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast /wd4251)

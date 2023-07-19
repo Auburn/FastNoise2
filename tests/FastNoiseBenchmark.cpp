@@ -4,6 +4,7 @@
 #include <benchmark/benchmark.h>
 #include "FastNoise/FastNoise.h"
 #include "FastNoise/Metadata.h"
+#include "FastSIMD/FastSIMD_FastNoise_config.h"
 
 #include "../NoiseTool/DemoNodeTrees.inl"
 
@@ -131,10 +132,8 @@ int main( int argc, char** argv )
     {
         gPositionFloats[idx] = (float)idx * 0.6f;
     }
-
-    FastSIMD::FeatureSet Levels[] = { FastSIMD::FeatureSet::SSE2, FastSIMD::FeatureSet::SSE41, FastSIMD::FeatureSet::AVX2_FMA, FastSIMD::FeatureSet::AVX512_FMA };
     
-    for( auto level : Levels )
+    for( auto level : FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray )
     {
         for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetAll() )
         {

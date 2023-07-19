@@ -10,7 +10,7 @@
 
 #include "NoiseToolApp.h"
 #include "ImGuiExtra.h"
-//#include "FastSIMD/FastSIMD_FastNoise_config.h"
+#include "FastSIMD/FastSIMD_FastNoise_config.h"
 
 using namespace Magnum;
 
@@ -66,9 +66,9 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     Debug{} << "FastSIMD detected max CPU supported feature set:" << FastSIMD::GetFeatureSetString( FastSIMD::DetectCpuMaxFeatureSet() );
 
     mFeatureSetSelection = { FastSIMD::FeatureSet::Max };
-    //mFeatureSetSelection.insert( mFeatureSetSelection.end(),
-    //    std::begin( FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray ), 
-    //    std::end( FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray ) );
+    mFeatureSetSelection.insert( mFeatureSetSelection.end(),
+        std::rbegin( FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray ), 
+        std::rend( FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray ) );
 
     for( FastSIMD::FeatureSet featureSet : mFeatureSetSelection )
     {
@@ -112,7 +112,7 @@ void NoiseToolApp::drawEvent()
         ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
             1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
 
-        if( ImGui::Combo( "Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
+        if( ImGui::Combo( "Max Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
             ImGuiExtra::ScrollCombo( &mMaxFeatureSet, (int)mFeatureSetSelection.size() ) )
         {   
             FastSIMD::FeatureSet newLevel = mFeatureSetSelection[mMaxFeatureSet];
