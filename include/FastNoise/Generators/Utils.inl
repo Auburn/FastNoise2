@@ -21,6 +21,15 @@ namespace FastNoise
     {
         int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        {
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ), index );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ), index );
+
+            // Bit-8 = Flip sign of a + b 
+            return FS::FMulAdd( gX, fX, fY * gY ) ^ FS::Cast<float>( ( index >> 3 ) << 31 );
+        }
+
         // Bit-3 = Choose X Y ordering
         mask32v bit3;
         
@@ -56,18 +65,6 @@ namespace FastNoise
         // Bit-4 = Flip sign of a + b
         return c ^ FS::Cast<float>( (index >> 3) << 31 );
     }
-
-    //template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
-    //FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
-    //{
-    //    int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
-
-    //    float32v gX = _mm256_permutevar8x32_ps( float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ), index );
-    //    float32v gY = _mm256_permutevar8x32_ps( float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ), index );
-
-    //    // Bit-8 = Flip sign of a + b
-    //    return FS::FMulAdd( gX, fX, fY * gY ) ^ FS::Cast<float>( (index >> 3) << 31 );
-    //}
 
     //template<typename SIMD = FS, std::enable_if_t<(SIMD::SIMD_Level == FastSIMD::Level_AVX512)>* = nullptr>
     //FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
