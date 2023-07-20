@@ -3,9 +3,6 @@
 
 #include "Generator.h"
 
-#undef FS_VECTORCALL
-#define FS_VECTORCALL
-
 #pragma warning( disable:4250 )
 
 using namespace FastNoise;
