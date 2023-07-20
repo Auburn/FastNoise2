@@ -69,13 +69,19 @@ endif()
 target_link_libraries(FastNoise PUBLIC FastSIMD FastSIMD_FastNoise)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast /wd4251)
+    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast /wd4251 /d2vzeroupper-)
     
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
-        target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast)
+        target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast -mllvm -x86-use-vzeroupper=0)
     else()
         target_compile_options(FastSIMD_FastNoise PRIVATE -ffast-math -fno-stack-protector)        
+    endif()
+
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        target_compile_options(FastSIMD_FastNoise PRIVATE -mno-vzeroupper)
+    else()
+        target_compile_options(FastSIMD_FastNoise PRIVATE -mllvm -x86-use-vzeroupper=0)        
     endif()
 
 endif()
