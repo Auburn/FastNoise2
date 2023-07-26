@@ -1,12 +1,8 @@
-set(CMAKE_CXX_STANDARD 17)
 
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG a09c99d3a25ba16fed75d1312efa3b3f570cc15d
-    EXCLUDE_FROM_ALL YES
-    #OPTIONS
-    #    "BUILD_SHARED_LIBS OFF"
+    GIT_TAG 5731a1d26f5182f0f89f449c252f9bba2f36b933
 )
 
 set(install_targets ${install_targets}
