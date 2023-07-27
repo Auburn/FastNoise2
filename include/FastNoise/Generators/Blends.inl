@@ -1,7 +1,7 @@
 #include "Blends.h"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Add, SIMD> : public virtual FastNoise::Add, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Add, SIMD> final : public virtual FastNoise::Add, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -13,7 +13,7 @@ class FastSIMD::DispatchClass<FastNoise::Add, SIMD> : public virtual FastNoise::
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Subtract, SIMD> : public virtual FastNoise::Subtract, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Subtract, SIMD> final : public virtual FastNoise::Subtract, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -25,7 +25,7 @@ class FastSIMD::DispatchClass<FastNoise::Subtract, SIMD> : public virtual FastNo
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Multiply, SIMD> : public virtual FastNoise::Multiply, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Multiply, SIMD> final : public virtual FastNoise::Multiply, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -37,7 +37,7 @@ class FastSIMD::DispatchClass<FastNoise::Multiply, SIMD> : public virtual FastNo
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Divide, SIMD> : public virtual FastNoise::Divide, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Divide, SIMD> final : public virtual FastNoise::Divide, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -49,7 +49,7 @@ class FastSIMD::DispatchClass<FastNoise::Divide, SIMD> : public virtual FastNois
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::PowFloat, SIMD> : public virtual FastNoise::PowFloat, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::PowFloat, SIMD> final : public virtual FastNoise::PowFloat, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -61,7 +61,7 @@ class FastSIMD::DispatchClass<FastNoise::PowFloat, SIMD> : public virtual FastNo
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::PowInt, SIMD> : public virtual FastNoise::PowInt, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::PowInt, SIMD> final : public virtual FastNoise::PowInt, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -81,7 +81,7 @@ class FastSIMD::DispatchClass<FastNoise::PowInt, SIMD> : public virtual FastNois
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Min, SIMD> : public virtual FastNoise::Min, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Min, SIMD> final : public virtual FastNoise::Min, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -93,7 +93,7 @@ class FastSIMD::DispatchClass<FastNoise::Min, SIMD> : public virtual FastNoise::
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Max, SIMD> : public virtual FastNoise::Max, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Max, SIMD> final : public virtual FastNoise::Max, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -105,7 +105,7 @@ class FastSIMD::DispatchClass<FastNoise::Max, SIMD> : public virtual FastNoise::
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::MinSmooth, SIMD> : public virtual FastNoise::MinSmooth, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::MinSmooth, SIMD> final : public virtual FastNoise::MinSmooth, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -125,7 +125,7 @@ class FastSIMD::DispatchClass<FastNoise::MinSmooth, SIMD> : public virtual FastN
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::MaxSmooth, SIMD> : public virtual FastNoise::MaxSmooth, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::MaxSmooth, SIMD> final : public virtual FastNoise::MaxSmooth, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -145,7 +145,7 @@ class FastSIMD::DispatchClass<FastNoise::MaxSmooth, SIMD> : public virtual FastN
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Fade, SIMD> : public virtual FastNoise::Fade, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Fade, SIMD> final : public virtual FastNoise::Fade, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     

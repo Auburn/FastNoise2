@@ -1,7 +1,7 @@
 #include "Modifiers.h"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainScale, SIMD> : public virtual FastNoise::DomainScale, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainScale, SIMD> final : public virtual FastNoise::DomainScale, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -13,7 +13,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainScale, SIMD> : public virtual Fas
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainOffset, SIMD> : public virtual FastNoise::DomainOffset, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainOffset, SIMD> final : public virtual FastNoise::DomainOffset, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
     
@@ -31,7 +31,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainOffset, SIMD> : public virtual Fa
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainRotate, SIMD> : public virtual FastNoise::DomainRotate, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainRotate, SIMD> final : public virtual FastNoise::DomainRotate, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
@@ -61,7 +61,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainRotate, SIMD> : public virtual Fa
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SeedOffset, SIMD> : public virtual FastNoise::SeedOffset, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::SeedOffset, SIMD> final : public virtual FastNoise::SeedOffset, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -73,7 +73,7 @@ class FastSIMD::DispatchClass<FastNoise::SeedOffset, SIMD> : public virtual Fast
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Remap, SIMD> : public virtual FastNoise::Remap, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Remap, SIMD> final : public virtual FastNoise::Remap, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -87,7 +87,7 @@ class FastSIMD::DispatchClass<FastNoise::Remap, SIMD> : public virtual FastNoise
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::ConvertRGBA8, SIMD> : public virtual FastNoise::ConvertRGBA8, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::ConvertRGBA8, SIMD> final : public virtual FastNoise::ConvertRGBA8, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -114,7 +114,7 @@ class FastSIMD::DispatchClass<FastNoise::ConvertRGBA8, SIMD> : public virtual Fa
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> : public virtual FastNoise::Terrace, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> final : public virtual FastNoise::Terrace, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -146,7 +146,7 @@ class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> : public virtual FastNoi
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainAxisScale, SIMD> : public virtual FastNoise::DomainAxisScale, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainAxisScale, SIMD> final : public virtual FastNoise::DomainAxisScale, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -161,7 +161,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainAxisScale, SIMD> : public virtual
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::AddDimension, SIMD> : public virtual FastNoise::AddDimension, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::AddDimension, SIMD> final : public virtual FastNoise::AddDimension, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -180,7 +180,7 @@ class FastSIMD::DispatchClass<FastNoise::AddDimension, SIMD> : public virtual Fa
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::RemoveDimension, SIMD> : public virtual FastNoise::RemoveDimension, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::RemoveDimension, SIMD> final : public virtual FastNoise::RemoveDimension, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
@@ -221,7 +221,7 @@ class FastSIMD::DispatchClass<FastNoise::RemoveDimension, SIMD> : public virtual
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> : public virtual FastNoise::GeneratorCache, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> final : public virtual FastNoise::GeneratorCache, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 

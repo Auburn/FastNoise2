@@ -7,7 +7,7 @@ class FastSIMD::DispatchClass<FastNoise::Fractal<T>, SIMD> : public virtual Fast
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::FractalFBm, SIMD> : public virtual FastNoise::FractalFBm, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::FractalFBm, SIMD> final : public virtual FastNoise::FractalFBm, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -37,7 +37,7 @@ class FastSIMD::DispatchClass<FastNoise::FractalFBm, SIMD> : public virtual Fast
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::FractalRidged, SIMD> : public virtual FastNoise::FractalRidged, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::FractalRidged, SIMD> final : public virtual FastNoise::FractalRidged, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -67,7 +67,7 @@ class FastSIMD::DispatchClass<FastNoise::FractalRidged, SIMD> : public virtual F
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::FractalPingPong, SIMD> : public virtual FastNoise::FractalPingPong, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::FractalPingPong, SIMD> final : public virtual FastNoise::FractalPingPong, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 

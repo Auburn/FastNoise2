@@ -15,7 +15,7 @@ protected:
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> : public virtual FastNoise::CellularValue, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public virtual FastNoise::CellularValue, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
@@ -247,7 +247,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> : public virtual F
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> : public virtual FastNoise::CellularDistance, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public virtual FastNoise::CellularDistance, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
@@ -468,7 +468,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> : public virtua
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {

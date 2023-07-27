@@ -2,7 +2,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
     {
         float32v xs = FS::Floor( x );
