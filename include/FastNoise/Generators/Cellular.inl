@@ -5,7 +5,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Cellular, SIMD> : public virtual FastNoise::Cellular, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Cellular, SIMD> : public virtual FastNoise::Cellular, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
 protected:
     const float kJitter2D = 0.437016f;
@@ -17,7 +17,7 @@ protected:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public virtual FastNoise::CellularValue, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         std::array<float32v, kMaxDistanceCount> value;
@@ -25,6 +25,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         
         value.fill( float32v( INFINITY ) );
         distance.fill( float32v( INFINITY ) );
+
+        this->ScalePositions( x, y );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -50,7 +52,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
-                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd );
 
                 for( int i = 0; ; i++ )
                 {
@@ -81,7 +83,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         return value[mValueIndex];
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
         std::array<float32v, kMaxDistanceCount> value;
@@ -89,6 +91,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         
         value.fill( float32v( INFINITY ) );
         distance.fill( float32v( INFINITY ) );
+
+        this->ScalePositions( x, y, z );
         
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -123,7 +127,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                     zd = FS::FMulAdd( zd, invMag, zcf );
                 
                     float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
-                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd );
                 
                     for( int i = 0; ; i++ )
                     {
@@ -157,7 +161,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         return value[mValueIndex];
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z, w );
         std::array<float32v, kMaxDistanceCount> value;
@@ -165,6 +169,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         
         value.fill( float32v( INFINITY ) );
         distance.fill( float32v( INFINITY ) );
+
+        this->ScalePositions( x, y, z, w );
         
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -208,7 +214,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
                         float32v newCellValue = float32v( (float)(1.0 / INT_MAX) ) * FS::Convert<float>( hash );
-                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = 0; ; i++ )
                         {
@@ -249,12 +255,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public virtual FastNoise::CellularDistance, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
 
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( INFINITY ) );
+
+        this->ScalePositions( x, y );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -279,7 +287,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
-                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd );
 
                 for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                 {
@@ -298,12 +306,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         return GetReturn( distance );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
 
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( INFINITY ) );
+
+        this->ScalePositions( x, y, z );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -337,7 +347,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
-                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd );
 
                     for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                     {
@@ -359,12 +369,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         return GetReturn( distance );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z, w );
 
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( INFINITY ) );
+
+        this->ScalePositions( x, y, z, w );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -407,7 +419,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                         zd = FS::FMulAdd( zd, invMag, zcf );
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
-                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd, wd );
 
                         for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                         {
@@ -470,11 +482,13 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
         float32v distance( FLT_MAX );
         float32v cellX, cellY;
+
+        this->ScalePositions( x, y );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -499,7 +513,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
-                float32v newDistance = CalcDistance( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd );
 
                 mask32v closer = newDistance < distance;
                 distance = FS::Min( newDistance, distance );
@@ -514,14 +528,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             xc += int32v( Primes::X );
         }
 
-        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ) );
+        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
         float32v distance( FLT_MAX );
         float32v cellX, cellY, cellZ;
+
+        this->ScalePositions( x, y, z );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -555,7 +571,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
-                    float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
                     distance = FS::Min( newDistance, distance );
@@ -574,14 +590,16 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             xc += int32v( Primes::X );
         }
 
-        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ), cellZ * float32v( mLookupFreq ) );
+        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z, w );
         float32v distance( FLT_MAX );
         float32v cellX, cellY, cellZ, cellW;
+
+        this->ScalePositions( x, y, z, w );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -624,7 +642,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                         zd = FS::FMulAdd( zd, invMag, zcf );
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
-                        float32v newDistance = CalcDistance( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
                         distance = FS::Min( newDistance, distance );
@@ -647,6 +665,6 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             xc += int32v( Primes::X );
         }
 
-        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mLookupFreq ), cellY * float32v( mLookupFreq ), cellZ * float32v( mLookupFreq ), cellW * float32v( mLookupFreq ) );
+        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ), cellW * float32v( mScale ) );
     }
 };

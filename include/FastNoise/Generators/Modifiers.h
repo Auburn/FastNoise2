@@ -405,5 +405,30 @@ namespace FastNoise
         }
     };
 #endif
+
+    class SquareRoot : public virtual Generator
+    {
+    public:
+        const Metadata& GetMetadata() const override;
+
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+
+    protected:
+        GeneratorSource mSource;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<SquareRoot> : MetadataT<Generator>
+    {
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT()
+        {
+            groups.push_back( "Modifiers" );
+            this->AddGeneratorSource( "Source", &SquareRoot::SetSource );
+        }
+    };
+#endif
     
 }

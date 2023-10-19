@@ -56,7 +56,9 @@ class FastSIMD::DispatchClass<FastNoise::PowFloat, SIMD> final : public virtual 
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return Pow( this->GetSourceValue( mValue, seed, pos... ), this->GetSourceValue( mPow, seed, pos... ) );
+        float32v value = FS::Max( FS::Abs( this->GetSourceValue( mValue, seed, pos... ) ), float32v( FLT_MIN ) );
+
+        return Pow( value, this->GetSourceValue( mPow, seed, pos... ) );
     }
 };
 
@@ -114,7 +116,7 @@ class FastSIMD::DispatchClass<FastNoise::MinSmooth, SIMD> final : public virtual
     {
         float32v a = this->GetSourceValue( mLHS, seed, pos... );
         float32v b = this->GetSourceValue( mRHS, seed, pos... );
-        float32v smoothness = FS::Max( float32v( 1.175494351e-38f ), FS::Abs( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
+        float32v smoothness = FS::Max( float32v( FLT_MIN ), FS::Abs( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
 
         float32v h = FS::Max( smoothness - FS::Abs( a - b ), float32v( 0.0f ) );
 
@@ -134,7 +136,7 @@ class FastSIMD::DispatchClass<FastNoise::MaxSmooth, SIMD> final : public virtual
     {
         float32v a = -this->GetSourceValue( mLHS, seed, pos... );
         float32v b = -this->GetSourceValue( mRHS, seed, pos... );
-        float32v smoothness = FS::Max( float32v( 1.175494351e-38f ), FS::Abs( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
+        float32v smoothness = FS::Max( float32v( FLT_MIN ), FS::Abs( this->GetSourceValue( mSmoothness, seed, pos... ) ) );
 
         float32v h = FS::Max( smoothness - FS::Abs( a - b ), float32v( 0.0f ) );
 

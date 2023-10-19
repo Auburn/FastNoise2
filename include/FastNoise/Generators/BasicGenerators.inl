@@ -2,6 +2,18 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD> : public virtual FastNoise::ScalableGenerator, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+{
+protected:
+    template<typename... P>
+    FS_FORCEINLINE void ScalePositions( P&... pos ) const
+    {
+        float32v vFrequency( mFrequency );
+        ( (pos *= vFrequency), ... );
+    }
+};
+
+template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual FastNoise::Constant, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
@@ -29,28 +41,32 @@ class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual Fas
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virtual FastNoise::Checkerboard, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virtual FastNoise::Checkerboard, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        int32v value = (FS::Convert<int32_t>( pos * float32v( mSizeInv ) ) ^ ...);
+        this->ScalePositions( pos... );
+
+        int32v value = (FS::Convert<int32_t>( pos ) ^ ...);
 
         return float32v( 1.0f ) ^ FS::Cast<float>( value << 31 );
     }
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual FastNoise::SineWave, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual FastNoise::SineWave, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return (FS::Sin( pos * float32v( mScaleInv ) ) * ...);
+        this->ScalePositions( pos... );
+
+        return (FS::Sin( pos ) * ...);
     }
 };
 

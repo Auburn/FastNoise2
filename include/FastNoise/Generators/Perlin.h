@@ -3,7 +3,7 @@
 
 namespace FastNoise
 {
-    class Perlin : public virtual Generator
+    class Perlin : public virtual ScalableGenerator
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -11,7 +11,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Perlin> : MetadataT<Generator>
+    struct MetadataT<Perlin> : MetadataT<ScalableGenerator>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 

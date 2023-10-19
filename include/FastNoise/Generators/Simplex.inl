@@ -2,10 +2,12 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        this->ScalePositions( x, y );
+
         const float SQRT3 = 1.7320508075688772935274463415059f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
         const float G2 = (3.0f - SQRT3) / 6.0f;
@@ -49,8 +51,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         return float32v( 38.283687591552734375f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        this->ScalePositions( x, y, z );
+
         const float F3 = 1.0f / 3.0f;
         const float G3 = 1.0f / 2.0f;
 
@@ -120,8 +124,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         return float32v( 32.69428253173828125f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, n3 * t3 ) ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
+        this->ScalePositions( x, y, z, w );
+
         const float SQRT5 = 2.236067977499f;
         const float F4 = (SQRT5 - 1.0f) / 4.0f;
         const float G4 = (5.0f - SQRT5) / 20.0f;
@@ -254,10 +260,12 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virtual FastNoise::OpenSimplex2, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virtual FastNoise::OpenSimplex2, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        this->ScalePositions( x, y );
+
         const float SQRT3 = 1.7320508075f;
         const float F2 = 0.5f * (SQRT3 - 1.0f);
         const float G2 = (3.0f - SQRT3) / 6.0f;
@@ -300,8 +308,10 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virt
         return float32v( 49.918426513671875f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        this->ScalePositions( x, y, z );
+
         float32v f = float32v( 2.0f / 3.0f ) * (x + y + z);
         float32v xr = f - x;
         float32v yr = f - y;
@@ -366,10 +376,12 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virt
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public virtual FastNoise::OpenSimplex2S, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public virtual FastNoise::OpenSimplex2S, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        this->ScalePositions( x, y );
+
         const float SQRT3 = 1.7320508075688772935274463415059f;
         const float F2 = 0.5f * ( SQRT3 - 1.0f );
         const float G2 = ( SQRT3 - 3.0f ) / 6.0f;
@@ -432,8 +444,10 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
         return float32v( 9.28993664146183f ) * value;
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        this->ScalePositions( x, y, z );
+
         float32v f = float32v( 2.0f / 3.0f ) * ( x + y + z );
         float32v xr = f - x;
         float32v yr = f - y;

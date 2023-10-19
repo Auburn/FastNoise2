@@ -2,20 +2,20 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD> : public virtual FastNoise::DomainWarp, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD> : public virtual FastNoise::DomainWarp, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), (pos * float32v( mWarpFrequency ))..., pos... );
+        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
 
         return this->GetSourceValue( mSource, seed, pos...);
     }
 
 public:
-    float GetWarpFrequency() const { return mWarpFrequency; }
+    float GetWarpFrequency() const { return this->mFrequency; }
     const FastNoise::HybridSource& GetWarpAmplitude() const { return mWarpAmplitude; }
     const FastNoise::GeneratorSource& GetWarpSource() const { return mSource; }
 
@@ -28,7 +28,7 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, SIMD> final : public virtual FastNoise::DomainWarpGradient, public FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD>
 {
 public:
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
+    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -66,7 +66,7 @@ public:
         return warpLengthSq * FS::InvSqrt( warpLengthSq );
     }
             
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const final
+    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -123,7 +123,7 @@ public:
         return warpLengthSq * FS::InvSqrt( warpLengthSq );
     }
             
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const final
+    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );

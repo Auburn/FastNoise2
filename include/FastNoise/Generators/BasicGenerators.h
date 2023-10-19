@@ -3,6 +3,31 @@
 
 namespace FastNoise
 {
+    class ScalableGenerator : public virtual Generator
+    {
+    public:
+        void SetScale( float value )
+        {
+            mScale = value;
+            mFrequency = 1.0f / value;
+        }
+
+    protected:
+        float mScale = 100;
+        float mFrequency = 1.0f / 100;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<ScalableGenerator> : MetadataT<Generator>
+    {
+        MetadataT()
+        {
+            this->AddVariable( "Scale", 100.0f, &ScalableGenerator::SetScale );
+        }
+    };
+#endif
+
     class Constant : public virtual Generator
     {
     public:
@@ -47,52 +72,51 @@ namespace FastNoise
     };
 #endif
 
-    class Checkerboard : public virtual Generator
+    class Checkerboard : public virtual ScalableGenerator
     {
     public:
         const Metadata& GetMetadata() const override;
-
-        void SetSize( float value ) { mSizeInv = 1 / value; }
+        
+        void SetHigh( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mHigh, gen ); }
+        void SetHigh( float value ) { mHigh = value; }
+        void SetLow( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLow, gen ); }
+        void SetLow( float value ) { mLow = value; }
 
     protected:
-        float mSizeInv = 1.0f;
+        HybridSource mHigh = 1.0f;
+        HybridSource mLow = -1.0f;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Checkerboard> : MetadataT<Generator>
+    struct MetadataT<Checkerboard> : MetadataT<ScalableGenerator>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddVariable( "Size", 1.0f, &Checkerboard::SetSize );
+            this->AddHybridSource( "High", 1.0f, &Checkerboard::SetHigh, &Checkerboard::SetHigh );
+            this->AddHybridSource( "Low", -1.0f, &Checkerboard::SetLow, &Checkerboard::SetLow );
         }
     };
 #endif
 
-    class SineWave : public virtual Generator
+    class SineWave : public virtual ScalableGenerator
     {
     public:
         const Metadata& GetMetadata() const override;
-
-        void SetScale( float value ) { mScaleInv = 1 / value; }
-
-    protected:
-        float mScaleInv = 1.0f;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<SineWave> : MetadataT<Generator>
+    struct MetadataT<SineWave> : MetadataT<ScalableGenerator>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddVariable( "Scale", 1.0f, &SineWave::SetScale );
         }
     };
 #endif

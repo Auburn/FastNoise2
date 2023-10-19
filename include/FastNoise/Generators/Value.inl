@@ -2,10 +2,12 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        this->ScalePositions( x, y );
+
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
@@ -22,8 +24,10 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
             Lerp( GetValueCoord( seed, x0, y1 ), GetValueCoord( seed, x1, y1 ), xs ), ys );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        this->ScalePositions( x, y, z );
+
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
@@ -47,8 +51,10 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
             Lerp( GetValueCoord( seed, x0, y1, z1 ), GetValueCoord( seed, x1, y1, z1 ), xs ), ys ), zs );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
+        this->ScalePositions( x, y, z, w );
+
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );

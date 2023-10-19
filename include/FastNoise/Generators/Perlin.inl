@@ -2,9 +2,11 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
-{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
+class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        this->ScalePositions( x, y );
+
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
@@ -26,8 +28,10 @@ class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual Fa
             Lerp( GetGradientDot( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDot( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs ), ys );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        this->ScalePositions( x, y, z );
+
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
@@ -58,8 +62,10 @@ class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual Fa
             Lerp( GetGradientDot( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDot( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
+        this->ScalePositions( x, y, z, w );
+
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );

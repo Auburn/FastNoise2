@@ -38,7 +38,7 @@ int main()
         auto checkerboard = FastNoise::SmartNode<FastNoise::Checkerboard>::DynamicCast( base );
 
         // Ok
-        checkerboard->SetSize( 8.0f );
+        checkerboard->SetScale( 8.0f );
 
         // Down cast to wrong type will return nullptr
         auto simplex = FastNoise::SmartNode<FastNoise::Simplex>::DynamicCast( base );

@@ -239,13 +239,14 @@ namespace FastNoise
         return t * t * t * FS::FMulAdd( t, FS::FMulAdd( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
     }
 
-    template<typename... P>
+    template<bool DO_SQRT = true, typename... P>
     FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
     {
         switch( distFunc )
         {
             default:
             case DistanceFunction::Euclidean:
+            if constexpr( DO_SQRT )
             {
                 float32v distSqr = dX * dX;
                 ((distSqr = FS::FMulAdd( d, d, distSqr )), ...);

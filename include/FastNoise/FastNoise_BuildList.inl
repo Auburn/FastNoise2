@@ -2,7 +2,8 @@
 
 #ifndef FASTNOISE_REGISTER_NODE
 #define FASTNOISE_REGISTER_NODE( CLASS ) \
-template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>
+template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>;\
+static_assert( std::is_final_v<FastSIMD::DispatchClass<CLASS, FastSIMD::FeatureSetDefault()>> )
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
@@ -124,5 +125,6 @@ FASTNOISE_REGISTER_NODE( DomainAxisScale );
 FASTNOISE_REGISTER_NODE( AddDimension );
 FASTNOISE_REGISTER_NODE( RemoveDimension );
 FASTNOISE_REGISTER_NODE( GeneratorCache );
+FASTNOISE_REGISTER_NODE( SquareRoot );
 
 FASTNOISE_REGISTER_NODE( OpenSimplex2S );
