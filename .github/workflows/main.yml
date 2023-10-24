@@ -49,19 +49,19 @@ jobs:
       uses: actions/checkout@v3
    
     - name: 'CMake Build Debug'
-      run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
+      run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_TOOLS=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
    
     - name: 'CMake Install Debug'
       run: cmake --build ${{ github.workspace }}/debug --config Debug --target install --parallel 4
    
     - name: 'CMake Build Release'
-      run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/release -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=ON -DFASTNOISE2_TESTS=ON ${{ matrix.cmake_options }}
+      run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/release -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_TOOLS=ON -DFASTNOISE2_TESTS=ON ${{ matrix.cmake_options }}
    
     - name: 'CMake Install Release'
       run: cmake --build ${{ github.workspace }}/release --config Release --target install --parallel 4
     
     - if: runner.os != 'Windows'
-      run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NoiseTool
+      run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NodeVisualiser
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v3

@@ -12,11 +12,11 @@
 
 namespace Magnum
 {
-    class NoiseToolApp : public Platform::Application
+    class NodeVisualiserApp : public Platform::Application
     {
     public:
-        explicit NoiseToolApp( const Arguments& arguments );
-        ~NoiseToolApp();
+        explicit NodeVisualiserApp( const Arguments& arguments );
+        ~NodeVisualiserApp();
 
     private:
         void drawEvent() override;

@@ -8,7 +8,7 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Renderer.h>
 
-#include "NoiseToolApp.h"
+#include "NodeVisualiserApp.h"
 #include "ImGuiExtra.h"
 #include "FastSIMD/FastSIMD_FastNoise_config.h"
 
@@ -17,14 +17,14 @@ using namespace Magnum;
 void InitResources()
 {
 #ifdef MAGNUM_BUILD_STATIC
-    CORRADE_RESOURCE_INITIALIZE( NoiseTool_RESOURCES )
+    CORRADE_RESOURCE_INITIALIZE( NodeVisualiser_RESOURCES )
 #endif
 }
 
-NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
+NodeVisualiserApp::NodeVisualiserApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
     Configuration{}
-    .setTitle( "FastNoise2 NoiseTool" )
+    .setTitle( "FastNoise2 Node Visualiser" )
     .setSize( Vector2i( 1280, 720 ) )
     .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ),
     GLConfiguration{}
@@ -41,11 +41,11 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     {
         ImFontConfig fontConfig;
         fontConfig.FontDataOwnedByAtlas = false;
-        const auto font = Utility::Resource{ "NoiseTool" }.getRaw( "Font.ttf" );
+        const auto font = Utility::Resource{ "NodeVisualiser" }.getRaw( "Font.ttf" );
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), (int)font.size(), 14.0f * framebufferSize().x() / size.x(), &fontConfig );
     }
 
-    ImGui::GetIO().IniFilename = "NoiseTool.ini";
+    ImGui::GetIO().IniFilename = "NodeVisualiser.ini";
     mImGuiIntegrationContext = ImGuiIntegration::Context( *mImGuiContext, size, windowSize(), framebufferSize() );
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
@@ -76,14 +76,14 @@ NoiseToolApp::NoiseToolApp( const Arguments& arguments ) :
     }
 }
 
-NoiseToolApp::~NoiseToolApp()
+NodeVisualiserApp::~NodeVisualiserApp()
 {
     // Avoid trying to save settings after node editor is already destroyed
     ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
     ImGui::GetIO().IniFilename = nullptr;
 }
 
-void NoiseToolApp::drawEvent()
+void NodeVisualiserApp::drawEvent()
 {
     GL::defaultFramebuffer.clear( GL::FramebufferClear::Color | GL::FramebufferClear::Depth );
 
@@ -188,7 +188,7 @@ void NoiseToolApp::drawEvent()
     mFrameTime.nextFrame();
 }
 
-void NoiseToolApp::viewportEvent( ViewportEvent& event )
+void NodeVisualiserApp::viewportEvent( ViewportEvent& event )
 {
     GL::defaultFramebuffer.setViewport( { {}, event.framebufferSize() } );
 
@@ -197,7 +197,7 @@ void NoiseToolApp::viewportEvent( ViewportEvent& event )
     mImGuiIntegrationContext.relayout( Vector2 { event.windowSize() } / event.dpiScaling(), event.windowSize(), event.framebufferSize() );
 }
 
-void NoiseToolApp::keyPressEvent( KeyEvent& event )
+void NodeVisualiserApp::keyPressEvent( KeyEvent& event )
 {
     if( mImGuiIntegrationContext.handleKeyPressEvent( event ) )
         return;
@@ -205,7 +205,7 @@ void NoiseToolApp::keyPressEvent( KeyEvent& event )
     HandleKeyEvent( event.key(), true );
 }
 
-void NoiseToolApp::keyReleaseEvent( KeyEvent& event )
+void NodeVisualiserApp::keyReleaseEvent( KeyEvent& event )
 {
     if( mImGuiIntegrationContext.handleKeyReleaseEvent( event ) )
         return;
@@ -213,7 +213,7 @@ void NoiseToolApp::keyReleaseEvent( KeyEvent& event )
     HandleKeyEvent( event.key(), false );
 }
 
-void NoiseToolApp::HandleKeyEvent( KeyEvent::Key key, bool value )
+void NodeVisualiserApp::HandleKeyEvent( KeyEvent::Key key, bool value )
 {
     switch( key )
     {
@@ -264,7 +264,7 @@ void NoiseToolApp::HandleKeyEvent( KeyEvent::Key key, bool value )
     }
 }
 
-void NoiseToolApp::mousePressEvent( MouseEvent& event )
+void NodeVisualiserApp::mousePressEvent( MouseEvent& event )
 {
     if( mImGuiIntegrationContext.handleMousePressEvent( event ) )
         return;
@@ -274,7 +274,7 @@ void NoiseToolApp::mousePressEvent( MouseEvent& event )
     event.setAccepted();
 }
 
-void NoiseToolApp::mouseReleaseEvent( MouseEvent& event )
+void NodeVisualiserApp::mouseReleaseEvent( MouseEvent& event )
 {
     if( mImGuiIntegrationContext.handleMouseReleaseEvent( event ) )
         return;
@@ -282,7 +282,7 @@ void NoiseToolApp::mouseReleaseEvent( MouseEvent& event )
     event.setAccepted();
 }
 
-void NoiseToolApp::mouseScrollEvent( MouseScrollEvent& event ) {
+void NodeVisualiserApp::mouseScrollEvent( MouseScrollEvent& event ) {
     if( mImGuiIntegrationContext.handleMouseScrollEvent( event ) )
     {
         /* Prevent scrolling the page */
@@ -291,7 +291,7 @@ void NoiseToolApp::mouseScrollEvent( MouseScrollEvent& event ) {
     }
 }
 
-void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
+void NodeVisualiserApp::mouseMoveEvent( MouseMoveEvent& event )
 {
     if( mImGuiIntegrationContext.handleMouseMoveEvent( event ) )
         return;
@@ -315,16 +315,16 @@ void NoiseToolApp::mouseMoveEvent( MouseMoveEvent& event )
     event.setAccepted();
 }
 
-void NoiseToolApp::textInputEvent( TextInputEvent& event )
+void NodeVisualiserApp::textInputEvent( TextInputEvent& event )
 {
     if( mImGuiIntegrationContext.handleTextInputEvent( event ) )
         return;
 }
 
-void NoiseToolApp::UpdatePespectiveProjection()
+void NodeVisualiserApp::UpdatePespectiveProjection()
 {
     mCamera.setProjectionMatrix( Matrix4::perspectiveProjection( Deg( 70.0f ), Vector2{ windowSize() }.aspectRatio(), 2.0f, 3500.0f ) );
 }
 
 
-MAGNUM_APPLICATION_MAIN( NoiseToolApp )
+MAGNUM_APPLICATION_MAIN( NodeVisualiserApp )

@@ -16,7 +16,7 @@ endif()
 # Build DLL
 #set(BUILD_SHARED_LIBS ON) 
 
-option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ${FASTNOISE2_STANDALONE_PROJECT})
+option(FASTNOISE2_TOOLS "Build \"Node Visualiser\" executable" ${FASTNOISE2_STANDALONE_PROJECT})
 option(FASTNOISE2_TESTS "Build tests" OFF)
 
 if(MSVC)
@@ -39,8 +39,8 @@ set(install_targets "")
 include(cmake/CPM.cmake)
 add_subdirectory(src)
 
-if(FASTNOISE2_NOISETOOL)
-    add_subdirectory(NoiseTool)
+if(FASTNOISE2_TOOLS)
+    add_subdirectory(tools)
 endif()
 
 if(FASTNOISE2_TESTS)

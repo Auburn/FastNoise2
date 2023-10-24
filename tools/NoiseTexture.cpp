@@ -383,7 +383,7 @@ void NoiseTexture::GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, 
 void NoiseTexture::SetupSettingsHandlers()
 {
     ImGuiSettingsHandler editorSettings;
-    editorSettings.TypeName = "NoiseToolNoiseTexture";
+    editorSettings.TypeName = "NodeVisualiserNoiseTexture";
     editorSettings.TypeHash = ImHashStr( editorSettings.TypeName );
     editorSettings.UserData = this;
     editorSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf ) {

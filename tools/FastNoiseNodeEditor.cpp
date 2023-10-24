@@ -372,7 +372,7 @@ void FastNoiseNodeEditor::Node::SerialiseIncludingDependancies( ImGuiSettingsHan
 void FastNoiseNodeEditor::SetupSettingsHandlers()
 {
     ImGuiSettingsHandler nodeSettings;
-    nodeSettings.TypeName = "NoiseToolNodeData";
+    nodeSettings.TypeName = "NodeVisualiserNodeData";
     nodeSettings.TypeHash = ImHashStr( nodeSettings.TypeName );
     nodeSettings.UserData = this;
     nodeSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf )
@@ -471,7 +471,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
 
 
     ImGuiSettingsHandler editorSettings;
-    editorSettings.TypeName = "NoiseToolNodeGraph";
+    editorSettings.TypeName = "NodeVisualiserNodeGraph";
     editorSettings.TypeHash = ImHashStr( editorSettings.TypeName );
     editorSettings.UserData = this;
     editorSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf )

@@ -43,7 +43,7 @@ namespace FastNoise
     /// <example>
     /// FastNoise::SmartNode<> rootNode = FastNoise::NewFromEncodedNodeTree( "DQAFAAAAAAAAQAgAAAAAAD8AAAAAAA==" );
     /// </example>
-    /// <param name="encodedNodeTreeString">Can be generated using the NoiseTool</param>
+    /// <param name="encodedNodeTreeString">Can be generated using the Node Visualiser tool</param>
     /// <param name="maxSimdLevel">Max SIMD level, Max = Auto</param>
     /// <returns>Root node of the tree, nullptr for invalid strings</returns>
     FASTNOISE_API SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max );
