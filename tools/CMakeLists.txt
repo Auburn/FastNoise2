@@ -88,7 +88,7 @@ CPMAddPackage(
     EXCLUDE_FROM_ALL YES
 )
 
-# Ensure FastNoise.dll is built into the same dir as NodeVisualiser.exe
+# Ensure FastNoise.dll is built into the same dir as NodeEditor.exe
 set_target_properties(FastNoise
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
@@ -98,19 +98,20 @@ set_target_properties(FastNoise
 
 # Bundle a better font
 # Configure resource file for imgui source dir variable
-set(NodeVisualiser_RESOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(NodeEditor_RESOURCES_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 configure_file("resources.conf" "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
-corrade_add_resource(NodeVisualiser_RESOURCES "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
+corrade_add_resource(NodeEditor_RESOURCES "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
 
-add_executable(NodeVisualiser
-    "NodeVisualiserApp.cpp"
+add_executable(NodeEditor
+    
+    "NodeEditorApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
-    ${NodeVisualiser_RESOURCES}
+    ${NodeEditor_RESOURCES}
 ) 
 
-target_link_libraries(NodeVisualiser PRIVATE
+target_link_libraries(NodeEditor PRIVATE
     FastNoise
     #FastSIMD_FastNoise
     Magnum::Application
@@ -124,26 +125,26 @@ target_link_libraries(NodeVisualiser PRIVATE
 
 # Windows HiDPI support
 if(CORRADE_TARGET_WINDOWS)
-    target_sources(NodeVisualiser PRIVATE WindowsHiDPI.manifest)
+    target_sources(NodeEditor PRIVATE WindowsHiDPI.manifest)
 endif()
 
 if (UNIX)
-    target_link_options(NodeVisualiser PRIVATE -pthread)
+    target_link_options(NodeEditor PRIVATE -pthread)
 
     if(APPLE)
-        set_property(TARGET NodeVisualiser PROPERTY
+        set_property(TARGET NodeEditor PROPERTY
             INSTALL_RPATH "@loader_path/../lib")
     else()
-        set_property(TARGET NodeVisualiser PROPERTY
+        set_property(TARGET NodeEditor PROPERTY
             INSTALL_RPATH "\$ORIGIN/../lib")
     endif()
 endif()
 
 if (MSVC)
-    target_compile_definitions(NodeVisualiser PRIVATE _CRT_SECURE_NO_WARNINGS=1)
+    target_compile_definitions(NodeEditor PRIVATE _CRT_SECURE_NO_WARNINGS=1)
 endif()
 
-set(install_targets ${install_targets} NodeVisualiser PARENT_SCOPE)
+set(install_targets ${install_targets} NodeEditor PARENT_SCOPE)
 
 # Make the executable a default target to build & run in Visual Studio
-set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT NodeVisualiser)
+set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT NodeEditor)

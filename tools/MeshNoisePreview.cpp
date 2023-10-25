@@ -586,7 +586,7 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
 MeshNoisePreview::VertexLightShader::VertexLightShader()
 {
-    Utility::Resource NodeVisualiserResources( "NodeVisualiser" );
+    Utility::Resource NodeEditorResources( "NodeEditor" );
 
 #ifndef MAGNUM_TARGET_GLES
     const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GL320, GL::Version::GL310, GL::Version::GL300, GL::Version::GL210 } );
@@ -598,9 +598,9 @@ MeshNoisePreview::VertexLightShader::VertexLightShader()
     GL::Shader frag = CreateShader( version, GL::Shader::Type::Fragment );
     
     CORRADE_INTERNAL_ASSERT_OUTPUT(
-        vert.addSource( NodeVisualiserResources.getString( "VertexLight.vert" ) ).compile() );
+        vert.addSource( NodeEditorResources.getString( "VertexLight.vert" ) ).compile() );
     CORRADE_INTERNAL_ASSERT_OUTPUT( 
-        frag.addSource( NodeVisualiserResources.getString( "VertexLight.frag" ) ).compile() );
+        frag.addSource( NodeEditorResources.getString( "VertexLight.frag" ) ).compile() );
 
     attachShader( vert );
     attachShader( frag );
@@ -685,7 +685,7 @@ float MeshNoisePreview::GetTimerDurationMs()
 void MeshNoisePreview::SetupSettingsHandlers()
 {
     ImGuiSettingsHandler editorSettings;
-    editorSettings.TypeName = "NodeVisualiserMeshNoisePreview";
+    editorSettings.TypeName = "NodeEditorMeshNoisePreview";
     editorSettings.TypeHash = ImHashStr( editorSettings.TypeName );
     editorSettings.UserData = this;
     editorSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf ) {

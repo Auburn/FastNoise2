@@ -12,11 +12,11 @@
 
 namespace Magnum
 {
-    class NodeVisualiserApp : public Platform::Application
+    class NodeEditorApp : public Platform::Application
     {
     public:
-        explicit NodeVisualiserApp( const Arguments& arguments );
-        ~NodeVisualiserApp();
+        explicit NodeEditorApp( const Arguments& arguments );
+        ~NodeEditorApp();
 
     private:
         void drawEvent() override;

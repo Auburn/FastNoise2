@@ -16,7 +16,7 @@ endif()
 # Build DLL
 #set(BUILD_SHARED_LIBS ON) 
 
-option(FASTNOISE2_TOOLS "Build \"Node Visualiser\" executable" ${FASTNOISE2_STANDALONE_PROJECT})
+option(FASTNOISE2_TOOLS "Build \"Node Editor\" executable" ${FASTNOISE2_STANDALONE_PROJECT})
 option(FASTNOISE2_TESTS "Build tests" OFF)
 
 if(MSVC)

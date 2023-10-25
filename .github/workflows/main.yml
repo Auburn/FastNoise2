@@ -61,7 +61,7 @@ jobs:
       run: cmake --build ${{ github.workspace }}/release --config Release --target install --parallel 4
     
     - if: runner.os != 'Windows'
-      run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NodeVisualiser
+      run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NodeEditor
     
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v3
