@@ -7,10 +7,12 @@
 #include <Magnum/Math/Frustum.h>
 #include <Magnum/Math/Intersection.h>
 #include <Magnum/Math/Matrix4.h>
-#include <Magnum/Shaders/Implementation/CreateCompatibilityShader.h>
+#include <Magnum/GL/Context.h>
+#include <Magnum/GL/Extensions.h>
 
 #include "ImGuiExtra.h"
 #include "MeshNoisePreview.h"
+
 
 using namespace Magnum;
 

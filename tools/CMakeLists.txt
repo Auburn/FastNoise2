@@ -1,7 +1,7 @@
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
-    GIT_TAG 83dba87f3c04031235da6362524e0ec475bb21e8
+    GIT_TAG dc51b04b86294b00db45156e5e6cfdb1a6462df9
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -28,7 +28,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG c1239b66199926c610cd863e18a4d27a4cef67f1
+    GIT_TAG 68f6d75ee3f2aa4bf20ac3df706303e586cff323
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
