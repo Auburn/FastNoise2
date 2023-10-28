@@ -45,7 +45,7 @@ namespace Magnum
             FastNoise::SmartNode<const FastNoise::Generator> generator;
             Vector2i size;
             Vector4 offset;
-            float frequency;
+            float scale;
             int32_t seed;
             uint64_t iteration;
             GenType generationType;          

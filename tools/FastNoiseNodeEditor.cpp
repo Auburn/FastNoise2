@@ -144,7 +144,10 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
     if( generator )
     {
         auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxFeatureSet );
-        genRGB->SetSource( generator );
+        auto scale = FastNoise::New<FastNoise::DomainScale>( editor.mMaxFeatureSet );
+        genRGB->SetSource( scale );
+        scale->SetSource( generator );
+        scale->SetScaling( 1 / editor.mNodeScale );
 
         FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
         
@@ -482,7 +485,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         ImVec2 gridOffset = ImNodes::EditorContextGetPanning();
         outBuf->appendf( "grid_offset=%f:%f\n", gridOffset.x, gridOffset.y );
 
-        outBuf->appendf( "frequency=%f\n", nodeEditor->mNodeFrequency );
+        outBuf->appendf( "scale=%f\n", nodeEditor->mNodeScale );
         outBuf->appendf( "seed=%d\n", nodeEditor->mNodeSeed );
         outBuf->appendf( "gen_type=%d\n", (int)nodeEditor->mNodeGenType );
     };
@@ -505,7 +508,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
             ImNodes::EditorContextResetPanning( imVec2 );
         }
 
-        sscanf( line, "frequency=%f", &nodeEditor->mNodeFrequency );
+        sscanf( line, "scale=%f", &nodeEditor->mNodeScale );
         sscanf( line, "seed=%d", &nodeEditor->mNodeSeed );
         sscanf( line, "gen_type=%d", (int*)&nodeEditor->mNodeGenType );
     };
@@ -631,7 +634,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
         ImGui::SameLine();
-        edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );    
+        edited |= ImGui::DragFloat( "Scale", &mNodeScale, 0.05f );    
         ImGui::SameLine();    
 
         if( ImGui::Button( "Retest Node Performance" ) )
@@ -1253,25 +1256,22 @@ FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise
     case NoiseTexture::GenType_2D:
         return gen->GenUniformGrid2D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2,
-            Node::NoiseSize, Node::NoiseSize,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, mNodeSeed );
 
     case NoiseTexture::GenType_2DTiled:
         return gen->GenTileable2D( noise,
-            Node::NoiseSize, Node::NoiseSize,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, mNodeSeed );
 
     case NoiseTexture::GenType_3D:
         return gen->GenUniformGrid3D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0,
-            Node::NoiseSize, Node::NoiseSize, 1,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, 1, mNodeSeed );
 
     case NoiseTexture::GenType_4D:
         return gen->GenUniformGrid4D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0, 0,
-            Node::NoiseSize, Node::NoiseSize, 1, 1,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, 1, 1, mNodeSeed );
+
     case NoiseTexture::GenType_Count:
         break;
     }

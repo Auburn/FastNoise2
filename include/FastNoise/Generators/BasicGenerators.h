@@ -23,7 +23,7 @@ namespace FastNoise
     {
         MetadataT()
         {
-            this->AddVariable( "Scale", 100.0f, &ScalableGenerator::SetScale );
+            this->AddVariable( "Feature Scale", 100.0f, &ScalableGenerator::SetScale );
         }
     };
 #endif

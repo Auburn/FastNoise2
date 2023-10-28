@@ -23,7 +23,7 @@ using namespace Magnum;
 NoiseTexture::NoiseTexture()
 {
     mBuildData.iteration = 0;
-    mBuildData.frequency = 0.02f;
+    mBuildData.scale = 1.f;
     mBuildData.seed = 1337;
     mBuildData.size = { -1, -1 };
     mBuildData.offset = {};
@@ -73,6 +73,9 @@ void NoiseTexture::Draw()
     {
         //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
 
+        ImGui::TextUnformatted( "Preview Settings: " );
+        ImGui::SameLine();
+
         ImGui::PushItemWidth( 82.0f );
         bool edited = false;
 
@@ -100,7 +103,7 @@ void NoiseTexture::Draw()
         edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
         ImGui::SameLine();
 
-        edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.001f );
+        edited |= ImGui::DragFloat( "Scale", &mBuildData.scale, 0.05f );
         ImGui::SameLine();
 
         if( mBuildData.generator && ImGui::Button( "Export BMP" ) )
@@ -187,7 +190,7 @@ void NoiseTexture::DoExport()
 
             float relativeScale = (float)mExportBuildData.size.sum() / mBuildData.size.sum();
             
-            mExportBuildData.frequency /= relativeScale;
+            mExportBuildData.scale *= relativeScale;
             mExportBuildData.offset *= relativeScale;
 
             if( mExportThread.joinable() )
@@ -272,10 +275,16 @@ void NoiseTexture::DoExport()
                     }
 
                     file.close();
+
+                    Debug{} << "BMP Export Complete: " << filename.c_str();
                 }
             } );
         }
 
+        if( ImGui::Button( "Cancel" ) )
+        {
+            ImGui::CloseCurrentPopup();
+        }
         ImGui::PopItemWidth();
         ImGui::EndPopup();
     }
@@ -321,7 +330,10 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     noiseData.resize( (size_t)buildData.size.x() * buildData.size.y() );
 
     auto gen = FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetActiveFeatureSet() );
-    gen->SetSource( buildData.generator );
+    auto scale = FastNoise::New<FastNoise::DomainScale>( buildData.generator->GetActiveFeatureSet() );
+    gen->SetSource( scale );
+    scale->SetSource( buildData.generator );
+    scale->SetScaling( 1 / buildData.scale );
 
     FastNoise::OutputMinMax minMax;
 
@@ -330,28 +342,24 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     case GenType_2D:
         minMax = gen->GenUniformGrid2D( noiseData.data(), 
             (int)buildData.offset.x(), (int)buildData.offset.y(),
-            buildData.size.x(), buildData.size.y(),
-            buildData.frequency, buildData.seed );
+            buildData.size.x(), buildData.size.y(), buildData.seed );
         break;
 
     case GenType_2DTiled:
         minMax = gen->GenTileable2D( noiseData.data(),
-            buildData.size.x(), buildData.size.y(),
-            buildData.frequency, buildData.seed );
+            buildData.size.x(), buildData.size.y(), buildData.seed );
         break;
 
     case GenType_3D:
         minMax = gen->GenUniformGrid3D( noiseData.data(),
             (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(),
-            buildData.size.x(), buildData.size.y(), 1,
-            buildData.frequency, buildData.seed );
+            buildData.size.x(), buildData.size.y(), 1, buildData.seed );
         break;
 
     case GenType_4D:
         minMax = gen->GenUniformGrid4D( noiseData.data(),
             (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(), (int)buildData.offset.w(),
-            buildData.size.x(), buildData.size.y(), 1, 1,
-            buildData.frequency, buildData.seed );
+            buildData.size.x(), buildData.size.y(), 1, 1, buildData.seed );
         break;
     case GenType_Count:
         break;
@@ -390,7 +398,7 @@ void NoiseTexture::SetupSettingsHandlers()
         auto* noiseTexture = (NoiseTexture*)handler->UserData;
         outBuf->appendf( "\n[%s][Settings]\n", handler->TypeName );        
 
-        outBuf->appendf( "frequency=%f\n", noiseTexture->mBuildData.frequency );
+        outBuf->appendf( "scale=%f\n", noiseTexture->mBuildData.scale );
         outBuf->appendf( "seed=%d\n", noiseTexture->mBuildData.seed );
         outBuf->appendf( "gen_type=%d\n", (int)noiseTexture->mBuildData.generationType );
         outBuf->appendf( "export_size=%d:%d\n", noiseTexture->mExportBuildData.size.x(), noiseTexture->mExportBuildData.size.y() );
@@ -406,7 +414,7 @@ void NoiseTexture::SetupSettingsHandlers()
     editorSettings.ReadLineFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line ) {
         auto* noiseTexture = (NoiseTexture*)handler->UserData;
         
-        sscanf( line, "frequency=%f", &noiseTexture->mBuildData.frequency );
+        sscanf( line, "scale=%f", &noiseTexture->mBuildData.scale );
         sscanf( line, "seed=%d", &noiseTexture->mBuildData.seed );
         sscanf( line, "gen_type=%d", (int*)&noiseTexture->mBuildData.generationType );
         sscanf( line, "export_size=%d:%d", &noiseTexture->mExportBuildData.size.x() , &noiseTexture->mExportBuildData.size.y() );

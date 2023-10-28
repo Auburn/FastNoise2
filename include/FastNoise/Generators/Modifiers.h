@@ -9,7 +9,7 @@ namespace FastNoise
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetScale( float value ) { mScale = value; }
+        void SetScaling( float value ) { mScale = value; }
 
     protected:
         GeneratorSource mSource;
@@ -26,7 +26,7 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &DomainScale::SetSource );
-            this->AddVariable( "Scale", 1.0f, &DomainScale::SetScale );
+            this->AddVariable( "Scaling", 1.0f, &DomainScale::SetScaling );
         }
     };
 #endif
@@ -299,7 +299,7 @@ namespace FastNoise
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
 
         template<Dim D>
-        void SetScale( float value ) { mScale[(int)D] = value; }
+        void SetScaling( float value ) { mScale[(int)D] = value; }
 
     protected:
         GeneratorSource mSource;
@@ -319,7 +319,7 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &DomainAxisScale::SetSource );
-            this->AddPerDimensionVariable( "Scale", 1.0f, []( DomainAxisScale* p ) { return std::ref( p->mScale ); } );
+            this->AddPerDimensionVariable( "Scaling", 1.0f, []( DomainAxisScale* p ) { return std::ref( p->mScale ); } );
         }
     };
 #endif

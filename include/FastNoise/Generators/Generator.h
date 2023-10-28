@@ -110,20 +110,20 @@ namespace FastNoise
         virtual OutputMinMax GenUniformGrid2D( float* out,
             int xStart, int yStart,
             int xSize,  int ySize,
-            float frequency, int seed ) const = 0;
+            int seed ) const = 0;
 
         virtual OutputMinMax GenUniformGrid3D( float* out,
             int xStart, int yStart, int zStart, 
             int xSize,  int ySize,  int zSize, 
-            float frequency, int seed ) const = 0;
+            int seed ) const = 0;
 
         virtual OutputMinMax GenUniformGrid4D( float* out,
             int xStart, int yStart, int zStart, int wStart,
             int xSize,  int ySize,  int zSize,  int wSize,
-            float frequency, int seed ) const = 0;
+            int seed ) const = 0;
 
         virtual OutputMinMax GenTileable2D( float* out,
-            int xSize, int ySize, float frequency, int seed ) const = 0; 
+            int xSize, int ySize, int seed ) const = 0; 
 
         virtual OutputMinMax GenPositionArray2D( float* out, int count,
             const float* xPosArray, const float* yPosArray,

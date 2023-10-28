@@ -76,15 +76,13 @@ public:
         return simdT;
     }
 
-    FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int xStart, int yStart, int xSize, int ySize, float frequency, int seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int xStart, int yStart, int xSize, int ySize, int seed ) const final
     {
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
         int32v xIdx( xStart );
         int32v yIdx( yStart );
-
-        float32v freqV( frequency );
 
         int32v xSizeV( xSize );
         int32v xMax = xSizeV + xIdx + int32v( -1 );
@@ -98,8 +96,8 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::Convert<float>( xIdx ) * freqV;
-            float32v yPos = FS::Convert<float>( yIdx ) * freqV;
+            float32v xPos = FS::Convert<float>( xIdx );
+            float32v yPos = FS::Convert<float>( yIdx );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos );
             FS::Store( &noiseOut[index], gen );
@@ -115,15 +113,15 @@ public:
             AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
         }
 
-        float32v xPos = FS::Convert<float>( xIdx ) * freqV;
-        float32v yPos = FS::Convert<float>( yIdx ) * freqV;
+        float32v xPos = FS::Convert<float>( xIdx );
+        float32v yPos = FS::Convert<float>( yIdx );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
         return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, float frequency, int seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, int seed ) const final
     {
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -131,8 +129,6 @@ public:
         int32v xIdx( xStart );
         int32v yIdx( yStart );
         int32v zIdx( zStart );
-
-        float32v freqV( frequency );
 
         int32v xSizeV( xSize );
         int32v xMax = xSizeV + xIdx + int32v( -1 );
@@ -149,9 +145,9 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::Convert<float>( xIdx ) * freqV;
-            float32v yPos = FS::Convert<float>( yIdx ) * freqV;
-            float32v zPos = FS::Convert<float>( zIdx ) * freqV;
+            float32v xPos = FS::Convert<float>( xIdx );
+            float32v yPos = FS::Convert<float>( yIdx );
+            float32v zPos = FS::Convert<float>( zIdx );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
             FS::Store( &noiseOut[index], gen );
@@ -168,16 +164,16 @@ public:
             AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         }
 
-        float32v xPos = FS::Convert<float>( xIdx ) * freqV;
-        float32v yPos = FS::Convert<float>( yIdx ) * freqV;
-        float32v zPos = FS::Convert<float>( zIdx ) * freqV;
+        float32v xPos = FS::Convert<float>( xIdx );
+        float32v yPos = FS::Convert<float>( yIdx );
+        float32v zPos = FS::Convert<float>( zIdx );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
         return DoRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, float frequency, int seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, int seed ) const final
     {
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -186,8 +182,6 @@ public:
         int32v yIdx( yStart );
         int32v zIdx( zStart );
         int32v wIdx( wStart );
-
-        float32v freqV( frequency );
 
         int32v xSizeV( xSize );
         int32v xMax = xSizeV + xIdx + int32v( -1 );
@@ -207,10 +201,10 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::Convert<float>( xIdx ) * freqV;
-            float32v yPos = FS::Convert<float>( yIdx ) * freqV;
-            float32v zPos = FS::Convert<float>( zIdx ) * freqV;
-            float32v wPos = FS::Convert<float>( wIdx ) * freqV;
+            float32v xPos = FS::Convert<float>( xIdx );
+            float32v yPos = FS::Convert<float>( yIdx );
+            float32v zPos = FS::Convert<float>( zIdx );
+            float32v wPos = FS::Convert<float>( wIdx );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
             FS::Store( &noiseOut[index], gen );
@@ -228,10 +222,10 @@ public:
             AxisReset<false>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
         }
 
-        float32v xPos = FS::Convert<float>( xIdx ) * freqV;
-        float32v yPos = FS::Convert<float>( yIdx ) * freqV;
-        float32v zPos = FS::Convert<float>( zIdx ) * freqV;
-        float32v wPos = FS::Convert<float>( wIdx ) * freqV;
+        float32v xPos = FS::Convert<float>( xIdx );
+        float32v yPos = FS::Convert<float>( yIdx );
+        float32v zPos = FS::Convert<float>( zIdx );
+        float32v wPos = FS::Convert<float>( wIdx );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
@@ -346,7 +340,7 @@ public:
         return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
     }
 
-    FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float frequency, int seed ) const final
+    FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, int seed ) const final
     {
         float32v min( INFINITY );
         float32v max( -INFINITY );
@@ -364,8 +358,8 @@ public:
         float pi2Recip( 0.15915493667f );
         float xSizePi = (float)xSize * pi2Recip;
         float ySizePi = (float)ySize * pi2Recip;
-        float32v xFreq = float32v( frequency * xSizePi );
-        float32v yFreq = float32v( frequency * ySizePi );
+        float32v xFreq = float32v( xSizePi );
+        float32v yFreq = float32v( ySizePi );
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 

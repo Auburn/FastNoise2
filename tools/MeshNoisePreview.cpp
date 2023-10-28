@@ -1,12 +1,12 @@
 #include <algorithm>
-#include <thread>
 #include <cmath>
+#include <thread>
 
 #include <Corrade/Utility/Resource.h>
 #include <Magnum/Math/Color.h>
-#include <Magnum/Math/Matrix4.h>
 #include <Magnum/Math/Frustum.h>
 #include <Magnum/Math/Intersection.h>
+#include <Magnum/Math/Matrix4.h>
 #include <Magnum/Shaders/Implementation/CreateCompatibilityShader.h>
 
 #include "ImGuiExtra.h"
@@ -16,8 +16,8 @@ using namespace Magnum;
 
 MeshNoisePreview::MeshNoisePreview()
 {
-    mBuildData.frequency = 0.005f;
-    mBuildData.seed = 1338;
+    mBuildData.scale = 1.f;
+    mBuildData.seed = 1337;
     mBuildData.isoSurface = 0.0f;
     mBuildData.heightmapMultiplier = 100.0f;
     mBuildData.color = Color3( 1.0f );
@@ -39,7 +39,7 @@ MeshNoisePreview::~MeshNoisePreview()
 {
     mGenerateQueue.KillThreads();
 
-    for( auto& thread : mThreads )
+    for( auto& thread: mThreads )
     {
         thread.join();
     }
@@ -49,6 +49,9 @@ void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
 {
     mLoadRange = 200.0f;
     mBuildData.generator = generator;
+    mBuildData.generatorScaled = FastNoise::New<FastNoise::DomainScale>( generator->GetActiveFeatureSet() );
+    mBuildData.generatorScaled->SetScaling( 1 / mBuildData.scale );
+    mBuildData.generatorScaled->SetSource( generator );
     mBuildData.pos = Vector3i( 0 );
 
     mMinMax = {};
@@ -71,8 +74,8 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 {
     if( ImGui::Checkbox( "Generate Mesh Preview", &mEnabled ) )
     {
-        ReGenerate( mBuildData.generator );    
-        ImGuiExtra::MarkSettingsDirty();    
+        ReGenerate( mBuildData.generator );
+        ImGuiExtra::MarkSettingsDirty();
     }
 
     if( !mBuildData.generator || !mEnabled )
@@ -91,7 +94,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     mMeshesCount = 0;
     uint32_t drawnTriCount = 0;
 
-    for( Chunk& chunk : mChunks )
+    for( Chunk& chunk: mChunks )
     {
         if( GL::Mesh* mesh = chunk.GetMesh() )
         {
@@ -100,7 +103,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
             mTriCount += meshTriCount;
             mMeshesCount++;
 
-            Vector3 posf( chunk.GetPos());
+            Vector3 posf( chunk.GetPos() );
             Range3D bbox( posf, posf + Vector3( Chunk::SIZE + 1 ) );
 
             if( mBuildData.meshType == MeshType_Heightmap2D )
@@ -121,19 +124,19 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     bool edited = false;
     edited |= ImGui::Combo( "Mesh Type", reinterpret_cast<int*>( &mBuildData.meshType ), MeshTypeStrings );
     edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.meshType ), MeshType_Count );
-    
+
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) )
-    {        
+    {
         mShader.SetColorTint( mBuildData.color );
         ImGuiExtra::MarkSettingsDirty();
     }
 
     edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
-    edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" );
+    edited |= ImGui::DragFloat( "Scale", &mBuildData.scale, 0.05f, 0, 0, "%.4f" );
 
     if( mBuildData.meshType == MeshType_Heightmap2D )
     {
-        edited |= ImGui::DragFloat( "Heightmap Multiplier", &mBuildData.heightmapMultiplier, 0.5f );        
+        edited |= ImGui::DragFloat( "Heightmap Multiplier", &mBuildData.heightmapMultiplier, 0.5f );
     }
     else
     {
@@ -174,7 +177,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 
 float MeshNoisePreview::GetLoadRangeModifier()
 {
-    return std::min( 0.01f, (float)(1000 / std::pow( std::min( 1000.0f, mLoadRange ), 1.5 ) ) );
+    return std::min( 0.01f, (float)( 1000 / std::pow( std::min( 1000.0f, mLoadRange ), 1.5 ) ) );
 }
 
 void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
@@ -183,7 +186,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
 
     if( mTriCount > mTriLimit ) // Reduce load range if over tri limit
     {
-        mLoadRange = std::max( mLoadRange * (1 - GetLoadRangeModifier()), Chunk::SIZE * 1.5f );
+        mLoadRange = std::max( mLoadRange * ( 1 - GetLoadRangeModifier() ), Chunk::SIZE * 1.5f );
     }
 
     StartTimer();
@@ -191,7 +194,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
 
     size_t newChunks = 0;
     if( queueCount )
-    {        
+    {
         Chunk::MeshData meshData;
 
         while( GetTimerDurationMs() < 14 && mCompleteQueue.Pop( meshData ) )
@@ -199,18 +202,17 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
             mMinMax << meshData.minMax;
             mMinAirY = std::min( mMinAirY, meshData.minAirY );
             mMaxSolidY = std::max( mMaxSolidY, meshData.maxSolidY );
-            
+
             mChunks.emplace_back( meshData );
             newChunks++;
         }
-        mAvgNewChunks += (newChunks - mAvgNewChunks) * 0.01f;
+        mAvgNewChunks += ( newChunks - mAvgNewChunks ) * 0.01f;
     }
 
-    std::sort( mChunks.begin(), mChunks.end(), 
-        [chunkPos]( const Chunk& a, const Chunk& b )
-        {
-            return (chunkPos - a.GetPos()).dot() < (chunkPos - b.GetPos()).dot();
-        } );
+    std::sort( mChunks.begin(), mChunks.end(),
+               [chunkPos]( const Chunk& a, const Chunk& b ) {
+                   return ( chunkPos - a.GetPos() ).dot() < ( chunkPos - b.GetPos() ).dot();
+               } );
 
     // Unload further chunk if out of load range
     size_t deletedChunks = 0;
@@ -218,7 +220,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
     {
         Vector3i backChunkPos = mChunks.back().GetPos();
         float unloadRange = mLoadRange * 1.1f;
-        if( GetTimerDurationMs() < 15 && (chunkPos - backChunkPos).dot() > unloadRange * unloadRange )
+        if( GetTimerDurationMs() < 15 && ( chunkPos - backChunkPos ).dot() > unloadRange * unloadRange )
         {
             mRegisteredChunkPositions.erase( backChunkPos );
             mChunks.pop_back();
@@ -230,38 +232,37 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         }
     }
 
-    //ImGui::Text( " Queued Chunks: %zu", queueCount );
-    //ImGui::Text( "    New Chunks: %zu (%0.1f)", newChunks, mAvgNewChunks );
-    //ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
+    // ImGui::Text( " Queued Chunks: %zu", queueCount );
+    // ImGui::Text( "    New Chunks: %zu (%0.1f)", newChunks, mAvgNewChunks );
+    // ImGui::Text( "Deleted Chunks: %zu", deletedChunks );
 
     // Increase load range if queue is not full
-    if( (double)mTriCount < mTriLimit * 0.85 && (mRegisteredChunkPositions.size() - mChunks.size()) < mThreads.size() * mAvgNewChunks )
+    if( (double)mTriCount < mTriLimit * 0.85 && ( mRegisteredChunkPositions.size() - mChunks.size() ) < mThreads.size() * mAvgNewChunks )
     {
-        mLoadRange = std::min( mLoadRange * (1 + GetLoadRangeModifier()), 3000.0f );
+        mLoadRange = std::min( mLoadRange * ( 1 + GetLoadRangeModifier() ), 3000.0f );
     }
-
 }
 
 void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 {
-    //StartTimer();
+    // StartTimer();
     int chunkRange = (int)ceilf( mLoadRange / Chunk::SIZE );
 
     position -= Vector3( Chunk::SIZE * 0.5f );
     Vector3i positionI = Vector3i( position );
 
-    Vector3i chunkCenter = (positionI / Chunk::SIZE) * Chunk::SIZE;
+    Vector3i chunkCenter = ( positionI / Chunk::SIZE ) * Chunk::SIZE;
 
     std::vector<Vector3i> chunkPositions;
     Vector3i chunkPos;
-    int loadRangeSq = (int)(mLoadRange * mLoadRange);
+    int loadRangeSq = (int)( mLoadRange * mLoadRange );
 
-    int staggerShift = std::min( 5, (int)((loadRangeSq * (int64_t)mLoadRange) / 1000000000) );
-    int staggerCount = (1 << staggerShift) - 1;
+    int staggerShift = std::min( 5, (int)( ( loadRangeSq * (int64_t)mLoadRange ) / 1000000000 ) );
+    int staggerCount = ( 1 << staggerShift ) - 1;
 
     for( int x = -chunkRange; x <= chunkRange; x++ )
     {
-        if( (x & staggerCount) != (mStaggerCheck & staggerCount) )
+        if( ( x & staggerCount ) != ( mStaggerCheck & staggerCount ) )
         {
             continue;
         }
@@ -299,10 +300,10 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
 
     std::sort( chunkPositions.begin(), chunkPositions.end(), [positionI]( const Vector3i& a, const Vector3i& b )
     {
-        return (positionI - a).dot() < (positionI - b).dot();
+        return ( positionI - a ).dot() < ( positionI - b ).dot();
     } );
 
-    for( const Vector3i& pos : chunkPositions )
+    for( const Vector3i& pos: chunkPositions )
     {
         mBuildData.pos = pos;
         mRegisteredChunkPositions.insert( pos );
@@ -313,7 +314,7 @@ void MeshNoisePreview::UpdateChunksForPosition( Vector3 position )
         }
     }
 
-    //ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
+    // ImGui::Text( "UpdateChunksForPosition(%d) Ms: %.2f", staggerShift, GetTimerDurationMs() );
 }
 
 void MeshNoisePreview::GenerateLoopThread( GenerateQueue<Chunk::BuildData>& generateQueue, CompleteQueue<Chunk::MeshData>& completeQueue )
@@ -341,10 +342,10 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     thread_local static std::vector<float> densityValues( SIZE_GEN * SIZE_GEN * SIZE_GEN );
     thread_local static std::vector<VertexData> vertexData;
     thread_local static std::vector<uint32_t> indicies;
-    
+
     vertexData.clear();
     indicies.clear();
-    
+
     switch( buildData.meshType )
     {
     case MeshType_Voxel3D:
@@ -355,16 +356,16 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
 
     case MeshType_Count:
         break;
-    }           
+    }
 
     return MeshData( buildData.pos, {}, vertexData, indicies );
 }
 
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
-    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues,
-                                                                            buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
-                                                                            SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.frequency, buildData.seed );
+    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid3D( densityValues,
+                                                                                  buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
+                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.seed );
     float minAir = INFINITY;
     float maxSolid = -INFINITY;
 
@@ -470,30 +471,30 @@ void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::ve
     uint8_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
     uint8_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
     uint8_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
-    
-    uint8_t corner00 = (sideA0 & sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
-    uint8_t corner01 = (sideA0 & sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
-    uint8_t corner10 = (sideA1 & sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
-    uint8_t corner11 = (sideA1 & sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
 
-    constexpr float aoAdjust = AO_STRENGTH / 3.0f; 
+    uint8_t corner00 = ( sideA0 & sideB0 ) || density[facingIdx - offsetA - offsetB] <= isoSurface;
+    uint8_t corner01 = ( sideA0 & sideB1 ) || density[facingIdx - offsetA + offsetB] <= isoSurface;
+    uint8_t corner10 = ( sideA1 & sideB0 ) || density[facingIdx + offsetA - offsetB] <= isoSurface;
+    uint8_t corner11 = ( sideA1 & sideB1 ) || density[facingIdx + offsetA + offsetB] <= isoSurface;
 
-    float ao00 = (float)(sideA0 + sideB0 + corner00) * aoAdjust;
-    float ao01 = (float)(sideA1 + sideB0 + corner10) * aoAdjust;
-    float ao10 = (float)(sideA0 + sideB1 + corner01) * aoAdjust;
-    float ao11 = (float)(sideA1 + sideB1 + corner11) * aoAdjust;
+    constexpr float aoAdjust = AO_STRENGTH / 3.0f;
 
-    float densityLightShift = 1 - (isoSurface - density[idx]) * 2;
+    float ao00 = (float)( sideA0 + sideB0 + corner00 ) * aoAdjust;
+    float ao01 = (float)( sideA1 + sideB0 + corner10 ) * aoAdjust;
+    float ao10 = (float)( sideA0 + sideB1 + corner01 ) * aoAdjust;
+    float ao11 = (float)( sideA1 + sideB1 + corner11 ) * aoAdjust;
+
+    float densityLightShift = 1 - ( isoSurface - density[idx] ) * 2;
     light *= densityLightShift * densityLightShift;
 
     uint32_t vertIdx = (uint32_t)verts.size();
-    verts.emplace_back( pos00, (1.0f - ao00) * light );
-    verts.emplace_back( pos01, (1.0f - ao01) * light );
-    verts.emplace_back( pos10, (1.0f - ao10) * light );
-    verts.emplace_back( pos11, (1.0f - ao11) * light );
+    verts.emplace_back( pos00, ( 1.0f - ao00 ) * light );
+    verts.emplace_back( pos01, ( 1.0f - ao01 ) * light );
+    verts.emplace_back( pos10, ( 1.0f - ao10 ) * light );
+    verts.emplace_back( pos11, ( 1.0f - ao11 ) * light );
 
     // Rotate tris to give best visuals for AO lighting
-    uint32_t triRotation = ( ao00 + ao11 > ao01 + ao10 ) * 2;    
+    uint32_t triRotation = ( ao00 + ao11 > ao01 + ao10 ) * 2;
     indicies.push_back( vertIdx );
     indicies.push_back( vertIdx + 3 - triRotation );
     indicies.push_back( vertIdx + 2 );
@@ -506,9 +507,9 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
 {
     constexpr uint32_t SIZE_GEN_HEIGHTMAP = SIZE + 1;
 
-    FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid2D( densityValues,
-                                                                            buildData.pos.x(), buildData.pos.z(),
-                                                                            SIZE_GEN_HEIGHTMAP, SIZE_GEN_HEIGHTMAP, buildData.frequency, buildData.seed );
+    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid2D( densityValues,
+                                                                                  buildData.pos.x(), buildData.pos.z(),
+                                                                                  SIZE_GEN_HEIGHTMAP, SIZE_GEN_HEIGHTMAP, buildData.seed );
     constexpr int32_t STEP_X = 1;
     constexpr int32_t STEP_Y = SIZE_GEN_HEIGHTMAP;
 
@@ -527,12 +528,10 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
             Vector3 v00( xf, densityValues[noiseIdx] * buildData.heightmapMultiplier, yf );
             Vector3 v01( xf, densityValues[noiseIdx + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );
             Vector3 v10( xf + 1, densityValues[noiseIdx + STEP_X] * buildData.heightmapMultiplier, yf );
-            Vector3 v11( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );            
+            Vector3 v11( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );
 
             // Normal for quad
-            float light = ( sunLight * (
-                Math::cross( v10 - v11, v00 - v11 ).normalized() +
-                Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
+            float light = ( sunLight * ( Math::cross( v10 - v11, v00 - v11 ).normalized() + Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
 
             uint32_t vertIdx = (uint32_t)vertexData.size();
             vertexData.emplace_back( v00, light );
@@ -541,7 +540,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
             vertexData.emplace_back( v11, light );
 
             // Slice quad along longest split
-            uint32_t triRotation = 2 * ( (v00 + v11).dot() < (v01 + v10).dot() );            
+            uint32_t triRotation = 2 * ( ( v00 + v11 ).dot() < ( v01 + v10 ).dot() );
             indicies.push_back( vertIdx );
             indicies.push_back( vertIdx + 3 - triRotation );
             indicies.push_back( vertIdx + 2 );
@@ -564,11 +563,11 @@ MeshNoisePreview::Chunk::Chunk( MeshData& meshData )
 
     if( !meshData.vertexData.isEmpty() )
     {
-        //https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
+        // https://doc.magnum.graphics/magnum/classMagnum_1_1GL_1_1Mesh.html
 
         mMesh = std::make_unique<GL::Mesh>( GL::MeshPrimitive::Triangles );
 
-        mMesh->addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight{} );
+        mMesh->addVertexBuffer( GL::Buffer( GL::Buffer::TargetHint::Array, meshData.vertexData ), 0, VertexLightShader::PositionLight {} );
 
         if( meshData.indicies.isEmpty() )
         {
@@ -593,20 +592,20 @@ MeshNoisePreview::VertexLightShader::VertexLightShader()
 #else
     const GL::Version version = GL::Context::current().supportedVersion( { GL::Version::GLES300, GL::Version::GLES200 } );
 #endif
-    
+
     GL::Shader vert = CreateShader( version, GL::Shader::Type::Vertex );
     GL::Shader frag = CreateShader( version, GL::Shader::Type::Fragment );
-    
+
     CORRADE_INTERNAL_ASSERT_OUTPUT(
         vert.addSource( NodeEditorResources.getString( "VertexLight.vert" ) ).compile() );
-    CORRADE_INTERNAL_ASSERT_OUTPUT( 
+    CORRADE_INTERNAL_ASSERT_OUTPUT(
         frag.addSource( NodeEditorResources.getString( "VertexLight.frag" ) ).compile() );
 
     attachShader( vert );
     attachShader( frag );
 
     /* ES3 has this done in the shader directly */
-#if !defined(MAGNUM_TARGET_GLES) || defined(MAGNUM_TARGET_GLES2)
+#if !defined( MAGNUM_TARGET_GLES ) || defined( MAGNUM_TARGET_GLES2 )
 #ifndef MAGNUM_TARGET_GLES
     if( !GL::Context::current().isExtensionSupported<GL::Extensions::ARB::explicit_attrib_location>( version ) )
 #endif
@@ -679,7 +678,7 @@ void MeshNoisePreview::StartTimer()
 
 float MeshNoisePreview::GetTimerDurationMs()
 {
-    return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - mTimerStart).count() / 1e3f;
+    return std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::high_resolution_clock::now() - mTimerStart ).count() / 1e3f;
 }
 
 void MeshNoisePreview::SetupSettingsHandlers()
@@ -693,7 +692,7 @@ void MeshNoisePreview::SetupSettingsHandlers()
         outBuf->appendf( "\n[%s][Settings]\n", handler->TypeName );
 
         outBuf->appendf( "tri_limit=%d\n", (int)meshNoisePreview->mTriLimit );
-        outBuf->appendf( "frequency=%f\n", meshNoisePreview->mBuildData.frequency );
+        outBuf->appendf( "scale=%f\n", meshNoisePreview->mBuildData.scale );
         outBuf->appendf( "iso_surface=%f\n", meshNoisePreview->mBuildData.isoSurface );
         outBuf->appendf( "heightmap_multiplier=%f\n", meshNoisePreview->mBuildData.heightmapMultiplier );
         outBuf->appendf( "seed=%d\n", meshNoisePreview->mBuildData.seed );
@@ -713,7 +712,7 @@ void MeshNoisePreview::SetupSettingsHandlers()
         auto* meshNoisePreview = (MeshNoisePreview*)handler->UserData;
 
         sscanf( line, "tri_limit=%d", &meshNoisePreview->mTriLimit );
-        sscanf( line, "frequency=%f", &meshNoisePreview->mBuildData.frequency );
+        sscanf( line, "scale=%f", &meshNoisePreview->mBuildData.scale );
         sscanf( line, "iso_surface=%f", &meshNoisePreview->mBuildData.isoSurface );
         sscanf( line, "heightmap_multiplier=%f", &meshNoisePreview->mBuildData.heightmapMultiplier );
         sscanf( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
