@@ -132,7 +132,7 @@ namespace Magnum
         int32_t mNodeBenchmarkIndex = 0;
         int32_t mNodeBenchmarkMax = 128;
 
-        float mNodeScale = 0.4f;
+        float mNodeScale = 2.5f;
         int mNodeSeed = 1337;
         NoiseTexture::GenType mNodeGenType = NoiseTexture::GenType_2D;
 

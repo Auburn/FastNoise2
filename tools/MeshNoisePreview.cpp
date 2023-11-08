@@ -52,7 +52,7 @@ void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
     mLoadRange = 200.0f;
     mBuildData.generator = generator;
     mBuildData.generatorScaled = FastNoise::New<FastNoise::DomainScale>( generator->GetActiveFeatureSet() );
-    mBuildData.generatorScaled->SetScaling( 1 / mBuildData.scale );
+    mBuildData.generatorScaled->SetScaling( mBuildData.scale );
     mBuildData.generatorScaled->SetSource( generator );
     mBuildData.pos = Vector3i( 0 );
 

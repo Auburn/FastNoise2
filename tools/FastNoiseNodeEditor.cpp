@@ -147,7 +147,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
         auto scale = FastNoise::New<FastNoise::DomainScale>( editor.mMaxFeatureSet );
         genRGB->SetSource( scale );
         scale->SetSource( generator );
-        scale->SetScaling( 1 / editor.mNodeScale );
+        scale->SetScaling( editor.mNodeScale );
 
         FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
         

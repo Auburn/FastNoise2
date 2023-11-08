@@ -190,7 +190,7 @@ void NoiseTexture::DoExport()
 
             float relativeScale = (float)mExportBuildData.size.sum() / mBuildData.size.sum();
             
-            mExportBuildData.scale *= relativeScale;
+            mExportBuildData.scale /= relativeScale;
             mExportBuildData.offset *= relativeScale;
 
             if( mExportThread.joinable() )
@@ -333,7 +333,7 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     auto scale = FastNoise::New<FastNoise::DomainScale>( buildData.generator->GetActiveFeatureSet() );
     gen->SetSource( scale );
     scale->SetSource( buildData.generator );
-    scale->SetScaling( 1 / buildData.scale );
+    scale->SetScaling( buildData.scale );
 
     FastNoise::OutputMinMax minMax;
 
