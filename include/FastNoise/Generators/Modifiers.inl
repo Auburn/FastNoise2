@@ -81,8 +81,13 @@ class FastSIMD::DispatchClass<FastNoise::Remap, SIMD> final : public virtual Fas
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v source = this->GetSourceValue( mSource, seed, pos... );
+
+        float32v fromMin = this->GetSourceValue( mFromMin, seed, pos... );
+        float32v fromMax = this->GetSourceValue( mFromMax, seed, pos... );
+        float32v toMin = this->GetSourceValue( mToMin, seed, pos... );
+        float32v toMax = this->GetSourceValue( mToMax, seed, pos... );
             
-        return float32v( mToMin ) + (( source - float32v( mFromMin ) ) / float32v( mFromMax - mFromMin ) * float32v( mToMax - mToMin ));
+        return toMin + ( ( source - fromMin ) / ( fromMax - fromMin ) * ( toMax - toMin ) );
     }
 };
 
@@ -276,5 +281,19 @@ class FastSIMD::DispatchClass<FastNoise::SquareRoot, SIMD> final : public virtua
         float32v value = this->GetSourceValue( mSource, seed, pos... );
         
         return FS::InvSqrt( FS::Max( FS::Abs( value ), float32v( FLT_MIN ) ) ) * value;
+    }
+};
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::Abs, SIMD> final : public virtual FastNoise::Abs, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v value = this->GetSourceValue( mSource, seed, pos... );
+        
+        return FS::Abs( value );
     }
 };
