@@ -762,9 +762,9 @@ void FastNoiseNodeEditor::UpdateSelected()
     std::vector<int> linksToDelete;
     int selectedLinkCount = ImNodes::NumSelectedLinks();
 
-    bool delKeyPressed =
+    bool delKeyPressed = !ImGui::GetIO().WantTextInput && (
         ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) ||
-        ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Backspace ), false );
+        ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Backspace ), false ) );
 
     if( selectedLinkCount && delKeyPressed )
     {
