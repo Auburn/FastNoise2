@@ -964,7 +964,7 @@ void FastNoiseNodeEditor::DoNodes()
 
             formatName = FastNoise::Metadata::FormatMetadataMemberName( nodeMetadata->memberHybrids[i] );
 
-            if( ImGui::DragFloat( formatName.c_str(), &nodeData->hybrids[i].second, 0.02f, 0, 0, floatFormat ) )
+            if( ImGui::DragFloat( formatName.c_str(), &nodeData->hybrids[i].second, nodeMetadata->memberHybrids[i].valueUiDragSpeed, 0, 0, floatFormat ) )
             {
                 node.second.GeneratePreview();
             }
@@ -989,7 +989,7 @@ void FastNoiseNodeEditor::DoNodes()
             {
             case FastNoise::Metadata::MemberVariable::EFloat:
             {
-                if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
+                if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, nodeVar.valueUiDragSpeed, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
                 {
                     node.second.GeneratePreview();
                 }
@@ -997,7 +997,7 @@ void FastNoiseNodeEditor::DoNodes()
             break;
             case FastNoise::Metadata::MemberVariable::EInt:
             {
-                if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
+                if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, nodeVar.valueUiDragSpeed, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
                 {
                     node.second.GeneratePreview();
                 }

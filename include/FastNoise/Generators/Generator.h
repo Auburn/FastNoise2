@@ -197,12 +197,13 @@ namespace FastNoise
     {
     protected:
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0 )
+        void AddVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             MemberVariable member;
             member.name = nameDesc.name;
             member.description = nameDesc.desc;
             member.valueDefault = defaultV;
+            member.valueUiDragSpeed = uiDragSpeed;
             member.valueMin = minV;
             member.valueMax = maxV;
 
@@ -222,12 +223,13 @@ namespace FastNoise
         }
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddVariable( NameDesc nameDesc, T defaultV, void(U::* func)(T), T minV = 0, T maxV = 0 )
+        void AddVariable( NameDesc nameDesc, T defaultV, void ( U::*func )( T ), T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             MemberVariable member;
             member.name = nameDesc.name;
             member.description = nameDesc.desc;
             member.valueDefault = defaultV;
+            member.valueUiDragSpeed = uiDragSpeed;
             member.valueMin = minV;
             member.valueMax = maxV;
 
@@ -293,7 +295,7 @@ namespace FastNoise
         }
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddPerDimensionVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0 )
+        void AddPerDimensionVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<T>::varArray ) / sizeof( *PerDimensionVariable<T>::varArray ); idx++ )
             {
@@ -301,6 +303,7 @@ namespace FastNoise
                 member.name = nameDesc.name;
                 member.description = nameDesc.desc;
                 member.valueDefault = defaultV;
+                member.valueUiDragSpeed = uiDragSpeed;
                 member.valueMin = minV;
                 member.valueMax = maxV;
 
@@ -378,12 +381,13 @@ namespace FastNoise
 
 
         template<typename T, typename U>
-        void AddHybridSource( NameDesc nameDesc, float defaultValue, void(U::* funcNode)(SmartNodeArg<T>), void(U::* funcValue)(float) )
+        void AddHybridSource( NameDesc nameDesc, float defaultValue, void ( U::*funcNode )( SmartNodeArg<T> ), void ( U::*funcValue )( float ), float uiDragSpeed = Metadata::kDefaultUiDragSpeedFloat )
         {
             MemberHybrid member;
             member.name = nameDesc.name;
             member.description = nameDesc.desc;
             member.valueDefault = defaultValue;
+            member.valueUiDragSpeed = uiDragSpeed;
 
             member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
@@ -413,7 +417,7 @@ namespace FastNoise
         }
 
         template<typename U>
-        void AddPerDimensionHybridSource( NameDesc nameDesc, float defaultV, U&& func )
+        void AddPerDimensionHybridSource( NameDesc nameDesc, float defaultV, U&& func, float uiDragSpeed = Metadata::kDefaultUiDragSpeedFloat )
         {
             using HybridSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
             using T = typename HybridSourceT::Type;
@@ -424,6 +428,7 @@ namespace FastNoise
                 member.name = nameDesc.name;
                 member.description = nameDesc.desc;
                 member.valueDefault = defaultV;
+                member.valueUiDragSpeed = uiDragSpeed;
                 member.dimensionIdx = idx;
 
                 member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )

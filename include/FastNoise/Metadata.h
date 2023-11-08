@@ -28,6 +28,9 @@ namespace FastNoise
     // Node name, member name+types, functions to set members
     struct FASTNOISE_API Metadata
     {
+        static constexpr float kDefaultUiDragSpeedFloat = 0.02f;
+        static constexpr float kDefaultUiDragSpeedInt = 0.2f;
+
         virtual ~Metadata() = default;
 
         /// <returns>Array containing metadata for every FastNoise node type</returns>
@@ -153,6 +156,7 @@ namespace FastNoise
 
             eType type;
             ValueUnion valueDefault, valueMin, valueMax;
+            float valueUiDragSpeed = 0;
             std::vector<const char*> enumNames;
 
             // Function to set value for given generator
@@ -171,7 +175,7 @@ namespace FastNoise
         // Either a constant float or node lookup
         struct MemberHybrid : Member
         {
-            float valueDefault = 0.0f;
+            float valueDefault, valueUiDragSpeed;
 
             // Function to set value for given generator
             // Returns true if Generator is correct node class

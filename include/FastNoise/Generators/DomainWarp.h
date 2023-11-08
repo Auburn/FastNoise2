@@ -23,7 +23,7 @@ namespace FastNoise
         {
             groups.push_back( "Domain Warp" );
             this->AddGeneratorSource( "Source", &DomainWarp::SetSource );
-            this->AddHybridSource( "Warp Amplitude", 50.0f, &DomainWarp::SetWarpAmplitude, &DomainWarp::SetWarpAmplitude );
+            this->AddHybridSource( "Warp Amplitude", 50.0f, &DomainWarp::SetWarpAmplitude, &DomainWarp::SetWarpAmplitude, 0.1f );
         }
     };
 #endif

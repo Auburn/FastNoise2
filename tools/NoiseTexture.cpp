@@ -72,10 +72,7 @@ void NoiseTexture::Draw()
     if( ImGui::Begin( "Texture Preview", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse ) )
     {
         //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
-
-        ImGui::TextUnformatted( "Preview Settings: " );
-        ImGui::SameLine();
-
+        
         ImGui::PushItemWidth( 82.0f );
         bool edited = false;
 
