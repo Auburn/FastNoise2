@@ -127,7 +127,7 @@ namespace FastNoise
         const Metadata& GetMetadata() const override;
 
         template<Dim D>
-        void Set( float multiplier, float offset = 0.0f ) { mMultiplier[(int)D] = multiplier; mOffset[(int)D] = offset; }
+        void SetAxis( float multiplier, float offset = 0.0f ) { mMultiplier[(int)D] = multiplier; mOffset[(int)D] = offset; }
 
     protected:
         PerDimensionVariable<float> mMultiplier = 0.0f;
