@@ -118,7 +118,7 @@ public:
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
-        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
+        return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, int seed ) const final
@@ -170,7 +170,7 @@ public:
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
-        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
+        return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, int seed ) const final
@@ -229,7 +229,7 @@ public:
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
-        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
+        return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
     FastNoise::OutputMinMax GenPositionArray2D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int seed ) const final
@@ -253,12 +253,12 @@ public:
             index += int32v::ElementCount;
         }
 
-        float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-        float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+        float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
+        float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
-        return DoRemaining( noiseOut, count, index, min, max, gen );
+        return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
 
     FastNoise::OutputMinMax GenPositionArray3D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int seed ) const final
@@ -283,13 +283,13 @@ public:
             index += int32v::ElementCount;
         }
 
-        float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-        float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-        float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
+        float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
+        float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
+        float32v zPos = float32v( zOffset ) + LoadRemaining( zPosArray, count, index );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
-        return DoRemaining( noiseOut, count, index, min, max, gen );
+        return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
 
     FastNoise::OutputMinMax GenPositionArray4D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, float xOffset, float yOffset, float zOffset, float wOffset, int seed ) const final
@@ -315,14 +315,14 @@ public:
             index += int32v::ElementCount;
         }
 
-        float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-        float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-        float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
-        float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
+        float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
+        float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
+        float32v zPos = float32v( zOffset ) + LoadRemaining( zPosArray, count, index );
+        float32v wPos = float32v( wOffset ) + LoadRemaining( wPosArray, count, index );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
-        return DoRemaining( noiseOut, count, index, min, max, gen );
+        return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
 
     float GenSingle2D( float x, float y, int seed ) const final
@@ -401,7 +401,7 @@ public:
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
-        return DoRemaining( noiseOut, totalValues, index, min, max, gen );
+        return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
 private:
@@ -416,21 +416,27 @@ private:
         }
     }
 
-    static FS_FORCEINLINE FastNoise::OutputMinMax DoRemaining( float* noiseOut, intptr_t totalValues, intptr_t index, float32v min, float32v max, float32v finalGen )
+    static FS_FORCEINLINE float32v LoadRemaining( const float* loadPtr, intptr_t totalValues, intptr_t index )        
+    {
+        if( index == 0 )
+        {
+            intptr_t remaining = totalValues - index;
+
+            float32v load;
+            std::memcpy( &load, loadPtr, remaining * sizeof( float ) );
+            return load;
+        }
+
+        return FS::Load<float32v>( &loadPtr[totalValues - float32v::ElementCount] );
+    }
+
+    template<bool LOADREMAINING = false>
+    static FS_FORCEINLINE FastNoise::OutputMinMax StoreRemaining( float* noiseOut, intptr_t totalValues, intptr_t index, float32v min, float32v max, float32v finalGen )
     {
         FastNoise::OutputMinMax minMax;
         intptr_t remaining = totalValues - index;
 
-        if( remaining == (intptr_t)int32v::ElementCount )
-        {
-            FS::Store( &noiseOut[index], finalGen );
-
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, finalGen );
-            max = FS::Max( max, finalGen );
-#endif
-        }
-        else
+        if( LOADREMAINING ? index == 0 : remaining != (intptr_t)int32v::ElementCount )
         {
             std::memcpy( &noiseOut[index], &finalGen, remaining * sizeof( float ) );
 
@@ -440,6 +446,15 @@ private:
                 minMax << noiseOut[index];
             }
             while( ++index < totalValues );
+#endif
+        }
+        else
+        {
+            FS::Store( &noiseOut[totalValues - float32v::ElementCount], finalGen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS::Min( min, finalGen );
+            max = FS::Max( max, finalGen );
 #endif
         }
 
