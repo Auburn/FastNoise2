@@ -473,7 +473,7 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
             float32v a0 = FS::Max( FS::MaskedAdd( flip0, a, p0 ), float32v( 0 ) );
             a0 *= a0; a0 *= a0;
             int32v h0 = HashPrimes( seed, FS::MaskedAdd( flip0, xrbp, int32v( Primes::X ) ), FS::MaskedAdd( flip0, yrbp, int32v( Primes::Y )), FS::MaskedAdd( flip0, zrbp, int32v( Primes::Z )));
-            float32v v0 = GetGradientDot( h0, FS::MaskedSub( flip0, xri, float32v( 1.0f ) ), FS::MaskedSub( flip0, yri, float32v( 1.0f ) ), FS::MaskedSub( flip0, zri, float32v( 1.0f ) ));
+            float32v v0 = GetGradientDot( h0, FS::MaskedDecrement( flip0, xri ), FS::MaskedDecrement( flip0, yri ), FS::MaskedDecrement( flip0, zri ) );
             value = FS::FMulAdd( a0, v0, value );
             a -= float32v( 0.5f );
 
@@ -482,7 +482,7 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
             float32v a1 = FS::Max( FS::MaskedAdd( flip1, a + xri, p1 ), float32v( 0 ) );
             a1 *= a1; a1 *= a1;
             int32v h1 = HashPrimes( seed, FS::InvMaskedAdd( flip1, xrbp, int32v( Primes::X )), FS::MaskedAdd( flip1, yrbp, int32v( Primes::Y ) ), FS::MaskedAdd( flip1, zrbp, int32v( Primes::Z )));
-            float32v v1 = GetGradientDot( h1, FS::InvMaskedSub( flip1, xri, float32v( 1.0f )), FS::MaskedSub( flip1, yri, float32v( 1.0f ) ), FS::MaskedSub( flip1, zri, float32v( 1.0f ) ));
+            float32v v1 = GetGradientDot( h1, FS::InvMaskedSub( flip1, xri, float32v( 1.0f ) ), FS::MaskedDecrement( flip1, yri ), FS::MaskedDecrement( flip1, zri ) );
             value = FS::FMulAdd( a1, v1, value );
 
             float32v p2 = xri + float32v( -0.5f ) + ( zri - yri );
@@ -490,7 +490,7 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
             float32v a2 = FS::Max( FS::MaskedAdd( flip2, a + yri, p2 ), float32v( 0 ) );
             a2 *= a2; a2 *= a2;
             int32v h2 = HashPrimes( seed, FS::MaskedAdd( flip2, xrbp, int32v( Primes::X )), FS::InvMaskedAdd( flip2, yrbp, int32v( Primes::Y )), FS::MaskedAdd( flip2, zrbp, int32v( Primes::Z )));
-            float32v v2 = GetGradientDot( h2, FS::MaskedSub( flip2, xri, float32v( 1.0f )), FS::InvMaskedSub( flip2, yri, float32v( 1.0f )), FS::MaskedSub( flip2, zri, float32v( 1.0f )));
+            float32v v2 = GetGradientDot( h2, FS::MaskedDecrement( flip2, xri ), FS::InvMaskedSub( flip2, yri, float32v( 1.0f ) ), FS::MaskedDecrement( flip2, zri ) );
             value = FS::FMulAdd( a2, v2, value );
 
             float32v p3 = xri + float32v( -0.5f ) - ( zri - yri );
@@ -498,7 +498,7 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
             float32v a3 = FS::Max( FS::MaskedAdd( flip3, a + zri, p3 ), float32v( 0 ) );
             a3 *= a3; a3 *= a3;
             int32v h3 = HashPrimes( seed, FS::MaskedAdd( flip3, xrbp, int32v( Primes::X )), FS::MaskedAdd( flip3, yrbp, int32v( Primes::Y )), FS::InvMaskedAdd( flip3, zrbp, int32v( Primes::Z )));
-            float32v v3 = GetGradientDot( h3, FS::MaskedSub( flip3, xri, float32v( 1.0f )), FS::MaskedSub( flip3, yri, float32v( 1.0f )), FS::InvMaskedSub( flip3, zri, float32v( 1.0f )));
+            float32v v3 = GetGradientDot( h3, FS::MaskedDecrement( flip3, xri ), FS::MaskedDecrement( flip3, yri ), FS::InvMaskedSub( flip3, zri, float32v( 1.0f ) ) );
             value = FS::FMulAdd( a3, v3, value );
 
             if( i == 1 )
