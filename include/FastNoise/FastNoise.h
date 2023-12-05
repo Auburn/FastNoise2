@@ -1,5 +1,5 @@
 #pragma once
-#include "FastNoise_Config.h"
+#include "Utility/Config.h"
 
 // Node class definitions
 #include "Generators/BasicGenerators.h"

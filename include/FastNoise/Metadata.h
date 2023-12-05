@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "FastNoise_Config.h"
+#include "Utility/Config.h"
 
 #pragma warning( push )
 #pragma warning( disable : 4251 )

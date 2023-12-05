@@ -1,5 +1,5 @@
 #pragma once
-#include "FastNoise_Export.h"
+#include "Export.h"
 #include <FastSIMD/DispatchClass.h>
 
 #define FASTNOISE_CALC_MIN_MAX true

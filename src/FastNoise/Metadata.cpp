@@ -480,4 +480,4 @@ SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::FeatureSet l ) co
 }
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY
-#include "FastNoise/FastNoise_BuildList.inl"
+#include "FastSIMD_Build.inl"

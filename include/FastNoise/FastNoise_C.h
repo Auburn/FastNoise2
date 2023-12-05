@@ -1,7 +1,7 @@
 #ifndef FASTNOISE_C_H
 #define FASTNOISE_C_H
 
-#include "FastNoise_Export.h"
+#include "Utility/Export.h"
 
 #ifdef __cplusplus
 extern "C" {

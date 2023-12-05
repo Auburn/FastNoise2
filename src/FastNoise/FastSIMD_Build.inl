@@ -7,69 +7,75 @@ static_assert( std::is_final_v<FastSIMD::DispatchClass<CLASS, FastSIMD::FeatureS
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Generator.h"
+#include <FastNoise/Generators/Generator.h>
 #else
-#include "Generators/Generator.inl"
+#include <FastNoise/Generators/Generator.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/BasicGenerators.h"
+#include <FastNoise/Generators/BasicGenerators.h>
 #else
-#include "Generators/BasicGenerators.inl"
+#include <FastNoise/Generators/BasicGenerators.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Value.h"
+#include <FastNoise/Generators/Value.h>
 #else
-#include "Generators/Value.inl"
+#include <FastNoise/Generators/Value.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Perlin.h"
+#include <FastNoise/Generators/Perlin.h>
 #else
-#include "Generators/Perlin.inl"
+#include <FastNoise/Generators/Perlin.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Simplex.h"
+#include <FastNoise/Generators/Simplex.h>
 #else
-#include "Generators/Simplex.inl"
+#include <FastNoise/Generators/Simplex.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Cellular.h"
+#include <FastNoise/Generators/Cellular.h>
 #else
-#include "Generators/Cellular.inl"
+#include <FastNoise/Generators/Cellular.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Fractal.h"
+#include <FastNoise/Generators/Fractal.h>
 #else
-#include "Generators/Fractal.inl"
+#include <FastNoise/Generators/Fractal.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/DomainWarp.h"
+#include <FastNoise/Generators/DomainWarp.h>
 #else
-#include "Generators/DomainWarp.inl"
+#include <FastNoise/Generators/DomainWarp.inl>
+
+#endif
+#ifdef FASTSIMD_INCLUDE_HEADER_ONLY
+#include <FastNoise/Generators/DomainWarpSimplex.h>
+#else
+#include <FastNoise/Generators/DomainWarpSimplex.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/DomainWarpFractal.h"
+#include <FastNoise/Generators/DomainWarpFractal.h>
 #else
-#include "Generators/DomainWarpFractal.inl"
+#include <FastNoise/Generators/DomainWarpFractal.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Modifiers.h"
+#include <FastNoise/Generators/Modifiers.h>
 #else
-#include "Generators/Modifiers.inl"
+#include <FastNoise/Generators/Modifiers.inl>
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
-#include "Generators/Blends.h"
+#include <FastNoise/Generators/Blends.h>
 #else
-#include "Generators/Blends.inl"
+#include <FastNoise/Generators/Blends.inl>
 #endif
 
 // Nodes
@@ -128,3 +134,5 @@ FASTNOISE_REGISTER_NODE( RemoveDimension );
 FASTNOISE_REGISTER_NODE( GeneratorCache );
 FASTNOISE_REGISTER_NODE( SquareRoot );
 FASTNOISE_REGISTER_NODE( Abs );
+
+FASTNOISE_REGISTER_NODE( DomainWarpOpenSimplex );

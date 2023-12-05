@@ -30,7 +30,7 @@ set(FastNoise_source
 
 source_group("FastNoise" FILES ${FastNoise_headers})
 source_group("FastNoise" FILES ${FastNoise_source})
-source_group("FastNoise\\Generators" FILES ${FastNoise_generators_headers})
+source_group("FastNoise/Generators" FILES ${FastNoise_generators_headers})
 
 add_library(FastNoise
     ${FastNoise_headers}
@@ -54,7 +54,7 @@ set_target_properties(FastNoise PROPERTIES
     DEBUG_POSTFIX D
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
 
-fastsimd_create_dispatch_library(FastSIMD_FastNoise SOURCES "../include/FastNoise/FastNoise_BuildList.inl")
+fastsimd_create_dispatch_library(FastSIMD_FastNoise SOURCES "FastNoise/FastSIMD_Build.inl")
 
 target_include_directories(FastSIMD_FastNoise PRIVATE "../include/")
 

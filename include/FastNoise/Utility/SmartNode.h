@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <functional>
 
-#include "FastNoise_Config.h"
+#include "Config.h"
 
 namespace FastNoise
 {

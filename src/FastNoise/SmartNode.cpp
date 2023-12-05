@@ -1,8 +1,8 @@
-#include <FastNoise/FastNoise_Config.h>
+#include <FastNoise/Utility/Config.h>
 
 #if !FASTNOISE_USE_SHARED_PTR
 
-#include <FastNoise/SmartNode.h>
+#include <FastNoise/Utility/SmartNode.h>
 
 #include <mutex>
 #include <atomic>

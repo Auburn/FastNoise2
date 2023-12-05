@@ -8,10 +8,10 @@
 #include <tuple>
 #endif
 
-#include "FastNoise/FastNoise_Config.h"
+#include "FastNoise/Utility/Config.h"
 
 #if !defined( FASTNOISE_METADATA ) && defined( __INTELLISENSE__ )
-//#define FASTNOISE_METADATA
+#define FASTNOISE_METADATA
 #endif
 
 namespace FastNoise
