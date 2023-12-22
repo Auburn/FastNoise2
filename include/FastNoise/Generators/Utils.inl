@@ -251,7 +251,9 @@ namespace FastNoise
                 float32v distSqr = dX * dX;
                 ((distSqr = FS::FMulAdd( d, d, distSqr )), ...);
 
-                return FS::InvSqrt( distSqr ) * distSqr;
+                float32v invSqrt = FS::InvSqrt( distSqr );
+
+                return FS::Masked( invSqrt != float32v( INFINITY ), distSqr * invSqrt );
             }
 
             case DistanceFunction::EuclideanSquared:

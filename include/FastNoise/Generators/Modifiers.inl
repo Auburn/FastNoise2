@@ -280,7 +280,9 @@ class FastSIMD::DispatchClass<FastNoise::SquareRoot, SIMD> final : public virtua
     {
         float32v value = this->GetSourceValue( mSource, seed, pos... );
         
-        return FS::InvSqrt( FS::Max( FS::Abs( value ), float32v( FLT_MIN ) ) ) * value;
+        float32v invSqrt = FS::InvSqrt( FS::Abs( value ) );
+
+        return FS::Masked( invSqrt != float32v( INFINITY ), value * invSqrt );
     }
 };
 
