@@ -45,7 +45,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
             {
                 int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
-                float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 16 ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
@@ -118,8 +118,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                 {
                     int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v yd = FS::Convert<float>( ( hash >> 10 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v zd = FS::Convert<float>( ( hash >> 20 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
                 
                     float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
                     xd = FS::FMulAdd( xd, invMag, xcf );
@@ -205,7 +205,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                         float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
                         xd = FS::FMulAdd( xd, invMag, xcf );
@@ -281,7 +281,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
             {
                 int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
-                float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 16 ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
@@ -339,8 +339,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                 {
                     int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v yd = FS::Convert<float>( (hash >> 11) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
 
                     float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
                     xd = FS::FMulAdd( xd, invMag, xcf );
@@ -411,7 +411,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                         float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
                         xd = FS::FMulAdd( xd, invMag, xcf );
@@ -507,7 +507,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             {
                 int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
-                float32v yd = FS::Convert<float>( (hash >> 16) & int32v( 0xffff ) ) - float32v( 0xffff / 2.0f );
+                float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 16 ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
@@ -563,8 +563,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                 {
                     int32v hash = HashPrimesHB( seed, xc, yc, zc );
                     float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v yd = FS::Convert<float>( (hash >> 10) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-                    float32v zd = FS::Convert<float>( (hash >> 20) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v yd = FS::Convert<float>( (hash >> 11) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+                    float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
 
                     float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
                     xd = FS::FMulAdd( xd, invMag, xcf );
@@ -634,7 +634,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                         float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v yd = FS::Convert<float>( (hash >> 8) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
                         float32v zd = FS::Convert<float>( (hash >> 16) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-                        float32v wd = FS::Convert<float>( (hash >> 24) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+                        float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
                         xd = FS::FMulAdd( xd, invMag, xcf );
