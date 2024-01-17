@@ -140,7 +140,7 @@ namespace FastNoise
 
             assert( !gen.get() || GetSIMDLevel() == gen->GetSIMDLevel() ); // Ensure that all SIMD levels match
 
-            SetSourceSIMDPtr( dynamic_cast<const Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
+            SetSourceSIMDPtr( static_cast<const Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
             memberVariable.base = gen;
         }
 
