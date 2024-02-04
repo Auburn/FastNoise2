@@ -661,7 +661,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
             }
 
             ImGuiExtra::MarkSettingsDirty();
-        }                
+        }
 
         ImNodes::BeginNodeEditor();
         
@@ -673,15 +673,27 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
 
-#if 0
-        if( ImGui::IsWindowHovered() )
+        ImNodes::EndNodeEditor();
+
+        // Zoom
+        if( ImNodes::IsEditorHovered() && ImGui::GetIO().MouseWheel != 0 )
         {
-            auto zoom = ImNodes::EditorContextGetZoom() + ImGui::GetIO().MouseWheel * 0.1f;
+            float zoom = ImNodes::EditorContextGetZoom();
+            if( ImGui::GetIO().MouseWheel > 0 )
+            {
+                zoom *= 1.5f;
+                if( zoom > 0.9f )
+                {
+                    zoom = 1;
+                }
+            }
+            else
+            {
+                zoom /= 1.5f;
+                zoom = std::max( zoom, 0.2f );
+            }
             ImNodes::EditorContextSetZoom( zoom, ImGui::GetMousePos() );
         }
-#endif
-
-        ImNodes::EndNodeEditor();
 
         CheckLinks();
 
@@ -1114,6 +1126,10 @@ void FastNoiseNodeEditor::DoHelp()
         ImGui::TextUnformatted( "Pan graph" );
         ImGui::SameLine( alignPx );
         ImGui::TextUnformatted( "Right mouse drag" );
+
+        ImGui::TextUnformatted( "Zoom graph" );
+        ImGui::SameLine( alignPx );
+        ImGui::TextUnformatted( "Mouse wheel" );
 
         ImGui::TextUnformatted( "Delete node/link" );
         ImGui::SameLine( alignPx );

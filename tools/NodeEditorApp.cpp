@@ -46,6 +46,7 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     }
 
     ImGui::GetIO().IniFilename = "NodeEditor.ini";
+    ImGui::GetIO().ConfigDragClickToInputText = true;
     mImGuiIntegrationContext = ImGuiIntegration::Context( *mImGuiContext, size, windowSize(), framebufferSize() );
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
