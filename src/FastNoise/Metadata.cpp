@@ -197,7 +197,7 @@ bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& 
     return true;
 }
 
-SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::eLevel level = FastSIMD::Level_Null )
+SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::FeatureSet level = FastSIMD::FeatureSet::Max )
 {
     uint16_t nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
@@ -301,7 +301,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
     return generator;
 }
 
-SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeData, FastSIMD::eLevel level )
+SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeData, FastSIMD::FeatureSet level )
 {
     std::vector<uint8_t> dataStream = Base64::Decode( serialisedBase64NodeData );
     size_t startIdx = 0;
@@ -464,8 +464,8 @@ std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* classNam
 #define FASTNOISE_GET_MEMORY_ALLOCATOR() , &SmartNodeManager::Allocate
 #endif
 
-#define FASTSIMD_BUILD_CLASS2( CLASS ) \
-const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
+#define FASTNOISE_REGISTER_NODE( CLASS ) \
+static const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
 template<> FASTNOISE_API const FastNoise::Metadata& FastNoise::Impl::GetMetadata<CLASS>()\
 {\
     return *g ## CLASS ## Metadata;\
@@ -474,14 +474,10 @@ const FastNoise::Metadata& CLASS::GetMetadata() const\
 {\
     return FastNoise::Impl::GetMetadata<CLASS>();\
 }\
-SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::eLevel l ) const\
+SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::FeatureSet l ) const\
 {\
-    return SmartNode<>( FastSIMD::New<CLASS>( l FASTNOISE_GET_MEMORY_ALLOCATOR() ) );\
+    return SmartNode<>( FastSIMD::NewDispatchClass<CLASS>( l FASTNOISE_GET_MEMORY_ALLOCATOR() ) );\
 }
 
-#define FASTSIMD_BUILD_CLASS( CLASS ) FASTSIMD_BUILD_CLASS2( CLASS )
-
-#define FASTNOISE_CLASS( CLASS ) CLASS
-
 #define FASTSIMD_INCLUDE_HEADER_ONLY
-#include "FastNoise/FastNoise_BuildList.inl"
+#include "FastSIMD_Build.inl"

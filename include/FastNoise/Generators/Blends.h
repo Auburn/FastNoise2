@@ -58,99 +58,85 @@ namespace FastNoise
 
     class Add : public virtual OperatorSourceLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<Add> : MetadataT<OperatorSourceLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class Subtract : public virtual OperatorHybridLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<Subtract> : MetadataT<OperatorHybridLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class Multiply : public virtual OperatorSourceLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<Multiply> : MetadataT<OperatorSourceLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class Divide : public virtual OperatorHybridLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<Divide> : MetadataT<OperatorHybridLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class Min : public virtual OperatorSourceLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<Min> : MetadataT<OperatorSourceLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class Max : public virtual OperatorSourceLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<Max> : MetadataT<OperatorSourceLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class PowFloat : public virtual Generator
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
         void SetValue( float value ) { mValue = value; }
@@ -166,7 +152,7 @@ namespace FastNoise
     template<>
     struct MetadataT<PowFloat> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -179,9 +165,7 @@ namespace FastNoise
 
     class PowInt : public virtual Generator
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
         void SetPow( int value ) { mPow = value; }
@@ -195,7 +179,7 @@ namespace FastNoise
     template<>
     struct MetadataT<PowInt> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -208,9 +192,7 @@ namespace FastNoise
 
     class MinSmooth : public virtual OperatorSourceLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
         void SetSmoothness( float value ) { mSmoothness = value; }
@@ -223,7 +205,7 @@ namespace FastNoise
     template<>
     struct MetadataT<MinSmooth> : MetadataT<OperatorSourceLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -234,9 +216,7 @@ namespace FastNoise
 
     class MaxSmooth : public virtual OperatorSourceLHS
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
         void SetSmoothness( float value ) { mSmoothness = value; }
@@ -249,7 +229,7 @@ namespace FastNoise
     template<>
     struct MetadataT<MaxSmooth> : MetadataT<OperatorSourceLHS>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -260,9 +240,7 @@ namespace FastNoise
 
     class Fade : public virtual Generator
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
         void SetA( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mA, gen ); }
         void SetB( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mB, gen ); }
 
@@ -279,7 +257,7 @@ namespace FastNoise
     template<>
     struct MetadataT<Fade> : MetadataT<Generator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

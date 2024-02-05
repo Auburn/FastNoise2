@@ -23,7 +23,7 @@ void StoreMinMax( float* floatArray2, FastNoise::OutputMinMax minMax )
 
 void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned simdLevel )
 {
-    if( FastNoise::SmartNode<> node = FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::eLevel)simdLevel ) )
+    if( FastNoise::SmartNode<> node = FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::FeatureSet)simdLevel ) )
     {
         return new FastNoise::SmartNode<>( std::move( node ) );
     }
@@ -37,7 +37,7 @@ void fnDeleteNodeRef( void* node )
 
 unsigned fnGetSIMDLevel( const void* node )
 {
-    return (unsigned)ToGen( node )->GetSIMDLevel();
+    return (unsigned)ToGen( node )->GetActiveFeatureSet();
 }
 
 int fnGetMetadataID( const void* node )
@@ -45,19 +45,19 @@ int fnGetMetadataID( const void* node )
     return ToGen( node )->GetMetadata().id;
 }
 
-void fnGenUniformGrid2D( const void* node, float* noiseOut, int xStart, int yStart, int xSize, int ySize, float frequency, int seed, float* outputMinMax )
+void fnGenUniformGrid2D( const void* node, float* noiseOut, int xStart, int yStart, int xSize, int ySize, int seed, float* outputMinMax )
 {
-    StoreMinMax( outputMinMax, ToGen( node )->GenUniformGrid2D( noiseOut, xStart, yStart, xSize, ySize, frequency, seed ) );    
+    StoreMinMax( outputMinMax, ToGen( node )->GenUniformGrid2D( noiseOut, xStart, yStart, xSize, ySize, seed ) );    
 }
 
-void fnGenUniformGrid3D( const void* node, float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, float frequency, int seed, float* outputMinMax )
+void fnGenUniformGrid3D( const void* node, float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, int seed, float* outputMinMax )
 {
-    StoreMinMax( outputMinMax, ToGen( node )->GenUniformGrid3D( noiseOut, xStart, yStart, zStart, xSize, ySize, zSize, frequency, seed ) );    
+    StoreMinMax( outputMinMax, ToGen( node )->GenUniformGrid3D( noiseOut, xStart, yStart, zStart, xSize, ySize, zSize, seed ) );    
 }
 
-void fnGenUniformGrid4D( const void* node, float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, float frequency, int seed, float* outputMinMax )
+void fnGenUniformGrid4D( const void* node, float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, int seed, float* outputMinMax )
 {
-    StoreMinMax( outputMinMax, ToGen( node )->GenUniformGrid4D( noiseOut, xStart, yStart, zStart, wStart, xSize, ySize, zSize, wSize, frequency, seed ) );    
+    StoreMinMax( outputMinMax, ToGen( node )->GenUniformGrid4D( noiseOut, xStart, yStart, zStart, wStart, xSize, ySize, zSize, wSize, seed ) );    
 }
 
 void fnGenPositionArray2D( const void* node, float* noiseOut, int count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int seed, float* outputMinMax )
@@ -90,9 +90,9 @@ float fnGenSingle4D( const void* node, float x, float y, float z, float w, int s
     return ToGen( node )->GenSingle4D( x, y, z, w, seed );
 }
 
-void fnGenTileable2D( const void* node, float* noiseOut, int xSize, int ySize, float frequency, int seed, float* outputMinMax )
+void fnGenTileable2D( const void* node, float* noiseOut, int xSize, int ySize, int seed, float* outputMinMax )
 {
-    StoreMinMax( outputMinMax, ToGen( node )->GenTileable2D( noiseOut, xSize, ySize, frequency, seed ) );
+    StoreMinMax( outputMinMax, ToGen( node )->GenTileable2D( noiseOut, xSize, ySize, seed ) );
 }
 
 int fnGetMetadataCount()
@@ -113,7 +113,7 @@ void* fnNewFromMetadata( int id, unsigned simdLevel )
 {
     if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (uint16_t)id ) )
     {
-        return new FastNoise::SmartNode<>( metadata->CreateNode( (FastSIMD::eLevel)simdLevel ) );
+        return new FastNoise::SmartNode<>( metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel ) );
     }
     return nullptr;
 }

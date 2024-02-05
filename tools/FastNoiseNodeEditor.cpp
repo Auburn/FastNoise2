@@ -71,35 +71,40 @@ static std::string TimeWithUnits( int64_t time, int significantDigits = 3 )
     return ss.str();
 }
 
-template<typename... Args>
-std::string string_format( const char* format, Args... args )
+template<size_t N, typename... Args>
+std::string string_format( const char (&format)[N], const Args&... args )
 {
     int size_s = std::snprintf( nullptr, 0, format, args... );
     if( size_s <= 0 )
     {
         return "";
     }
-    auto size = static_cast<size_t>( size_s );
+    auto size = static_cast<size_t>( size_s + 1 );
     std::string buf( size, 0 );
     std::snprintf( buf.data(), size, format, args... );
     return buf;
 }
 
-template<typename... T>
-static bool DoHoverPopup( const char* format, T... args )
+const char* string_format( const char* txt )
+{
+    return txt;
+}
+
+template<typename T, typename... Args>
+static bool DoHoverPopup( T&& format, const Args&... args )
 {
     if( ImGui::IsItemHovered() )
     {
-        std::string hoverTxt = string_format( format, args... );
+        auto hoverTxt = string_format( format, args... );
 
-        if( hoverTxt.empty() )
+        if( !hoverTxt[0] )
         {
             return false;
         }
 
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
         ImGui::BeginTooltip();
-        ImGui::TextUnformatted( hoverTxt.c_str() );
+        ImGui::TextUnformatted( &hoverTxt[0] );
         ImGui::EndTooltip();
         ImGui::PopStyleVar();
         return true;
@@ -129,7 +134,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
     static std::array<float, NoiseSize * NoiseSize> noiseData;
 
     serialised = FastNoise::Metadata::SerialiseNodeData( data.get(), true );
-    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str(), editor.mMaxSIMDLevel );
+    auto generator = FastNoise::NewFromEncodedNodeTree( serialised.c_str(), editor.mMaxFeatureSet );
 
     if( !benchmark && nodeTreeChanged )
     {
@@ -138,8 +143,13 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
 
     if( generator )
     {
-        auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxSIMDLevel );
-        genRGB->SetSource( generator );
+        auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxFeatureSet );
+        auto scale = FastNoise::New<FastNoise::DomainScale>( editor.mMaxFeatureSet );
+        genRGB->SetSource( scale );
+        scale->SetSource( generator );
+        scale->SetScaling( editor.mNodeScale );
+
+        FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
         
         auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -365,7 +375,7 @@ void FastNoiseNodeEditor::Node::SerialiseIncludingDependancies( ImGuiSettingsHan
 void FastNoiseNodeEditor::SetupSettingsHandlers()
 {
     ImGuiSettingsHandler nodeSettings;
-    nodeSettings.TypeName = "NoiseToolNodeData";
+    nodeSettings.TypeName = "NodeEditorNodeData";
     nodeSettings.TypeHash = ImHashStr( nodeSettings.TypeName );
     nodeSettings.UserData = this;
     nodeSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf )
@@ -464,7 +474,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
 
 
     ImGuiSettingsHandler editorSettings;
-    editorSettings.TypeName = "NoiseToolNodeGraph";
+    editorSettings.TypeName = "NodeEditorNodeGraph";
     editorSettings.TypeHash = ImHashStr( editorSettings.TypeName );
     editorSettings.UserData = this;
     editorSettings.WriteAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* outBuf )
@@ -475,7 +485,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         ImVec2 gridOffset = ImNodes::EditorContextGetPanning();
         outBuf->appendf( "grid_offset=%f:%f\n", gridOffset.x, gridOffset.y );
 
-        outBuf->appendf( "frequency=%f\n", nodeEditor->mNodeFrequency );
+        outBuf->appendf( "scale=%f\n", nodeEditor->mNodeScale );
         outBuf->appendf( "seed=%d\n", nodeEditor->mNodeSeed );
         outBuf->appendf( "gen_type=%d\n", (int)nodeEditor->mNodeGenType );
     };
@@ -498,7 +508,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
             ImNodes::EditorContextResetPanning( imVec2 );
         }
 
-        sscanf( line, "frequency=%f", &nodeEditor->mNodeFrequency );
+        sscanf( line, "scale=%f", &nodeEditor->mNodeScale );
         sscanf( line, "seed=%d", &nodeEditor->mNodeSeed );
         sscanf( line, "gen_type=%d", (int*)&nodeEditor->mNodeGenType );
     };
@@ -603,8 +613,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
 
-    std::string simdTxt = "Current SIMD Level: ";
-    simdTxt += GetSIMDLevelName( mActualSIMDLevel );
+    std::string simdTxt = "Current Feature Set: ";
+    simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
     ImGui::TextUnformatted( simdTxt.c_str() );
 
     ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
@@ -624,7 +634,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         edited |= ImGui::DragInt( "Seed", &mNodeSeed );
         ImGui::SameLine();
-        edited |= ImGui::DragFloat( "Frequency", &mNodeFrequency, 0.001f );    
+        edited |= ImGui::DragFloat( "Scale", &mNodeScale, 0.05f );    
         ImGui::SameLine();    
 
         if( ImGui::Button( "Retest Node Performance" ) )
@@ -651,7 +661,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
             }
 
             ImGuiExtra::MarkSettingsDirty();
-        }                
+        }
 
         ImNodes::BeginNodeEditor();
         
@@ -663,15 +673,27 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
 
-#if 0
-        if( ImGui::IsWindowHovered() )
+        ImNodes::EndNodeEditor();
+
+        // Zoom
+        if( ImNodes::IsEditorHovered() && ImGui::GetIO().MouseWheel != 0 )
         {
-            auto zoom = ImNodes::EditorContextGetZoom() + ImGui::GetIO().MouseWheel * 0.1f;
+            float zoom = ImNodes::EditorContextGetZoom();
+            if( ImGui::GetIO().MouseWheel > 0 )
+            {
+                zoom *= 1.5f;
+                if( zoom > 0.9f )
+                {
+                    zoom = 1;
+                }
+            }
+            else
+            {
+                zoom /= 1.5f;
+                zoom = std::max( zoom, 0.2f );
+            }
             ImNodes::EditorContextSetZoom( zoom, ImGui::GetMousePos() );
         }
-#endif
-
-        ImNodes::EndNodeEditor();
 
         CheckLinks();
 
@@ -752,9 +774,9 @@ void FastNoiseNodeEditor::UpdateSelected()
     std::vector<int> linksToDelete;
     int selectedLinkCount = ImNodes::NumSelectedLinks();
 
-    bool delKeyPressed =
+    bool delKeyPressed = !ImGui::GetIO().WantTextInput && (
         ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) ||
-        ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Backspace ), false );
+        ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Backspace ), false ) );
 
     if( selectedLinkCount && delKeyPressed )
     {
@@ -811,9 +833,9 @@ void FastNoiseNodeEditor::UpdateSelected()
     }
 }
 
-void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::eLevel lvl )
+void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::FeatureSet lvl )
 {
-    mMaxSIMDLevel = lvl;
+    mMaxFeatureSet = lvl;
 
     mOverheadNode.generateAverages.clear();
     DoNodeBenchmarks();
@@ -954,7 +976,7 @@ void FastNoiseNodeEditor::DoNodes()
 
             formatName = FastNoise::Metadata::FormatMetadataMemberName( nodeMetadata->memberHybrids[i] );
 
-            if( ImGui::DragFloat( formatName.c_str(), &nodeData->hybrids[i].second, 0.02f, 0, 0, floatFormat ) )
+            if( ImGui::DragFloat( formatName.c_str(), &nodeData->hybrids[i].second, nodeMetadata->memberHybrids[i].valueUiDragSpeed, 0, 0, floatFormat ) )
             {
                 node.second.GeneratePreview();
             }
@@ -979,7 +1001,7 @@ void FastNoiseNodeEditor::DoNodes()
             {
             case FastNoise::Metadata::MemberVariable::EFloat:
             {
-                if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, 0.02f, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
+                if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, nodeVar.valueUiDragSpeed, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
                 {
                     node.second.GeneratePreview();
                 }
@@ -987,7 +1009,7 @@ void FastNoiseNodeEditor::DoNodes()
             break;
             case FastNoise::Metadata::MemberVariable::EInt:
             {
-                if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, 0.2f, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
+                if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, nodeVar.valueUiDragSpeed, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
                 {
                     node.second.GeneratePreview();
                 }
@@ -1104,6 +1126,10 @@ void FastNoiseNodeEditor::DoHelp()
         ImGui::TextUnformatted( "Pan graph" );
         ImGui::SameLine( alignPx );
         ImGui::TextUnformatted( "Right mouse drag" );
+
+        ImGui::TextUnformatted( "Zoom graph" );
+        ImGui::SameLine( alignPx );
+        ImGui::TextUnformatted( "Mouse wheel" );
 
         ImGui::TextUnformatted( "Delete node/link" );
         ImGui::SameLine( alignPx );
@@ -1226,11 +1252,11 @@ FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
 
     if( find != mNodes.end() )
     {
-        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxSIMDLevel );
+        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxFeatureSet );
 
         if( generator )
         {
-            mActualSIMDLevel = generator->GetSIMDLevel();
+            mActualFeatureSet = generator->GetActiveFeatureSet();
         }
     }
 
@@ -1246,25 +1272,22 @@ FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise
     case NoiseTexture::GenType_2D:
         return gen->GenUniformGrid2D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2,
-            Node::NoiseSize, Node::NoiseSize,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, mNodeSeed );
 
     case NoiseTexture::GenType_2DTiled:
         return gen->GenTileable2D( noise,
-            Node::NoiseSize, Node::NoiseSize,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, mNodeSeed );
 
     case NoiseTexture::GenType_3D:
         return gen->GenUniformGrid3D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0,
-            Node::NoiseSize, Node::NoiseSize, 1,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, 1, mNodeSeed );
 
     case NoiseTexture::GenType_4D:
         return gen->GenUniformGrid4D( noise,
             Node::NoiseSize / -2, Node::NoiseSize / -2, 0, 0,
-            Node::NoiseSize, Node::NoiseSize, 1, 1,
-            mNodeFrequency, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, 1, 1, mNodeSeed );
+
     case NoiseTexture::GenType_Count:
         break;
     }
@@ -1309,25 +1332,5 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
     if( generator )
     {
         mMeshNoisePreview.ReGenerate( generator );
-    }
-}
-
-const char* FastNoiseNodeEditor::GetSIMDLevelName( FastSIMD::eLevel lvl )
-{
-    switch( lvl )
-    {
-    default:
-    case FastSIMD::Level_Null:   return "NULL";
-    case FastSIMD::Level_Scalar: return "Scalar";
-    case FastSIMD::Level_SSE:    return "SSE";
-    case FastSIMD::Level_SSE2:   return "SSE2";
-    case FastSIMD::Level_SSE3:   return "SSE3";
-    case FastSIMD::Level_SSSE3:  return "SSSE3";
-    case FastSIMD::Level_SSE41:  return "SSE4.1";
-    case FastSIMD::Level_SSE42:  return "SSE4.2";
-    case FastSIMD::Level_AVX:    return "AVX";
-    case FastSIMD::Level_AVX2:   return "AVX2";
-    case FastSIMD::Level_AVX512: return "AVX512";
-    case FastSIMD::Level_NEON:   return "NEON";
     }
 }

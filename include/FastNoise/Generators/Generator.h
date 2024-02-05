@@ -2,11 +2,16 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
+#include <atomic>
 
-#include "FastNoise/FastNoise_Config.h"
+#ifdef FASTNOISE_METADATA
+#include <tuple>
+#endif
+
+#include "FastNoise/Utility/Config.h"
 
 #if !defined( FASTNOISE_METADATA ) && defined( __INTELLISENSE__ )
-//#define FASTNOISE_METADATA
+#define FASTNOISE_METADATA
 #endif
 
 namespace FastNoise
@@ -93,28 +98,32 @@ namespace FastNoise
         template<typename T>
         friend struct MetadataT;
 
+        Generator() = default;
+        Generator( const Generator& ) = delete;
+        Generator( Generator&& ) = delete;
+
         virtual ~Generator() = default;
 
-        virtual FastSIMD::eLevel GetSIMDLevel() const = 0;
+        virtual FastSIMD::FeatureSet GetActiveFeatureSet() const = 0;
         virtual const Metadata& GetMetadata() const = 0;
 
         virtual OutputMinMax GenUniformGrid2D( float* out,
             int xStart, int yStart,
             int xSize,  int ySize,
-            float frequency, int seed ) const = 0;
+            int seed ) const = 0;
 
         virtual OutputMinMax GenUniformGrid3D( float* out,
             int xStart, int yStart, int zStart, 
             int xSize,  int ySize,  int zSize, 
-            float frequency, int seed ) const = 0;
+            int seed ) const = 0;
 
         virtual OutputMinMax GenUniformGrid4D( float* out,
             int xStart, int yStart, int zStart, int wStart,
             int xSize,  int ySize,  int zSize,  int wSize,
-            float frequency, int seed ) const = 0;
+            int seed ) const = 0;
 
         virtual OutputMinMax GenTileable2D( float* out,
-            int xSize, int ySize, float frequency, int seed ) const = 0; 
+            int xSize, int ySize, int seed ) const = 0; 
 
         virtual OutputMinMax GenPositionArray2D( float* out, int count,
             const float* xPosArray, const float* yPosArray,
@@ -138,7 +147,7 @@ namespace FastNoise
         {
             static_assert( std::is_base_of<Generator, T>::value, "T must be child of FastNoise::Generator class" );
 
-            assert( !gen.get() || GetSIMDLevel() == gen->GetSIMDLevel() ); // Ensure that all SIMD levels match
+            assert( !gen.get() || GetActiveFeatureSet() == gen->GetActiveFeatureSet() ); // Ensure that all SIMD levels match
 
             SetSourceSIMDPtr( static_cast<const Generator*>( gen.get() ), &memberVariable.simdGeneratorPtr );
             memberVariable.base = gen;
@@ -146,6 +155,10 @@ namespace FastNoise
 
     private:
         virtual void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) = 0;
+        virtual int32_t ReferencesFetchAdd( int32_t add = 0 ) const noexcept = 0;
+
+        template<typename>
+        friend class SmartNode;
     };
 
     using GeneratorSource = GeneratorSourceT<Generator>;
@@ -184,12 +197,13 @@ namespace FastNoise
     {
     protected:
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0 )
+        void AddVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             MemberVariable member;
             member.name = nameDesc.name;
             member.description = nameDesc.desc;
             member.valueDefault = defaultV;
+            member.valueUiDragSpeed = uiDragSpeed;
             member.valueMin = minV;
             member.valueMax = maxV;
 
@@ -209,12 +223,13 @@ namespace FastNoise
         }
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddVariable( NameDesc nameDesc, T defaultV, void(U::* func)(T), T minV = 0, T maxV = 0 )
+        void AddVariable( NameDesc nameDesc, T defaultV, void ( U::*func )( T ), T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             MemberVariable member;
             member.name = nameDesc.name;
             member.description = nameDesc.desc;
             member.valueDefault = defaultV;
+            member.valueUiDragSpeed = uiDragSpeed;
             member.valueMin = minV;
             member.valueMax = maxV;
 
@@ -280,7 +295,7 @@ namespace FastNoise
         }
 
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddPerDimensionVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0 )
+        void AddPerDimensionVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<T>::varArray ) / sizeof( *PerDimensionVariable<T>::varArray ); idx++ )
             {
@@ -288,6 +303,7 @@ namespace FastNoise
                 member.name = nameDesc.name;
                 member.description = nameDesc.desc;
                 member.valueDefault = defaultV;
+                member.valueUiDragSpeed = uiDragSpeed;
                 member.valueMin = minV;
                 member.valueMax = maxV;
 
@@ -365,12 +381,13 @@ namespace FastNoise
 
 
         template<typename T, typename U>
-        void AddHybridSource( NameDesc nameDesc, float defaultValue, void(U::* funcNode)(SmartNodeArg<T>), void(U::* funcValue)(float) )
+        void AddHybridSource( NameDesc nameDesc, float defaultValue, void ( U::*funcNode )( SmartNodeArg<T> ), void ( U::*funcValue )( float ), float uiDragSpeed = Metadata::kDefaultUiDragSpeedFloat )
         {
             MemberHybrid member;
             member.name = nameDesc.name;
             member.description = nameDesc.desc;
             member.valueDefault = defaultValue;
+            member.valueUiDragSpeed = uiDragSpeed;
 
             member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
@@ -400,7 +417,7 @@ namespace FastNoise
         }
 
         template<typename U>
-        void AddPerDimensionHybridSource( NameDesc nameDesc, float defaultV, U&& func )
+        void AddPerDimensionHybridSource( NameDesc nameDesc, float defaultV, U&& func, float uiDragSpeed = Metadata::kDefaultUiDragSpeedFloat )
         {
             using HybridSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
             using T = typename HybridSourceT::Type;
@@ -411,6 +428,7 @@ namespace FastNoise
                 member.name = nameDesc.name;
                 member.description = nameDesc.desc;
                 member.valueDefault = defaultV;
+                member.valueUiDragSpeed = uiDragSpeed;
                 member.dimensionIdx = idx;
 
                 member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )

@@ -57,39 +57,33 @@ namespace FastNoise
 
     class FractalFBm : public virtual Fractal<>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<FractalFBm> : MetadataT<Fractal<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class FractalRidged : public virtual Fractal<>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<FractalRidged> : MetadataT<Fractal<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class FractalPingPong : public virtual Fractal<>
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
 
         void SetPingPongStrength( float value ) { mPingPongStrength = value; }
         void SetPingPongStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPingPongStrength, gen ); }
@@ -102,7 +96,7 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalPingPong> : MetadataT<Fractal<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

@@ -1,5 +1,4 @@
 #pragma once
-#include "FastSIMD/InlInclude.h"
 #include <climits>
 
 namespace FastNoise
@@ -14,380 +13,280 @@ namespace FastNoise
         static constexpr int Lookup[] = { X,Y,Z,W };
     }
 
-    template<typename FS>
-    struct Utils
+    static constexpr float ROOT2 = 1.4142135623730950488f;
+    static constexpr float ROOT3 = 1.7320508075688772935f;
+
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
     {
-        using float32v = typename FS::float32v;
-        using int32v = typename FS::int32v;
-        using mask32v = typename FS::mask32v;
+        int32v index = FS::Convert<int32_t>( FS::Convert<float>( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
 
-        static constexpr float ROOT2 = 1.4142135623730950488f;
-        static constexpr float ROOT3 = 1.7320508075688772935f;
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
-        FS_INLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0, -ROOT3, -ROOT3, -2, -2, -1, 1, 0, 0 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2, -1, 1, 0, 0, -ROOT3, -ROOT3, -2, -2 ) );
 
-            // Bit-4 = Choose X Y ordering
-            mask32v xy;
+            return FS::FMulAdd( gX, fX, fY * gY );
+        }
+        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        {
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ), index );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ), index );
 
-            if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
+            // Bit-8 = Flip sign of a + b 
+            return FS::FMulAdd( gX, fX, fY * gY ) ^ FS::Cast<float>( ( index >> 3 ) << 31 );
+        }
+        else
+        {
+            // Bit-3 = Choose X Y ordering
+            mask32v bit3;
+
+            if constexpr( SIMD & FastSIMD::FeatureFlag::SSE2 )
             {
-                xy = int32_t( index & int32v( 1 << 2 ) ) != 0;
-            }
-            else
-            {
-                xy = index << 29;
-
-                if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
+                if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
                 {
-                    xy >>= 31;
+                    bit3 = FS::Cast<FS::Mask<32>>( index << 29 );
+                }
+                else
+                {
+                    bit3 = FS::Cast<FS::Mask<32>>( ( index << 29 ) >> 31 );
                 }
             }
-
-            float32v a = FS_Select_f32( xy, fY, fX );
-            float32v b = FS_Select_f32( xy, fX, fY );
-
-            // Bit-1 = b flip sign
-            b ^= FS_Casti32_f32( index << 31 );
-
-            // Bit-2 = Mul a by 2 or Root3
-            mask32v aMul2;
-
-            if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
-            {
-                aMul2 = int32_t( index & int32v( 1 << 1 ) ) != 0;
-            }
             else
             {
-                aMul2 = (index << 30) >> 31;
+                bit3 = ( index & int32v( 1 << 2 ) ) != int32v( 0 );
             }
 
-            a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
-            // b zero value if a mul 2
-            b = FS_NMask_f32( b, aMul2 );
-
-            // Bit-8 = Flip sign of a + b
-            return ( a + b ) ^ FS_Casti32_f32( (index >> 3) << 31 );
-        }
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_NEON>* = nullptr>
-        FS_INLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
-        {
-            int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
-
-            // Bit-4 = Choose X Y ordering
-            mask32v xy;
-
-//             if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
-//             {
-//                 xy = int32_t( index & int32v( 1 << 2 ) ) != 0;
-//             }
-//             else
-//             {
-                xy = index << 29;
-
-//                 if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
-//                 {
-                    xy >>= 31;
-//                 }
-//             }
-
-            float32v a = FS_Select_f32( xy, fY, fX );
-            float32v b = FS_Select_f32( xy, fX, fY );
+            float32v a = FS::Select( bit3, fY, fX );
+            float32v b = FS::Select( bit3, fX, fY );
 
             // Bit-1 = b flip sign
-            b ^= FS_Casti32_f32( index << 31 );
+            b ^= FS::Cast<float>( index << 31 );
 
             // Bit-2 = Mul a by 2 or Root3
-            mask32v aMul2;
+            mask32v bit2 = ( index & int32v( 2 ) ) == int32v( 0 );
 
-//             if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
-//             {
-//                 aMul2 = int32_t( index & int32v( 1 << 1 ) ) != 0;
-//             }
-//             else
-//             {
-                aMul2 = (index << 30) >> 31;
-//             }
-
-            a *= FS_Select_f32( aMul2, float32v( 2 ), float32v( ROOT3 ) );
+            a *= FS::Select( bit2, float32v( 2 ), float32v( ROOT3 ) );
             // b zero value if a mul 2
-            b = FS_NMask_f32( b, aMul2 );
+            float32v c = FS::MaskedAdd( bit2, a, b );
 
-            // Bit-8 = Flip sign of a + b
-            return ( a + b ) ^ FS_Casti32_f32( (index >> 3) << 31 );
+            // Bit-4 = Flip sign of a + b
+            return c ^ FS::Cast<float>( ( index >> 3 ) << 31 );
         }
+    }
 
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
-        FS_INLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FS_FORCEINLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+    {
+        // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
+        // ( 1, 1+R2 ) ( 1, -1-R2 ) ( -1, 1+R2 ) ( -1, -1-R2 )
+
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1, 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2, 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ) );
 
-            float32v gX = _mm256_permutevar8x32_ps( float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ), index );
-            float32v gY = _mm256_permutevar8x32_ps( float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ), index );
-
-            // Bit-8 = Flip sign of a + b
-            return FS_FMulAdd_f32( gX, fX, fY * gY ) ^ FS_Casti32_f32( (index >> 3) << 31 );
+            return FS::FMulAdd( gX, fX, fY * gY );
         }
-
-        template<typename SIMD = FS, std::enable_if_t<(SIMD::SIMD_Level == FastSIMD::Level_AVX512)>* = nullptr>
-        FS_INLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
+        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
         {
-            int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ), hash );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ), hash );
 
-            float32v gX = _mm512_permutexvar_ps( index, float32v( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0, -ROOT3, -ROOT3, -2, -2, -1, 1, 0, 0 ) );
-            float32v gY = _mm512_permutexvar_ps( index, float32v( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2, -1, 1, 0, 0, -ROOT3, -ROOT3, -2, -2 ) );
-
-            return FS_FMulAdd_f32( gX, fX, fY * gY );
+            return FS::FMulAdd( gX, fX, fY * gY );
         }
-
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level < FastSIMD::Level_AVX2>* = nullptr>
-        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+        else
         {
-            // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
-            // ( 1, 1+R2 ) ( 1, -1-R2 ) ( -1, 1+R2 ) ( -1, -1-R2 )
+            int32v bit1 = hash << 31;
+            int32v bit2 = ( hash >> 1 ) << 31;
+            int32v bit4 = hash << 29;
 
-            int32v  bit1 = (hash << 31);
-            int32v  bit2 = (hash >> 1) << 31;
-            mask32v bit4;
-
-            if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
+            if constexpr( !( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
             {
-                bit4 = int32_t( hash & int32v( 1 << 2 ) ) != 0;
-            }
-            else
-            {
-                bit4 = hash << 29;
-
-                if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
-                {
-                    bit4 >>= 31;
-                }
+                bit4 >>= 31;
             }
 
-            fX ^= FS_Casti32_f32( bit1 );
-            fY ^= FS_Casti32_f32( bit2 );
-            
-            float32v a = FS_Select_f32( bit4, fY, fX );
-            float32v b = FS_Select_f32( bit4, fX, fY );
-            
-            return FS_FMulAdd_f32( float32v( 1.0f + ROOT2 ), a, b );
+            auto bit4Mask = FS::Cast<FS::Mask<32, false>>( bit4 );
+
+            fX ^= FS::Cast<float>( bit1 );
+            fY ^= FS::Cast<float>( bit2 );
+
+            float32v a = FS::Select( bit4Mask, fY, fX );
+            float32v b = FS::Select( bit4Mask, fX, fY );
+
+            return FS::FMulAdd( float32v( 1.0f + ROOT2 ), a, b );
         }
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_NEON> * = nullptr>
-         FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
+    }
+    
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FS_FORCEINLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
+    {        
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
-            // ( 1, 1+R2 ) ( 1, -1-R2 ) ( -1, 1+R2 ) ( -1, -1-R2 )
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+            float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 ) );
 
-            int32v  bit1 = (hash << 31);
-            int32v  bit2 = (hash >> 1) << 31;
-            mask32v bit4;
-
-//             if constexpr( FS::SIMD_Level == FastSIMD::Level_Scalar )
-//             {
-//                 bit4 = int32_t( hash & int32v( 1 << 2 ) ) != 0;
-//             }
-//             else
-//             {
-                bit4 = hash << 29;
-// 
-//                 if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
-//                 {
-                    bit4 >>= 31;
-//                 }
-//             }
-
-            fX ^= FS_Casti32_f32( bit1 );
-            fY ^= FS_Casti32_f32( bit2 );
-            
-            float32v a = FS_Select_f32( bit4, fY, fX );
-            float32v b = FS_Select_f32( bit4, fX, fY );
-            
-            return FS_FMulAdd_f32( float32v( 1.0f + ROOT2 ), a, b );
+            return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, fZ * gZ ));
         }
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX2>* = nullptr>
-        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
-        {
-            float32v gX = _mm256_permutevar8x32_ps( float32v( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ), hash );
-            float32v gY = _mm256_permutevar8x32_ps( float32v( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ), hash );
-
-            return FS_FMulAdd_f32( gX, fX, fY * gY );
-        }
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX512> * = nullptr>
-         FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
-        {
-            float32v gX = _mm512_permutexvar_ps( hash, float32v( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1, 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ) );
-            float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2, 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ) );
-
-            return FS_FMulAdd_f32( gX, fX, fY * gY );
-        }
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level != FastSIMD::Level_AVX512 > * = nullptr >
-        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
+        else
         {
             int32v hasha13 = hash & int32v( 13 );
 
-            //if h < 8 then x, else y
-            float32v u = FS_Select_f32( hasha13 < int32v( 8 ), fX, fY );
-
-            //if h < 4 then y else if h is 12 or 14 then x else z
-            float32v v = FS_Select_f32( hasha13 == int32v( 12 ), fX, fZ );
-            v = FS_Select_f32( hasha13 < int32v( 2 ), fY, v );
-
-            //if h1 then -u else u
-            //if h2 then -v else v
-            float32v h1 = FS_Casti32_f32( hash << 31 );
-            float32v h2 = FS_Casti32_f32( (hash & int32v( 2 )) << 30 );
-            //then add them
-            return ( u ^ h1 ) + ( v ^ h2 );
-        }
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX512>* = nullptr>
-        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ )
-        {
-            float32v gX = _mm512_permutexvar_ps( hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
-            float32v gY = _mm512_permutexvar_ps( hash, float32v( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
-            float32v gZ = _mm512_permutexvar_ps( hash, float32v( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 ) );
-
-            return FS_FMulAdd_f32( gX, fX, FS_FMulAdd_f32( fY, gY, fZ * gZ ));
-        }
-
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level != FastSIMD::Level_AVX512>* = nullptr >
-        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
-        {
-            int32v p = hash & int32v( 3 << 3 );
-
-            float32v a = FS_Select_f32( p > int32v( 0 ), fX, fY );
-            float32v b;
-            if constexpr( FS::SIMD_Level <= FastSIMD::Level_SSE2 )
+            // if h > 7 then y, else x
+            mask32v gt7;
+            if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
             {
-                b = FS_Select_f32( p > int32v( 1 << 3 ), fY, fZ );        
+                gt7 = FS::Cast<FS::Mask<32>>( hash << 28 );
             }
             else
             {
-                b = FS_Select_f32( hash << 27, fY, fZ );
+                gt7 = hasha13 > int32v( 7 );
             }
-            float32v c = FS_Select_f32( p > int32v( 2 << 3 ), fZ, fW );
+            float32v u = FS::Select( gt7, fY, fX );
 
-            float32v aSign = FS_Casti32_f32( hash << 31 );
-            float32v bSign = FS_Casti32_f32( (hash << 30) & int32v( 0x80000000 ) );
-            float32v cSign = FS_Casti32_f32( (hash << 29) & int32v( 0x80000000 ) );
+            // if h < 4 then y else if h is 12 or 14 then x else z
+            float32v v = FS::Select( hasha13 == int32v( 12 ), fX, fZ );
+            v = FS::Select( hasha13 < int32v( 2 ), fY, v );
+
+            // if h1 then -u else u
+            // if h2 then -v else v
+            float32v h1 = FS::Cast<float>( hash << 31 );
+            float32v h2 = FS::Cast<float>( ( hash >> 1 ) << 31 );
+            // then add them
+            return ( u ^ h1 ) + ( v ^ h2 );
+        }
+    }
+    
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FS_FORCEINLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
+            float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ), hash, FS::Constant<float>( 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1 ) );
+            float32v gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1 ), hash, FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) );
+
+            return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) ));
+        }
+        else
+        {
+            int32v p = hash & int32v( 3 << 3 );
+
+            float32v a = FS::Select( p > int32v( 0 ), fX, fY );
+            float32v b;
+            if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+            {
+                b = FS::Select( FS::Cast<FS::Mask<32>>( hash << 27 ), fY, fZ );
+            }
+            else
+            {
+                b = FS::Select( p > int32v( 1 << 3 ), fY, fZ );
+            }
+            float32v c = FS::Select( p > int32v( 2 << 3 ), fZ, fW );
+
+            float32v aSign = FS::Cast<float>( hash << 31 );
+            float32v bSign = FS::Cast<float>( ( hash >> 1 ) << 31 );
+            float32v cSign = FS::Cast<float>( ( hash >> 2 ) << 31 );
 
             return ( a ^ aSign ) + ( b ^ bSign ) + ( c ^ cSign );
         }
+    }
 
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_AVX512>* = nullptr>
-        FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
+    template<typename... P>
+    FS_FORCEINLINE static int32v HashPrimes( int32v seed, P... primedPos )
+    {
+        int32v hash = seed;
+        hash ^= (primedPos ^ ...);
+
+        hash *= int32v( 0x27d4eb2d );
+        return (hash >> 15) ^ hash;
+    }
+
+    template<typename... P>
+    FS_FORCEINLINE static int32v HashPrimesHB( int32v seed, P... primedPos )
+    {
+        int32v hash = seed;
+        hash ^= (primedPos ^ ...);
+        
+        hash *= int32v( 0x27d4eb2d );
+        return hash;
+    }  
+
+    template<typename... P>
+     FS_FORCEINLINE static float32v GetValueCoord( int32v seed, P... primedPos )
+    {
+        int32v hash = seed;
+        hash ^= (primedPos ^ ...);
+        
+        hash *= hash * int32v( 0x27d4eb2d );
+        return FS::Convert<float>( hash ) * float32v( 1.0f / (float)-INT_MIN );
+    }
+     
+    FS_FORCEINLINE static float32v Lerp( float32v a, float32v b, float32v t )
+    {
+        return FS::FMulAdd( t, b - a, a );
+    }
+    
+    FS_FORCEINLINE static float32v InterpHermite( float32v t )
+    {
+        return t * t * FS::FNMulAdd( t, float32v( 2 ), float32v( 3 ));
+    }
+     
+     FS_FORCEINLINE static float32v InterpQuintic( float32v t )
+    {
+        return t * t * t * FS::FMulAdd( t, FS::FMulAdd( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
+    }
+
+    template<bool DO_SQRT = true, typename... P>
+    FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
+    {
+        switch( distFunc )
         {
-            float32v gX = _mm512_permutex2var_ps( float32v( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, float32v( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
-            float32v gY = _mm512_permutex2var_ps( float32v( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, float32v( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
-            float32v gZ = _mm512_permutex2var_ps( float32v( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ), hash, float32v( 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1 ) );
-            float32v gW = _mm512_permutex2var_ps( float32v( 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1 ), hash, float32v( 1, 1, 1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) );
-
-            return FS_FMulAdd_f32( gX, fX, FS_FMulAdd_f32( fY, gY, FS_FMulAdd_f32( fZ, gZ, fW * gW ) ));
-        }
-
-        template<typename SIMD = FS, typename... P>
-        FS_INLINE static int32v HashPrimes( int32v seed, P... primedPos )
-        {
-            int32v hash = seed;
-            hash ^= (primedPos ^ ...);
-
-            hash *= int32v( 0x27d4eb2d );
-            return (hash >> 15) ^ hash;
-        }
-
-        template<typename SIMD = FS, typename... P>
-        FS_INLINE static int32v HashPrimesHB( int32v seed, P... primedPos )
-        {
-            int32v hash = seed;
-            hash ^= (primedPos ^ ...);
-            
-            hash *= int32v( 0x27d4eb2d );
-            return hash;
-        }  
-
-        template<typename SIMD = FS, typename... P>
-         FS_INLINE static float32v GetValueCoord( int32v seed, P... primedPos )
-        {
-            int32v hash = seed;
-            hash ^= (primedPos ^ ...);
-            
-            hash *= hash * int32v( 0x27d4eb2d );
-            return FS_Converti32_f32( hash ) * float32v( 1.0f / (float)INT_MAX );
-        }
-
-        template<typename SIMD = FS>
-        FS_INLINE static float32v Lerp( float32v a, float32v b, float32v t )
-        {
-            return FS_FMulAdd_f32( t, b - a, a );
-        }
-
-        template<typename SIMD = FS>
-         FS_INLINE static float32v InterpHermite( float32v t )
-        {
-            return t * t * FS_FNMulAdd_f32( t, float32v( 2 ), float32v( 3 ));
-        }
-
-        template<typename SIMD = FS>
-         FS_INLINE static float32v InterpQuintic( float32v t )
-        {
-            return t * t * t * FS_FMulAdd_f32( t, FS_FMulAdd_f32( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
-        }
-
-        template<typename SIMD = FS, typename... P>
-        FS_INLINE static float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
-        {
-            switch( distFunc )
+            default:
+            case DistanceFunction::Euclidean:
+            if constexpr( DO_SQRT )
             {
-                default:
-                case DistanceFunction::Euclidean:
-                {
-                    float32v distSqr = dX * dX;
-                    ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
+                float32v distSqr = dX * dX;
+                ((distSqr = FS::FMulAdd( d, d, distSqr )), ...);
 
-                    return FS_InvSqrt_f32( distSqr ) * distSqr;
-                }
+                float32v invSqrt = FS::InvSqrt( distSqr );
 
-                case DistanceFunction::EuclideanSquared:
-                {
-                    float32v distSqr = dX * dX;
-                    ((distSqr = FS_FMulAdd_f32( d, d, distSqr )), ...);
+                return FS::Masked( invSqrt != float32v( INFINITY ), distSqr * invSqrt );
+            }
 
-                    return distSqr;
-                }
+            case DistanceFunction::EuclideanSquared:
+            {
+                float32v distSqr = dX * dX;
+                ((distSqr = FS::FMulAdd( d, d, distSqr )), ...);
 
-                case DistanceFunction::Manhattan:
-                {
-                    float32v dist = FS_Abs_f32( dX );
-                    dist += (FS_Abs_f32( d ) + ...);
+                return distSqr;
+            }
 
-                    return dist;
-                }
+            case DistanceFunction::Manhattan:
+            {
+                float32v dist = FS::Abs( dX );
+                dist += (FS::Abs( d ) + ...);
 
-                case DistanceFunction::Hybrid:
-                {
-                    float32v both = FS_FMulAdd_f32( dX, dX, FS_Abs_f32( dX ) );
-                    ((both += FS_FMulAdd_f32( d, d, FS_Abs_f32( d ) )), ...);
+                return dist;
+            }
 
-                    return both;
-                }
+            case DistanceFunction::Hybrid:
+            {
+                float32v both = FS::FMulAdd( dX, dX, FS::Abs( dX ) );
+                ((both += FS::FMulAdd( d, d, FS::Abs( d ) )), ...);
 
-                case DistanceFunction::MaxAxis:
-                {
-                    float32v max = FS_Abs_f32( dX );
-                    ((max = FS_Max_f32( FS_Abs_f32(d), max )), ...);
+                return both;
+            }
 
-                    return max;
-                }
+            case DistanceFunction::MaxAxis:
+            {
+                float32v max = FS::Abs( dX );
+                ((max = FS::Max( FS::Abs(d), max )), ...);
+
+                return max;
             }
         }
-    };
+    }    
 }
-
-using FnUtils = FastNoise::Utils<FS_SIMD_CLASS>;
-namespace FnPrimes = FastNoise::Primes;

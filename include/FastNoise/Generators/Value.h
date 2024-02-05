@@ -3,18 +3,16 @@
 
 namespace FastNoise
 {
-    class Value : public virtual Generator
+    class Value : public virtual ScalableGenerator
     {
-    public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
-        const Metadata& GetMetadata() const override;
+    public:        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Value> : MetadataT<Generator>
+    struct MetadataT<Value> : MetadataT<ScalableGenerator>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

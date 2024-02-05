@@ -2,8 +2,8 @@
   "version": 3,
   "configurePresets": [
     {
-      "name": "noisetool",
-      "displayName": "NoiseTool",
+      "name": "tools",
+      "displayName": "Tools",
       "generator": "Ninja Multi-Config",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
@@ -21,9 +21,9 @@
     {
       "name": "minimal",
       "displayName": "Minimal",
-      "inherits": "noisetool",
+      "inherits": "tools",
       "cacheVariables": {
-        "FASTNOISE2_NOISETOOL": {
+        "FASTNOISE2_TOOLS": {
           "value": "False",
           "type": "BOOL"
         },
@@ -36,9 +36,9 @@
     {
       "name": "all",
       "displayName": "All",
-      "inherits": "noisetool",
+      "inherits": "tools",
       "cacheVariables": {
-        "FASTNOISE2_NOISETOOL": {
+        "FASTNOISE2_TOOLS": {
           "value": "True",
           "type": "BOOL"
         },
@@ -51,14 +51,14 @@
   ],
   "buildPresets": [
     {
-      "name": "noisetool-debug",
-      "displayName": "NoiseTool Debug",
-      "configurePreset": "noisetool"
+      "name": "tools-debug",
+      "displayName": "tools Debug",
+      "configurePreset": "tools"
     },
     {
-      "name": "noisetool-release",
-      "displayName": "NoiseTool Release",
-      "configurePreset": "noisetool",
+      "name": "tools-release",
+      "displayName": "tools Release",
+      "configurePreset": "tools",
       "configuration": "Release"
     },
     {

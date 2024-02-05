@@ -1,77 +1,82 @@
-#include "FastSIMD/InlInclude.h"
-
 #include "BasicGenerators.h"
 #include "Utils.inl"
 
-template<typename FS>
-class FS_T<FastNoise::Constant, FS> : public virtual FastNoise::Constant, public FS_T<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD> : public virtual FastNoise::ScalableGenerator, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
+protected:
+    template<typename... P>
+    FS_FORCEINLINE void ScalePositions( P&... pos ) const
+    {
+        float32v vFrequency( mFrequency );
+        ( (pos *= vFrequency), ... );
+    }
+};
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual FastNoise::Constant, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+{
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return float32v( mValue );
     }
 };
 
-template<typename FS>
-class FS_T<FastNoise::White, FS> : public virtual FastNoise::White, public FS_T<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual FastNoise::White, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         size_t idx = 0;
-        ((pos = FS_Casti32_f32( (FS_Castf32_i32( pos ) ^ (FS_Castf32_i32( pos ) >> 16)) * int32v( FnPrimes::Lookup[idx++] ) )), ...);
+        ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 
-        return FnUtils::GetValueCoord( seed, FS_Castf32_i32( pos )... );
+        return GetValueCoord( seed, FS::Cast<int32_t>( pos )... );
     }
 };
 
-template<typename FS>
-class FS_T<FastNoise::Checkerboard, FS> : public virtual FastNoise::Checkerboard, public FS_T<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virtual FastNoise::Checkerboard, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v multiplier = FS_Reciprocal_f32( float32v( mSize ) );
+        this->ScalePositions( pos... );
 
-        int32v value = (FS_Convertf32_i32( pos * multiplier ) ^ ...);
+        int32v value = (FS::Convert<int32_t>( pos ) ^ ...);
 
-        return float32v( 1.0f ) ^ FS_Casti32_f32( value << 31 );
+        return float32v( 1.0f ) ^ FS::Cast<float>( value << 31 );
     }
 };
 
-template<typename FS>
-class FS_T<FastNoise::SineWave, FS> : public virtual FastNoise::SineWave, public FS_T<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual FastNoise::SineWave, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v multiplier = FS_Reciprocal_f32( float32v( mScale ) );
+        this->ScalePositions( pos... );
 
-        return (FS_Sin_f32( pos * multiplier ) * ...);
+        return (FS::Sin( pos ) * ...);
     }
 };
 
-template<typename FS>
-class FS_T<FastNoise::PositionOutput, FS> : public virtual FastNoise::PositionOutput, public FS_T<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::PositionOutput, SIMD> final : public virtual FastNoise::PositionOutput, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         size_t offsetIdx = 0;
         size_t multiplierIdx = 0;
@@ -81,18 +86,17 @@ class FS_T<FastNoise::PositionOutput, FS> : public virtual FastNoise::PositionOu
     }
 };
 
-template<typename FS>
-class FS_T<FastNoise::DistanceToPoint, FS> : public virtual FastNoise::DistanceToPoint, public FS_T<FastNoise::Generator, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DistanceToPoint, SIMD> final : public virtual FastNoise::DistanceToPoint, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         size_t pointIdx = 0;
 
         ((pos -= float32v( mPoint[pointIdx++] )), ...);
-        return FnUtils::CalcDistance( mDistanceFunction, pos... );
+        return CalcDistance( mDistanceFunction, pos... );
     }
 };

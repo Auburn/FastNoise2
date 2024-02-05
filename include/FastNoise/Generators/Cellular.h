@@ -5,7 +5,7 @@
 
 namespace FastNoise
 {
-    class Cellular : public virtual Generator
+    class Cellular : public virtual ScalableGenerator
     {
     public:
         void SetJitterModifier( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
@@ -19,7 +19,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Cellular> : MetadataT<Generator>
+    struct MetadataT<Cellular> : MetadataT<ScalableGenerator>
     {
         MetadataT()
         {
@@ -34,7 +34,6 @@ namespace FastNoise
     class CellularValue : public virtual Cellular
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         static const int kMaxDistanceCount = 4;
@@ -49,7 +48,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularValue> : MetadataT<Cellular>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -66,7 +65,6 @@ namespace FastNoise
     class CellularDistance : public virtual Cellular
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         enum class ReturnType
@@ -94,7 +92,7 @@ namespace FastNoise
     template<>
     struct MetadataT<CellularDistance> : MetadataT<Cellular>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -113,27 +111,23 @@ namespace FastNoise
     class CellularLookup : public virtual Cellular
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetLookup( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
-        void SetLookupFrequency( float freq ) { mLookupFreq = freq; }
 
     protected:
         GeneratorSource mLookup;
-        float mLookupFreq = 0.1f;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
     struct MetadataT<CellularLookup> : MetadataT<Cellular>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             this->AddGeneratorSource( { "Lookup", "Used to generate cell values" }, &CellularLookup::SetLookup );
-            this->AddVariable( { "Lookup Frequency", "Relative to the cellular frequency" }, 0.1f, &CellularLookup::SetLookupFrequency );
             
             description = 
                 "Returns value of closest cell\n"
