@@ -1,7 +1,7 @@
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
-    GIT_TAG 83dba87f3c04031235da6362524e0ec475bb21e8
+    GIT_TAG dfbeae5c4a2ee429ecad3a37121aba3e3d389036
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -15,7 +15,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME GLFW
     GITHUB_REPOSITORY glfw/glfw
-    GIT_TAG 3.3.8
+    GIT_TAG 3.3.9
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_SHARED_LIBS OFF"
@@ -28,7 +28,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG c1239b66199926c610cd863e18a4d27a4cef67f1
+    GIT_TAG b1ba1f076d3e8b4295b1afac94e95ff8a846e619
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -45,7 +45,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME imgui
     GITHUB_REPOSITORY ocornut/imgui
-    GIT_TAG 0ea3b87bd63ecbf359585b7c235839146e84dedb
+    GIT_TAG v1.90.1-docking
     EXCLUDE_FROM_ALL YES
     DOWNLOAD_ONLY YES
 )
@@ -55,7 +55,7 @@ set(IMGUI_DIR ${imgui_SOURCE_DIR})
 CPMAddPackage(
     NAME magnum-integration
     GITHUB_REPOSITORY mosra/magnum-integration
-    GIT_TAG 1a66b05bd7db0a5484366054ddc678bebf79921e
+    GIT_TAG 05cbe5f85593b7d4252048df98f0bc3bb48b540d
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
