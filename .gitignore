@@ -36,3 +36,5 @@
 /enc_temp_folder
 /cpm-cache
 /CMakeUserPresets.json
+
+external/
