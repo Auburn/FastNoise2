@@ -16,6 +16,25 @@
 #include "FastNoiseNodeEditor.h"
 #include "DemoNodeTrees.inl"
 
+// Networking
+
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
+#pragma comment( lib, "Ws2_32.lib" )
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <fcntl.h> // For setting non-blocking mode
+#endif
+
+static constexpr std::uint16_t kNetPort = 46929;
+static constexpr const char* kNetAddress = "ff02::1";
+
 using namespace Magnum;
 
 static bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
@@ -539,7 +558,41 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 #ifndef NDEBUG
     mNodeBenchmarkMax = 1;
 #endif
-    
+
+#ifdef _WIN32
+    WSAData data;
+    WSAStartup( MAKEWORD( 2, 2 ), &data );
+#endif
+    // Create a UDP socket
+    mSocket = socket( AF_INET6, SOCK_DGRAM, 0 );
+
+    // Define the multicast group address
+    struct sockaddr_in6 groupaddr;
+    memset( &groupaddr, 0, sizeof( groupaddr ) );
+    groupaddr.sin6_family = AF_INET6;
+    inet_pton( AF_INET6, "::1", &groupaddr.sin6_addr ); // Listen on localhost
+    groupaddr.sin6_port = htons( kNetPort );
+    bind( mSocket, (struct sockaddr*)&groupaddr, sizeof( groupaddr ) );
+
+#ifndef _WIN32
+    // Set the socket to non-blocking mode
+    int flags = fcntl( mSocket, F_GETFL, 0 );
+    fcntl( mSocket, F_SETFL, flags | O_NONBLOCK );
+#endif
+
+    // Join the multicast group
+    struct ipv6_mreq group;
+    inet_pton( AF_INET6, kNetAddress, &group.ipv6mr_multiaddr ); // Node-local multicast address
+    group.ipv6mr_interface = 0; // Default interface
+    if( setsockopt( mSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*)&group, sizeof( group ) ) )
+    {
+        Debug {} << "Multicast connection: Failed to init";
+#ifdef _WIN32
+        closesocket( mSocket );
+        WSACleanup();
+#endif
+    }
+
     SetupSettingsHandlers();
 
     // Create Metadata context menu tree
@@ -612,6 +665,37 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 {
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
+    
+    // Set up the file descriptor set
+    fd_set readfds;
+    FD_ZERO( &readfds );
+    FD_SET( mSocket, &readfds );
+
+    // Set timeout to 0 for non-blocking mode
+    struct timeval timeout;
+    timeout.tv_sec = 0; // 0 seconds
+    timeout.tv_usec = 0; // 0 microseconds -> Polling
+
+    // Check if there's data to read
+    int ntds = 0;
+#ifndef _WIN32
+    ntds = mSocket + 1;
+#endif
+
+    int selectResult = select( ntds, &readfds, NULL, NULL, &timeout );
+    if( selectResult > 0 )
+    {
+        if( FD_ISSET( mSocket, &readfds ) )
+        {
+            // Data available to read
+            char buf[1024];
+            int received = recvfrom( mSocket, buf, sizeof( buf ), 0, NULL, NULL );
+            if( received > 0 )
+            {
+                SetPreviewGenerator( { buf, (size_t)received } );
+            }
+        }
+    } 
 
     std::string simdTxt = "Current Feature Set: ";
     simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
@@ -1244,25 +1328,16 @@ void FastNoiseNodeEditor::DoContextMenu()
     ImGui::PopStyleVar();
 }
 
-FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
+std::string_view FastNoiseNodeEditor::GetSelectedEncodedNodeTree()
 {
     auto find = mNodes.find( mSelectedNode );
 
-    FastNoise::SmartNode<> generator;
-
     if( find != mNodes.end() )
     {
-        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxFeatureSet );
-
-        if( generator )
-        {
-            mActualFeatureSet = generator->GetActiveFeatureSet();
-        }
+        return find->second.serialised;
     }
 
-    mNoiseTexture.ReGenerate( generator );
-
-    return generator;
+    return "";
 }
 
 FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise )
@@ -1327,10 +1402,37 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
 {
     mSelectedNode = newId;
 
-    FastNoise::SmartNode<> generator = GenerateSelectedPreview();
+    std::string_view encodedNodeTree = GetSelectedEncodedNodeTree();
+
+    if( !encodedNodeTree.empty() )
+    {
+        struct sockaddr_in6 destAddr;
+        memset( &destAddr, 0, sizeof( destAddr ) );
+        destAddr.sin6_family = AF_INET6;
+        destAddr.sin6_port = htons( kNetPort );
+        inet_pton( AF_INET6, kNetAddress, &destAddr.sin6_addr );
+
+        if( sendto( mSocket, encodedNodeTree.data(), (int)encodedNodeTree.length() + 1, 0, (struct sockaddr*)&destAddr, sizeof( destAddr ) ) )
+        {
+            Debug{} << "Multicast connection: Failed to send updated node tree"
+#ifdef _WIN32
+            " (Error) " << WSAGetLastError()
+#endif
+            ;
+        }
+    }
+}
+
+void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree )
+{
+    FastNoise::SmartNode<> generator = FastNoise::NewFromEncodedNodeTree( encodedNodeTree.data(), mMaxFeatureSet );
 
     if( generator )
     {
-        mMeshNoisePreview.ReGenerate( generator );
+        mActualFeatureSet = generator->GetActiveFeatureSet();
     }
+
+    //mNoiseTexture.ReGenerate( generator );
+    mMeshNoisePreview.ReGenerate( generator );
 }
+

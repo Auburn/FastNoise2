@@ -100,10 +100,11 @@ namespace Magnum
 
         Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata, bool generatePreview = true );
         bool AddNodeFromEncodedString( const char* string, ImVec2 nodePos );
-        FastNoise::SmartNode<> GenerateSelectedPreview();
+        std::string_view GetSelectedEncodedNodeTree();
         FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
         Node* FindNodeFromId( int id );
         int GetFreeNodeId();
+        void SetPreviewGenerator( std::string_view encodedNodeTree );
         void ChangeSelectedNode( FastNoise::NodeData* newId );
         void DeleteNode( FastNoise::NodeData* nodeData );
         void DoNodeBenchmarks();
@@ -124,6 +125,7 @@ namespace Magnum
         std::string mImportNodeString;
         bool mImportNodeModal = false;
 
+        uintptr_t mSocket;
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;
 
