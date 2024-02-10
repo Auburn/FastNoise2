@@ -18,6 +18,21 @@ namespace Magnum
         explicit NodeEditorApp( const Arguments& arguments );
         ~NodeEditorApp();
 
+        bool IsDetachedNodeGraph()
+        {
+            return mIsDetachedNodeGraph;
+        }
+
+        uintptr_t GetIpcSocket()
+        {
+            return mIpcSocket;
+        }
+
+        std::string_view GetExecutablePath()
+        {
+            return mExecutablePath;
+        }
+
     private:
         void drawEvent() override;
         void viewportEvent( ViewportEvent& event ) override;
@@ -32,6 +47,10 @@ namespace Magnum
 
         void UpdatePespectiveProjection();
         void HandleKeyEvent( KeyEvent::Key key, bool value );
+
+        bool mIsDetachedNodeGraph;
+        std::string mExecutablePath;
+        uintptr_t mIpcSocket;
 
         SceneGraph::Object<SceneGraph::MatrixTransformation3D> mCameraObject;
         SceneGraph::Camera3D mCamera{ mCameraObject };

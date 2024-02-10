@@ -18,12 +18,19 @@
 
 namespace Magnum
 {
+    class NodeEditorApp;
+
     class FastNoiseNodeEditor
     {
     public:
-        FastNoiseNodeEditor();
+        FastNoiseNodeEditor( NodeEditorApp* nodeEditorApp );
+        ~FastNoiseNodeEditor();
+
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
         void SetSIMDLevel( FastSIMD::FeatureSet lvl );
+        void DoIpcPolling();
+
+        static uintptr_t SetupIpcSocket();
 
     private:
         struct Node
@@ -104,17 +111,20 @@ namespace Magnum
         FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
         Node* FindNodeFromId( int id );
         int GetFreeNodeId();
-        void SetPreviewGenerator( std::string_view encodedNodeTree );
+        void SetPreviewGenerator( std::string_view encodedNodeTree, bool force = false );
         void ChangeSelectedNode( FastNoise::NodeData* newId );
         void DeleteNode( FastNoise::NodeData* nodeData );
         void DoNodeBenchmarks();
         void SetupSettingsHandlers();
+        void OpenStandaloneNodeGraph();
 
         void CheckLinks();
         void DoHelp();
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();
+
+        NodeEditorApp* mNodeEditorApp;
 
         std::unordered_map<FastNoise::NodeData*, Node> mNodes;
         FastNoise::NodeData* mDroppedLinkNode = nullptr;
@@ -124,11 +134,12 @@ namespace Magnum
         std::vector<std::unique_ptr<MetadataMenu>> mContextMetadata;
         std::string mImportNodeString;
         bool mImportNodeModal = false;
+        bool mSettingsDirty = false;
 
-        uintptr_t mSocket;
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;
 
+        std::string mCachedSelectedEnt;
         FastNoise::NodeData* mSelectedNode = nullptr;
         Node mOverheadNode;
         int32_t mNodeBenchmarkIndex = 0;

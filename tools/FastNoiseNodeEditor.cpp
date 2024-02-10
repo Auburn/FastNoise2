@@ -15,12 +15,14 @@
 #include "ImGuiExtra.h"
 #include "FastNoiseNodeEditor.h"
 #include "DemoNodeTrees.inl"
+#include "NodeEditorApp.h"
 
 // Networking
 
 #ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #pragma comment( lib, "Ws2_32.lib" )
@@ -30,12 +32,167 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h> // For setting non-blocking mode
+#include <unistd.h>
 #endif
 
-static constexpr std::uint16_t kNetPort = 46929;
-static constexpr const char* kNetAddress = "ff02::1";
+static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
+
+static constexpr std::uint16_t kNetPort = 46931;
+static constexpr const char* kNetAddress = "FF01:0:0:0:0:0:0:1"; // Node-local multicast
 
 using namespace Magnum;
+
+// Setup network socket for IPC node tree updates
+uintptr_t FastNoiseNodeEditor::SetupIpcSocket()
+{
+#ifdef _WIN32
+    WSAData data;
+    WSAStartup( MAKEWORD( 2, 2 ), &data );
+#endif
+    // Create a UDP socket
+    uintptr_t ipcSocket = socket( AF_INET6, SOCK_DGRAM, IPPROTO_UDP );
+
+    // Mark address for reuse so multiple apps can bind the same address/port
+    int reuse = 1;
+    if( setsockopt( ipcSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof( reuse ) ) )
+    {
+        Debug {} << "IPv6 Multicast IPC: Failed to mark address reusable"
+#ifdef _WIN32
+                    " (Error)"
+                 << WSAGetLastError()
+#endif
+            ;
+    }
+
+    // Define the multicast group address
+    struct sockaddr_in6 groupaddr;
+    memset( &groupaddr, 0, sizeof( groupaddr ) );
+    groupaddr.sin6_family = AF_INET6;
+    inet_pton( AF_INET6, "::1", &groupaddr.sin6_addr ); // Listen on localhost
+    groupaddr.sin6_port = htons( kNetPort );
+    if( bind( ipcSocket, (struct sockaddr*)&groupaddr, sizeof( groupaddr ) ) )
+    {
+        Debug {} << "IPv6 Multicast IPC: Failed to bind localhost"
+#ifdef _WIN32
+                    " (Error)"
+                 << WSAGetLastError()
+#endif
+            ;
+    }
+
+#ifndef _WIN32
+    // Set the socket to non-blocking mode
+    int flags = fcntl( ipcSocket, F_GETFL, 0 );
+    fcntl( ipcSocket, F_SETFL, flags | O_NONBLOCK );
+#endif
+
+    // Join the multicast group
+    struct ipv6_mreq group;
+    inet_pton( AF_INET6, kNetAddress, &group.ipv6mr_multiaddr ); // Node-local multicast address
+    group.ipv6mr_interface = 0; // Default interface
+    if( setsockopt( ipcSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*)&group, sizeof( group ) ) )
+    {
+        Debug {} << "IPv6 Multicast IPC: Failed to join multicast group"
+#ifdef _WIN32
+                    " (Error)"
+                 << WSAGetLastError()
+#endif
+            ;
+    }
+
+    return ipcSocket;
+}
+
+// Network UDP polling for node tree updates
+void FastNoiseNodeEditor::DoIpcPolling()
+{
+    uintptr_t ipcSocket = mNodeEditorApp->GetIpcSocket();
+    // Set up the file descriptor set
+    fd_set readfds;
+    FD_ZERO( &readfds );
+    FD_SET( ipcSocket, &readfds );
+
+    // Set timeout to 0 for non-blocking mode
+    struct timeval timeout;
+    timeout.tv_sec = 0; // 0 seconds
+    timeout.tv_usec = 0; // 0 microseconds -> Polling
+    int ntds = 0;
+#ifndef _WIN32
+    ntds = (int)ipcSocket + 1;
+#endif
+
+    // Check if there's data to read
+    int selectResult = select( ntds, &readfds, NULL, NULL, &timeout );
+    if( selectResult > 0 && ( FD_ISSET( ipcSocket, &readfds ) ) )
+    {
+        char buf[65507];
+        int received = recvfrom( ipcSocket, buf, sizeof( buf ), 0, NULL, NULL );
+        if( received > 0 )
+        {
+            SetPreviewGenerator( { buf, (size_t)received } );
+        }
+    }
+}
+
+void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
+{
+#ifdef WIN32
+    std::string startArgs = "\"";
+    startArgs += mNodeEditorApp->GetExecutablePath();
+    startArgs += "\" detached";
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory( &si, sizeof( si ) );
+    si.cb = sizeof( si );
+    ZeroMemory( &pi, sizeof( pi ) );
+
+    // Create a job object
+    HANDLE hJob = CreateJobObject( NULL, NULL );
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+
+    // Configure the job object to terminate processes when the handle is closed
+    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    SetInformationJobObject( hJob, JobObjectExtendedLimitInformation, &jeli, sizeof( jeli ) );
+
+    // Start the child process.
+    if( CreateProcessA( NULL, // No module name (use command line)
+                         (LPSTR)startArgs.data(), // Command line
+                         NULL, // Process handle not inheritable
+                         NULL, // Thread handle not inheritable
+                         FALSE, // Set handle inheritance to FALSE
+                         0, // No creation flags
+                         NULL, // Use parent's environment block
+                         NULL, // Use parent's starting directory
+                         &si, // Pointer to STARTUPINFO structure
+                         &pi ) ) // Pointer to PROCESS_INFORMATION structure
+    {
+        // Assign the child process to the job object
+        AssignProcessToJobObject( hJob, pi.hProcess );
+
+        // Close handles to the child process and primary thread
+        CloseHandle( pi.hProcess );
+        CloseHandle( pi.hThread );
+    }
+    else
+#else
+    pid_t pid = fork(); // Duplicate current process
+
+    if( pid == 0 )
+    {
+        // Child process
+        const char* executable = mNodeEditorApp->GetExecutablePath().data(); // Path to the current executable
+        execl( executable, executable, "detached", (char*)NULL );
+        // If execl returns, it means it has failed
+        exit( EXIT_FAILURE ); // Ensure the child process exits if execl fails
+    }
+    if( pid < 0 )
+#endif
+    {
+        Debug {} << "Failed to launch standalone node graph process";
+    }
+}
 
 static bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
 {
@@ -215,7 +372,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
         }
 
         // Save nodes to ini
-        ImGuiExtra::MarkSettingsDirty();
+        editor.mSettingsDirty = true;
     }
 }
 
@@ -536,14 +693,18 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
     ImGuiExtra::AddOrReplaceSettingsHandler( nodeSettings );
 }
 
-FastNoiseNodeEditor::FastNoiseNodeEditor() :
+FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp* nodeEditorApp ) :
+    mNodeEditorApp( nodeEditorApp ),
     mOverheadNode( *this, new FastNoise::NodeData( &FastNoise::Metadata::Get<FastNoise::Constant>() ), false )
 {
+    if( !mNodeEditorApp->IsDetachedNodeGraph() )
+    {
 #ifdef IMGUI_HAS_DOCK
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 #endif
-    ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+        ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+    }
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
@@ -558,42 +719,6 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 #ifndef NDEBUG
     mNodeBenchmarkMax = 1;
 #endif
-
-#ifdef _WIN32
-    WSAData data;
-    WSAStartup( MAKEWORD( 2, 2 ), &data );
-#endif
-    // Create a UDP socket
-    mSocket = socket( AF_INET6, SOCK_DGRAM, 0 );
-
-    // Define the multicast group address
-    struct sockaddr_in6 groupaddr;
-    memset( &groupaddr, 0, sizeof( groupaddr ) );
-    groupaddr.sin6_family = AF_INET6;
-    inet_pton( AF_INET6, "::1", &groupaddr.sin6_addr ); // Listen on localhost
-    groupaddr.sin6_port = htons( kNetPort );
-    bind( mSocket, (struct sockaddr*)&groupaddr, sizeof( groupaddr ) );
-
-#ifndef _WIN32
-    // Set the socket to non-blocking mode
-    int flags = fcntl( mSocket, F_GETFL, 0 );
-    fcntl( mSocket, F_SETFL, flags | O_NONBLOCK );
-#endif
-
-    // Join the multicast group
-    struct ipv6_mreq group;
-    inet_pton( AF_INET6, kNetAddress, &group.ipv6mr_multiaddr ); // Node-local multicast address
-    group.ipv6mr_interface = 0; // Default interface
-    if( setsockopt( mSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*)&group, sizeof( group ) ) )
-    {
-        Debug {} << "Multicast connection: Failed to init";
-#ifdef _WIN32
-        closesocket( mSocket );
-        WSACleanup();
-#endif
-    }
-
-    SetupSettingsHandlers();
 
     // Create Metadata context menu tree
     std::unordered_map<std::string, MetadataMenuGroup*> groupMap;
@@ -631,6 +756,17 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
     }    
 }
 
+FastNoiseNodeEditor::~FastNoiseNodeEditor()
+{
+    // Go into node graph context and trigger save
+    ImGuiContext* currentContext = ImGui::GetCurrentContext();
+    ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
+    ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+    ImGui::SetCurrentContext( currentContext );
+
+    ImNodes::DestroyContext();
+}
+
 void FastNoiseNodeEditor::DoNodeBenchmarks()
 {
     // Benchmark overhead every frame to keep it accurate
@@ -663,49 +799,40 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+    DoIpcPolling();
+
+    bool isDetachedNodeEditor = mNodeEditorApp->IsDetachedNodeGraph();
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
-    
-    // Set up the file descriptor set
-    fd_set readfds;
-    FD_ZERO( &readfds );
-    FD_SET( mSocket, &readfds );
 
-    // Set timeout to 0 for non-blocking mode
-    struct timeval timeout;
-    timeout.tv_sec = 0; // 0 seconds
-    timeout.tv_usec = 0; // 0 microseconds -> Polling
+    ImGuiWindowFlags windowFlags = 0;
+    ImGuiWindow* nodeGraphWindow = ImGui::FindWindowByName( "Node Graph" );
 
-    // Check if there's data to read
-    int ntds = 0;
-#ifndef _WIN32
-    ntds = mSocket + 1;
-#endif
-
-    int selectResult = select( ntds, &readfds, NULL, NULL, &timeout );
-    if( selectResult > 0 )
+    if( isDetachedNodeEditor )
     {
-        if( FD_ISSET( mSocket, &readfds ) )
-        {
-            // Data available to read
-            char buf[1024];
-            int received = recvfrom( mSocket, buf, sizeof( buf ), 0, NULL, NULL );
-            if( received > 0 )
-            {
-                SetPreviewGenerator( { buf, (size_t)received } );
-            }
-        }
-    } 
+        ImGui::SetNextWindowSize( viewport->WorkSize );
+        ImGui::SetNextWindowPos( ImVec2( 0, 0 ) );
+        windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings;
+    }
+    else if( nodeGraphWindow && nodeGraphWindow->Collapsed )
+    {
+        // Avoid saving over the window position when it is minimised from detach
+        windowFlags = ImGuiWindowFlags_NoSavedSettings;
+    }
+    else
+    {
+        ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode );     
+        
+        std::string simdTxt = "Current Feature Set: ";
+        simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
+        ImGui::TextUnformatted( simdTxt.c_str() );
 
-    std::string simdTxt = "Current Feature Set: ";
-    simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
-    ImGui::TextUnformatted( simdTxt.c_str() );
+        ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
 
-    ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
+        ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
+        ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
+    }
 
-    ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "Node Editor" ) )
+    if( ImGui::Begin( "Node Graph", nullptr, windowFlags ) )
     {
         UpdateSelected();
 
@@ -735,6 +862,19 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
             ImGui::EndTooltip();
         }
 
+        bool openStandalonenodeGraph = false;
+        if( !isDetachedNodeEditor )
+        {
+            ImGui::SameLine();
+            if( ImGui::Button( "Detach Node Graph" ) )
+            {
+                openStandalonenodeGraph = true;
+
+                ImGui::SetWindowCollapsed( true );
+                ImGui::GetCurrentWindow()->Pos = ImVec2( 0, 0 );
+            }
+        }
+
         ImGui::PopItemWidth();
         
         if( edited )
@@ -744,11 +884,34 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
                 node.second.GeneratePreview( false );
             }
 
-            ImGuiExtra::MarkSettingsDirty();
+            mSettingsDirty = true;
         }
 
         ImNodes::BeginNodeEditor();
-        
+
+        // Setup setting handles in zoom context
+        if( ImGui::GetFrameCount() == 1 )
+        {
+            SetupSettingsHandlers();
+            ImGui::LoadIniSettingsFromDisk( kNodeGraphSettingsFile );
+        }
+        if( mSettingsDirty )
+        {
+            ImGui::MarkIniSettingsDirty();
+            mSettingsDirty = false;
+        }
+        if( ImGui::GetIO().WantSaveIniSettings || openStandalonenodeGraph )
+        {
+            ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+            ImGui::GetIO().WantSaveIniSettings = false;
+        }
+
+        // Open this after saving settings
+        if( openStandalonenodeGraph )
+        {
+            OpenStandaloneNodeGraph();
+        }
+
         DoHelp();
 
         DoContextMenu();
@@ -786,9 +949,12 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
     DoNodeBenchmarks();
 
-    mNoiseTexture.Draw();
+    if( !isDetachedNodeEditor )
+    {
+        mNoiseTexture.Draw();
 
-    mMeshNoisePreview.Draw( transformation, projection, cameraPosition );
+        mMeshNoisePreview.Draw( transformation, projection, cameraPosition );
+    }
 }
 
 void FastNoiseNodeEditor::CheckLinks()
@@ -930,7 +1096,7 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::FeatureSet lvl )
         node.second.GeneratePreview( false );
     }
 
-    ChangeSelectedNode( mSelectedNode );
+    SetPreviewGenerator( mCachedSelectedEnt, true );
 }
 
 void FastNoiseNodeEditor::DoNodes()
@@ -1337,7 +1503,7 @@ std::string_view FastNoiseNodeEditor::GetSelectedEncodedNodeTree()
         return find->second.serialised;
     }
 
-    return "";
+    return { "" };
 }
 
 FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise )
@@ -1406,25 +1572,36 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
 
     if( !encodedNodeTree.empty() )
     {
-        struct sockaddr_in6 destAddr;
-        memset( &destAddr, 0, sizeof( destAddr ) );
-        destAddr.sin6_family = AF_INET6;
-        destAddr.sin6_port = htons( kNetPort );
-        inet_pton( AF_INET6, kNetAddress, &destAddr.sin6_addr );
+        SetPreviewGenerator( encodedNodeTree );
 
-        if( sendto( mSocket, encodedNodeTree.data(), (int)encodedNodeTree.length() + 1, 0, (struct sockaddr*)&destAddr, sizeof( destAddr ) ) )
+        // Send updated node tree via IPC
         {
-            Debug{} << "Multicast connection: Failed to send updated node tree"
+            struct sockaddr_in6 destAddr;
+            memset( &destAddr, 0, sizeof( destAddr ) );
+            destAddr.sin6_family = AF_INET6;
+            destAddr.sin6_port = htons( kNetPort );
+            inet_pton( AF_INET6, kNetAddress, &destAddr.sin6_addr );
+
+            if( sendto( mNodeEditorApp->GetIpcSocket(), encodedNodeTree.data(), (int)encodedNodeTree.length() + 1, 0, (struct sockaddr*)&destAddr, sizeof( destAddr ) ) <= 0 )
+            {
+                Debug{} << "IPv6 Multicast IPC: Failed to send updated node tree"
 #ifdef _WIN32
-            " (Error) " << WSAGetLastError()
+                            " (Error)" << WSAGetLastError()
 #endif
-            ;
+                    ;
+            }
         }
     }
 }
 
-void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree )
+void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree, bool force )
 {
+    if( !force && mCachedSelectedEnt == encodedNodeTree )
+    {
+        return;
+    }
+    mCachedSelectedEnt = encodedNodeTree;
+
     FastNoise::SmartNode<> generator = FastNoise::NewFromEncodedNodeTree( encodedNodeTree.data(), mMaxFeatureSet );
 
     if( generator )
@@ -1432,7 +1609,10 @@ void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree 
         mActualFeatureSet = generator->GetActiveFeatureSet();
     }
 
-    //mNoiseTexture.ReGenerate( generator );
-    mMeshNoisePreview.ReGenerate( generator );
+    if( !mNodeEditorApp->IsDetachedNodeGraph() )
+    {
+        mNoiseTexture.ReGenerate( generator );
+        mMeshNoisePreview.ReGenerate( generator );
+    }
 }
 
