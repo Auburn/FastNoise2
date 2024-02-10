@@ -38,7 +38,7 @@
 static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
 
 static constexpr std::uint16_t kNetPort = 46931;
-static constexpr const char* kNetAddress = "FF01:0:0:0:0:0:0:1"; // Node-local multicast
+static constexpr const char* kNetAddress = "224.0.0.153"; // Multicast group address
 
 using namespace Magnum;
 
@@ -50,7 +50,7 @@ uintptr_t FastNoiseNodeEditor::SetupIpcSocket()
     WSAStartup( MAKEWORD( 2, 2 ), &data );
 #endif
     // Create a UDP socket
-    uintptr_t ipcSocket = socket( AF_INET6, SOCK_DGRAM, IPPROTO_UDP );
+    uintptr_t ipcSocket = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
     // Mark address for reuse so multiple apps can bind the same address/port
     int reuse = 1;
@@ -64,12 +64,30 @@ uintptr_t FastNoiseNodeEditor::SetupIpcSocket()
             ;
     }
 
+    char loopback = 1; // Enable
+    if( setsockopt( ipcSocket, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback, sizeof( loopback ) ) )
+    {
+    }
+
+    // Set the multicast interface to loopback
+    in_addr loopbackAddr;
+    loopbackAddr.s_addr = htonl( INADDR_LOOPBACK ); // 127.0.0.1
+    if( setsockopt( ipcSocket, IPPROTO_IP, IP_MULTICAST_IF, (char*)&loopbackAddr, sizeof( loopbackAddr ) ) )
+    {
+        Debug {} << "IPv6 Multicast IPC: Failed to set multicast interface"
+#ifdef _WIN32
+                    " (Error)"
+                 << WSAGetLastError()
+#endif
+            ;
+    }
+
     // Define the multicast group address
-    struct sockaddr_in6 groupaddr;
+    struct sockaddr_in groupaddr;
     memset( &groupaddr, 0, sizeof( groupaddr ) );
-    groupaddr.sin6_family = AF_INET6;
-    inet_pton( AF_INET6, "::1", &groupaddr.sin6_addr ); // Listen on localhost
-    groupaddr.sin6_port = htons( kNetPort );
+    groupaddr.sin_family = AF_INET;
+    inet_pton( AF_INET, "127.0.0.1", &groupaddr.sin_addr ); // Listen on localhost
+    groupaddr.sin_port = htons( kNetPort );
     if( bind( ipcSocket, (struct sockaddr*)&groupaddr, sizeof( groupaddr ) ) )
     {
         Debug {} << "IPv6 Multicast IPC: Failed to bind localhost"
@@ -87,10 +105,10 @@ uintptr_t FastNoiseNodeEditor::SetupIpcSocket()
 #endif
 
     // Join the multicast group
-    struct ipv6_mreq group;
-    inet_pton( AF_INET6, kNetAddress, &group.ipv6mr_multiaddr ); // Node-local multicast address
-    group.ipv6mr_interface = 0; // Default interface
-    if( setsockopt( ipcSocket, IPPROTO_IPV6, IPV6_JOIN_GROUP, (char*)&group, sizeof( group ) ) )
+    struct ip_mreq group;
+    inet_pton( AF_INET, kNetAddress, &group.imr_multiaddr ); // Node-local multicast address
+    group.imr_interface.s_addr = htonl( INADDR_ANY );
+    if( setsockopt( ipcSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&group, sizeof( group ) ) )
     {
         Debug {} << "IPv6 Multicast IPC: Failed to join multicast group"
 #ifdef _WIN32
@@ -1576,11 +1594,11 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
 
         // Send updated node tree via IPC
         {
-            struct sockaddr_in6 destAddr;
+            struct sockaddr_in destAddr;
             memset( &destAddr, 0, sizeof( destAddr ) );
-            destAddr.sin6_family = AF_INET6;
-            destAddr.sin6_port = htons( kNetPort );
-            inet_pton( AF_INET6, kNetAddress, &destAddr.sin6_addr );
+            destAddr.sin_family = AF_INET;
+            destAddr.sin_port = htons( kNetPort );
+            inet_pton( AF_INET, kNetAddress, &destAddr.sin_addr );
 
             if( sendto( mNodeEditorApp->GetIpcSocket(), encodedNodeTree.data(), (int)encodedNodeTree.length() + 1, 0, (struct sockaddr*)&destAddr, sizeof( destAddr ) ) <= 0 )
             {
