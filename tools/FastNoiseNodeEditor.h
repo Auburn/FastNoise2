@@ -23,14 +23,14 @@ namespace Magnum
     class FastNoiseNodeEditor
     {
     public:
-        FastNoiseNodeEditor( NodeEditorApp* nodeEditorApp );
+        FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp );
         ~FastNoiseNodeEditor();
 
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
         void SetSIMDLevel( FastSIMD::FeatureSet lvl );
         void DoIpcPolling();
 
-        static uintptr_t SetupIpcSocket();
+        static void* SetupSharedMemoryIpc();
 
     private:
         struct Node
@@ -111,7 +111,7 @@ namespace Magnum
         FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
         Node* FindNodeFromId( int id );
         int GetFreeNodeId();
-        void SetPreviewGenerator( std::string_view encodedNodeTree, bool force = false );
+        void SetPreviewGenerator( std::string_view encodedNodeTree );
         void ChangeSelectedNode( FastNoise::NodeData* newId );
         void DeleteNode( FastNoise::NodeData* nodeData );
         void DoNodeBenchmarks();
@@ -124,7 +124,7 @@ namespace Magnum
         void DoNodes();
         void UpdateSelected();
 
-        NodeEditorApp* mNodeEditorApp;
+        NodeEditorApp& mNodeEditorApp;
 
         std::unordered_map<FastNoise::NodeData*, Node> mNodes;
         FastNoise::NodeData* mDroppedLinkNode = nullptr;
@@ -139,7 +139,7 @@ namespace Magnum
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;
 
-        std::string mCachedSelectedEnt;
+        std::string mCachedActiveEnt;
         FastNoise::NodeData* mSelectedNode = nullptr;
         Node mOverheadNode;
         int32_t mNodeBenchmarkIndex = 0;

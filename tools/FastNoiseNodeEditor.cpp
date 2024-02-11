@@ -37,117 +37,55 @@
 
 static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
 
-static constexpr std::uint16_t kNetPort = 46931;
-static constexpr const char* kNetAddress = "224.0.0.153"; // Multicast group address
-
 using namespace Magnum;
 
 // Setup network socket for IPC node tree updates
-uintptr_t FastNoiseNodeEditor::SetupIpcSocket()
+void* FastNoiseNodeEditor::SetupSharedMemoryIpc()
 {
-#ifdef _WIN32
-    WSAData data;
-    WSAStartup( MAKEWORD( 2, 2 ), &data );
-#endif
-    // Create a UDP socket
-    uintptr_t ipcSocket = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
+    // Name of the shared memory object
+    const char* sharedMemoryName = "FastNoise2NodeGraph";
+    unsigned int sharedMemorySize = 64 * 1024;
 
-    // Mark address for reuse so multiple apps can bind the same address/port
-    int reuse = 1;
-    if( setsockopt( ipcSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof( reuse ) ) )
+    // Create a shared memory file mapping
+    HANDLE hMapFile = CreateFileMapping(
+        INVALID_HANDLE_VALUE, // Use paging file - shared memory
+        NULL, // Default security attributes
+        PAGE_READWRITE, // Read/write access
+        0, // Maximum object size (high-order DWORD)
+        sharedMemorySize, // Maximum object size (low-order DWORD)
+        sharedMemoryName ); // Name of mapping object
+
+    if( hMapFile == NULL )
     {
-        Debug {} << "IPv6 Multicast IPC: Failed to mark address reusable"
-#ifdef _WIN32
-                    " (Error)"
-                 << WSAGetLastError()
-#endif
-            ;
+        Debug {} << "Failed to create IPC shared memory object";
+        return nullptr;
     }
 
-    char loopback = 1; // Enable
-    if( setsockopt( ipcSocket, IPPROTO_IP, IP_MULTICAST_LOOP, &loopback, sizeof( loopback ) ) )
-    {
-    }
-
-    // Set the multicast interface to loopback
-    in_addr loopbackAddr;
-    loopbackAddr.s_addr = htonl( INADDR_LOOPBACK ); // 127.0.0.1
-    if( setsockopt( ipcSocket, IPPROTO_IP, IP_MULTICAST_IF, (char*)&loopbackAddr, sizeof( loopbackAddr ) ) )
-    {
-        Debug {} << "IPv6 Multicast IPC: Failed to set multicast interface"
-#ifdef _WIN32
-                    " (Error)"
-                 << WSAGetLastError()
-#endif
-            ;
-    }
-
-    // Define the multicast group address
-    struct sockaddr_in groupaddr;
-    memset( &groupaddr, 0, sizeof( groupaddr ) );
-    groupaddr.sin_family = AF_INET;
-    inet_pton( AF_INET, "127.0.0.1", &groupaddr.sin_addr ); // Listen on localhost
-    groupaddr.sin_port = htons( kNetPort );
-    if( bind( ipcSocket, (struct sockaddr*)&groupaddr, sizeof( groupaddr ) ) )
-    {
-        Debug {} << "IPv6 Multicast IPC: Failed to bind localhost"
-#ifdef _WIN32
-                    " (Error)"
-                 << WSAGetLastError()
-#endif
-            ;
-    }
-
-#ifndef _WIN32
-    // Set the socket to non-blocking mode
-    int flags = fcntl( ipcSocket, F_GETFL, 0 );
-    fcntl( ipcSocket, F_SETFL, flags | O_NONBLOCK );
-#endif
-
-    // Join the multicast group
-    struct ip_mreq group;
-    inet_pton( AF_INET, kNetAddress, &group.imr_multiaddr ); // Node-local multicast address
-    group.imr_interface.s_addr = htonl( INADDR_ANY );
-    if( setsockopt( ipcSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&group, sizeof( group ) ) )
-    {
-        Debug {} << "IPv6 Multicast IPC: Failed to join multicast group"
-#ifdef _WIN32
-                    " (Error)"
-                 << WSAGetLastError()
-#endif
-            ;
-    }
-
-    return ipcSocket;
+    // Map a view of the file mapping into the address space of the current process
+    return (LPTSTR)MapViewOfFile( hMapFile, // Handle to map object
+                                  FILE_MAP_ALL_ACCESS, // Read/write permission
+                                  0,
+                                  0,
+                                  sharedMemorySize );
 }
 
 // Network UDP polling for node tree updates
 void FastNoiseNodeEditor::DoIpcPolling()
 {
-    uintptr_t ipcSocket = mNodeEditorApp->GetIpcSocket();
-    // Set up the file descriptor set
-    fd_set readfds;
-    FD_ZERO( &readfds );
-    FD_SET( ipcSocket, &readfds );
+    static int counter = 0xFFFFFF; // start with invalid counter
 
-    // Set timeout to 0 for non-blocking mode
-    struct timeval timeout;
-    timeout.tv_sec = 0; // 0 seconds
-    timeout.tv_usec = 0; // 0 microseconds -> Polling
-    int ntds = 0;
-#ifndef _WIN32
-    ntds = (int)ipcSocket + 1;
-#endif
+    const void* sharedMemory = mNodeEditorApp.GetIpcSharedMemory();
 
-    // Check if there's data to read
-    int selectResult = select( ntds, &readfds, NULL, NULL, &timeout );
-    if( selectResult > 0 && ( FD_ISSET( ipcSocket, &readfds ) ) )
+    if( sharedMemory )
     {
-        char buf[65507];
-        int received = recvfrom( ipcSocket, buf, sizeof( buf ), 0, NULL, NULL );
-        if( received > 0 )
+        const unsigned char sharedCounter = *static_cast<const unsigned char*>( sharedMemory );
+
+        if( sharedCounter != counter )
         {
-            SetPreviewGenerator( { buf, (size_t)received } );
+            counter = sharedCounter;
+            std::string newEncodedNodeTree = static_cast<const char*>( sharedMemory ) + 1;
+
+            SetPreviewGenerator( newEncodedNodeTree );
         }
     }
 }
@@ -156,7 +94,7 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 {
 #ifdef WIN32
     std::string startArgs = "\"";
-    startArgs += mNodeEditorApp->GetExecutablePath();
+    startArgs += mNodeEditorApp.GetExecutablePath();
     startArgs += "\" detached";
 
     STARTUPINFOA si;
@@ -200,7 +138,7 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
     if( pid == 0 )
     {
         // Child process
-        const char* executable = mNodeEditorApp->GetExecutablePath().data(); // Path to the current executable
+        const char* executable = mNodeEditorApp.GetExecutablePath().data(); // Path to the current executable
         execl( executable, executable, "detached", (char*)NULL );
         // If execl returns, it means it has failed
         exit( EXIT_FAILURE ); // Ensure the child process exits if execl fails
@@ -711,11 +649,11 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
     ImGuiExtra::AddOrReplaceSettingsHandler( nodeSettings );
 }
 
-FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp* nodeEditorApp ) :
+FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
     mNodeEditorApp( nodeEditorApp ),
     mOverheadNode( *this, new FastNoise::NodeData( &FastNoise::Metadata::Get<FastNoise::Constant>() ), false )
 {
-    if( !mNodeEditorApp->IsDetachedNodeGraph() )
+    if( !mNodeEditorApp.IsDetachedNodeGraph() )
     {
 #ifdef IMGUI_HAS_DOCK
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -819,7 +757,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 {
     DoIpcPolling();
 
-    bool isDetachedNodeEditor = mNodeEditorApp->IsDetachedNodeGraph();
+    bool isDetachedNodeEditor = mNodeEditorApp.IsDetachedNodeGraph();
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
     ImGuiWindowFlags windowFlags = 0;
@@ -1114,7 +1052,7 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::FeatureSet lvl )
         node.second.GeneratePreview( false );
     }
 
-    SetPreviewGenerator( mCachedSelectedEnt, true );
+    SetPreviewGenerator( mCachedActiveEnt );
 }
 
 void FastNoiseNodeEditor::DoNodes()
@@ -1590,47 +1528,57 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
 
     if( !encodedNodeTree.empty() )
     {
-        SetPreviewGenerator( encodedNodeTree );
-
         // Send updated node tree via IPC
-        {
-            struct sockaddr_in destAddr;
-            memset( &destAddr, 0, sizeof( destAddr ) );
-            destAddr.sin_family = AF_INET;
-            destAddr.sin_port = htons( kNetPort );
-            inet_pton( AF_INET, kNetAddress, &destAddr.sin_addr );
+        unsigned char* sharedMemory = static_cast<unsigned char*>( mNodeEditorApp.GetIpcSharedMemory() );
 
-            if( sendto( mNodeEditorApp->GetIpcSocket(), encodedNodeTree.data(), (int)encodedNodeTree.length() + 1, 0, (struct sockaddr*)&destAddr, sizeof( destAddr ) ) <= 0 )
-            {
-                Debug{} << "IPv6 Multicast IPC: Failed to send updated node tree"
-#ifdef _WIN32
-                            " (Error)" << WSAGetLastError()
-#endif
-                    ;
-            }
+        if( sharedMemory )
+        {
+            memcpy( sharedMemory + 1, encodedNodeTree.data(), encodedNodeTree.length() + 1 );
+            sharedMemory[0]++; // Increment counter to mark updated tree
+        }
+        else
+        {
+            SetPreviewGenerator( encodedNodeTree );
         }
     }
 }
 
-void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree, bool force )
+void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree )
 {
-    if( !force && mCachedSelectedEnt == encodedNodeTree )
+    auto SetActiveEnt = [this]( std::string_view encodedNodeTree )
     {
-        return;
-    }
-    mCachedSelectedEnt = encodedNodeTree;
+        if( GetSelectedEncodedNodeTree() != encodedNodeTree )
+        {
+            mSelectedNode = nullptr;
+        }
+
+        mCachedActiveEnt = encodedNodeTree;
+    };
 
     FastNoise::SmartNode<> generator = FastNoise::NewFromEncodedNodeTree( encodedNodeTree.data(), mMaxFeatureSet );
 
     if( generator )
     {
         mActualFeatureSet = generator->GetActiveFeatureSet();
-    }
 
-    if( !mNodeEditorApp->IsDetachedNodeGraph() )
+        if( !mNodeEditorApp.IsDetachedNodeGraph() )
+        {
+            mNoiseTexture.ReGenerate( generator );
+            mMeshNoisePreview.ReGenerate( generator );
+        }
+
+        if( !encodedNodeTree.empty() )
+        {
+            SetActiveEnt( encodedNodeTree );
+        }
+    }
+    else if( encodedNodeTree.empty() )
     {
-        mNoiseTexture.ReGenerate( generator );
-        mMeshNoisePreview.ReGenerate( generator );
+        SetActiveEnt( encodedNodeTree );
+    }
+    else
+    {
+        Debug {} << "Invalid encoded node tree";
     }
 }
 

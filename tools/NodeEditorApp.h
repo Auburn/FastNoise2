@@ -23,9 +23,9 @@ namespace Magnum
             return mIsDetachedNodeGraph;
         }
 
-        uintptr_t GetIpcSocket()
+        void* GetIpcSharedMemory()
         {
-            return mIpcSocket;
+            return mIpcSharedMemory;
         }
 
         std::string_view GetExecutablePath()
@@ -50,7 +50,7 @@ namespace Magnum
 
         bool mIsDetachedNodeGraph;
         std::string mExecutablePath;
-        uintptr_t mIpcSocket;
+        void* mIpcSharedMemory;
 
         SceneGraph::Object<SceneGraph::MatrixTransformation3D> mCameraObject;
         SceneGraph::Camera3D mCamera{ mCameraObject };

@@ -32,10 +32,10 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     },
     mIsDetachedNodeGraph( arguments.argc > 1 ),
     mExecutablePath( arguments.argv[0] ),
-    mIpcSocket( FastNoiseNodeEditor::SetupIpcSocket() ),
+    mIpcSharedMemory( FastNoiseNodeEditor::SetupSharedMemoryIpc() ),
     mImGuiIntegrationContext{ NoCreate },
     mImGuiContext{ ImGui::CreateContext() },
-    mNodeEditor( this )
+    mNodeEditor( *this )
 {
     InitResources();
 
@@ -107,7 +107,7 @@ void NodeEditorApp::drawEvent()
             {
                 ImGui::ClearIniSettings();
                 mNodeEditor.~FastNoiseNodeEditor();
-                new( &mNodeEditor ) FastNoiseNodeEditor( this );
+                new( &mNodeEditor ) FastNoiseNodeEditor( *this );
                 ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
             }
 
