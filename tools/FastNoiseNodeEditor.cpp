@@ -79,7 +79,11 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
     if( pid < 0 )
 #endif
     {
-        Debug {} << "Failed to launch standalone node graph process";
+        Debug {} << "Failed to launch standalone node graph process"
+#ifdef WIN32
+            << GetLastError()
+#endif
+        ;
     }
 }
 
