@@ -1468,10 +1468,18 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
         // Send updated node tree via IPC
         unsigned char* sharedMemory = static_cast<unsigned char*>( mNodeEditorApp.GetIpcSharedMemory() );
 
+        if( encodedNodeTree.length() + 3 >= kSharedMemorySize )
+        {
+            Debug {} << "Encoded node tree too large to send via IPC " << encodedNodeTree.length();
+            sharedMemory = nullptr;
+        }
+
         if( sharedMemory )
         {
             memcpy( sharedMemory + 2, encodedNodeTree.data(), encodedNodeTree.length() + 1 );
             sharedMemory[1] = 0;
+
+            std::atomic_thread_fence( std::memory_order_acq_rel );
             sharedMemory[0]++; // Increment counter to mark updated tree
         }
         else
