@@ -4,9 +4,9 @@ name: CI
 # events but only for the master branch
 on:
   push:
-    branches: [master,NewFastSIMD]
-  pull_request:
     branches: [master]
+  pull_request:
+    branches: [master,NewFastSIMD]
   release:
     types: [published]
 
