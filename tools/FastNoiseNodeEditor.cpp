@@ -17,78 +17,11 @@
 #include "DemoNodeTrees.inl"
 #include "NodeEditorApp.h"
 
-// Networking
-
-#ifdef _WIN32
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
-#pragma comment( lib, "Ws2_32.lib" )
-#else
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h> // For setting non-blocking mode
-#include <unistd.h>
-#endif
-
-static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
-
 using namespace Magnum;
 
-// Setup network socket for IPC node tree updates
-void* FastNoiseNodeEditor::SetupSharedMemoryIpc()
-{
-    // Name of the shared memory object
-    const char* sharedMemoryName = "FastNoise2NodeGraph";
-    unsigned int sharedMemorySize = 64 * 1024;
+#include "SharedMemoryIpc.inl"
 
-    // Create a shared memory file mapping
-    HANDLE hMapFile = CreateFileMapping(
-        INVALID_HANDLE_VALUE, // Use paging file - shared memory
-        NULL, // Default security attributes
-        PAGE_READWRITE, // Read/write access
-        0, // Maximum object size (high-order DWORD)
-        sharedMemorySize, // Maximum object size (low-order DWORD)
-        sharedMemoryName ); // Name of mapping object
-
-    if( hMapFile == NULL )
-    {
-        Debug {} << "Failed to create IPC shared memory object";
-        return nullptr;
-    }
-
-    // Map a view of the file mapping into the address space of the current process
-    return (LPTSTR)MapViewOfFile( hMapFile, // Handle to map object
-                                  FILE_MAP_ALL_ACCESS, // Read/write permission
-                                  0,
-                                  0,
-                                  sharedMemorySize );
-}
-
-// Network UDP polling for node tree updates
-void FastNoiseNodeEditor::DoIpcPolling()
-{
-    static int counter = 0xFFFFFF; // start with invalid counter
-
-    const void* sharedMemory = mNodeEditorApp.GetIpcSharedMemory();
-
-    if( sharedMemory )
-    {
-        const unsigned char sharedCounter = *static_cast<const unsigned char*>( sharedMemory );
-
-        if( sharedCounter != counter )
-        {
-            counter = sharedCounter;
-            std::string newEncodedNodeTree = static_cast<const char*>( sharedMemory ) + 1;
-
-            SetPreviewGenerator( newEncodedNodeTree );
-        }
-    }
-}
+static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
 
 void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 {
@@ -1533,7 +1466,8 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
 
         if( sharedMemory )
         {
-            memcpy( sharedMemory + 1, encodedNodeTree.data(), encodedNodeTree.length() + 1 );
+            memcpy( sharedMemory + 2, encodedNodeTree.data(), encodedNodeTree.length() + 1 );
+            sharedMemory[1] = 0;
             sharedMemory[0]++; // Increment counter to mark updated tree
         }
         else

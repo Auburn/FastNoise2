@@ -31,6 +31,7 @@ namespace Magnum
         void DoIpcPolling();
 
         static void* SetupSharedMemoryIpc();
+        static void ReleaseSharedMemoryIpc();
 
     private:
         struct Node

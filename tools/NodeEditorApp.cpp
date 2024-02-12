@@ -86,6 +86,8 @@ NodeEditorApp::~NodeEditorApp()
     // Avoid trying to save settings after node editor is already destroyed
     ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
     ImGui::GetIO().IniFilename = nullptr;
+
+    FastNoiseNodeEditor::ReleaseSharedMemoryIpc();
 }
 
 void NodeEditorApp::drawEvent()
