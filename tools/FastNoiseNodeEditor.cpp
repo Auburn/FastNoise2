@@ -1,6 +1,7 @@
 #include <sstream>
 #include <random>
 #include <cstdio>
+#include <atomic>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -28,7 +29,7 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 #ifdef WIN32
     std::string startArgs = "\"";
     startArgs += mNodeEditorApp.GetExecutablePath();
-    startArgs += "\" detached";
+    startArgs += "\" -detached";
 
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
@@ -72,7 +73,7 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
     {
         // Child process
         const char* executable = mNodeEditorApp.GetExecutablePath().data(); // Path to the current executable
-        execl( executable, executable, "detached", (char*)NULL );
+        execl( executable, executable, "-detached", (char*)NULL );
         // If execl returns, it means it has failed
         exit( EXIT_FAILURE ); // Ensure the child process exits if execl fails
     }

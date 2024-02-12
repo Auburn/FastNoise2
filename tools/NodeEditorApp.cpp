@@ -21,16 +21,21 @@ void InitResources()
 #endif
 }
 
+static bool IsDetached( const NodeEditorApp::Arguments& arguments )
+{
+    return arguments.argc > 1 && std::string_view { arguments.argv[1] } == "-detached";
+}
+
 NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
-    Configuration{}
-    .setTitle( arguments.argc > 1 ? "FastNoise2 Node Graph" : "FastNoise2 Node Editor" )
-    .setSize( Vector2i( 1280, 720 ) )
-    .setWindowFlags( Configuration::WindowFlag::Resizable | (arguments.argc > 1 ? (Configuration::WindowFlag)0 : Configuration::WindowFlag::Maximized ) ),
-    GLConfiguration{}
-    .setSampleCount( 4 )
+        Configuration{}
+        .setTitle( IsDetached( arguments ) ? "FastNoise2 Node Graph" : "FastNoise2 Node Editor" )
+        .setSize( Vector2i( 1280, 720 ) )
+        .setWindowFlags( Configuration::WindowFlag::Resizable | ( IsDetached( arguments ) ? (Configuration::WindowFlag)0 : Configuration::WindowFlag::Maximized ) ),
+        GLConfiguration{}
+        .setSampleCount( 4 )
     },
-    mIsDetachedNodeGraph( arguments.argc > 1 ),
+    mIsDetachedNodeGraph( IsDetached( arguments ) ),
     mExecutablePath( arguments.argv[0] ),
     mIpcSharedMemory( FastNoiseNodeEditor::SetupSharedMemoryIpc() ),
     mImGuiIntegrationContext{ NoCreate },
