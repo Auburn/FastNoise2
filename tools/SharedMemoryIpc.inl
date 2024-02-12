@@ -9,7 +9,7 @@
 #include <unistd.h>
 #endif
 
-static constexpr const char* kSharedMemoryName = "FastNoise2NodeEditor";
+static constexpr const char* kSharedMemoryName = "/FastNoise2NodeEditor";
 static constexpr unsigned int kSharedMemorySize = 64 * 1024;
 
 // Setup shared memory for IPC selected node ENT updates
@@ -56,8 +56,11 @@ void* FastNoiseNodeEditor::SetupSharedMemoryIpc()
     // Configure the size of the shared memory object
     if( ftruncate( shmFd, kSharedMemorySize ) == -1 )
     {
-        Debug {} << "Failed to config IPC shared memory object";
-        return nullptr;
+        if( errno != EINVAL ) // If the error is not just because it's already the right size
+        {
+            Debug {} << "Failed to config IPC shared memory object";
+            return nullptr;
+        }
     }
 
     // Memory map the shared memory object

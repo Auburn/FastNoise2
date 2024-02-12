@@ -692,6 +692,15 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+#ifndef WIN32
+    static pid_t parentPid = getppid();
+
+    if( getppid() != parentPid ) 
+    {
+        mNodeEditorApp.exit();
+    }
+#endif
+
     DoIpcPolling();
 
     bool isDetachedNodeEditor = mNodeEditorApp.IsDetachedNodeGraph();
