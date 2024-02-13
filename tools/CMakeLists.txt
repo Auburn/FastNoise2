@@ -73,7 +73,7 @@ find_package(ImGui REQUIRED SourcesMiscCpp)
 CPMAddPackage(
     NAME imnodes
     GITHUB_REPOSITORY Auburn/imnodes
-    GIT_TAG 32e2136a0f79ab96537088b8a757618a90bf8785
+    GIT_TAG 4ccaf656b09fd6b69bdac36f2532756760bd0aa3
     GIT_SUBMODULES ".github"
     EXCLUDE_FROM_ALL YES
     OPTIONS

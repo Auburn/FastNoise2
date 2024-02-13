@@ -1,6 +1,7 @@
 #include <sstream>
 #include <random>
 #include <cstdio>
+#include <atomic>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -15,8 +16,77 @@
 #include "ImGuiExtra.h"
 #include "FastNoiseNodeEditor.h"
 #include "DemoNodeTrees.inl"
+#include "NodeEditorApp.h"
 
 using namespace Magnum;
+
+#include "SharedMemoryIpc.inl"
+
+static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
+
+void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
+{
+#ifdef WIN32
+    std::string startArgs = "\"";
+    startArgs += mNodeEditorApp.GetExecutablePath();
+    startArgs += "\" -detached";
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+
+    ZeroMemory( &si, sizeof( si ) );
+    si.cb = sizeof( si );
+    ZeroMemory( &pi, sizeof( pi ) );
+
+    // Create a job object
+    HANDLE hJob = CreateJobObject( NULL, NULL );
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+
+    // Configure the job object to terminate processes when the handle is closed
+    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    SetInformationJobObject( hJob, JobObjectExtendedLimitInformation, &jeli, sizeof( jeli ) );
+
+    // Start the child process.
+    if( CreateProcessA( NULL, // No module name (use command line)
+                         (LPSTR)startArgs.data(), // Command line
+                         NULL, // Process handle not inheritable
+                         NULL, // Thread handle not inheritable
+                         FALSE, // Set handle inheritance to FALSE
+                         0, // No creation flags
+                         NULL, // Use parent's environment block
+                         NULL, // Use parent's starting directory
+                         &si, // Pointer to STARTUPINFO structure
+                         &pi ) ) // Pointer to PROCESS_INFORMATION structure
+    {
+        // Assign the child process to the job object
+        AssignProcessToJobObject( hJob, pi.hProcess );
+
+        // Close handles to the child process and primary thread
+        CloseHandle( pi.hProcess );
+        CloseHandle( pi.hThread );
+    }
+    else
+#else
+    pid_t pid = fork(); // Duplicate current process
+
+    if( pid == 0 )
+    {
+        // Child process
+        const char* executable = mNodeEditorApp.GetExecutablePath().data(); // Path to the current executable
+        execl( executable, executable, "-detached", (char*)NULL );
+        // If execl returns, it means it has failed
+        exit( EXIT_FAILURE ); // Ensure the child process exits if execl fails
+    }
+    if( pid < 0 )
+#endif
+    {
+        Debug {} << "Failed to launch standalone node graph process"
+#ifdef WIN32
+            << GetLastError()
+#endif
+        ;
+    }
+}
 
 static bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
 {
@@ -196,7 +266,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
         }
 
         // Save nodes to ini
-        ImGuiExtra::MarkSettingsDirty();
+        editor.mSettingsDirty = true;
     }
 }
 
@@ -517,14 +587,18 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
     ImGuiExtra::AddOrReplaceSettingsHandler( nodeSettings );
 }
 
-FastNoiseNodeEditor::FastNoiseNodeEditor() :
+FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
+    mNodeEditorApp( nodeEditorApp ),
     mOverheadNode( *this, new FastNoise::NodeData( &FastNoise::Metadata::Get<FastNoise::Constant>() ), false )
 {
+    if( !mNodeEditorApp.IsDetachedNodeGraph() )
+    {
 #ifdef IMGUI_HAS_DOCK
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 #endif
-    ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+        ImGui::GetIO().ConfigWindowsResizeFromEdges = true;
+    }
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
@@ -539,8 +613,6 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
 #ifndef NDEBUG
     mNodeBenchmarkMax = 1;
 #endif
-    
-    SetupSettingsHandlers();
 
     // Create Metadata context menu tree
     std::unordered_map<std::string, MetadataMenuGroup*> groupMap;
@@ -578,6 +650,17 @@ FastNoiseNodeEditor::FastNoiseNodeEditor() :
     }    
 }
 
+FastNoiseNodeEditor::~FastNoiseNodeEditor()
+{
+    // Go into node graph context and trigger save
+    ImGuiContext* currentContext = ImGui::GetCurrentContext();
+    ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
+    ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+    ImGui::SetCurrentContext( currentContext );
+
+    ImNodes::DestroyContext();
+}
+
 void FastNoiseNodeEditor::DoNodeBenchmarks()
 {
     // Benchmark overhead every frame to keep it accurate
@@ -610,18 +693,49 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
+#ifndef WIN32
+    static pid_t parentPid = getppid();
+
+    if( getppid() != parentPid ) 
+    {
+        mNodeEditorApp.exit();
+    }
+#endif
+
+    DoIpcPolling();
+
+    bool isDetachedNodeEditor = mNodeEditorApp.IsDetachedNodeGraph();
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode ); 
 
-    std::string simdTxt = "Current Feature Set: ";
-    simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
-    ImGui::TextUnformatted( simdTxt.c_str() );
+    ImGuiWindowFlags windowFlags = 0;
+    ImGuiWindow* nodeGraphWindow = ImGui::FindWindowByName( "Node Graph" );
 
-    ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
+    if( isDetachedNodeEditor )
+    {
+        ImGui::SetNextWindowSize( viewport->WorkSize );
+        ImGui::SetNextWindowPos( ImVec2( 0, 0 ) );
+        windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings;
+    }
+    else if( nodeGraphWindow && nodeGraphWindow->Collapsed )
+    {
+        // Avoid saving over the window position when it is minimised from detach
+        windowFlags = ImGuiWindowFlags_NoSavedSettings;
+    }
+    else
+    {
+        ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode );     
+        
+        std::string simdTxt = "Current Feature Set: ";
+        simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
+        ImGui::TextUnformatted( simdTxt.c_str() );
 
-    ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
-    ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
-    if( ImGui::Begin( "Node Editor" ) )
+        ImGui::DragInt( "Node Benchmark Count", &mNodeBenchmarkMax, 8, 8, 64 * 1024 );
+
+        ImGui::SetNextWindowSize( ImVec2( 963, 634 ), ImGuiCond_FirstUseEver );
+        ImGui::SetNextWindowPos( ImVec2( 8, 439 ), ImGuiCond_FirstUseEver );
+    }
+
+    if( ImGui::Begin( "Node Graph", nullptr, windowFlags ) )
     {
         UpdateSelected();
 
@@ -651,6 +765,19 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
             ImGui::EndTooltip();
         }
 
+        bool openStandalonenodeGraph = false;
+        if( !isDetachedNodeEditor )
+        {
+            ImGui::SameLine();
+            if( ImGui::Button( "Detach Node Graph" ) )
+            {
+                openStandalonenodeGraph = true;
+
+                ImGui::SetWindowCollapsed( true );
+                ImGui::GetCurrentWindow()->Pos = ImVec2( 0, 0 );
+            }
+        }
+
         ImGui::PopItemWidth();
         
         if( edited )
@@ -660,11 +787,34 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
                 node.second.GeneratePreview( false );
             }
 
-            ImGuiExtra::MarkSettingsDirty();
+            mSettingsDirty = true;
         }
 
         ImNodes::BeginNodeEditor();
-        
+
+        // Setup setting handles in zoom context
+        if( ImGui::GetFrameCount() == 1 )
+        {
+            SetupSettingsHandlers();
+            ImGui::LoadIniSettingsFromDisk( kNodeGraphSettingsFile );
+        }
+        if( mSettingsDirty )
+        {
+            ImGui::MarkIniSettingsDirty();
+            mSettingsDirty = false;
+        }
+        if( ImGui::GetIO().WantSaveIniSettings || openStandalonenodeGraph )
+        {
+            ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+            ImGui::GetIO().WantSaveIniSettings = false;
+        }
+
+        // Open this after saving settings
+        if( openStandalonenodeGraph )
+        {
+            OpenStandaloneNodeGraph();
+        }
+
         DoHelp();
 
         DoContextMenu();
@@ -702,9 +852,12 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
     DoNodeBenchmarks();
 
-    mNoiseTexture.Draw();
+    if( !isDetachedNodeEditor )
+    {
+        mNoiseTexture.Draw();
 
-    mMeshNoisePreview.Draw( transformation, projection, cameraPosition );
+        mMeshNoisePreview.Draw( transformation, projection, cameraPosition );
+    }
 }
 
 void FastNoiseNodeEditor::CheckLinks()
@@ -846,7 +999,7 @@ void FastNoiseNodeEditor::SetSIMDLevel( FastSIMD::FeatureSet lvl )
         node.second.GeneratePreview( false );
     }
 
-    ChangeSelectedNode( mSelectedNode );
+    SetPreviewGenerator( mCachedActiveEnt );
 }
 
 void FastNoiseNodeEditor::DoNodes()
@@ -1244,25 +1397,16 @@ void FastNoiseNodeEditor::DoContextMenu()
     ImGui::PopStyleVar();
 }
 
-FastNoise::SmartNode<> FastNoiseNodeEditor::GenerateSelectedPreview()
+std::string_view FastNoiseNodeEditor::GetSelectedEncodedNodeTree()
 {
     auto find = mNodes.find( mSelectedNode );
 
-    FastNoise::SmartNode<> generator;
-
     if( find != mNodes.end() )
     {
-        generator = FastNoise::NewFromEncodedNodeTree( find->second.serialised.c_str(), mMaxFeatureSet );
-
-        if( generator )
-        {
-            mActualFeatureSet = generator->GetActiveFeatureSet();
-        }
+        return find->second.serialised;
     }
 
-    mNoiseTexture.ReGenerate( generator );
-
-    return generator;
+    return { "" };
 }
 
 FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise )
@@ -1327,10 +1471,70 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
 {
     mSelectedNode = newId;
 
-    FastNoise::SmartNode<> generator = GenerateSelectedPreview();
+    std::string_view encodedNodeTree = GetSelectedEncodedNodeTree();
+
+    if( !encodedNodeTree.empty() )
+    {
+        // Send updated node tree via IPC
+        unsigned char* sharedMemory = static_cast<unsigned char*>( mNodeEditorApp.GetIpcSharedMemory() );
+
+        if( encodedNodeTree.length() + 3 >= kSharedMemorySize )
+        {
+            Debug {} << "Encoded node tree too large to send via IPC " << encodedNodeTree.length();
+            sharedMemory = nullptr;
+        }
+
+        if( sharedMemory )
+        {
+            memcpy( sharedMemory + 2, encodedNodeTree.data(), encodedNodeTree.length() + 1 );
+            sharedMemory[1] = 0;
+
+            std::atomic_thread_fence( std::memory_order_acq_rel );
+            sharedMemory[0]++; // Increment counter to mark updated tree
+        }
+        else
+        {
+            SetPreviewGenerator( encodedNodeTree );
+        }
+    }
+}
+
+void FastNoiseNodeEditor::SetPreviewGenerator( std::string_view encodedNodeTree )
+{
+    auto SetActiveEnt = [this]( std::string_view encodedNodeTree )
+    {
+        if( GetSelectedEncodedNodeTree() != encodedNodeTree )
+        {
+            mSelectedNode = nullptr;
+        }
+
+        mCachedActiveEnt = encodedNodeTree;
+    };
+
+    FastNoise::SmartNode<> generator = FastNoise::NewFromEncodedNodeTree( encodedNodeTree.data(), mMaxFeatureSet );
 
     if( generator )
     {
-        mMeshNoisePreview.ReGenerate( generator );
+        mActualFeatureSet = generator->GetActiveFeatureSet();
+
+        if( !mNodeEditorApp.IsDetachedNodeGraph() )
+        {
+            mNoiseTexture.ReGenerate( generator );
+            mMeshNoisePreview.ReGenerate( generator );
+        }
+
+        if( !encodedNodeTree.empty() )
+        {
+            SetActiveEnt( encodedNodeTree );
+        }
+    }
+    else if( encodedNodeTree.empty() )
+    {
+        SetActiveEnt( encodedNodeTree );
+    }
+    else
+    {
+        Debug {} << "Invalid encoded node tree";
     }
 }
+
