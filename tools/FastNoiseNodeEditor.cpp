@@ -558,6 +558,13 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         outBuf->appendf( "scale=%f\n", nodeEditor->mNodeScale );
         outBuf->appendf( "seed=%d\n", nodeEditor->mNodeSeed );
         outBuf->appendf( "gen_type=%d\n", (int)nodeEditor->mNodeGenType );
+        
+        auto find = nodeEditor->mNodes.find( nodeEditor->mSelectedNode );
+
+        if( find != nodeEditor->mNodes.end() )
+        {
+            outBuf->appendf( "selected_node=%d\n", find->second.nodeId );
+        }
     };
     editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void*
     {
@@ -581,10 +588,22 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
         sscanf( line, "scale=%f", &nodeEditor->mNodeScale );
         sscanf( line, "seed=%d", &nodeEditor->mNodeSeed );
         sscanf( line, "gen_type=%d", (int*)&nodeEditor->mNodeGenType );
+
+        if( nodeEditor->mNodeEditorApp.IsDetachedNodeGraph() )
+        {
+            int i;
+            if( sscanf( line, "selected_node=%d", &i ) == 1 )
+            {
+                if( Node* selectedNode = nodeEditor->FindNodeFromId( i ) )
+                {
+                    nodeEditor->mSelectedNode = selectedNode->data.get();
+                }
+            }
+        }
     };
 
-    ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );
     ImGuiExtra::AddOrReplaceSettingsHandler( nodeSettings );
+    ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );
 }
 
 FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
