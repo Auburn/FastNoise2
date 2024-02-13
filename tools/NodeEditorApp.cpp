@@ -21,17 +21,26 @@ void InitResources()
 #endif
 }
 
+static bool IsDetached( const NodeEditorApp::Arguments& arguments )
+{
+    return arguments.argc > 1 && std::string_view { arguments.argv[1] } == "-detached";
+}
+
 NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
-    Configuration{}
-    .setTitle( "FastNoise2 Node Editor" )
-    .setSize( Vector2i( 1280, 720 ) )
-    .setWindowFlags( Configuration::WindowFlag::Resizable | Configuration::WindowFlag::Maximized ),
-    GLConfiguration{}
-    .setSampleCount( 4 )
+        Configuration{}
+        .setTitle( IsDetached( arguments ) ? "FastNoise2 Node Graph" : "FastNoise2 Node Editor" )
+        .setSize( Vector2i( 1280, 720 ) )
+        .setWindowFlags( Configuration::WindowFlag::Resizable | ( IsDetached( arguments ) ? (Configuration::WindowFlag)0 : Configuration::WindowFlag::Maximized ) ),
+        GLConfiguration{}
+        .setSampleCount( 4 )
     },
+    mIsDetachedNodeGraph( IsDetached( arguments ) ),
+    mExecutablePath( arguments.argv[0] ),
+    mIpcSharedMemory( FastNoiseNodeEditor::SetupSharedMemoryIpc() ),
     mImGuiIntegrationContext{ NoCreate },
-    mImGuiContext{ ImGui::CreateContext() }
+    mImGuiContext{ ImGui::CreateContext() },
+    mNodeEditor( *this )
 {
     InitResources();
 
@@ -82,6 +91,8 @@ NodeEditorApp::~NodeEditorApp()
     // Avoid trying to save settings after node editor is already destroyed
     ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
     ImGui::GetIO().IniFilename = nullptr;
+
+    FastNoiseNodeEditor::ReleaseSharedMemoryIpc();
 }
 
 void NodeEditorApp::drawEvent()
@@ -96,74 +107,77 @@ void NodeEditorApp::drawEvent()
     else if( !ImGui::GetIO().WantTextInput && isTextInputActive() )
         stopTextInput();
 
+    if( !mIsDetachedNodeGraph )
     {
-        if( ImGui::Button( "Reset State" ) )
         {
-            ImGui::ClearIniSettings();
-            mNodeEditor.~FastNoiseNodeEditor();
-            new( &mNodeEditor ) FastNoiseNodeEditor();
-            ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
+            if( ImGui::Button( "Reset State" ) )
+            {
+                ImGui::ClearIniSettings();
+                mNodeEditor.~FastNoiseNodeEditor();
+                new( &mNodeEditor ) FastNoiseNodeEditor( *this );
+                ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
+            }
+
+            if( ImGui::ColorEdit3( "Clear Color", mClearColor.data() ) )
+                GL::Renderer::setClearColor( mClearColor );
+
+            ImGui::Checkbox( "Backface Culling", &mBackFaceCulling );
+
+            ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
+                         1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
+
+            if( ImGui::Combo( "Max Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
+                ImGuiExtra::ScrollCombo( &mMaxFeatureSet, (int)mFeatureSetSelection.size() ) )
+            {
+                FastSIMD::FeatureSet newLevel = mFeatureSetSelection[mMaxFeatureSet];
+                mNodeEditor.SetSIMDLevel( newLevel );
+            }
         }
 
-        if( ImGui::ColorEdit3( "Clear Color", mClearColor.data() ) )
-            GL::Renderer::setClearColor( mClearColor );
-
-        ImGui::Checkbox( "Backface Culling", &mBackFaceCulling );
-
-        ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
-            1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
-
-        if( ImGui::Combo( "Max Feature Set", &mMaxFeatureSet, mFeatureSetNames.data(), (int)mFeatureSetSelection.size() ) ||
-            ImGuiExtra::ScrollCombo( &mMaxFeatureSet, (int)mFeatureSetSelection.size() ) )
-        {   
-            FastSIMD::FeatureSet newLevel = mFeatureSetSelection[mMaxFeatureSet];
-            mNodeEditor.SetSIMDLevel( newLevel );
+        // Update camera pos
+        Vector3 cameraVelocity( 0 );
+        if( mKeyDown[Key_W] || mKeyDown[Key_Up] )
+        {
+            cameraVelocity.z() -= 1.0f;
         }
-    }
+        if( mKeyDown[Key_S] || mKeyDown[Key_Down] )
+        {
+            cameraVelocity.z() += 1.0f;
+        }
+        if( mKeyDown[Key_A] || mKeyDown[Key_Left] )
+        {
+            cameraVelocity.x() -= 1.0f;
+        }
+        if( mKeyDown[Key_D] || mKeyDown[Key_Right] )
+        {
+            cameraVelocity.x() += 1.0f;
+        }
+        if( mKeyDown[Key_Q] || mKeyDown[Key_PgDn] )
+        {
+            cameraVelocity.y() -= 1.0f;
+        }
+        if( mKeyDown[Key_E] || mKeyDown[Key_PgUp] )
+        {
+            cameraVelocity.y() += 1.0f;
+        }
+        if( mKeyDown[Key_RShift] || mKeyDown[Key_LShift] )
+        {
+            cameraVelocity *= 4.0f;
+        }
 
-    // Update camera pos
-    Vector3 cameraVelocity( 0 );
-    if( mKeyDown[Key_W] || mKeyDown[Key_Up] )
-    {
-        cameraVelocity.z() -= 1.0f;
-    }
-    if( mKeyDown[Key_S] || mKeyDown[Key_Down] )
-    {
-        cameraVelocity.z() += 1.0f;
-    }
-    if( mKeyDown[Key_A] || mKeyDown[Key_Left] )
-    {
-        cameraVelocity.x() -= 1.0f;
-    }
-    if( mKeyDown[Key_D] || mKeyDown[Key_Right] )
-    {
-        cameraVelocity.x() += 1.0f;
-    }
-    if( mKeyDown[Key_Q] || mKeyDown[Key_PgDn] )
-    {
-        cameraVelocity.y() -= 1.0f;
-    }
-    if( mKeyDown[Key_E] || mKeyDown[Key_PgUp] )
-    {
-        cameraVelocity.y() += 1.0f;
-    }
-    if( mKeyDown[Key_RShift] || mKeyDown[Key_LShift] )
-    {
-        cameraVelocity *= 4.0f;
-    }
+        cameraVelocity *= mFrameTime.previousFrameDuration() * 80.0f;
 
-    cameraVelocity *= mFrameTime.previousFrameDuration() * 80.0f;
+        if( !cameraVelocity.isZero() )
+        {
+            Matrix4 transform = mCameraObject.transformation();
+            transform.translation() += transform.rotation() * cameraVelocity;
+            mCameraObject.setTransformation( transform );
+        }
 
-    if( !cameraVelocity.isZero() ) 
-    {
-        Matrix4 transform = mCameraObject.transformation();
-        transform.translation() += transform.rotation() * cameraVelocity;
-        mCameraObject.setTransformation( transform );
-    }
-
-    if( mBackFaceCulling )
-    {
-        GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
+        if( mBackFaceCulling )
+        {
+            GL::Renderer::enable( GL::Renderer::Feature::FaceCulling );
+        }
     }
 
     mNodeEditor.Draw( mCamera.cameraMatrix(), mCamera.projectionMatrix(), mCameraObject.transformation().translation() );

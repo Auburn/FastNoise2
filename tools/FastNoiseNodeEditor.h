@@ -18,12 +18,20 @@
 
 namespace Magnum
 {
+    class NodeEditorApp;
+
     class FastNoiseNodeEditor
     {
     public:
-        FastNoiseNodeEditor();
+        FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp );
+        ~FastNoiseNodeEditor();
+
         void Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition );
         void SetSIMDLevel( FastSIMD::FeatureSet lvl );
+        void DoIpcPolling();
+
+        static void* SetupSharedMemoryIpc();
+        static void ReleaseSharedMemoryIpc();
 
     private:
         struct Node
@@ -100,20 +108,24 @@ namespace Magnum
 
         Node& AddNode( ImVec2 startPos, const FastNoise::Metadata* metadata, bool generatePreview = true );
         bool AddNodeFromEncodedString( const char* string, ImVec2 nodePos );
-        FastNoise::SmartNode<> GenerateSelectedPreview();
+        std::string_view GetSelectedEncodedNodeTree();
         FastNoise::OutputMinMax GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise );
         Node* FindNodeFromId( int id );
         int GetFreeNodeId();
+        void SetPreviewGenerator( std::string_view encodedNodeTree );
         void ChangeSelectedNode( FastNoise::NodeData* newId );
         void DeleteNode( FastNoise::NodeData* nodeData );
         void DoNodeBenchmarks();
         void SetupSettingsHandlers();
+        void OpenStandaloneNodeGraph();
 
         void CheckLinks();
         void DoHelp();
         void DoContextMenu();
         void DoNodes();
         void UpdateSelected();
+
+        NodeEditorApp& mNodeEditorApp;
 
         std::unordered_map<FastNoise::NodeData*, Node> mNodes;
         FastNoise::NodeData* mDroppedLinkNode = nullptr;
@@ -123,10 +135,12 @@ namespace Magnum
         std::vector<std::unique_ptr<MetadataMenu>> mContextMetadata;
         std::string mImportNodeString;
         bool mImportNodeModal = false;
+        bool mSettingsDirty = false;
 
         MeshNoisePreview mMeshNoisePreview;
         NoiseTexture mNoiseTexture;
 
+        std::string mCachedActiveEnt;
         FastNoise::NodeData* mSelectedNode = nullptr;
         Node mOverheadNode;
         int32_t mNodeBenchmarkIndex = 0;
