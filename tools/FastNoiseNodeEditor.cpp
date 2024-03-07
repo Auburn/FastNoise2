@@ -40,7 +40,8 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 
     // Create a job object
     HANDLE hJob = CreateJobObject( NULL, NULL );
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = { 0 };
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+    ZeroMemory( &jeli, sizeof( jeli ) );
 
     // Configure the job object to terminate processes when the handle is closed
     jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;

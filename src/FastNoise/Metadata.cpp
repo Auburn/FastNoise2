@@ -430,6 +430,13 @@ std::string Metadata::FormatMetadataNodeName( const Metadata* metadata, bool rem
             }
         }
     }
+
+    // Fallback since empty strings cause imgui errors
+    if( string.empty() )
+    {
+        return metadata->name;
+    }
+
     return string;
 }
 
