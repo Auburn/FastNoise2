@@ -1,7 +1,7 @@
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
-    GIT_TAG dfbeae5c4a2ee429ecad3a37121aba3e3d389036
+    GIT_TAG 295bbba1f49887da060465f88b8501965f6acd7d
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -28,7 +28,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG b1ba1f076d3e8b4295b1afac94e95ff8a846e619
+    GIT_TAG 7d0a8215d38284f7b7ae041cfbb19d410e5988a6
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -55,7 +55,7 @@ set(IMGUI_DIR ${imgui_SOURCE_DIR})
 CPMAddPackage(
     NAME magnum-integration
     GITHUB_REPOSITORY mosra/magnum-integration
-    GIT_TAG 05cbe5f85593b7d4252048df98f0bc3bb48b540d
+    GIT_TAG f01593fc94556bff23a848ac71187c56e034b6d9
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -142,6 +142,7 @@ endif()
 
 if (MSVC)
     target_compile_definitions(NodeEditor PRIVATE _CRT_SECURE_NO_WARNINGS=1)
+    target_compile_options(NodeEditor PRIVATE /wd4244)
 endif()
 
 set(install_targets ${install_targets} NodeEditor PARENT_SCOPE)
