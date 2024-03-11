@@ -33,13 +33,15 @@ namespace Magnum
     private:
         enum MeshType
         {
-            MeshType_Voxel3D,
+            MeshType_Bloxel3D,
+            MeshType_DualMarchingCubes3D,
             MeshType_Heightmap2D,
             MeshType_Count
         };
 
         inline static const char* MeshTypeStrings =
-            "Voxel 3D\0"
+            "Bloxel 3D\0"
+            "Dual Marching Cubes 3D\0"
             "Heightmap 2D\0";
 
         class VertexLightShader : public GL::AbstractShaderProgram
@@ -131,8 +133,9 @@ namespace Magnum
             };
 
             static MeshData BuildMeshData( const BuildData& buildData );
-            static MeshNoisePreview::Chunk::MeshData BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
-            static MeshNoisePreview::Chunk::MeshData BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
+            static MeshData BuildBloxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
+            static MeshData BuildDmc3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
+            static MeshData BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies );
 
             Chunk( MeshData& meshData );
 
@@ -140,15 +143,19 @@ namespace Magnum
             Vector3i GetPos() const { return mPos; }
 
             static constexpr uint32_t SIZE          = 128;
-            static constexpr Vector3  LIGHT_DIR     = { 3, 4, 2 };
+            static constexpr Vector3  LIGHT_DIR     = { 0.557f, 0.743f, 0.371f }; // normalised
             static constexpr float    AMBIENT_LIGHT = 0.3f;
             static constexpr float    AO_STRENGTH   = 0.6f;
 
         private:
-            static void AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
-                                   int32_t idx, int32_t facingIdx, int32_t offsetA, int32_t offsetB, float light, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
+            static void BloxelAddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
+                                         int32_t idx, int32_t facingIdx, int32_t offsetA, int32_t offsetB, float light, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
 
-            static constexpr uint32_t SIZE_GEN = SIZE + 2;
+            template<uint32_t STEP_X, uint32_t STEP_Y, uint32_t STEP_Z, uint32_t SIZE_GEN>
+            static uint32_t DmcGetVertIndex( uint32_t cellIndex, uint16_t edge, Vector3 vertOffset, const float* densityArray, float isoSurface,
+                std::vector<VertexData>& vertexData, robin_hood::unordered_flat_map<uint64_t, uint32_t>& vertIndexMap );
+
+            static constexpr uint32_t SIZE_DENSITY = SIZE + 4;
 
             Vector3i mPos;
             std::unique_ptr<GL::Mesh> mMesh;

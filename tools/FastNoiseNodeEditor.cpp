@@ -91,21 +91,23 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 
 static bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
 {
-    std::string aString;
-    for( const char* c : a )
+    // Check if the sizes of the vectors are the same
+    if( a.size() != b.size() )
     {
-        aString.append( c );
-        aString.push_back( '\t' );
+        return false;
     }
 
-    std::string bString;
-    for( const char* c : b )
+    // Directly compare each corresponding pair of strings
+    for( size_t i = 0; i < a.size(); ++i )
     {
-        bString.append( c );
-        bString.push_back( '\t' );
+        if( std::string_view( a[i] ) != std::string_view( b[i] ) )
+        {
+            return false;
+        }
     }
 
-    return aString == bString;
+    // All pairs matched
+    return true;
 }
 
 template<typename T>
@@ -118,7 +120,7 @@ static bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
 
     for( size_t i = 0; i < a.size(); i++ )
     {
-        if( strcmp( a[i].name, b[i].name ) != 0 )
+        if( std::string_view( a[i].name ) != std::string_view( b[i].name ) )
         {
             return false;
         }
