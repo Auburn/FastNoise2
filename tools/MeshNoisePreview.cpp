@@ -584,9 +584,9 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                                 DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y - STEP_Z, DMC::EDGE6, cellOffset - (VEC_Y + VEC_Z), densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
                             };
 
-                            // Slice quad along shortest diagonal
-                            uint8_t triRotation = 2 * ( ( vertexData[quadVertIndicies[0]].posLight.rgb() - vertexData[quadVertIndicies[3]].posLight.rgb() ).dot() > 
-                                ( vertexData[quadVertIndicies[1]].posLight.rgb() - vertexData[quadVertIndicies[2]].posLight.rgb() ).dot() );
+                            // Slice quad for best vertex lighting
+                            uint8_t triRotation = 2 * ( std::abs( vertexData[quadVertIndicies[0]].posLight.w() - vertexData[quadVertIndicies[3]].posLight.w() ) >
+                                std::abs( vertexData[quadVertIndicies[1]].posLight.w() - vertexData[quadVertIndicies[2]].posLight.w() ) );
 
                             // Flip tris if backfacing
                             uint8_t triFlip = 2 * ( density < densityX );
@@ -615,9 +615,9 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                                 DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X - STEP_Z, DMC::EDGE10, cellOffset - (VEC_X + VEC_Z), densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
                             };
 
-                            // Slice quad along shortest diagonal
-                            uint8_t triRotation = 2 * ( ( vertexData[quadVertIndicies[0]].posLight.rgb() - vertexData[quadVertIndicies[3]].posLight.rgb() ).dot() > 
-                                ( vertexData[quadVertIndicies[1]].posLight.rgb() - vertexData[quadVertIndicies[2]].posLight.rgb() ).dot() );
+                            // Slice quad for best vertex lighting
+                            uint8_t triRotation = 2 * ( std::abs( vertexData[quadVertIndicies[0]].posLight.w() - vertexData[quadVertIndicies[3]].posLight.w() ) >
+                                std::abs( vertexData[quadVertIndicies[1]].posLight.w() - vertexData[quadVertIndicies[2]].posLight.w() ) );
 
                             // Flip tris if backfacing
                             uint8_t triFlip = 2 * (density < densityY);
@@ -646,9 +646,9 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                                 DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X - STEP_Y, DMC::EDGE5, cellOffset - (VEC_X + VEC_Y), densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
                             };
 
-                            // Slice quad along shortest diagonal
-                            uint8_t triRotation = 2 * ( ( vertexData[quadVertIndicies[0]].posLight.rgb() - vertexData[quadVertIndicies[3]].posLight.rgb() ).dot() > 
-                                ( vertexData[quadVertIndicies[1]].posLight.rgb() - vertexData[quadVertIndicies[2]].posLight.rgb() ).dot() );
+                            // Slice quad for best vertex lighting
+                            uint8_t triRotation = 2 * ( std::abs( vertexData[quadVertIndicies[0]].posLight.w() - vertexData[quadVertIndicies[3]].posLight.w() ) >
+                                std::abs( vertexData[quadVertIndicies[1]].posLight.w() - vertexData[quadVertIndicies[2]].posLight.w() ) );
 
                             // Flip tris if backfacing
                             uint8_t triFlip = 2 * ( density < densityZ );
@@ -792,10 +792,10 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
     }
 
     vert /= (float)std::popcount( pointCode );
-
-    Vector3i derivStep( -Math::round( vert ) );
-
-    uint32_t derivIndex = cellIndex + ( STEP_X & derivStep.x() ) + ( STEP_Y & derivStep.y() ) + ( STEP_Z & derivStep.z() );
+    
+    uint32_t derivOffsetX = STEP_X & (int)std::lroundf( -vert.x() );
+    uint32_t derivOffsetY = STEP_Y & (int)std::lroundf( -vert.y() );
+    uint32_t derivOffsetZ = STEP_Z & (int)std::lroundf( -vert.z() );
 
     Vector3 derivDelta = vert + Vector3( 0.5f );
     derivDelta -= Math::floor( derivDelta );
@@ -816,39 +816,38 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
 
                 if( x )
                 {
+                    uint32_t derivIndex = cellIndex + derivOffsetX;
                     derivative.x() += contribY * contribZ *
-                        ImLerp( densityArray[derivIndex - STEP_X] - densityArray[derivIndex], densityArray[derivIndex] - densityArray[derivIndex + STEP_X], derivDelta.x() );
+                        ImLerp( densityArray[derivIndex - STEP_X] - densityArray[derivIndex],
+                                densityArray[derivIndex] - densityArray[derivIndex + STEP_X], derivDelta.x() );
                 }
                 if( y )
                 {
+                    uint32_t derivIndex = cellIndex + derivOffsetY;
                     derivative.y() += contribX * contribZ *
-                        ImLerp( densityArray[derivIndex - STEP_Y] - densityArray[derivIndex], densityArray[derivIndex] - densityArray[derivIndex + STEP_Y], derivDelta.y() );
+                        ImLerp( densityArray[derivIndex - STEP_Y] - densityArray[derivIndex],
+                                densityArray[derivIndex] - densityArray[derivIndex + STEP_Y], derivDelta.y() );
                 }
                 if( z )
                 {
-                    derivative.x() += contribX * contribY *
-                        ImLerp( densityArray[derivIndex - STEP_Z] - densityArray[derivIndex], densityArray[derivIndex] - densityArray[derivIndex + STEP_Z], derivDelta.z() );
+                    uint32_t derivIndex = cellIndex + derivOffsetZ;
+                    derivative.z() += contribX * contribY *
+                        ImLerp( densityArray[derivIndex - STEP_Z] - densityArray[derivIndex],
+                                densityArray[derivIndex] - densityArray[derivIndex + STEP_Z], derivDelta.z() );
                 }
 
-                derivIndex += STEP_X;
+                cellIndex += STEP_X;
             }
 
-            derivIndex += STEP_Y - STEP_X * 2;
+            cellIndex += STEP_Y - STEP_X * 2;
         }
 
-        derivIndex += STEP_Z - STEP_Y * 2;
+        cellIndex += STEP_Z - STEP_Y * 2;
     }
-        
-    /*derivIndex = cellIndex + ( STEP_X & derivStep.x() ) + ( STEP_Y & derivStep.y() ) + ( STEP_Z & derivStep.z() );
-    derivative = Vector3 {
-        ImLerp( densityArray[derivIndex - STEP_X] - densityArray[derivIndex], densityArray[derivIndex] - densityArray[derivIndex + STEP_X], derivDelta.x() ),
-        ImLerp( densityArray[derivIndex - STEP_Y] - densityArray[derivIndex], densityArray[derivIndex] - densityArray[derivIndex + STEP_Y], derivDelta.y() ),
-        ImLerp( densityArray[derivIndex - STEP_Z] - densityArray[derivIndex], densityArray[derivIndex] - densityArray[derivIndex + STEP_Z], derivDelta.z() ),
-    };*/
 
     constexpr Vector3 SUN = -Vector3( 0.45f, 1.f, 0.6f );//    LIGHT_DIR * ( 1.0f - AMBIENT_LIGHT ) + Vector3( AMBIENT_LIGHT );
 
-    float light = ( SUN.normalized() * derivative.normalized() ).sum() * 0.5 + 0.5f;
+    float light = ( SUN.normalized() * derivative.normalized() ).sum() * 0.5f + 0.5f;
 
     assert( light <= 1 );
 
