@@ -142,10 +142,10 @@ namespace Magnum
             GL::Mesh* GetMesh() { return mMesh.get(); }
             Vector3i GetPos() const { return mPos; }
 
-            static constexpr uint32_t SIZE          = 128;
-            static constexpr Vector3  LIGHT_DIR     = { 0.557f, 0.743f, 0.371f }; // normalised
-            static constexpr float    AMBIENT_LIGHT = 0.3f;
-            static constexpr float    AO_STRENGTH   = 0.6f;
+            static constexpr uint32_t SIZE           = 128;
+            static constexpr Vector3  LIGHT_DIR      = { 0.6f, 1.f, 0.4f };
+            static constexpr float    AMBIENT_LIGHT  = 0.3f;
+            static constexpr float    AO_STRENGTH    = 0.9f;
 
         private:
             static void BloxelAddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,

@@ -18,6 +18,17 @@
 
 using namespace Magnum;
 
+static constexpr float SqrtNewtonRaphson( float x, float curr, float prev )
+{
+    return curr == prev ? curr : SqrtNewtonRaphson( x, 0.5f * ( curr + x / curr ), curr );
+}
+
+static constexpr Vector3 NormaliseConstExpr( const Vector3& vec )
+{
+    float lenSqr = vec.x() * vec.x() + vec.y() * vec.y() + vec.z() * vec.z();
+    return vec / SqrtNewtonRaphson( lenSqr, lenSqr, 0 );
+}
+
 MeshNoisePreview::MeshNoisePreview()
 {
     mBuildData.scale = 1.f;
@@ -389,11 +400,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
     else
 #endif
     {
-        constexpr Vector3 SUN = LIGHT_DIR * ( 1.0f - AMBIENT_LIGHT ) + Vector3( 0.577f ) * AMBIENT_LIGHT;
-
-        float xLight = std::abs( SUN.x() );
-        float yLight = std::abs( SUN.y() );
-        float zLight = std::abs( SUN.z() );
+        constexpr Vector3 SUN = LIGHT_DIR * ( 1.0f - AMBIENT_LIGHT );
 
         constexpr int32_t STEP_X = 1;
         constexpr int32_t STEP_Y = SIZE_GEN;
@@ -419,37 +426,37 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
 
                         if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                         {
-                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
+                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, SUN.x() + AMBIENT_LIGHT,
                                        Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
                         {
-                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - xLight,
+                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - SUN.x(),
                                        Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
                         {
-                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, yLight,
+                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, SUN.y() + AMBIENT_LIGHT,
                                        Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
                         {
-                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - yLight,
+                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - SUN.y(),
                                        Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
                         {
-                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, zLight,
+                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, SUN.z() + AMBIENT_LIGHT,
                                        Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
                         }
 
                         if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
                         {
-                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - zLight,
+                            BloxelAddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - SUN.z(),
                                        Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
                         }
                     }
@@ -492,8 +499,10 @@ void MeshNoisePreview::Chunk::BloxelAddQuadAO( std::vector<VertexData>& verts, s
     float ao10 = (float)( sideA0 + sideB1 + corner01 ) * aoAdjust;
     float ao11 = (float)( sideA1 + sideB1 + corner11 ) * aoAdjust;
 
-    float densityLightShift = 1 - ( isoSurface - density[idx] ) * 2;
-    light *= densityLightShift * densityLightShift;
+    float densityLightShift = ( isoSurface - density[idx] ) * 4;
+    light -= densityLightShift;
+    light *= std::abs( light );
+    light = std::max( AMBIENT_LIGHT, light );
 
     uint32_t vertIdx = (uint32_t)verts.size();
     verts.emplace_back( pos00, ( 1.0f - ao00 ) * light );
@@ -792,7 +801,9 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
     }
 
     vert /= (float)std::popcount( pointCode );
-    
+
+    // Calculate analytical derivative 
+
     uint32_t derivOffsetX = STEP_X & (int)std::lroundf( -vert.x() );
     uint32_t derivOffsetY = STEP_Y & (int)std::lroundf( -vert.y() );
     uint32_t derivOffsetZ = STEP_Z & (int)std::lroundf( -vert.z() );
@@ -845,9 +856,8 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
         cellIndex += STEP_Z - STEP_Y * 2;
     }
 
-    constexpr Vector3 SUN = -Vector3( 0.45f, 1.f, 0.6f );//    LIGHT_DIR * ( 1.0f - AMBIENT_LIGHT ) + Vector3( AMBIENT_LIGHT );
-
-    float light = ( SUN.normalized() * derivative.normalized() ).sum() * 0.5f + 0.5f;
+    float light = ( NormaliseConstExpr( -LIGHT_DIR ) * derivative.normalized() ).sum() * ( 0.5f - AMBIENT_LIGHT * 0.5f ) + ( 0.5f + AMBIENT_LIGHT * 0.5f );
+    light *= light;
 
     assert( light <= 1 );
 
@@ -858,15 +868,13 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
 
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
-    static constexpr uint32_t SIZE_GEN = SIZE + 2;
+    static constexpr uint32_t SIZE_GEN = SIZE + 1;
 
     FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid2D( densityValues,
                                                                                   buildData.pos.x(), buildData.pos.z(),
                                                                                   SIZE_GEN, SIZE_GEN, buildData.seed );
     constexpr int32_t STEP_X = 1;
     constexpr int32_t STEP_Y = SIZE_GEN;
-
-    Vector3 sunLight = LIGHT_DIR.normalized() * ( 1.0f - AMBIENT_LIGHT ) + Vector3( AMBIENT_LIGHT );
 
     int32_t noiseIdx = 0;
 
@@ -884,7 +892,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
             Vector3 v11( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );
 
             // Normal for quad
-            float light = ( sunLight * ( Math::cross( v10 - v11, v00 - v11 ).normalized() + Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
+            float light = ( LIGHT_DIR * ( Math::cross( v10 - v11, v00 - v11 ).normalized() + Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
 
             uint32_t vertIdx = (uint32_t)vertexData.size();
             vertexData.emplace_back( v00, light );
