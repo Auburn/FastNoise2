@@ -28,7 +28,7 @@ CPMAddPackage(
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG 7d0a8215d38284f7b7ae041cfbb19d410e5988a6
+    GIT_TAG b1419017650c83538d8fe4681de6f0bca524cf49
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -73,7 +73,7 @@ find_package(ImGui REQUIRED SourcesMiscCpp)
 CPMAddPackage(
     NAME imnodes
     GITHUB_REPOSITORY Auburn/imnodes
-    GIT_TAG 4ccaf656b09fd6b69bdac36f2532756760bd0aa3
+    GIT_TAG 26b70c528d48beeb839035f3da71550f8b0adfa7
     GIT_SUBMODULES ".github"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -142,7 +142,6 @@ endif()
 
 if (MSVC)
     target_compile_definitions(NodeEditor PRIVATE _CRT_SECURE_NO_WARNINGS=1)
-    target_compile_options(NodeEditor PRIVATE /wd4244)
 endif()
 
 set(install_targets ${install_targets} NodeEditor PARENT_SCOPE)
