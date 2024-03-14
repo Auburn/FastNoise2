@@ -3,7 +3,7 @@
 #include <climits>
 
 namespace FastNoise
-{    
+{
     namespace Primes
     {
         static constexpr int X = 501125321;
@@ -71,7 +71,8 @@ namespace FastNoise
             // Bit-8 = Flip sign of a + b
             return ( a + b ) ^ FS_Casti32_f32( (index >> 3) << 31 );
         }
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_NEON>* = nullptr>
+        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_NEON ||
+            SIMD::SIMD_Level == FastSIMD::Level_WASM>* = nullptr>
         FS_INLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
         {
             int32v index = FS_Convertf32_i32( FS_Converti32_f32( hash & int32v( 0x3FFFFF ) ) * float32v( 1.3333333333333333f ) );
@@ -169,13 +170,14 @@ namespace FastNoise
 
             fX ^= FS_Casti32_f32( bit1 );
             fY ^= FS_Casti32_f32( bit2 );
-            
+
             float32v a = FS_Select_f32( bit4, fY, fX );
             float32v b = FS_Select_f32( bit4, fX, fY );
-            
+
             return FS_FMulAdd_f32( float32v( 1.0f + ROOT2 ), a, b );
         }
-        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_NEON> * = nullptr>
+        template<typename SIMD = FS, std::enable_if_t<SIMD::SIMD_Level == FastSIMD::Level_NEON ||
+            SIMD::SIMD_Level == FastSIMD::Level_WASM> * = nullptr>
          FS_INLINE static float32v GetGradientDot( int32v hash, float32v fX, float32v fY )
         {
             // ( 1+R2, 1 ) ( -1-R2, 1 ) ( 1+R2, -1 ) ( -1-R2, -1 )
@@ -192,7 +194,7 @@ namespace FastNoise
 //             else
 //             {
                 bit4 = hash << 29;
-// 
+//
 //                 if constexpr( FS::SIMD_Level < FastSIMD::Level_SSE41 )
 //                 {
                     bit4 >>= 31;
@@ -201,10 +203,10 @@ namespace FastNoise
 
             fX ^= FS_Casti32_f32( bit1 );
             fY ^= FS_Casti32_f32( bit2 );
-            
+
             float32v a = FS_Select_f32( bit4, fY, fX );
             float32v b = FS_Select_f32( bit4, fX, fY );
-            
+
             return FS_FMulAdd_f32( float32v( 1.0f + ROOT2 ), a, b );
         }
 
@@ -265,7 +267,7 @@ namespace FastNoise
             float32v b;
             if constexpr( FS::SIMD_Level <= FastSIMD::Level_SSE2 )
             {
-                b = FS_Select_f32( p > int32v( 1 << 3 ), fY, fZ );        
+                b = FS_Select_f32( p > int32v( 1 << 3 ), fY, fZ );
             }
             else
             {
@@ -306,17 +308,17 @@ namespace FastNoise
         {
             int32v hash = seed;
             hash ^= (primedPos ^ ...);
-            
+
             hash *= int32v( 0x27d4eb2d );
             return hash;
-        }  
+        }
 
         template<typename SIMD = FS, typename... P>
          FS_INLINE static float32v GetValueCoord( int32v seed, P... primedPos )
         {
             int32v hash = seed;
             hash ^= (primedPos ^ ...);
-            
+
             hash *= hash * int32v( 0x27d4eb2d );
             return FS_Converti32_f32( hash ) * float32v( 1.0f / (float)INT_MAX );
         }
