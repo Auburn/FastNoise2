@@ -26,12 +26,12 @@ namespace FastSIMD
 
         FS_INLINE explicit WASM_i32x4( int32_t i )
         {
-            *this = wasm_i32x4_const_splat( i );
+            *this = wasm_i32x4_splat( i );
         }
 
         FS_INLINE explicit WASM_i32x4( int32_t i0, int32_t i1, int32_t i2, int32_t i3 )
         {
-            *this = wasm_i32x4_const( i0, i1, i2, i3 );
+            *this = wasm_i32x4_make( i0, i1, i2, i3 );
         }
 
         FS_INLINE WASM_i32x4& operator+=( const WASM_i32x4& rhs )
@@ -143,12 +143,12 @@ namespace FastSIMD
 
         FS_INLINE explicit WASM_f32x4( float f )
         {
-            *this = wasm_f32x4_const_splat( f );
+            *this = wasm_f32x4_splat( f );
         }
 
         FS_INLINE explicit WASM_f32x4( float f0, float f1, float f2, float f3 )
         {
-            *this = wasm_f32x4_const( f0, f1, f2, f3 );
+            *this = wasm_f32x4_make( f0, f1, f2, f3 );
         }
 
         FS_INLINE WASM_f32x4& operator+=( const WASM_f32x4& rhs )
@@ -472,34 +472,32 @@ namespace FastSIMD
 
         FS_INLINE static float Extract0_f32( float32v a )
         {
-            return vgetq_lane_f32(a, 0);
+            return wasm_f32x4_extract_lane(a, 0);
         }
 
         FS_INLINE static int32_t Extract0_i32( int32v a )
         {
-            return vgetq_lane_s32(a, 0);
+            return wasm_i32x4_extract_lane(a, 0);
         }
 
         FS_INLINE static float32v Reciprocal_f32( float32v a )
         {
-            return vrecpeq_f32( a );
+            return wasm_f32x4_div(float32v{1.0}, a );
         }
 
         FS_INLINE static float32v BitwiseShiftRightZX_f32( float32v a, int32_t b )
         {
-            int32x4_t rhs2 = vdupq_n_s32( -b );
-            return vreinterpretq_f32_u32 ( vshlq_u32( vreinterpretq_u32_f32(a), rhs2) );
+            return wasm_i32x4_shr(a, b);
         }
 
         FS_INLINE static int32v BitwiseShiftRightZX_i32( int32v a, int32_t b )
         {
-            int32x4_t rhs2 = vdupq_n_s32( -b );
-            return vreinterpretq_s32_u32 (vshlq_u32( vreinterpretq_u32_s32(a), rhs2));
+            return wasm_i32x4_shr(a, b);
         }
+
         FS_INLINE static bool AnyMask_bool( mask32v m )
         {
-            uint32x2_t tmp = vorr_u32(vget_low_u32(vreinterpretq_u32_s32(m)), vget_high_u32(vreinterpretq_u32_s32(m)));
-            return vget_lane_u32(vpmax_u32(tmp, tmp), 0);
+            return wasm_v128_any_true(m);
         }
     };
 
