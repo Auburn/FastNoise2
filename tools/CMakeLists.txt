@@ -123,6 +123,8 @@ target_link_libraries(NodeEditor PRIVATE
     robin_hood
 )
 
+target_compile_features(NodeEditor PRIVATE cxx_std_20)
+
 # Windows HiDPI support
 if(CORRADE_TARGET_WINDOWS)
     target_sources(NodeEditor PRIVATE WindowsHiDPI.manifest)
