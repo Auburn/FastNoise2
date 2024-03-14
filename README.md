@@ -17,6 +17,7 @@ Uses FastSIMD to compile classes with multiple SIMD types and selects the fastes
 - AVX2
 - AVX512
 - NEON
+- WASM
 
 Supports:
 - 32/64 bit

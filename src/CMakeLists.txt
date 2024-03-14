@@ -16,7 +16,14 @@ list(APPEND FastSIMD_internal_headers ${FastSIMD_internal_inl})
 
 
 
-if(FASTSIMD_COMPILE_HAVE_NEON)
+if(FASTNOISE2_SCALAR_ONLY)
+
+    set(FastSIMD_sources
+        FastSIMD/FastSIMD.cpp
+        FastSIMD/FastSIMD_Level_Scalar.cpp
+    )
+
+elseif(FASTSIMD_COMPILE_HAVE_NEON)
 
     set(FastSIMD_sources
         FastSIMD/FastSIMD.cpp
@@ -30,7 +37,15 @@ elseif(FASTSIMD_COMPILE_ARM)
         FastSIMD/FastSIMD.cpp
         FastSIMD/FastSIMD_Level_Scalar.cpp
     )
-    
+
+elseif(FASTSIMD_COMPILE_HAVE_WASM)
+
+    set(FastSIMD_sources
+        FastSIMD/FastSIMD.cpp
+        FastSIMD/FastSIMD_Level_WASM.cpp
+        FastSIMD/FastSIMD_Level_Scalar.cpp
+    )
+
 else()
 
     set(FastSIMD_sources
@@ -84,7 +99,7 @@ add_library(FastNoise
 
 add_library(FastNoise2 ALIAS FastNoise)
 
-target_include_directories(FastNoise PUBLIC 
+target_include_directories(FastNoise PUBLIC
     $<BUILD_INTERFACE:${FastNoise2_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
@@ -100,48 +115,54 @@ set_target_properties(FastNoise PROPERTIES
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast /wd4251)
-    
-    if(NOT FASTSIMD_COMPILE_ARM)
-    
-        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            set_source_files_properties(FastSIMD/FastSIMD_Level_Scalar.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE2.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE3.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_SSSE3.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE41.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE42.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+
+    if (NOT FASTNOISE2_SCALAR_ONLY)
+        if(NOT FASTSIMD_COMPILE_ARM)
+
+            if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+                set_source_files_properties(FastSIMD/FastSIMD_Level_Scalar.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_SSE2.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_SSE3.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_SSSE3.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_SSE41.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_SSE42.cpp PROPERTIES COMPILE_FLAGS "/arch:SSE2")
+            endif()
+            set_source_files_properties(FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+            set_source_files_properties(FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX512")
+
+        elseif(FASTSIMD_COMPILE_ARMV7)
+            set_source_files_properties(FastSIMD/FastSIMD_Level_NEON.cpp PROPERTIES COMPILE_FLAGS "/arch:NEON")
         endif()
-        set_source_files_properties(FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX2")
-        set_source_files_properties(FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "/arch:AVX512")
-    
-    elseif(FASTSIMD_COMPILE_ARMV7)
-        set_source_files_properties(FastSIMD/FastSIMD_Level_NEON.cpp PROPERTIES COMPILE_FLAGS "/arch:NEON")
-    endif()
+    endif ()
 
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
         target_compile_options(FastNoise PRIVATE /GL- /GS- /fp:fast)
     else()
-        target_compile_options(FastNoise PRIVATE -ffast-math -fno-stack-protector)        
+        target_compile_options(FastNoise PRIVATE -ffast-math -fno-stack-protector)
     endif()
-    
-    if(NOT FASTSIMD_COMPILE_ARM)
 
-        if(CMAKE_SIZEOF_VOID_P EQUAL 4 OR "${CMAKE_CXX_FLAGS}" MATCHES "-m32")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_Scalar.cpp PROPERTIES COMPILE_FLAGS "-msse")
-            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE2.cpp PROPERTIES COMPILE_FLAGS "-msse2")
+    if (NOT FASTNOISE2_SCALAR_ONLY)
+        if (FASTSIMD_COMPILE_HAVE_WASM)
+            set_source_files_properties(FastSIMD/FastSIMD_Level_WASM.cpp PROPERTIES COMPILE_FLAGS "-msimd128 -mrelaxed-simd")
+        elseif(NOT FASTSIMD_COMPILE_ARM)
+
+            if(CMAKE_SIZEOF_VOID_P EQUAL 4 OR "${CMAKE_CXX_FLAGS}" MATCHES "-m32")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_Scalar.cpp PROPERTIES COMPILE_FLAGS "-msse")
+                set_source_files_properties(FastSIMD/FastSIMD_Level_SSE2.cpp PROPERTIES COMPILE_FLAGS "-msse2")
+            endif()
+            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE3.cpp PROPERTIES COMPILE_FLAGS "-msse3")
+            set_source_files_properties(FastSIMD/FastSIMD_Level_SSSE3.cpp PROPERTIES COMPILE_FLAGS "-mssse3")
+            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE41.cpp PROPERTIES COMPILE_FLAGS "-msse4.1")
+            set_source_files_properties(FastSIMD/FastSIMD_Level_SSE42.cpp PROPERTIES COMPILE_FLAGS "-msse4.2")
+            set_source_files_properties(FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
+            set_source_files_properties(FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512dq -mfma")
+
+        elseif(FASTSIMD_COMPILE_ARMV7)
+            set_source_files_properties(FastSIMD/FastSIMD_Level_NEON.cpp PROPERTIES COMPILE_FLAGS "-march=armv7-a -mfpu=neon")
         endif()
-        set_source_files_properties(FastSIMD/FastSIMD_Level_SSE3.cpp PROPERTIES COMPILE_FLAGS "-msse3")
-        set_source_files_properties(FastSIMD/FastSIMD_Level_SSSE3.cpp PROPERTIES COMPILE_FLAGS "-mssse3")
-        set_source_files_properties(FastSIMD/FastSIMD_Level_SSE41.cpp PROPERTIES COMPILE_FLAGS "-msse4.1")
-        set_source_files_properties(FastSIMD/FastSIMD_Level_SSE42.cpp PROPERTIES COMPILE_FLAGS "-msse4.2")
-        set_source_files_properties(FastSIMD/FastSIMD_Level_AVX2.cpp PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
-        set_source_files_properties(FastSIMD/FastSIMD_Level_AVX512.cpp PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512dq -mfma")
-    
-    elseif(FASTSIMD_COMPILE_ARMV7)
-        set_source_files_properties(FastSIMD/FastSIMD_Level_NEON.cpp PROPERTIES COMPILE_FLAGS "-march=armv7-a -mfpu=neon")
     endif()
-    
-    
+
+
 endif()
 

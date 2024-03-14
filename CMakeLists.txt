@@ -4,7 +4,13 @@ cmake_minimum_required(VERSION 3.7.1)
 project(FastNoise2 VERSION 0.10.0)
 set(CMAKE_CXX_STANDARD 17)
 
-message("FastNoise2 Arch: ${CMAKE_SYSTEM_PROCESSOR}") 
+# TODO: compare in lowercase?
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set(FASTSIMD_COMPILE_HAVE_WASM true)
+    set(_WASM_POSTFIX " (WASM)")
+endif ()
+
+message("FastNoise2 Arch: ${CMAKE_SYSTEM_PROCESSOR}${_WASM_POSTFIX}")
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES armv7)
 
@@ -40,17 +46,18 @@ if (NOT DEFINED FASTNOISE2_STANDALONE_PROJECT)
 endif()
 
 # Build DLL
-#set(BUILD_SHARED_LIBS ON) 
+#set(BUILD_SHARED_LIBS ON)
 
-option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ${FASTNOISE2_STANDALONE_PROJECT})
+option(FASTNOISE2_NOISETOOL "Build NoiseTool application" OFF)
 option(FASTNOISE2_TESTS "Build tests" OFF)
+option(FASTNOISE2_SCALAR_ONLY "Build only scalar implementation" OFF)
 
 if(MSVC)
     #setup pdb target location
     set(pdb_output_dir "${CMAKE_CURRENT_BINARY_DIR}/pdb-files")
 
     set(CMAKE_PDB_OUTPUT_DIRECTORY "${pdb_output_dir}")
-    set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY "${pdb_output_dir}") 
+    set(CMAKE_COMPILE_PDB_OUTPUT_DIRECTORY "${pdb_output_dir}")
 
     #need to sync pdb files
     add_compile_options("/FS")
@@ -59,7 +66,7 @@ endif()
 # Introduce variables:
 # * CMAKE_INSTALL_LIBDIR
 # * CMAKE_INSTALL_BINDIR
-include(GNUInstallDirs) 
+include(GNUInstallDirs)
 set(install_targets "")
 
 add_subdirectory(src)
@@ -70,7 +77,7 @@ if(FASTNOISE2_NOISETOOL)
 endif()
 
 if(FASTNOISE2_TESTS)
-    include(cmake/CPM.cmake)  
+    include(cmake/CPM.cmake)
     add_subdirectory(tests)
 endif()
 
@@ -161,13 +168,13 @@ if(MSVC)
       set(config_suffix "$<CONFIG>")
     else()
       set(config_suffix "")
-    endif() 
+    endif()
 
     if(BUILD_SHARED_LIBS)
       set(pdb_dst ${CMAKE_INSTALL_BINDIR})
     else()
       set(pdb_dst ${CMAKE_INSTALL_LIBDIR})
-    endif() 
+    endif()
 
     install(
         DIRECTORY "${pdb_output_dir}/${config_suffix}/"
