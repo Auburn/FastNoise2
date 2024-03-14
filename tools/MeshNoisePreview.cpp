@@ -573,15 +573,6 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                     {
                         const float densityX = densityValues[cellIndex + STEP_X];
 
-                        if( density <= buildData.isoSurface )
-                        {
-                            maxSolid = std::max( cellOffset.y(), maxSolid );
-                        }
-                        else
-                        {
-                            minAir = std::min( cellOffset.y(), minAir );
-                        }
-
                         // is edge intersected?
                         if( ( density <= buildData.isoSurface ) ^ ( densityX <= buildData.isoSurface ) )
                         {
@@ -637,6 +628,25 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                             indicies.emplace_back( quadVertIndicies[3 - triFlip] );
                             indicies.emplace_back( quadVertIndicies[triRotation] );
                             indicies.emplace_back( quadVertIndicies[1 + triFlip] );
+                            
+                            if( density <= buildData.isoSurface )
+                            {
+                                maxSolid = std::max( { maxSolid, 
+                                    vertexData[quadVertIndicies[0]].posLight.y(),
+                                    vertexData[quadVertIndicies[1]].posLight.y(),
+                                    vertexData[quadVertIndicies[2]].posLight.y(),
+                                    vertexData[quadVertIndicies[3]].posLight.y()
+                                } );
+                            }
+                            else
+                            {
+                                minAir = std::min( { minAir,
+                                    vertexData[quadVertIndicies[0]].posLight.y(),
+                                    vertexData[quadVertIndicies[1]].posLight.y(),
+                                    vertexData[quadVertIndicies[2]].posLight.y(),
+                                    vertexData[quadVertIndicies[3]].posLight.y()
+                                } );                                
+                            }
                         }
                     }
 
