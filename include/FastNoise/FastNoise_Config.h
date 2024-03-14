@@ -17,8 +17,9 @@ namespace FastNoise
         FastSIMD::Level_SSE41  |
         FastSIMD::Level_AVX2   |
         FastSIMD::Level_AVX512 |
-        FastSIMD::Level_NEON   ;
-    
+        FastSIMD::Level_NEON   |
+        FastSIMD::Level_WASM   ;
+
     class Generator;
     struct Metadata;
 

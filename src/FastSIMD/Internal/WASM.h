@@ -96,22 +96,27 @@ namespace FastSIMD
         {
             return wasm_i32x4_lt( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator>( const WASM_i32x4 &b ) const
         {
             return wasm_i32x4_gt( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator<=( const WASM_i32x4 &b ) const
         {
             return wasm_i32x4_le( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator>=( const WASM_i32x4 &b ) const
         {
             return wasm_i32x4_ge( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator!=( const WASM_i32x4 &b ) const
         {
             return wasm_i32x4_ne( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator==( const WASM_i32x4 &b ) const
         {
             return wasm_i32x4_eq( *this, b );
@@ -128,127 +133,104 @@ namespace FastSIMD
 
         FS_INLINE static WASM_f32x4 Zero()
         {
-            return vdupq_n_f32( 0 );
+            return wasm_f32x4_const_splat( 0 );
         }
 
         FS_INLINE static WASM_f32x4 Incremented()
         {
-            alignas(16) const float f[4]{ 0.0f, 1.0f, 2.0f, 3.0f };
-            return vld1q_f32( f );
+            return wasm_f32x4_const( 0.0f, 1.0f, 2.0f, 3.0f );
         }
 
         FS_INLINE explicit WASM_f32x4( float f )
         {
-            *this = vdupq_n_f32( f );
+            *this = wasm_f32x4_const_splat( f );
         }
 
         FS_INLINE explicit WASM_f32x4( float f0, float f1, float f2, float f3 )
         {
-            alignas(16) const float f[4]{ f0, f1, f2, f3 };
-            *this = vld1q_f32( f );
+            *this = wasm_f32x4_const( f0, f1, f2, f3 );
         }
 
         FS_INLINE WASM_f32x4& operator+=( const WASM_f32x4& rhs )
         {
-            *this = vaddq_f32( *this, rhs );
+            *this = wasm_f32x4_add( *this, rhs );
             return *this;
         }
 
         FS_INLINE WASM_f32x4& operator-=( const WASM_f32x4& rhs )
         {
-            *this = vsubq_f32( *this, rhs );
+            *this = wasm_f32x4_sub( *this, rhs );
             return *this;
         }
 
         FS_INLINE WASM_f32x4& operator*=( const WASM_f32x4& rhs )
         {
-            *this = vmulq_f32( *this, rhs );
+            *this = wasm_f32x4_mul( *this, rhs );
             return *this;
         }
 
-        #ifdef FASTSIMD_USE_ARMV7
-            FS_INLINE WASM_f32x4& operator/=( const WASM_f32x4& rhs )
-            {
-
-                float32x4_t reciprocal = vrecpeq_f32( rhs );
-                // use a couple Newton-Raphson steps to refine the estimate.  Depending on your
-                // application's accuracy requirements, you may be able to get away with only
-                // one refinement (instead of the two used here).  Be sure to test!
-                reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
-                reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
-
-                // and finally, compute a/b = a*(1/b)
-                *this = vmulq_f32( *this, reciprocal );
-
-                return *this;
-            }
-        #else
-            FS_INLINE WASM_f32x4& operator/=( const WASM_f32x4& rhs )
-            {
-                /*
-                float32x4_t reciprocal = vrecpeq_f32( rhs );
-                reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
-                reciprocal = vmulq_f32( vrecpsq_f32( rhs, reciprocal ), reciprocal );
-                *this = vmulq_f32( *this, reciprocal );
-                */
-                *this = vdivq_f32( *this, rhs );
-
-                return *this;
-            }
-        #endif
-
-
-
+        FS_INLINE WASM_f32x4& operator/=( const WASM_f32x4& rhs )
+        {
+            *this = wasm_f32x4_div( *this, rhs );
+            return *this;
+        }
 
         FS_INLINE WASM_f32x4& operator&=( const WASM_f32x4& rhs )
         {
-            *this = vreinterpretq_f32_s32( vandq_s32( vreinterpretq_s32_f32( *this ), vreinterpretq_s32_f32( rhs ) ) );
+            *this = wasm_v128_and( *this, rhs );
             return *this;
         }
+
         FS_INLINE WASM_f32x4& operator|=( const WASM_f32x4& rhs )
         {
-            *this = vreinterpretq_f32_s32( vorrq_s32( vreinterpretq_s32_f32( *this ), vreinterpretq_s32_f32( rhs ) ) );
+            *this = wasm_v128_or( *this, rhs );
             return *this;
         }
+
         FS_INLINE WASM_f32x4& operator^=( const WASM_f32x4& rhs )
         {
-            *this = vreinterpretq_f32_s32( veorq_s32( vreinterpretq_s32_f32( *this ), vreinterpretq_s32_f32( rhs ) ) );
+            *this = wasm_v128_xor( *this, rhs );
             return *this;
         }
 
         FS_INLINE WASM_f32x4 operator-() const
         {
-            return vnegq_f32( *this );
-        }
-        FS_INLINE WASM_f32x4 operator~() const
-        {
-            return vreinterpretq_f32_u32( vmvnq_u32( vreinterpretq_u32_f32(*this) ) );
+            return wasm_f32x4_neg( *this );
         }
 
+        FS_INLINE WASM_f32x4 operator~() const
+        {
+            return wasm_v128_not(*this);
+        }
 
         FS_INLINE WASM_i32x4 operator<( const WASM_f32x4 &b ) const
         {
-            return vreinterpretq_s32_u32( vcltq_f32( *this, b ) );
+            return wasm_f32x4_lt( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator>( const WASM_f32x4 &b ) const
         {
-            return vreinterpretq_s32_u32( vcgtq_f32( *this, b ) );
+            return wasm_f32x4_gt( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator<=( const WASM_f32x4 &b ) const
         {
-            return vreinterpretq_s32_u32( vcleq_f32( *this, b ) );
+            return wasm_f32x4_le( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator>=( const WASM_f32x4 &b ) const
         {
-            return vreinterpretq_s32_u32( vcgeq_f32( *this, b ) );
+            return wasm_f32x4_ge( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator!=( const WASM_f32x4 &b ) const
         {
-            return vreinterpretq_s32_u32( vmvnq_u32 (vceqq_f32( *this, b ) ) );
+            return wasm_f32x4_ne( *this, b );
         }
+
         FS_INLINE WASM_i32x4 operator==( const WASM_f32x4 &b ) const
         {
-            return vreinterpretq_s32_u32( vceqq_f32( *this, b ) );
+            return wasm_f32x4_eq( *this, b );
         }
     };
 
