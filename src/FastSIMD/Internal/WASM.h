@@ -256,194 +256,196 @@ namespace FastSIMD
 
         FS_INLINE static float32v Load_f32( void const* p )
         {
-            return vld1q_f32( reinterpret_cast<float const*>(p) );
+            return wasm_v128_load32_splat( p );
         }
 
         FS_INLINE static int32v Load_i32( void const* p )
         {
-            return vld1q_s32( reinterpret_cast<int32_t const*>(p) );
+            return wasm_v128_load32_splat( p );
         }
 
         // Store
 
         FS_INLINE static void Store_f32( void* p, float32v a )
         {
-            vst1q_f32( reinterpret_cast<float*>(p), a );
+            wasm_v128_store( p, a );
         }
 
         FS_INLINE static void Store_i32( void* p, int32v a )
         {
-            vst1q_s32( reinterpret_cast<int32_t*>(p), a );
+            wasm_v128_store( p, a );
         }
 
         // Cast
+        // todo: should I use reinterpet_cast here and below? here the
+        //  difference seems to be only semantic
 
         FS_INLINE static float32v Casti32_f32( int32v a )
         {
-            return vreinterpretq_f32_s32( a );
+            return static_cast<float32v>(a);
         }
 
         FS_INLINE static int32v Castf32_i32( float32v a )
         {
-            return vreinterpretq_s32_f32( a );
+            return static_cast<int32v>(a);
         }
 
         // Convert
 
         FS_INLINE static float32v Converti32_f32( int32v a )
         {
-            return vcvtq_f32_s32( a );
+            return wasm_f32x4_convert_i32x4( a );
         }
 
         FS_INLINE static int32v Convertf32_i32( float32v a )
         {
-            return vcvtq_s32_f32( Round_f32(a) );
+            return wasm_i32x4_trunc_sat_f32x4( Round_f32(a) );
         }
 
         // Comparisons
 
         FS_INLINE static mask32v Equal_f32( float32v a, float32v b )
         {
-            return vreinterpretq_s32_u32( vceqq_f32( a, b ) );
+            return static_cast<mask32v>( wasm_f32x4_eq( a, b ) );
         }
 
         FS_INLINE static mask32v GreaterThan_f32( float32v a, float32v b )
         {
-            return vreinterpretq_s32_u32( vcgtq_f32( a, b ) );
+            return static_cast<mask32v>( wasm_f32x4_gt( a, b ) );
         }
 
         FS_INLINE static mask32v LessThan_f32( float32v a, float32v b )
         {
-            return vreinterpretq_s32_u32( vcltq_f32( a, b ) );
+            return static_cast<mask32v>( wasm_f32x4_lt( a, b ) );
         }
 
         FS_INLINE static mask32v GreaterEqualThan_f32( float32v a, float32v b )
         {
-            return vreinterpretq_s32_u32( vcgeq_f32( a, b ) );
+            return static_cast<mask32v>( wasm_f32x4_ge( a, b ) );
         }
 
         FS_INLINE static mask32v LessEqualThan_f32( float32v a, float32v b )
         {
-            return vreinterpretq_s32_u32( vcleq_f32( a, b ) );
+            return static_cast<mask32v>( wasm_f32x4_le( a, b ) );
         }
 
         FS_INLINE static mask32v Equal_i32( int32v a, int32v b )
         {
-            return vreinterpretq_s32_u32( vceqq_s32( a, b ) );
+            return static_cast<mask32v>( wasm_i32x4_eq( a, b ) );
         }
 
         FS_INLINE static mask32v GreaterThan_i32( int32v a, int32v b )
         {
-            return vreinterpretq_s32_u32( vcgtq_s32( a, b ) );
+            return static_cast<mask32v>( wasm_i32x4_gt( a, b ) );
         }
 
         FS_INLINE static mask32v LessThan_i32( int32v a, int32v b )
         {
-            return vreinterpretq_s32_u32( vcltq_s32( a, b ) );
+            return static_cast<mask32v>( wasm_i32x4_lt( a, b ) );
         }
 
         // Select
 
         FS_INLINE static float32v Select_f32( mask32v m, float32v a, float32v b )
         {
-            return vbslq_f32( vreinterpretq_u32_s32( m ), a, b );
+            return wasm_v128_bitselect( a, b, m );
         }
         FS_INLINE static int32v Select_i32( mask32v m, int32v a, int32v b )
         {
-            return vbslq_s32( vreinterpretq_u32_s32( m ), a, b );
+            return wasm_v128_bitselect( a, b, m );
         }
 
         // Min, Max
 
         FS_INLINE static float32v Min_f32( float32v a, float32v b )
         {
-            return vminq_f32( a, b );
+            return wasm_f32x4_min( a, b );
         }
 
         FS_INLINE static float32v Max_f32( float32v a, float32v b )
         {
-            return vmaxq_f32( a, b );
+            return wasm_f32x4_max( a, b );
         }
 
         FS_INLINE static int32v Min_i32( int32v a, int32v b )
         {
-            return vminq_s32( a, b );
+            return wasm_i32x4_min( a, b );
         }
 
         FS_INLINE static int32v Max_i32( int32v a, int32v b )
         {
-            return vmaxq_s32( a, b );
+            return wasm_i32x4_max( a, b );
         }
 
         // Bitwise
 
         FS_INLINE static float32v BitwiseAnd_f32( float32v a, float32v b )
         {
-            return vreinterpretq_f32_u32( vandq_u32( vreinterpretq_u32_f32( a ), vreinterpretq_u32_f32( b ) ) );
+            return wasm_v128_and( a, b );
         }
-/*
+
         FS_INLINE static float32v BitwiseOr_f32( float32v a, float32v b )
         {
-            return vreinterpretq_f32_u32( vorrq_u32( vreinterpretq_u32_f32( a ), vreinterpretq_u32_f32( b ) ) );
+            return wasm_v128_or( a, b );
         }
 
         FS_INLINE static float32v BitwiseXor_f32( float32v a, float32v b )
         {
-            return vreinterpretq_f32_u32( veorq_u32( vreinterpretq_u32_f32( a ), vreinterpretq_u32_f32( b ) ) );
+            return wasm_v128_xor( a, b );
         }
 
         FS_INLINE static float32v BitwiseNot_f32( float32v a )
         {
-            return vreinterpretq_f32_u32( vmvnq_u32( vreinterpretq_u32_f32( a ) ) );
+            return wasm_v128_not( a );
         }
-*/
+
         FS_INLINE static float32v BitwiseAndNot_f32( float32v a, float32v b )
         {
-            return vreinterpretq_f32_u32( vandq_u32( vreinterpretq_u32_f32( a ), vmvnq_u32( vreinterpretq_u32_f32( b ) ) ) );
+            return wasm_v128_andnot( a, b );
         }
 
         FS_INLINE static int32v BitwiseAndNot_i32( int32v a, int32v b )
         {
-            return vandq_s32( a , vmvnq_s32( b ) );
+            return wasm_v128_andnot( a, b );
         }
 
         // Abs
 
         FS_INLINE static float32v Abs_f32( float32v a )
         {
-            return vabsq_f32( a );
+            return wasm_f32x4_abs( a );
         }
 
         FS_INLINE static int32v Abs_i32( int32v a )
         {
-            return vabsq_s32( a );
+            return wasm_i32x4_abs( a );
         }
 
         FS_INLINE static float32v InvSqrt_f32( float32v a )
         {
-            return vrsqrteq_f32( a );
+            return wasm_f32x4_div(float32v{1.0}, wasm_f32x4_sqrt( a ));
         }
 
         // Floor, Ceil, Round:
 
         FS_INLINE static float32v Floor_f32( float32v a )
         {
-            return vrndmq_f32( a );
+            return wasm_f32x4_floor( a );
         }
 
         FS_INLINE static float32v Ceil_f32( float32v a )
         {
-            return vrndpq_f32( a );
+            return wasm_f32x4_ceil( a );
         }
 
         FS_INLINE static float32v Round_f32( float32v a )
         {
-            return vrndnq_f32( a );
+            return wasm_f32x4_nearest( a );
         }
 
         FS_INLINE static float32v Sqrt_f32( float32v a )
         {
-            return vsqrtq_f32( a );
+            return wasm_f32x4_sqrt( a );
         }
 
         // Mask
@@ -460,12 +462,12 @@ namespace FastSIMD
 
         FS_INLINE static float32v Mask_f32( float32v a, mask32v m )
         {
-            return BitwiseAnd_f32( a, vreinterpretq_f32_s32( m ) );
+            return BitwiseAnd_f32( a, static_cast<float32v>(m) );
         }
 
         FS_INLINE static float32v NMask_f32( float32v a, mask32v m )
         {
-            return BitwiseAndNot_f32( a, vreinterpretq_f32_s32( m ) );
+            return BitwiseAndNot_f32( a, static_cast<float32v>(m) );
         }
 
         FS_INLINE static float Extract0_f32( float32v a )
