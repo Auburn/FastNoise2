@@ -20,6 +20,7 @@ namespace FastSIMD
         Level_AVX512 = 1 <<  9, // AVX512, AVX512DQ supported by CPU and operating system
 
         Level_NEON   = 1 << 16, // ARM NEON
+        Level_WASM   = 1 << 17, // WASM
     };
 
     const Level_BitFlags COMPILED_SIMD_LEVELS =
@@ -33,8 +34,9 @@ namespace FastSIMD
         (FASTSIMD_COMPILE_AVX        ? Level_AVX    : Level_Null) |
         (FASTSIMD_COMPILE_AVX2       ? Level_AVX2   : Level_Null) |
         (FASTSIMD_COMPILE_AVX512     ? Level_AVX512 : Level_Null) |
-        (FASTSIMD_COMPILE_NEON       ? Level_NEON   : Level_Null) ;
-    
+        (FASTSIMD_COMPILE_NEON       ? Level_NEON   : Level_Null) |
+        (FASTSIMD_COMPILE_WASM       ? Level_WASM   : Level_Null) ;
+
     typedef void* (*MemoryAllocator)( size_t size, size_t align );
 
     FASTSIMD_API eLevel CPUMaxSIMDLevel();

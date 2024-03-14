@@ -6,15 +6,21 @@
 
 #if defined(__arm__) || defined(__aarch64__)
 #define FASTSIMD_x86 false
+#define FASTSIMD_WASM false
 #define FASTSIMD_ARM true
+#elif defined(__EMSCRIPTEN__)  // todo: maybe it's better to use __wasm_simd128__
+#define FASTSIMD_x86 false
+#define FASTSIMD_ARM false
+#define FASTSIMD_WASM true
 #else
 #define FASTSIMD_x86 true
 #define FASTSIMD_ARM false
+#define FASTSIMD_WASM false
 #endif
 
 #define FASTSIMD_64BIT (INTPTR_MAX == INT64_MAX)
 
-#define FASTSIMD_COMPILE_SCALAR (!(FASTSIMD_x86 && FASTSIMD_64BIT)) // Don't compile for x86 64bit since CPU is guaranteed SSE2 support 
+#define FASTSIMD_COMPILE_SCALAR (!(FASTSIMD_x86 && FASTSIMD_64BIT)) // Don't compile for x86 64bit since CPU is guaranteed SSE2 support
 
 #define FASTSIMD_COMPILE_SSE    (FASTSIMD_x86 & false) // Not supported
 #define FASTSIMD_COMPILE_SSE2   (FASTSIMD_x86 & true )
@@ -27,6 +33,7 @@
 #define FASTSIMD_COMPILE_AVX512 (FASTSIMD_x86 & true )
 
 #define FASTSIMD_COMPILE_NEON   (FASTSIMD_ARM & true )
+#define FASTSIMD_COMPILE_WASM   (FASTSIMD_WASM & true )
 
 #define FASTSIMD_USE_FMA                   true
 #define FASTSIMD_CONFIG_GENERATE_CONSTANTS false

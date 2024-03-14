@@ -52,6 +52,10 @@ typedef SIMDClassContainer<
     ,
     FastSIMD::NEON
 #endif
+#if FASTSIMD_WASM
+    ,
+    FastSIMD::WASM
+#endif
 >
 SIMDClassList;
 
