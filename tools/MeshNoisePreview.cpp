@@ -36,7 +36,7 @@ MeshNoisePreview::MeshNoisePreview()
     mBuildData.isoSurface = 0.0f;
     mBuildData.heightmapMultiplier = 100.0f;
     mBuildData.color = Color3( 1.0f );
-    mBuildData.meshType = MeshType_Bloxel3D;
+    mBuildData.meshType = MeshType_DualMarchingCubes3D;
 
     uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
 
