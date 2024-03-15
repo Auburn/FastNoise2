@@ -28,6 +28,7 @@ Supports:
 - MSVC
 - Clang
 - GCC
+- Emscripten
 
 Bindings:
 - [C#](https://github.com/Auburn/FastNoise2Bindings)

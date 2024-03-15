@@ -269,7 +269,8 @@ SIMD_FUNCTION_TEST( Floor_f32, float, FS_Store_f32( &result, FS_Floor_f32( typen
 
 SIMD_FUNCTION_TEST( Ceil_f32, float, FS_Store_f32( &result, FS_Ceil_f32( typename FS::float32v( MAX_ROUNDING / FLT_MAX ) * FS_Load_f32( &rndFloats0[i] ) ) ) )
 
-//SIMD_FUNCTION_TEST( Round_f32, float, FS_Store_f32( &result, FS_Round_f32( FS_Min_f32( FS::float32v( MAX_ROUNDING ), FS_Max_f32( FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
+//SIMD_FUNCTION_TEST( Round_f32, float, FS_Store_f32( &result, FS_Round_f32( FS_Min_f32( typename FS::float32v( MAX_ROUNDING ), FS_Max_f32( typename FS::float32v( -MAX_ROUNDING ), FS_Load_f32( &rndFloats0[i] ) ) ) ) ) )
+
 
 SIMD_FUNCTION_TEST( Add_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) + FS_Load_f32( &rndFloats1[i] ) ) )
 SIMD_FUNCTION_TEST( Sub_f32, float, FS_Store_f32( &result, FS_Load_f32( &rndFloats0[i] ) - FS_Load_f32( &rndFloats1[i] ) ) )

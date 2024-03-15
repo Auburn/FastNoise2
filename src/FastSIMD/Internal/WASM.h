@@ -2,6 +2,7 @@
 
 
 #include <wasm_simd128.h>
+#include <cmath>
 
 #include "VecTools.h"
 
@@ -78,7 +79,7 @@ namespace FastSIMD
 
         FS_INLINE WASM_i32x4& operator<<=( const int32_t rhs )
         {
-            *this = wasm_i32x4_shr(*this, rhs);//use shift left by constant for faster execution
+            *this = wasm_i32x4_shl(*this, rhs);//use shift left by constant for faster execution
             return *this;
         }
 
@@ -128,7 +129,7 @@ namespace FastSIMD
 
     struct WASM_f32x4
     {
-        FASTSIMD_INTERNAL_TYPE_SET( WASM_f32x4, v128_t );
+        FASTSIMD_INTERNAL_TYPE_SET( WASM_f32x4, __f32x4 );
 
 
         FS_INLINE static WASM_f32x4 Zero()
@@ -299,7 +300,22 @@ namespace FastSIMD
 
         FS_INLINE static int32v Convertf32_i32( float32v a )
         {
-            return wasm_i32x4_trunc_sat_f32x4( Round_f32(a) );
+            // no direct alternative in WASM, cannot be vectorized
+            // https://emscripten.org/docs/porting/simd.html
+            // TODO: optimize
+            union {
+                int32_t x[4];
+                v128_t m;
+            } u;
+            for(int i = 0; i < 4; ++i)
+            {
+                int x = lrint(a.vector[i]);
+                if (x != 0 || fabs(a.vector[i]) < 2.0)
+                    u.x[i] = x;
+                else
+                    u.x[i] = (int)0x80000000;
+            }
+            return u.m;
         }
 
         // Comparisons
@@ -423,7 +439,7 @@ namespace FastSIMD
 
         FS_INLINE static float32v InvSqrt_f32( float32v a )
         {
-            return wasm_f32x4_div(float32v{1.0}, wasm_f32x4_sqrt( a ));
+            return wasm_f32x4_div( float32v{1.0f}, wasm_f32x4_sqrt( a ) );
         }
 
         // Floor, Ceil, Round:
@@ -482,17 +498,17 @@ namespace FastSIMD
 
         FS_INLINE static float32v Reciprocal_f32( float32v a )
         {
-            return wasm_f32x4_div(float32v{1.0}, a );
+            return wasm_f32x4_div( float32v{1.0f}, a );
         }
 
         FS_INLINE static float32v BitwiseShiftRightZX_f32( float32v a, int32_t b )
         {
-            return wasm_i32x4_shr(a, b);
+            return wasm_u32x4_shr(a, b);
         }
 
         FS_INLINE static int32v BitwiseShiftRightZX_i32( int32v a, int32_t b )
         {
-            return wasm_i32x4_shr(a, b);
+            return wasm_u32x4_shr(a, b);
         }
 
         FS_INLINE static bool AnyMask_bool( mask32v m )
