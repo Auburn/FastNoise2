@@ -144,7 +144,8 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
 
     if (NOT FASTNOISE2_SCALAR_ONLY)
         if (FASTSIMD_COMPILE_HAVE_WASM)
-            set_source_files_properties(FastSIMD/FastSIMD_Level_WASM.cpp PROPERTIES COMPILE_FLAGS "-msimd128 -mrelaxed-simd")
+            target_link_options(FastNoise PRIVATE -sALLOW_MEMORY_GROWTH=1)
+            set_source_files_properties(FastSIMD/FastSIMD_Level_WASM.cpp PROPERTIES COMPILE_FLAGS "-msimd128")
         elseif(NOT FASTSIMD_COMPILE_ARM)
 
             if(CMAKE_SIZEOF_VOID_P EQUAL 4 OR "${CMAKE_CXX_FLAGS}" MATCHES "-m32")

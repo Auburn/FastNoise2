@@ -191,6 +191,10 @@ FASTSIMD_API FastSIMD::eLevel FastSIMD::CPUMaxSIMDLevel()
     simdLevel = Level_NEON;
 #endif
 
+#if FASTSIMD_WASM
+    simdLevel = Level_WASM;
+#endif
+
     return simdLevel;
 }
 
@@ -215,7 +219,7 @@ CLASS_T* SIMDLevelSelector( FastSIMD::eLevel maxSIMDLevel, FastSIMD::MemoryAlloc
             return nullptr;
         }
 
-        return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, allocator );        
+        return SIMDLevelSelector<CLASS_T, FastSIMD::SIMDTypeList::GetNextCompiledAfter<SIMD_LEVEL>>( maxSIMDLevel, allocator );
     }
 }
 
@@ -228,7 +232,7 @@ CLASS_T* FastSIMD::New( eLevel maxSIMDLevel, FastSIMD::MemoryAllocator allocator
     }
     else
     {
-        maxSIMDLevel = std::min( maxSIMDLevel, CPUMaxSIMDLevel() );        
+        maxSIMDLevel = std::min( maxSIMDLevel, CPUMaxSIMDLevel() );
     }
 
     static_assert(( CLASS_T::Supported_SIMD_Levels & FastSIMD::SIMDTypeList::MinimumCompiled ), "MinimumCompiled SIMD Level must be supported by this class" );

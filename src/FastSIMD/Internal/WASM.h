@@ -133,7 +133,7 @@ namespace FastSIMD
 
         FS_INLINE static WASM_f32x4 Zero()
         {
-            return wasm_f32x4_const_splat( 0 );
+            return wasm_f32x4_const_splat( 0.0f );
         }
 
         FS_INLINE static WASM_f32x4 Incremented()
@@ -256,12 +256,12 @@ namespace FastSIMD
 
         FS_INLINE static float32v Load_f32( void const* p )
         {
-            return wasm_v128_load32_splat( p );
+            return wasm_v128_load( p );
         }
 
         FS_INLINE static int32v Load_i32( void const* p )
         {
-            return wasm_v128_load32_splat( p );
+            return wasm_v128_load( p );
         }
 
         // Store

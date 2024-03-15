@@ -33,5 +33,6 @@ namespace FastSIMD
         Level_AVX,
         Level_AVX2,
         Level_AVX512,
-        Level_NEON>;
+        Level_NEON,
+        Level_WASM>;
 }

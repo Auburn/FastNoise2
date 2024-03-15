@@ -87,6 +87,9 @@ int  * rndInts1;
 float* rndFloats0;
 float* rndFloats1;
 
+std::size_t totalSucceeded = 0;
+std::size_t totalFailed = 0;
+
 float GenNormalFloat( std::mt19937& gen )
 {
     union
@@ -178,14 +181,17 @@ std::enable_if_t<!std::is_same<void, FS>::value> TestFunction_##NAME( void* base
                     (result[ir] == result[ir] ||                                                           \
                     ((T*)baseData)[i + ir] == ((T*)baseData)[i + ir]) )                                    \
                 {                                                                                           \
-                    failCount++;                                                                                           \
+                    failCount++;                                                                           \
+                    totalFailed++;                                                                         \
                     std::cout << "\n" << FS::SIMD_Level << " Failed: expected: " << ((T*)baseData)[i + ir];                         \
                     std::cout << " actual: " << result[ir] << " index: " << i+ir;                          \
                     if(std::is_integral_v<T>) std::cout << " ints: " << rndInts0[i + ir] << " : " << rndInts1[i + ir];               \
                     else std::cout << " floats: " << rndFloats0[i + ir] << " : " << rndFloats1[i + ir] << "\n"; \
                 }                                                                                          \
+                else { totalSucceeded++; }                                                                 \
             }                                                                                              \
-            if( failCount >= 32 ) break;                                                                    \
+            std::cout << std::flush;                                                                       \
+            if( failCount >= 32 ) break;                                                                   \
         }                                                                                                  \
     }                                                                                                      \
                                                                                                            \
@@ -290,12 +296,15 @@ SIMD_FUNCTION_TEST( ShiftR_i32, int32_t, FS_Store_i32( &result, FS_Load_i32( &rn
 
 int main( int argc, char** argv )
 {
-    std::cout << std::fixed;
+    std::cout << "Running tests..." << std::endl << std::flush << std::fixed;
 
     SIMDUnitTest::RunAll();
 
-    std::cout << "Tests Complete!\n";
+    std::cout << "Tests Complete! Succeeded: " << totalSucceeded <<
+        ", failed: " << totalFailed << std::endl;
 
+#if !FASTSIMD_WASM
     getchar();
+#endif
     return 0;
 }

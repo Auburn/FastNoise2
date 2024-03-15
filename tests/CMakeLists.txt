@@ -47,7 +47,8 @@ add_executable(FastSIMDTest
 
 if (NOT FASTNOISE2_SCALAR_ONLY)
     if (FASTSIMD_COMPILE_HAVE_WASM)
-        set_source_files_properties("SIMDUnitTest.cpp" PROPERTIES COMPILE_FLAGS "-msimd128 -mrelaxed-simd")
+        target_link_options(FastSIMDTest PRIVATE -sALLOW_MEMORY_GROWTH=1)
+        set_source_files_properties("SIMDUnitTest.cpp" PROPERTIES COMPILE_FLAGS "-msimd128")
     elseif(NOT FASTSIMD_COMPILE_ARM)
 
         if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
