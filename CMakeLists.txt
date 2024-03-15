@@ -49,7 +49,7 @@ endif()
 #set(BUILD_SHARED_LIBS ON)
 
 option(FASTNOISE2_NOISETOOL "Build NoiseTool application" OFF)
-option(FASTNOISE2_TESTS "Build tests" OFF)
+option(FASTNOISE2_TESTS "Build tests" ON)
 option(FASTNOISE2_SCALAR_ONLY "Build only scalar implementation" OFF)
 
 if(MSVC)

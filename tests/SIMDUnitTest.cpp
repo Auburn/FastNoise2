@@ -17,6 +17,10 @@
 #include "../src/FastSIMD/Internal/NEON.h"
 #endif
 
+#if FASTSIMD_WASM
+#include "../src/FastSIMD/Internal/WASM.h"
+#endif
+
 #include <vector>
 #include <functional>
 #include <type_traits>
