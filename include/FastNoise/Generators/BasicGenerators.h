@@ -23,7 +23,7 @@ namespace FastNoise
     {
         MetadataT()
         {
-            this->AddVariable( "Feature Scale", 100.0f, &ScalableGenerator::SetScale, 0.f, 0.f, 0.25f );
+            this->AddVariable( { "Feature Scale", "Effectively `1.0 / frequency`" }, 100.0f, &ScalableGenerator::SetScale, 0.f, 0.f, 0.25f );
         }
     };
 #endif
@@ -48,7 +48,7 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddVariable( "Value", 1.0f, &Constant::SetValue );
+            this->AddVariable( { "Value", "Constant output" }, 1.0f, &Constant::SetValue );
         }
     };
 #endif
@@ -68,6 +68,10 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
+            
+            description = 
+                "White noise generator\n"
+                "Outputs between -1.0 and 1.0";
         }
     };
 #endif
@@ -96,8 +100,11 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddHybridSource( "High", 1.0f, &Checkerboard::SetHigh, &Checkerboard::SetHigh );
-            this->AddHybridSource( "Low", -1.0f, &Checkerboard::SetLow, &Checkerboard::SetLow );
+            this->AddHybridSource( { "High", "Output for \"White\"" }, 1.0f, &Checkerboard::SetHigh, &Checkerboard::SetHigh );
+            this->AddHybridSource( { "Low", "Output for \"Black\"" }, -1.0f, &Checkerboard::SetLow, &Checkerboard::SetLow );
+
+            description =
+                "Outputs checkerboard pattern";
         }
     };
 #endif
@@ -117,6 +124,9 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
+
+            description =
+                "Outputs between -1.0 and 1.0";
         }
     };
 #endif
@@ -146,8 +156,13 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddPerDimensionVariable( "Multiplier", 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); } );
-            this->AddPerDimensionVariable( "Offset", 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); } );
+            this->AddPerDimensionVariable( { "Multiplier", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); } );
+            this->AddPerDimensionVariable( { "Offset", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); } );
+
+            description =
+                "Takes the input position and does the following per dimension\n"
+                "(input + offset) * multiplier\n";
+                "The output is the sum of all results";
         }
     };
 #endif
@@ -182,7 +197,10 @@ namespace FastNoise
         {
             groups.push_back( "Basic Generators" );
             this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToPoint::SetDistanceFunction, kDistanceFunction_Strings );
-            this->AddPerDimensionVariable( "Point", 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
+            this->AddPerDimensionVariable( { "Point", "Point in current domain space" }, 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
+
+            description =
+                "Outputs calculated distance between point and input position";
         }
     };
 #endif

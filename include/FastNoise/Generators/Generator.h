@@ -16,6 +16,7 @@
 
 namespace FastNoise
 {
+    // Dimension
     enum class Dim
     {
         X, Y, Z, W,
