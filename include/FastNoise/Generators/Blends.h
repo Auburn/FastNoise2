@@ -159,6 +159,8 @@ namespace FastNoise
             groups.push_back( "Blends" );
             this->AddHybridSource( "Value", 2.0f, &PowFloat::SetValue, &PowFloat::SetValue );
             this->AddHybridSource( "Pow", 2.0f, &PowFloat::SetPow, &PowFloat::SetPow );
+
+            description = "Equivalent to std::powf( value, pow )";
         }
     };
 #endif
@@ -186,6 +188,8 @@ namespace FastNoise
             groups.push_back( "Blends" );
             this->AddGeneratorSource( "Value", &PowInt::SetValue );
             this->AddVariable( "Pow", 2, &PowInt::SetPow, 2, INT_MAX );
+
+            description = "Faster than PowFloat node but only for int powers";
         }
     };
 #endif
@@ -210,6 +214,12 @@ namespace FastNoise
         MetadataT()
         {
             this->AddHybridSource( "Smoothness", 0.1f, &MinSmooth::SetSmoothness, &MinSmooth::SetSmoothness );
+
+            description = 
+                "Quadratic Smooth Minimum\n"
+                "Smoothes the transition between the 2 inputs\n"
+                "For explanation see:\n"
+                "https://iquilezles.org/articles/smin/";
         }
     };
 #endif
@@ -234,23 +244,47 @@ namespace FastNoise
         MetadataT()
         {
             this->AddHybridSource( "Smoothness", 0.1f, &MaxSmooth::SetSmoothness, &MaxSmooth::SetSmoothness );
+
+            description =
+                "Quadratic Smooth Maximum\n"
+                "Smoothes the transition between the 2 inputs\n"
+                "For explanation see:\n"
+                "https://iquilezles.org/articles/smin/";
         }
     };
 #endif
 
     class Fade : public virtual Generator
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        enum class Interpolation
+        {
+            Linear,
+            Hermite,
+            Quintic,
+        };
+        const Metadata& GetMetadata() const override;
         void SetA( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mA, gen ); }
         void SetB( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mB, gen ); }
 
         void SetFade( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mFade, gen ); }
         void SetFade( float value ) { mFade = value; }
 
+        void SetFadeMin( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mFadeMin, gen ); }
+        void SetFadeMin( float value ) { mFadeMin = value; }
+
+        void SetFadeMax( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mFadeMax, gen ); }
+        void SetFadeMax( float value ) { mFadeMax = value; }
+
+        void SetInterpolation( Interpolation interpolation ) { mInterpolation = interpolation; }
+
     protected:
         GeneratorSource mA;
         GeneratorSource mB;
-        HybridSource mFade = 0.5f;
+        HybridSource mFade = 0;
+        HybridSource mFadeMin = -1.f;
+        HybridSource mFadeMax = 1.f;
+        Interpolation mInterpolation = Interpolation::Linear;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -262,9 +296,17 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Blends" );
-            this->AddGeneratorSource( "A", &Fade::SetA );
-            this->AddGeneratorSource( "B", &Fade::SetB );
-            this->AddHybridSource( "Fade", 0.5f, &Fade::SetFade, &Fade::SetFade );
+            this->AddGeneratorSource( { "A", "From" }, &Fade::SetA );
+            this->AddGeneratorSource( { "B", "To" }, &Fade::SetB );
+            this->AddHybridSource( "Fade", 0, &Fade::SetFade, &Fade::SetFade );
+            this->AddHybridSource( "Fade Min", -1.f, &Fade::SetFadeMin, &Fade::SetFadeMin );
+            this->AddHybridSource( "Fade Max", 1.f, &Fade::SetFadeMax, &Fade::SetFadeMax );
+            this->AddVariableEnum( { "Interpolation", "Easing function" }, Fade::Interpolation::Linear, &Fade::SetInterpolation, "Linear", "Hermite", "Quintic" );            
+
+            description =
+                "Output fades between inputs A and B\n"
+                "Fade Min = 100% A\n"
+                "Fade Max = 100% B";
         }
     };
 #endif

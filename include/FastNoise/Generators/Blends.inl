@@ -154,9 +154,32 @@ class FastSIMD::DispatchClass<FastNoise::Fade, SIMD> final : public virtual Fast
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v fade = FS::Abs( this->GetSourceValue( mFade, seed, pos... ) );
+        float32v fade = this->GetSourceValue( mFade, seed, pos... );
+        float32v fadeMin = this->GetSourceValue( mFadeMin, seed, pos... );
+        float32v fadeMax = this->GetSourceValue( mFadeMax, seed, pos... );
 
-        return FS::FMulAdd( this->GetSourceValue( mA, seed, pos... ), float32v( 1 ) - fade, this->GetSourceValue( mB, seed, pos... ) * fade );
+        float32v fadeRange = fadeMax - fadeMin;
+
+        fade = ( fade - fadeMin ) / fadeRange;
+
+        fade = FS::Max( float32v( 0 ), FS::Min( float32v( 1 ), fade ) );
+
+        switch( mInterpolation )
+        {
+        case Interpolation::Linear:
+            break;
+        case Interpolation::Hermite:
+            fade = InterpHermite( fade );
+            break;
+        case Interpolation::Quintic:
+            fade = InterpQuintic( fade );
+            break;
+        }
+
+        // Protect against nan from 0 range div
+        fade = FS::Select( fadeRange == float32v( 0 ), float32v( 0.5f ), fade );
+        
+        return Lerp( this->GetSourceValue( mA, seed, pos... ), this->GetSourceValue( mB, seed, pos... ), fade );
     }
 };
 

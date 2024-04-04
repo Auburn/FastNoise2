@@ -462,6 +462,9 @@ std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* classNam
 {
     auto* newMetadata = new MetadataT<T>;
     newMetadata->name = className;
+
+    // Node must be in a group or it is not selectable in the UI
+    assert( !newMetadata->groups.empty() ); 
     return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 
