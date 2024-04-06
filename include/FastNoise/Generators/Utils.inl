@@ -219,9 +219,17 @@ namespace FastNoise
     {
         int32v hash = seed;
         hash ^= (primedPos ^ ...);
-        
+
+        int32v zeroCase = hash >> 8;
         hash *= hash * int32v( 0x27d4eb2d );
-        return FS::Convert<float>( hash ) * float32v( 1.0f / (float)-INT_MIN );
+
+        int32v floatBits = hash & int32v( 0x7FFFFF ); //fp32 fractional bits
+        floatBits |= int32v( 0x3F800000 ); // fp32 1.0
+        float32v f32 = FS::Cast<float>( floatBits ) - float32v( 0.9999999f ); // bring range to 0.0000001 - 1.0
+
+        float32v sign = FS::Cast<float>( hash & int32v( -2147483648 ) );
+
+        return FS::InvMasked( zeroCase == int32v( 0x7FFFFF ), f32 | sign );
     }
      
     FS_FORCEINLINE static float32v Lerp( float32v a, float32v b, float32v t )
