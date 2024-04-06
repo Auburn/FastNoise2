@@ -220,6 +220,11 @@ namespace FastNoise
         int32v hash = seed;
         hash ^= (primedPos ^ ...);
 
+#if 1
+        hash *= hash * int32v( 0x27d4eb2d );
+        return FS::Convert<float>( hash ) * float32v( -1.0f / (float)INT_MIN );
+
+#else // More accurate bounding but slower
         int32v zeroCase = hash >> 8;
         hash *= hash * int32v( 0x27d4eb2d );
 
@@ -230,6 +235,7 @@ namespace FastNoise
         float32v sign = FS::Cast<float>( hash & int32v( -2147483648 ) );
 
         return FS::InvMasked( zeroCase == int32v( 0x7FFFFF ), f32 | sign );
+#endif
     }
      
     FS_FORCEINLINE static float32v Lerp( float32v a, float32v b, float32v t )
