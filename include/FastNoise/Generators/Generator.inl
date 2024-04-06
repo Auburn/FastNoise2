@@ -417,11 +417,11 @@ public:
 private:
     struct ScopeExitx86ZeroUpper
     {
-        ~ScopeExitx86ZeroUpper()
+        FS_FORCEINLINE ~ScopeExitx86ZeroUpper()
         {
             if constexpr( SIMD & FeatureFlag::AVX )
             {
-                _mm256_zeroupper();
+                FS_BIND_INTRINSIC( _mm256_zeroupper )();
             }
         }
     };
