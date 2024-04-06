@@ -161,7 +161,7 @@ namespace FastNoise
 
             description =
                 "Takes the input position and does the following per dimension\n"
-                "(input + offset) * multiplier\n";
+                "(input + offset) * multiplier\n"
                 "The output is the sum of all results";
         }
     };

@@ -78,6 +78,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int xStart, int yStart, int xSize, int ySize, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -123,6 +124,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -175,6 +177,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -234,6 +237,7 @@ public:
 
     FastNoise::OutputMinMax GenPositionArray2D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -263,6 +267,7 @@ public:
 
     FastNoise::OutputMinMax GenPositionArray3D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -294,6 +299,7 @@ public:
 
     FastNoise::OutputMinMax GenPositionArray4D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, float xOffset, float yOffset, float zOffset, float wOffset, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -327,21 +333,25 @@ public:
 
     float GenSingle2D( float x, float y, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ) ) );
     }
 
     float GenSingle3D( float x, float y, float z, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
     }
 
     float GenSingle4D( float x, float y, float z, float w, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
     }
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, int seed ) const final
     {
+        ScopeExitx86ZeroUpper zeroUpper;
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -405,6 +415,17 @@ public:
     }
 
 private:
+    struct ScopeExitx86ZeroUpper
+    {
+        ~ScopeExitx86ZeroUpper()
+        {
+            if constexpr( SIMD & FeatureFlag::AVX )
+            {
+                _mm256_zeroupper();
+            }
+        }
+    };
+
     template<bool INITIAL>
     static FS_FORCEINLINE void AxisReset( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep )
     {
