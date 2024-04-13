@@ -468,12 +468,6 @@ std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* classNam
     return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 
-#if FASTNOISE_USE_SHARED_PTR
-#define FASTNOISE_GET_MEMORY_ALLOCATOR()
-#else
-#define FASTNOISE_GET_MEMORY_ALLOCATOR() , &SmartNodeManager::Allocate
-#endif
-
 #define FASTNOISE_REGISTER_NODE( CLASS ) \
 static const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
 template<> FASTNOISE_API const FastNoise::Metadata& FastNoise::Impl::GetMetadata<CLASS>()\
@@ -486,7 +480,7 @@ const FastNoise::Metadata& CLASS::GetMetadata() const\
 }\
 SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::FeatureSet l ) const\
 {\
-    return SmartNode<>( FastSIMD::NewDispatchClass<CLASS>( l FASTNOISE_GET_MEMORY_ALLOCATOR() ) );\
+    return SmartNode<>( FastSIMD::NewDispatchClass<CLASS>( l, &SmartNodeManager::Allocate ) );\
 }
 
 #define FASTSIMD_INCLUDE_HEADER_ONLY

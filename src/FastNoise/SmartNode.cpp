@@ -1,7 +1,4 @@
 #include <FastNoise/Utility/Config.h>
-
-#if !FASTNOISE_USE_SHARED_PTR
-
 #include <FastNoise/Utility/SmartNode.h>
 
 #include <mutex>
@@ -250,5 +247,3 @@ namespace FastNoise
         gMemoryAllocator.Free( ptr );        
     }
 } // namespace FastNoise
-
-#endif

@@ -26,7 +26,6 @@ int main()
     std::cout << std::endl;
 
     // SmartNode down cast example
-#if !FASTNOISE_USE_SHARED_PTR
     {
         // New Checkerboard node stored in base SmartNode type
         FastNoise::SmartNode<> base = FastNoise::New<FastNoise::Checkerboard>();
@@ -45,5 +44,4 @@ int main()
 
         std::cout << ( simplex ? "valid" : "nullptr" ) << std::endl;
     }
-#endif
 }

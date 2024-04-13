@@ -43,7 +43,7 @@ namespace FastNoise
         template<typename U>
         static SmartNode DynamicCast( const SmartNode<U>& node )
         {
-            if( T* dynamicCast = dynamic_cast<T*>( node.get() ) )
+            if( T* dynamicCast = dynamic_cast<T*>( node.mPtr ) )
             {
                 return FastNoise::SmartNode<T>( dynamicCast );
             }
@@ -150,13 +150,25 @@ namespace FastNoise
             return lhs.get() != rhs.get();
         }
 
-        T& operator*() const noexcept
+        const T& operator*() const noexcept
         {
             assert( mPtr->ReferencesFetchAdd() );
             return *mPtr;
         }
 
-        T* operator->() const noexcept
+        T& operator*() noexcept
+        {
+            assert( mPtr->ReferencesFetchAdd() );
+            return *mPtr;
+        }
+
+        const T* operator->() const noexcept
+        {
+            assert( mPtr->ReferencesFetchAdd() );
+            return mPtr;
+        }
+
+        T* operator->() noexcept
         {
             assert( mPtr->ReferencesFetchAdd() );
             return mPtr;
@@ -167,7 +179,12 @@ namespace FastNoise
             return mPtr != nullptr;
         }
 
-        T* get() const noexcept
+        const T* get() const noexcept
+        {
+            return mPtr;
+        }
+
+        T* get() noexcept
         {
             return mPtr;
         }
@@ -206,6 +223,8 @@ namespace FastNoise
 
         template<typename U>
         friend class SmartNode;
+
+        friend T;
 
         explicit SmartNode( T* ptr ) :
             mPtr( ptr )
