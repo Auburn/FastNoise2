@@ -230,7 +230,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
                } );
 
     // Unload further chunk if out of load range
-    size_t deletedChunks = 0;
+    //size_t deletedChunks = 0;
     while( !mChunks.empty() )
     {
         Vector3i backChunkPos = mChunks.back().GetPos();
@@ -239,7 +239,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
         {
             mRegisteredChunkPositions.erase( backChunkPos );
             mChunks.pop_back();
-            deletedChunks++;
+            //deletedChunks++;
         }
         else
         {
@@ -869,9 +869,10 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
     float light = ( NormaliseConstExpr( -LIGHT_DIR ) * derivative.normalized() ).sum() * ( 0.5f - AMBIENT_LIGHT * 0.5f ) + ( 0.5f + AMBIENT_LIGHT * 0.5f );
     light *= light;
 
-    assert( light <= 1 );
+    // Catch NaNs
+    light = std::min( 1.0f, light );
 
-    vertexData.emplace_back( vert + vertOffset, light );//( uint32_t ) robin_hood::hash_bytes( &vert, sizeof( float ) * 3 ) / (float)UINT32_MAX );
+    vertexData.emplace_back( vert + vertOffset, light );
 
     return vertIndex;
 }
