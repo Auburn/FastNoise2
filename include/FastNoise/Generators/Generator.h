@@ -223,8 +223,8 @@ namespace FastNoise
             memberVariables.push_back( member );
         }
 
-        template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
-        void AddVariable( NameDesc nameDesc, T defaultV, void ( U::*func )( T ), T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
+        template<typename T, typename U, typename V, typename = std::enable_if_t<!std::is_enum_v<T>>>
+        void AddVariable( NameDesc nameDesc, T defaultV, V ( U::*func )( T ), T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
             MemberVariable member;
             member.name = nameDesc.name;

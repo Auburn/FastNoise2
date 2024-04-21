@@ -13,8 +13,9 @@ namespace FastNoise
         static constexpr int Lookup[] = { X,Y,Z,W };
     }
 
-    static constexpr float ROOT2 = 1.4142135623730950488f;
-    static constexpr float ROOT3 = 1.7320508075688772935f;
+    static constexpr float kValueBounds = 2147483648.f;
+    static constexpr float kRoot2 = 1.4142135623730950488f;
+    static constexpr float kRoot3 = 1.7320508075688772935f;
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FS_FORCEINLINE static float32v GetGradientDotFancy( int32v hash, float32v fX, float32v fY )
@@ -23,15 +24,15 @@ namespace FastNoise
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0, -ROOT3, -ROOT3, -2, -2, -1, 1, 0, 0 ) );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2, -1, 1, 0, 0, -ROOT3, -ROOT3, -2, -2 ) );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( kRoot3, kRoot3, 2, 2, 1, -1, 0, 0, -kRoot3, -kRoot3, -2, -2, -1, 1, 0, 0 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, -1, 0, 0, kRoot3, kRoot3, 2, 2, -1, 1, 0, 0, -kRoot3, -kRoot3, -2, -2 ) );
 
             return FS::FMulAdd( gX, fX, fY * gY );
         }
         else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
         {
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( ROOT3, ROOT3, 2, 2, 1, -1, 0, 0 ), index );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, -1, 0, 0, ROOT3, ROOT3, 2, 2 ), index );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( kRoot3, kRoot3, 2, 2, 1, -1, 0, 0 ), index );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, -1, 0, 0, kRoot3, kRoot3, 2, 2 ), index );
 
             // Bit-8 = Flip sign of a + b 
             return FS::FMulAdd( gX, fX, fY * gY ) ^ FS::Cast<float>( ( index >> 3 ) << 31 );
@@ -66,7 +67,7 @@ namespace FastNoise
             // Bit-2 = Mul a by 2 or Root3
             mask32v bit2 = ( index & int32v( 2 ) ) == int32v( 0 );
 
-            a *= FS::Select( bit2, float32v( 2 ), float32v( ROOT3 ) );
+            a *= FS::Select( bit2, float32v( 2 ), float32v( kRoot3 ) );
             // b zero value if a mul 2
             float32v c = FS::MaskedAdd( bit2, a, b );
 
@@ -83,15 +84,15 @@ namespace FastNoise
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1, 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ) );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2, 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ) );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1 + kRoot2, -1 - kRoot2, 1 + kRoot2, -1 - kRoot2, 1, -1, 1, -1, 1 + kRoot2, -1 - kRoot2, 1 + kRoot2, -1 - kRoot2, 1, -1, 1, -1 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, 1, -1, -1, 1 + kRoot2, 1 + kRoot2, -1 - kRoot2, -1 - kRoot2, 1, 1, -1, -1, 1 + kRoot2, 1 + kRoot2, -1 - kRoot2, -1 - kRoot2 ) );
 
             return FS::FMulAdd( gX, fX, fY * gY );
         }
         else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
         {
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1 + ROOT2, -1 - ROOT2, 1 + ROOT2, -1 - ROOT2, 1, -1, 1, -1 ), hash );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, 1, -1, -1, 1 + ROOT2, 1 + ROOT2, -1 - ROOT2, -1 - ROOT2 ), hash );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1 + kRoot2, -1 - kRoot2, 1 + kRoot2, -1 - kRoot2, 1, -1, 1, -1 ), hash );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, 1, -1, -1, 1 + kRoot2, 1 + kRoot2, -1 - kRoot2, -1 - kRoot2 ), hash );
 
             return FS::FMulAdd( gX, fX, fY * gY );
         }
@@ -114,7 +115,7 @@ namespace FastNoise
             float32v a = FS::Select( bit4Mask, fY, fX );
             float32v b = FS::Select( bit4Mask, fX, fY );
 
-            return FS::FMulAdd( float32v( 1.0f + ROOT2 ), a, b );
+            return FS::FMulAdd( float32v( 1.0f + kRoot2 ), a, b );
         }
     }
     
@@ -220,22 +221,8 @@ namespace FastNoise
         int32v hash = seed;
         hash ^= (primedPos ^ ...);
 
-#if 1
         hash *= hash * int32v( 0x27d4eb2d );
-        return FS::Convert<float>( hash ) * float32v( -1.0f / (float)INT_MIN );
-
-#else // More accurate bounding but slower
-        int32v zeroCase = hash >> 8;
-        hash *= hash * int32v( 0x27d4eb2d );
-
-        int32v floatBits = hash & int32v( 0x7FFFFF ); //fp32 fractional bits
-        floatBits |= int32v( 0x3F800000 ); // fp32 1.0
-        float32v f32 = FS::Cast<float>( floatBits ) - float32v( 0.9999999f ); // bring range to 0.0000001 - 1.0
-
-        float32v sign = FS::Cast<float>( hash & int32v( -2147483648 ) );
-
-        return FS::InvMasked( zeroCase == int32v( 0x7FFFFF ), f32 | sign );
-#endif
+        return FS::Convert<float>( hash );
     }
      
     FS_FORCEINLINE static float32v Lerp( float32v a, float32v b, float32v t )

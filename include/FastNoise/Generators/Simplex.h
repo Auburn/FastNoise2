@@ -3,7 +3,7 @@
 
 namespace FastNoise
 {
-    class Simplex : public virtual ScalableGenerator
+    class Simplex : public virtual VariableRange<ScalableGenerator>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -11,7 +11,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Simplex> : MetadataT<ScalableGenerator>
+    struct MetadataT<Simplex> : MetadataT<VariableRange<ScalableGenerator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
@@ -26,7 +26,7 @@ namespace FastNoise
     };
 #endif
 
-    class OpenSimplex2 : public virtual ScalableGenerator
+    class OpenSimplex2 : public virtual VariableRange<ScalableGenerator>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -34,7 +34,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<OpenSimplex2> : MetadataT<ScalableGenerator>
+    struct MetadataT<OpenSimplex2> : MetadataT<VariableRange<ScalableGenerator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
@@ -49,7 +49,7 @@ namespace FastNoise
     };
 #endif
 
-    class OpenSimplex2S : public virtual ScalableGenerator
+    class OpenSimplex2S : public virtual VariableRange<ScalableGenerator>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -57,7 +57,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<OpenSimplex2S> : MetadataT<ScalableGenerator>
+    struct MetadataT<OpenSimplex2S> : MetadataT<VariableRange<ScalableGenerator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 

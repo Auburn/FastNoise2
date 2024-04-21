@@ -28,6 +28,38 @@ namespace FastNoise
     };
 #endif
 
+    template<typename PARENT>
+    class VariableRange : public virtual PARENT
+    {
+    public:
+        void SetOutputMin( float value )
+        {
+            mRangeScale += mRangeMin - value;
+            mRangeMin = value;
+        }
+
+        void SetOutputMax( float value )
+        {
+            mRangeScale = ( value - mRangeMin );
+        }
+
+    protected:
+        float mRangeMin = -1;
+        float mRangeScale = 2;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<typename PARENT>
+    struct MetadataT<VariableRange<PARENT>> : MetadataT<PARENT>
+    {
+        MetadataT()
+        {
+            this->AddVariable( { "Output Min", "Minimum bound of output range" }, -1.0f, &VariableRange<PARENT>::SetOutputMin );
+            this->AddVariable( { "Output Max", "Maximum bound of output range" }, 1.0f, &VariableRange<PARENT>::SetOutputMax );
+        }
+    };
+#endif
+
     class Constant : public virtual Generator
     {
     public:
@@ -53,7 +85,7 @@ namespace FastNoise
     };
 #endif
 
-    class White : public virtual Generator
+    class White : public virtual VariableRange<Generator>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -61,7 +93,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<White> : MetadataT<Generator>
+    struct MetadataT<White> : MetadataT<VariableRange<Generator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
@@ -70,46 +102,33 @@ namespace FastNoise
             groups.push_back( "Basic Generators" );
             
             description = 
-                "White noise generator\n"
-                "Outputs between -1.0 and 1.0";
+                "White noise generator";
         }
     };
 #endif
 
-    class Checkerboard : public virtual ScalableGenerator
+    class Checkerboard : public virtual VariableRange<ScalableGenerator>
     {
     public:
         const Metadata& GetMetadata() const override;
-        
-        void SetHigh( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mHigh, gen ); }
-        void SetHigh( float value ) { mHigh = value; }
-        void SetLow( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLow, gen ); }
-        void SetLow( float value ) { mLow = value; }
-
-    protected:
-        HybridSource mHigh = 1.0f;
-        HybridSource mLow = -1.0f;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Checkerboard> : MetadataT<ScalableGenerator>
+    struct MetadataT<Checkerboard> : MetadataT<VariableRange<ScalableGenerator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddHybridSource( { "High", "Output for \"White\"" }, 1.0f, &Checkerboard::SetHigh, &Checkerboard::SetHigh );
-            this->AddHybridSource( { "Low", "Output for \"Black\"" }, -1.0f, &Checkerboard::SetLow, &Checkerboard::SetLow );
-
             description =
                 "Outputs checkerboard pattern";
         }
     };
 #endif
 
-    class SineWave : public virtual ScalableGenerator
+    class SineWave : public virtual VariableRange<ScalableGenerator>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -117,7 +136,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<SineWave> : MetadataT<ScalableGenerator>
+    struct MetadataT<SineWave> : MetadataT<VariableRange<ScalableGenerator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
@@ -126,7 +145,7 @@ namespace FastNoise
             groups.push_back( "Basic Generators" );
 
             description =
-                "Outputs between -1.0 and 1.0";
+                "Outputs sine wave";
         }
     };
 #endif

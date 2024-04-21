@@ -2,7 +2,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
@@ -19,9 +19,10 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
         xs = InterpHermite( x - xs );
         ys = InterpHermite( y - ys );
 
-        return Lerp(
+        return this->ScaleOutput( Lerp(
             Lerp( GetValueCoord( seed, x0, y0 ), GetValueCoord( seed, x1, y0 ), xs ),
-            Lerp( GetValueCoord( seed, x0, y1 ), GetValueCoord( seed, x1, y1 ), xs ), ys );
+            Lerp( GetValueCoord( seed, x0, y1 ), GetValueCoord( seed, x1, y1 ), xs ), ys ),
+            -kValueBounds, kValueBounds );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -43,12 +44,13 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
         ys = InterpHermite( y - ys );
         zs = InterpHermite( z - zs );
 
-        return Lerp( Lerp(
+        return this->ScaleOutput( Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0 ), GetValueCoord( seed, x1, y0, z0 ), xs ),
             Lerp( GetValueCoord( seed, x0, y1, z0 ), GetValueCoord( seed, x1, y1, z0 ), xs ), ys ),
             Lerp(                                                                                
             Lerp( GetValueCoord( seed, x0, y0, z1 ), GetValueCoord( seed, x1, y0, z1 ), xs ),    
-            Lerp( GetValueCoord( seed, x0, y1, z1 ), GetValueCoord( seed, x1, y1, z1 ), xs ), ys ), zs );
+            Lerp( GetValueCoord( seed, x0, y1, z1 ), GetValueCoord( seed, x1, y1, z1 ), xs ), ys ), zs ),
+            -kValueBounds, kValueBounds );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
@@ -74,7 +76,7 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
         zs = InterpHermite( z - zs );
         ws = InterpHermite( w - ws );
 
-        return Lerp( Lerp( Lerp(
+        return this->ScaleOutput( Lerp( Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0, w0 ), GetValueCoord( seed, x1, y0, z0, w0 ), xs ),
             Lerp( GetValueCoord( seed, x0, y1, z0, w0 ), GetValueCoord( seed, x1, y1, z0, w0 ), xs ), ys ),
             Lerp( 
@@ -85,6 +87,7 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
             Lerp( GetValueCoord( seed, x0, y1, z0, w1 ), GetValueCoord( seed, x1, y1, z0, w1 ), xs ), ys ),
             Lerp( 
             Lerp( GetValueCoord( seed, x0, y0, z1, w1 ), GetValueCoord( seed, x1, y0, z1, w1 ), xs ),    
-            Lerp( GetValueCoord( seed, x0, y1, z1, w1 ), GetValueCoord( seed, x1, y1, z1, w1 ), xs ), ys ), zs ), ws );
+            Lerp( GetValueCoord( seed, x0, y1, z1, w1 ), GetValueCoord( seed, x1, y1, z1, w1 ), xs ), ys ), zs ), ws ),
+            -kValueBounds, kValueBounds );
     }
 };

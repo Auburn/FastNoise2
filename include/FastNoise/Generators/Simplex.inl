@@ -2,7 +2,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
@@ -48,7 +48,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v n1 = GetGradientDot( HashPrimes( seed, FS::MaskedAdd( i1, i, int32v( Primes::X ) ), FS::InvMaskedAdd( i1, j, int32v( Primes::Y ) ) ), x1, y1 );
         float32v n2 = GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
 
-        return float32v( 38.283687591552734375f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) );
+        constexpr float kBounding = 38.283687591552734375f;
+
+        return this->ScaleOutput( FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) ),
+            -1 / kBounding, 1 / kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -120,8 +123,11 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v n1 = GetGradientDot( HashPrimes( seed, FS::MaskedAdd( i1, i, int32v( Primes::X ) ), FS::MaskedAdd( j1, j, int32v( Primes::Y ) ), FS::MaskedAdd( k1, k, int32v( Primes::Z ) ) ), x1, y1, z1 );
         float32v n2 = GetGradientDot( HashPrimes( seed, FS::MaskedAdd( i2, i, int32v( Primes::X ) ), FS::MaskedAdd( j2, j, int32v( Primes::Y ) ), FS::InvMaskedAdd( k2, k, int32v( Primes::Z ) ) ), x2, y2, z2 );
         float32v n3 = GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ) ), x3, y3, z3 );
+                
+        constexpr float kBounding = 32.69428253173828125f;
 
-        return float32v( 32.69428253173828125f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, n3 * t3 ) ) );
+        return this->ScaleOutput( FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, n3 * t3 ) ) ),
+            -1 / kBounding, 1 / kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
@@ -255,12 +261,15 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             FS::MaskedAdd( l3, l, int32v( Primes::W ) ) ), x3, y3, z3, w3 );
         float32v n4 = GetGradientDot( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ), k + int32v( Primes::Z ), l + int32v( Primes::W ) ), x4, y4, z4, w4 );
 
-        return float32v( 27.f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, FS::FMulAdd( n3, t3, n4 * t4 ) ) ) );
+        constexpr float kBounding = 27.f;
+
+        return this->ScaleOutput( FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, FS::FMulAdd( n2, t2, FS::FMulAdd( n3, t3, n4 * t4 ) ) ) ),
+            -1 / kBounding, 1 / kBounding );
     }
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virtual FastNoise::OpenSimplex2, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virtual FastNoise::OpenSimplex2, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
@@ -305,7 +314,10 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virt
         float32v n1 = GetGradientDotFancy( HashPrimes( seed, FS::MaskedAdd( i1, i, int32v( Primes::X ) ), FS::InvMaskedAdd( i1, j, int32v( Primes::Y ) ) ), x1, y1 );
         float32v n2 = GetGradientDotFancy( HashPrimes( seed, i + int32v( Primes::X ), j + int32v( Primes::Y ) ), x2, y2 );
 
-        return float32v( 49.918426513671875f ) * FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) );
+        constexpr float kBounding = 49.918426513671875f;
+
+        return this->ScaleOutput( FS::FMulAdd( n0, t0, FS::FMulAdd( n1, t1, n2 * t2 ) ),
+            -1 / kBounding, 1 / kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -371,12 +383,14 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2, SIMD> final : public virt
             seed = ~seed;
         }
 
-        return float32v( 32.69428253173828125f ) * val;
+        constexpr float kBounding = 32.69428253173828125f;
+
+        return this->ScaleOutput( val, -1 / kBounding, 1 / kBounding );
     }
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public virtual FastNoise::OpenSimplex2S, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public virtual FastNoise::OpenSimplex2S, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
@@ -440,8 +454,10 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
         float32v a3 = FS::Max( FS::FNMulAdd( xi3, xi3, FS::FNMulAdd( yi3, yi3, float32v( 2.0f / 3.0f ) ) ), float32v( 0 ) );
         a3 *= a3; a3 *= a3;
         value = FS::FMulAdd( a3, v3, value );
+                
+        constexpr float kBounding = 9.28993664146183f;
 
-        return float32v( 9.28993664146183f ) * value;
+        return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -520,8 +536,10 @@ class FastSIMD::DispatchClass<FastNoise::OpenSimplex2S, SIMD> final : public vir
 
             seed = ~seed;
         }
+                
+        constexpr float kBounding = 144.736422163332608f;
 
-        return float32v( 144.736422163332608f ) * value;
+        return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
     }
 };
 

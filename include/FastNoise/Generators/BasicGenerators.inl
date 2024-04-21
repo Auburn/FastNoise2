@@ -13,6 +13,16 @@ protected:
     }
 };
 
+template<FastSIMD::FeatureSet SIMD, typename PARENT>
+class FastSIMD::DispatchClass<FastNoise::VariableRange<PARENT>, SIMD> : public virtual FastNoise::VariableRange<PARENT>, public FastSIMD::DispatchClass<PARENT, SIMD>
+{
+protected:
+    FS_FORCEINLINE float32v ScaleOutput( float32v value, float nativeMin, float nativeMax ) const
+    {
+        return FS::FMulAdd( float32v( 1.0f / ( nativeMax - nativeMin ) ) * float32v( this->mRangeScale ), value - float32v( nativeMin ), float32v( this->mRangeMin ) );
+    }
+};
+
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual FastNoise::Constant, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
@@ -26,7 +36,7 @@ class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual FastNoise::White, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual FastNoise::White, public FastSIMD::DispatchClass<FastNoise::VariableRange<Generator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -36,12 +46,12 @@ class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual Fas
         size_t idx = 0;
         ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 
-        return GetValueCoord( seed, FS::Cast<int32_t>( pos )... );
+        return this->ScaleOutput( GetValueCoord( seed, FS::Cast<int32_t>( pos )... ), -kValueBounds, kValueBounds );
     }
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virtual FastNoise::Checkerboard, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virtual FastNoise::Checkerboard, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -52,12 +62,12 @@ class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virt
 
         int32v value = (FS::Convert<int32_t>( pos ) ^ ...);
 
-        return float32v( 1.0f ) ^ FS::Cast<float>( value << 31 );
+        return this->ScaleOutput( FS::Cast<float>( (value & int32v( 1 )) << 30 ), 0, 2 );
     }
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual FastNoise::SineWave, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual FastNoise::SineWave, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -66,7 +76,7 @@ class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual 
     {
         this->ScalePositions( pos... );
 
-        return (FS::Sin( pos ) * ...);
+        return this->ScaleOutput( (FS::Sin( pos ) * ...), -1, 1 );
     }
 };
 
