@@ -461,7 +461,11 @@ template<typename T>
 std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
 {
     auto* newMetadata = new MetadataT<T>;
-    newMetadata->name = className;
+    newMetadata->name = className; 
+    newMetadata->memberVariables.shrink_to_fit();
+    newMetadata->memberNodeLookups.shrink_to_fit();
+    newMetadata->memberHybrids.shrink_to_fit();
+    newMetadata->groups.shrink_to_fit();
 
     // Node must be in a group or it is not selectable in the UI
     assert( !newMetadata->groups.empty() ); 
