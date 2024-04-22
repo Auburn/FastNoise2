@@ -175,8 +175,8 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddPerDimensionVariable( { "Multiplier", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); } );
-            this->AddPerDimensionVariable( { "Offset", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); } );
+            this->AddPerDimensionVariable( { "Multiplier", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); }, 0.f, 0.f, 0.001f );
+            this->AddPerDimensionVariable( { "Offset", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); }, 0.f, 0.f, 0.25f );
 
             description =
                 "Takes the input position and does the following per dimension\n"
