@@ -31,7 +31,9 @@
 *.out
 *.app
 /.vs*
+/.idea
 /out
+/cmake-build*
 /build
 /enc_temp_folder
 /cpm-cache

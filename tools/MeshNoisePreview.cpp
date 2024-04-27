@@ -47,6 +47,8 @@ MeshNoisePreview::MeshNoisePreview()
         mThreads.emplace_back( GenerateLoopThread, std::ref( mGenerateQueue ), std::ref( mCompleteQueue ) );
     }
 
+    Debug{} << "Mesh generator thread count: " << mThreads.size();
+
     SetupSettingsHandlers();
 }
 
@@ -172,7 +174,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     }
 
     ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
-    ImGui::Text( "Voxel Count: %0.1fM", ( mChunks.size() * Chunk::SIZE * Chunk::SIZE * Chunk::SIZE ) / 1000000.0 );
+    ImGui::Text( "Voxel Count: %0.1fM", mChunks.size() * ( Chunk::SIZE * Chunk::SIZE * Chunk::SIZE / 1000000.0f ) );
     ImGui::Text( "Loaded Chunks: %zu (%d)", mChunks.size(), mMeshesCount );
 
     size_t generateCount = mGenerateQueue.Count();

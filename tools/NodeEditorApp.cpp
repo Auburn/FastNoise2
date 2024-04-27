@@ -8,11 +8,17 @@
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Renderer.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 #include "NodeEditorApp.h"
 #include "ImGuiExtra.h"
 #include "FastSIMD/FastSIMD_FastNoise_config.h"
 
 using namespace Magnum;
+
+static constexpr const char* kAppSettingsFile = FILESYSTEM_ROOT "NodeEditor.ini";
 
 void InitResources()
 {
@@ -30,10 +36,14 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
         Configuration{}
         .setTitle( IsDetached( arguments ) ? "FastNoise2 Node Graph" : "FastNoise2 Node Editor" )
+#ifdef __EMSCRIPTEN__
+        .setWindowFlags( Configuration::WindowFlag::Resizable )
+#else
         .setSize( Vector2i( 1280, 720 ) )
         .setWindowFlags( Configuration::WindowFlag::Resizable | ( IsDetached( arguments ) ? (Configuration::WindowFlag)0 : Configuration::WindowFlag::Maximized ) ),
         GLConfiguration{}
         .setSampleCount( 4 )
+#endif
     },
     mIsDetachedNodeGraph( IsDetached( arguments ) ),
     mExecutablePath( arguments.argv[0] ),
@@ -54,13 +64,18 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
         ImGui::GetIO().Fonts->AddFontFromMemoryTTF( const_cast<char*>( font.data() ), (int)font.size(), 14.0f * framebufferSize().x() / size.x(), &fontConfig );
     }
 
-    ImGui::GetIO().IniFilename = "NodeEditor.ini";
+    // We manually save so we can sync the filesystem on emscripten
+    ImGui::GetIO().IniFilename = nullptr;
+    ImGui::LoadIniSettingsFromDisk( kAppSettingsFile );
+
     ImGui::GetIO().ConfigDragClickToInputText = true;
     mImGuiIntegrationContext = ImGuiIntegration::Context( *mImGuiContext, size, windowSize(), framebufferSize() );
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
+#ifndef __EMSCRIPTEN__
     setSwapInterval( 1 );
+#endif
 
     mFrameTime.start();
 
@@ -95,11 +110,30 @@ NodeEditorApp::~NodeEditorApp()
     FastNoiseNodeEditor::ReleaseSharedMemoryIpc();
 }
 
+void NodeEditorApp::SyncFileSystem()
+{
+#ifdef __EMSCRIPTEN__
+    // Don't forget to sync to make sure you store it to IndexedDB
+    EM_ASM(
+        FS.syncfs( false, function( err ) {
+            if (err) {
+                console.warn("Error saving:", err);
+            } } ); );
+#endif
+}
+
 void NodeEditorApp::drawEvent()
 {
     GL::defaultFramebuffer.clear( GL::FramebufferClear::Color | GL::FramebufferClear::Depth );
 
     mImGuiIntegrationContext.newFrame();
+
+    if( ImGui::GetIO().WantSaveIniSettings )
+    {
+        ImGui::SaveIniSettingsToDisk( kAppSettingsFile );
+        ImGui::GetIO().WantSaveIniSettings = false;
+        SyncFileSystem();
+    }
 
     /* Enable text input, if needed */
     if( ImGui::GetIO().WantTextInput && !isTextInputActive() )

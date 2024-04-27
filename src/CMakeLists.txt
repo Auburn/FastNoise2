@@ -2,7 +2,7 @@
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG 5bcddffbefa144138f572fe32e4e1d50a1d32deb
+    GIT_TAG 504e54fe5ec580e933ede0fb70a11bbc25dff714
 )
 
 set(install_targets ${install_targets}
@@ -54,7 +54,11 @@ set_target_properties(FastNoise PROPERTIES
     DEBUG_POSTFIX D
     COMPILE_PDB_NAME_DEBUG FastNoiseD)
 
-fastsimd_create_dispatch_library(FastSIMD_FastNoise SOURCES "FastNoise/FastSIMD_Build.inl")
+if(NOT FASTNOISE2_STRICT_FP)
+    set(FASTSIMD_RELAXED RELAXED)
+endif()
+
+fastsimd_create_dispatch_library(FastSIMD_FastNoise ${FASTSIMD_RELAXED} SOURCES "FastNoise/FastSIMD_Build.inl")
 
 target_include_directories(FastSIMD_FastNoise PRIVATE "../include/")
 
@@ -65,13 +69,13 @@ endif()
 target_link_libraries(FastNoise PUBLIC FastSIMD FastSIMD_FastNoise)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /fp:fast /wd4251 /d2vzeroupper-)
+    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /wd4251 /d2vzeroupper-)
     
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
-        target_compile_options(FastSIMD_FastNoise PRIVATE /GS- /fp:fast)
+        target_compile_options(FastSIMD_FastNoise PRIVATE /GS-)
     else()
-        target_compile_options(FastSIMD_FastNoise PRIVATE -ffast-math -fno-stack-protector)        
+        target_compile_options(FastSIMD_FastNoise PRIVATE -fno-stack-protector)        
     endif()
 
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -79,6 +83,12 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
     else()
         target_compile_options(FastSIMD_FastNoise PRIVATE -mllvm -x86-use-vzeroupper=0)        
     endif()
-
 endif()
 
+if(NOT FASTNOISE2_STRICT_FP)
+    if(MSVC)
+        target_compile_options(FastSIMD_FastNoise PRIVATE /fp:fast)
+    else()
+        target_compile_options(FastSIMD_FastNoise PRIVATE -ffast-math)   
+    endif()
+endif()

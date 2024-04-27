@@ -19,6 +19,8 @@ endif()
 option(FASTNOISE2_TOOLS "Build \"Node Editor\" executable" ${FASTNOISE2_STANDALONE_PROJECT})
 option(FASTNOISE2_TESTS "Build tests" OFF)
 
+option(FASTNOISE2_STRICT_FP "Enable strict floating point calculations to ensure output from different SIMD feature sets match EXACTLY" OFF)
+
 if(MSVC)
     #setup pdb target location
     set(pdb_output_dir "${CMAKE_CURRENT_BINARY_DIR}/pdb-files")

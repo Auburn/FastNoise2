@@ -1,8 +1,16 @@
 #pragma once
 
 #include <array>
-#include <Magnum/Math/Color.h>
+
+#ifdef __EMSCRIPTEN__
+#define FILESYSTEM_ROOT "/fastnoise2/"
+#include <Magnum/Platform/EmscriptenApplication.h>
+#else
+#define FILESYSTEM_ROOT
 #include <Magnum/Platform/GlfwApplication.h>
+#endif
+
+#include <Magnum/Math/Color.h>
 #include <Magnum/ImGuiIntegration/Context.h>
 #include <Magnum/SceneGraph/Object.h>
 #include <Magnum/SceneGraph/Camera.h>
@@ -32,6 +40,8 @@ namespace Magnum
         {
             return mExecutablePath;
         }
+
+        static void SyncFileSystem();
 
     private:
         void drawEvent() override;

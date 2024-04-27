@@ -36,6 +36,8 @@ NoiseTexture::NoiseTexture()
         mThreads.emplace_back( GenerateLoopThread, std::ref( mGenerateQueue ), std::ref( mCompleteQueue ) );
     }
 
+    Debug{} << "Texture generator thread count: " << mThreads.size();
+
     SetupSettingsHandlers();
 }
 
@@ -61,7 +63,7 @@ void NoiseTexture::Draw()
         if( mCurrentIteration < texData.iteration )
         {
             mCurrentIteration = texData.iteration;
-            ImageView2D noiseImage( PixelFormat::RGBA8Srgb, texData.size, texData.textureData );
+            ImageView2D noiseImage( PixelFormat::RGBA8Unorm, texData.size, texData.textureData );
             SetPreviewTexture( noiseImage );
         }
         texData.Free();
@@ -131,7 +133,7 @@ void NoiseTexture::Draw()
         ImGui::PushStyleColor( ImGuiCol_Button, 0 );
         ImGui::PushStyleColor( ImGuiCol_ButtonActive, 0 );
         ImGui::PushStyleColor( ImGuiCol_ButtonHovered, 0 );
-        ImGuiIntegration::imageButton( mNoiseTexture, Vector2( mNoiseTexture.imageSize( 0 ) ), {{},Vector2{1}}, 0 );
+        ImGuiIntegration::imageButton( mNoiseTexture, Vector2( mBuildData.size ), { {}, Vector2 { 1 } }, 0 );
         ImGui::PopStyleColor( 3 );
 
         if( ImGui::IsItemHovered() )

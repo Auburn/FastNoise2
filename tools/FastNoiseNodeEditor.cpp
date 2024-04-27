@@ -22,7 +22,7 @@ using namespace Magnum;
 
 #include "SharedMemoryIpc.inl"
 
-static constexpr const char* kNodeGraphSettingsFile = "NodeGraph.ini";
+static constexpr const char* kNodeGraphSettingsFile = FILESYSTEM_ROOT "NodeGraph.ini";
 
 void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 {
@@ -67,7 +67,7 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
         CloseHandle( pi.hThread );
     }
     else
-#else
+#elif !defined( __EMSCRIPTEN__ )
     pid_t pid = fork(); // Duplicate current process
 
     if( pid == 0 )
@@ -678,6 +678,7 @@ FastNoiseNodeEditor::~FastNoiseNodeEditor()
     ImGuiContext* currentContext = ImGui::GetCurrentContext();
     ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
     ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+    NodeEditorApp::SyncFileSystem();
     ImGui::SetCurrentContext( currentContext );
 
     ImNodes::DestroyContext();
@@ -715,7 +716,7 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
 {
-#ifndef WIN32
+#if !defined( WIN32 ) && !defined( __EMSCRIPTEN__ )
     static pid_t parentPid = getppid();
 
     if( getppid() != parentPid ) 
@@ -829,6 +830,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         {
             ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
             ImGui::GetIO().WantSaveIniSettings = false;
+            NodeEditorApp::SyncFileSystem();
         }
 
         // Open this after saving settings

@@ -1,3 +1,4 @@
+#ifndef __EMSCRIPTEN__
 #ifdef _WIN32
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
@@ -8,6 +9,7 @@
 #include <sys/stat.h> // For mode constants
 #include <unistd.h>
 #endif
+#endif
 
 static constexpr const char* kSharedMemoryName = "/FastNoise2NodeEditor";
 static constexpr unsigned int kSharedMemorySize = 64 * 1024;
@@ -15,7 +17,9 @@ static constexpr unsigned int kSharedMemorySize = 64 * 1024;
 // Setup shared memory for IPC selected node ENT updates
 void* FastNoiseNodeEditor::SetupSharedMemoryIpc()
 {
-#ifdef WIN32
+#ifdef __EMSCRIPTEN__
+    return nullptr;
+#elif defined( WIN32 )
     // Create a shared memory file mapping
     HANDLE hMapFile = CreateFileMapping(
         INVALID_HANDLE_VALUE, // Use paging file - shared memory
@@ -76,7 +80,7 @@ void* FastNoiseNodeEditor::SetupSharedMemoryIpc()
 
 void FastNoiseNodeEditor::ReleaseSharedMemoryIpc()
 {
-#ifndef WIN32
+#if !defined( WIN32 ) && !defined( __EMSCRIPTEN__ )
     shm_unlink( kSharedMemoryName );
 #endif
 }
