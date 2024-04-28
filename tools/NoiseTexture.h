@@ -96,6 +96,7 @@ namespace Magnum
         BuildData mExportBuildData;
         FastNoise::OutputMinMax mMinMax;
 
+        std::atomic_bool mIsExporting = false;
         std::thread mExportThread;
         std::vector<std::thread> mThreads;
         GenerateQueue<BuildData> mGenerateQueue;

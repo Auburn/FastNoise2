@@ -118,7 +118,9 @@ void NodeEditorApp::SyncFileSystem()
         FS.syncfs( false, function( err ) {
             if (err) {
                 console.warn("Error saving:", err);
-            } } ); );
+            }
+        } );
+    );
 #endif
 }
 

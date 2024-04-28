@@ -1,6 +1,12 @@
 #include <cstdio>
-#include <fstream>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <sstream>
+#else
 #include <filesystem>
+#include <fstream>
+#endif
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -105,13 +111,15 @@ void NoiseTexture::Draw()
         edited |= ImGui::DragFloat( "Scale", &mBuildData.scale, 0.05f );
         ImGui::SameLine();
 
-        if( mBuildData.generator && ImGui::Button( "Export BMP" ) )
+        ImGui::BeginDisabled( mIsExporting );
+        if( mBuildData.generator && ImGui::Button( mIsExporting ? "Exporting..." : "Export BMP" ) )
         {
             auto size = mExportBuildData.size;
             mExportBuildData = mBuildData;
             mExportBuildData.size = size;
             ImGui::OpenPopup( "Export BMP" );
         }
+        ImGui::EndDisabled();
 
         ImGui::PopItemWidth();
 
@@ -196,14 +204,20 @@ void NoiseTexture::DoExport()
             {
                 mExportThread.join();
             }
-            mExportThread = std::thread([buildData = mExportBuildData]()
+            mIsExporting.store( true, std::memory_order::relaxed );
+
+            mExportThread = std::thread([buildData = mExportBuildData, this]()
             {
+                Debug{} << "BMP Export Started";
                 auto data = BuildTexture( buildData );
 
                 const char* nodeName = buildData.generator->GetMetadata().name;
                 std::string filename = nodeName;
                 filename += ".bmp";
 
+#ifdef __EMSCRIPTEN__
+                std::stringstream file;
+#else
                 // Iterate through file names if filename exists
                 for( int i = 1; i < 1024; i++ )
                 {
@@ -218,6 +232,7 @@ void NoiseTexture::DoExport()
                 std::ofstream file( filename.c_str(), std::ofstream::binary | std::ofstream::out | std::ofstream::trunc );
 
                 if( file.is_open() )
+#endif
                 {
                     struct BmpHeader
                     {
@@ -273,9 +288,30 @@ void NoiseTexture::DoExport()
                         }
                     }
 
+#ifdef __EMSCRIPTEN__
+                    std::string_view fileString = file.view();
+
+                    MAIN_THREAD_EM_ASM( (
+                        // Create a temporary ArrayBuffer and copy the contents of the shared buffer
+                        // into it.
+                        const tempBuffer = new ArrayBuffer( $2 );
+                        const tempView = new Uint8Array( tempBuffer );
+
+                        let sharedView = new Uint8Array( Module["HEAPU8"].buffer, $1, $2 );
+                        tempView.set( sharedView );
+
+                        /// Offer a buffer in memory as a file to download, specifying download filename and mime type
+                        var a = document.createElement( 'a' );
+                        a.download = UTF8ToString( $0 );
+                        a.href = URL.createObjectURL( new Blob( [tempView], {type: 'image/bmp'} ) );
+                        a.click();
+                        ), filename.c_str(), fileString.data(), fileString.length() );
+#else
                     file.close();
+#endif
 
                     Debug{} << "BMP Export Complete: " << filename.c_str();
+                    mIsExporting = false;
                 }
             } );
         }
