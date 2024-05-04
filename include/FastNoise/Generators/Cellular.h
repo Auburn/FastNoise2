@@ -18,7 +18,7 @@ namespace FastNoise
         void SetJitterModifier( float value ) { mJitterModifier = value; }
 
     protected:
-        HybridSource mMinkowskiP = 0.5f;
+        HybridSource mMinkowskiP = 1.5f;
         HybridSource mJitterModifier = 1.0f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
     };
@@ -32,7 +32,7 @@ namespace FastNoise
             this->groups.push_back( "Coherent Noise" );
             this->AddVariableEnum( { "Distance Function", "How distance to closest cells is calculated\nHybrid is EuclideanSquared + Manhattan" },
                 DistanceFunction::EuclideanSquared, &Cellular<PARENT>::SetDistanceFunction, kDistanceFunction_Strings );
-            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 0.5f, &Cellular<PARENT>::SetMinkowskiP, &Cellular<PARENT>::SetMinkowskiP );
+            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 1.5f, &Cellular<PARENT>::SetMinkowskiP, &Cellular<PARENT>::SetMinkowskiP );
 
             this->AddHybridSource( { "Jitter Modifier", "Above 1.0 will cause grid artifacts" }, 1.0f, &Cellular<PARENT>::SetJitterModifier, &Cellular<PARENT>::SetJitterModifier );
         }

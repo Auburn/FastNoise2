@@ -214,7 +214,7 @@ namespace FastNoise
 
     protected:
         GeneratorSource mSource;
-        HybridSource mMinkowskiP = 0.5f;
+        HybridSource mMinkowskiP = 1.5f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
         PerDimensionVariable<HybridSource> mPoint = 0.0f;
 
@@ -234,7 +234,7 @@ namespace FastNoise
             this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToPoint::SetDistanceFunction, kDistanceFunction_Strings );
             this->AddPerDimensionHybridSource( { "Point", "Point in current domain space" }, 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
 
-            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 0.5f, &DistanceToPoint::SetMinkowskiP, &DistanceToPoint::SetMinkowskiP );
+            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 1.5f, &DistanceToPoint::SetMinkowskiP, &DistanceToPoint::SetMinkowskiP );
 
             description =
                 "Outputs distance between point and input position";
