@@ -2,7 +2,7 @@
 #include <climits>
 
 namespace FastNoise
-{    
+{
     namespace Primes
     {
         static constexpr int X = 501125321;
@@ -240,8 +240,8 @@ namespace FastNoise
         return t * t * t * FS::FMulAdd( t, FS::FMulAdd( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
     }
 
-    template<bool DO_SQRT = true, typename... P>
-    FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, float32v dX, P... d )
+    template<bool DO_SQRT = true, FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault(), typename... P>
+    FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, const HybridSource& minkowskiP, int32v seed, float32v pX, P... pos )
     {
         switch( distFunc )
         {
@@ -249,8 +249,8 @@ namespace FastNoise
             case DistanceFunction::Euclidean:
             if constexpr( DO_SQRT )
             {
-                float32v distSqr = dX * dX;
-                ((distSqr = FS::FMulAdd( d, d, distSqr )), ...);
+                float32v distSqr = pX * pX;
+                ((distSqr = FS::FMulAdd( pos, pos, distSqr )), ...);
 
                 float32v invSqrt = FS::InvSqrt( distSqr );
 
@@ -259,34 +259,41 @@ namespace FastNoise
 
             case DistanceFunction::EuclideanSquared:
             {
-                float32v distSqr = dX * dX;
-                ((distSqr = FS::FMulAdd( d, d, distSqr )), ...);
+                float32v distSqr = pX * pX;
+                ((distSqr = FS::FMulAdd( pos, pos, distSqr )), ...);
 
                 return distSqr;
             }
 
             case DistanceFunction::Manhattan:
             {
-                float32v dist = FS::Abs( dX );
-                dist += (FS::Abs( d ) + ...);
+                float32v dist = FS::Abs( pX );
+                dist += (FS::Abs( pos ) + ...);
 
                 return dist;
             }
 
             case DistanceFunction::Hybrid:
             {
-                float32v both = FS::FMulAdd( dX, dX, FS::Abs( dX ) );
-                ((both += FS::FMulAdd( d, d, FS::Abs( d ) )), ...);
+                float32v both = FS::FMulAdd( pX, pX, FS::Abs( pX ) );
+                ((both += FS::FMulAdd( pos, pos, FS::Abs( pos ) )), ...);
 
                 return both;
             }
 
             case DistanceFunction::MaxAxis:
             {
-                float32v max = FS::Abs( dX );
-                ((max = FS::Max( FS::Abs(d), max )), ...);
+                float32v max = FS::Abs( pX );
+                ((max = FS::Max( FS::Abs( pos ), max )), ...);
 
                 return max;
+            }
+
+            case DistanceFunction::Minkowski:
+            {
+                float32v minkowski = FastSIMD::DispatchClass<Generator, SIMD>::GetSourceValue( minkowskiP, seed, pX, pos... );
+
+                return FS::Pow( FS::Pow( FS::Abs( pX ), minkowski) + (FS::Pow( FS::Abs( pos ), minkowski) + ...), FS::Reciprocal( minkowski ) );
             }
         }
     }    

@@ -109,7 +109,7 @@ class FastSIMD::DispatchClass<FastNoise::DistanceToPoint, SIMD> final : public v
     {
         size_t pointIdx = 0;
 
-        ((pos -= float32v( mPoint[pointIdx++] )), ...);
-        return CalcDistance( mDistanceFunction, pos... );
+        ((pos -= this->GetSourceValue( mPoint[pointIdx++], seed, pos... ) ), ...);
+        return CalcDistance( mDistanceFunction, mMinkowskiP, seed, pos... );
     }
 };

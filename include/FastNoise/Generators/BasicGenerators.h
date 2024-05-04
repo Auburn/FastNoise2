@@ -195,13 +195,28 @@ namespace FastNoise
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }
 
+        void SetMinkowskiP( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mMinkowskiP, gen ); }
+        void SetMinkowskiP( float value ) { mMinkowskiP = value; }
+
+        void SetPoint( float x, float y, float z = 0, float w = 0 )
+        {
+            mPoint[0] = x;
+            mPoint[1] = y;
+            mPoint[2] = z;
+            mPoint[3] = w;
+        }
+
         template<Dim D>
-        void SetScale( float value ) { mPoint[(int)D] = value; }
+        void SetPoint( float value ) { mPoint[(int)D] = value; }
+
+        template<Dim D>
+        void SetPoint( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPoint[(int)D], gen ); }
 
     protected:
         GeneratorSource mSource;
+        HybridSource mMinkowskiP = 0.5f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
-        PerDimensionVariable<float> mPoint = 0.0f;
+        PerDimensionVariable<HybridSource> mPoint = 0.0f;
 
         template<typename T>
         friend struct MetadataT;
@@ -217,10 +232,12 @@ namespace FastNoise
         {
             groups.push_back( "Basic Generators" );
             this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToPoint::SetDistanceFunction, kDistanceFunction_Strings );
-            this->AddPerDimensionVariable( { "Point", "Point in current domain space" }, 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
+            this->AddPerDimensionHybridSource( { "Point", "Point in current domain space" }, 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
+
+            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 0.5f, &DistanceToPoint::SetMinkowskiP, &DistanceToPoint::SetMinkowskiP );
 
             description =
-                "Outputs calculated distance between point and input position";
+                "Outputs distance between point and input position";
         }
     };
 #endif

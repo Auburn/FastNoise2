@@ -51,7 +51,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 int32v newCellValueHash = hash;
-                float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
 
                 for( int i = 0; ; i++ )
                 {
@@ -125,7 +125,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
                     int32v newCellValueHash = hash;
-                    float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
                 
                     for( int i = 0; ; i++ )
                     {
@@ -211,7 +211,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
                         int32v newCellValueHash = hash;
-                        float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
 
                         for( int i = 0; ; i++ )
                         {
@@ -284,7 +284,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
-                float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
 
                 for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                 {
@@ -344,7 +344,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
-                    float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
 
                     for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                     {
@@ -416,7 +416,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                         zd = FS::FMulAdd( zd, invMag, zcf );
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
-                        float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
 
                         for( int i = kMaxDistanceCount - 1; i > 0; i-- )
                         {
@@ -512,7 +512,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                 xd = FS::FMulAdd( xd, invMag, xcf );
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
-                float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
 
                 mask32v closer = newDistance < distance;
                 distance = FS::Min( newDistance, distance );
@@ -570,7 +570,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                     yd = FS::FMulAdd( yd, invMag, ycf );
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
-                    float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
                     distance = FS::Min( newDistance, distance );
@@ -641,7 +641,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                         zd = FS::FMulAdd( zd, invMag, zcf );
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
-                        float32v newDistance = CalcDistance<false>( mDistanceFunction, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
                         distance = FS::Min( newDistance, distance );

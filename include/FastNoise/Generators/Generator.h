@@ -10,7 +10,7 @@
 
 #include "FastNoise/Utility/Config.h"
 
-#if !defined( FASTNOISE_METADATA ) && defined( __INTELLISENSE__ )
+#if !defined( FASTNOISE_METADATA ) && ( defined( __INTELLISENSE__ ) || defined( __CLION_IDE__ ) )
 #define FASTNOISE_METADATA
 #endif
 
@@ -35,6 +35,7 @@ namespace FastNoise
         Manhattan,
         Hybrid,
         MaxAxis,
+        Minkowski,
     };
 
     constexpr static const char* kDistanceFunction_Strings[] =
@@ -44,6 +45,7 @@ namespace FastNoise
         "Manhattan",
         "Hybrid",
         "Max Axis",
+        "Minkowski",
     };
 
     struct OutputMinMax
@@ -87,7 +89,7 @@ namespace FastNoise
     {
         float constant;
 
-        HybridSourceT( float f = 0.0f )
+        constexpr HybridSourceT( float f = 0.0f )
         {
             constant = f;
         }
@@ -173,7 +175,7 @@ namespace FastNoise
         T varArray[(int)Dim::Count];
 
         template<typename U = T>
-        PerDimensionVariable( U value = 0 )
+        constexpr PerDimensionVariable( U value = 0 )
         {
             for( T& element : varArray )
             {
