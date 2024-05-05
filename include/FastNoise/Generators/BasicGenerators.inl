@@ -19,10 +19,7 @@ class FastSIMD::DispatchClass<FastNoise::VariableRange<PARENT>, SIMD> : public v
 protected:
     FS_FORCEINLINE float32v ScaleOutput( float32v value, float nativeMin, float nativeMax ) const
     {
-        float32v rangeMin = this->GetSourceValue( this->mRangeMin, int32v(), float32v(), float32v() );
-        float32v rangeScale = this->GetSourceValue( this->mRangeScale, int32v(), float32v(), float32v() ) - rangeMin;
-
-        return FS::FMulAdd( float32v( 1.0f / ( nativeMax - nativeMin ) ) * rangeScale, value - float32v( nativeMin ), rangeMin );
+        return FS::FMulAdd( float32v( 1.0f / ( nativeMax - nativeMin ) ) * float32v( this->mRangeScale ), value - float32v( nativeMin ), float32v( this->mRangeMin ) );
     }
 };
 

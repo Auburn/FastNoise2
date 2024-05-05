@@ -34,19 +34,18 @@ namespace FastNoise
     public:
         void SetOutputMin( float value )
         {
-            //mRangeScale += mRangeMin - value;
+            mRangeScale += mRangeMin - value;
             mRangeMin = value;
         }
 
         void SetOutputMax( float value )
         {
-            mRangeScale = value;
-            //mRangeScale = ( value - mRangeMin );
+            mRangeScale = ( value - mRangeMin );
         }
 
     protected:
-        HybridSource mRangeMin = -1;
-        HybridSource mRangeScale = 2;
+        float mRangeMin = -1;
+        float mRangeScale = 2;
     };
 
 #ifdef FASTNOISE_METADATA
