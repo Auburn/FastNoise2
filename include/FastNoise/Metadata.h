@@ -190,6 +190,7 @@ namespace FastNoise
         uint16_t id;
         const char* name = "";
         const char* description = "";
+        const char* formattedName = nullptr;
         std::vector<const char*> groups;
 
         std::vector<MemberVariable>   memberVariables;

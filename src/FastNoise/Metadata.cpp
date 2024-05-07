@@ -410,12 +410,21 @@ NodeData* Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, s
 
 std::string Metadata::FormatMetadataNodeName( const Metadata* metadata, bool removeGroups )
 {
-    std::string string = metadata->name;
-    for( size_t i = 1; i < string.size(); i++ )
+    std::string string;
+
+    if( metadata->formattedName )
     {
-        if( ( isdigit( string[i] ) || isupper( string[i] ) ) && islower( string[i - 1] ) )
+        string = metadata->formattedName;
+    }
+    else
+    {
+        string = metadata->name;
+        for( size_t i = 1; i < string.size(); i++ )
         {
-            string.insert( i++, 1, ' ' );
+            if( ( isdigit( string[i] ) || isupper( string[i] ) ) && islower( string[i - 1] ) )
+            {
+                string.insert( i++, 1, ' ' );
+            }
         }
     }
 
