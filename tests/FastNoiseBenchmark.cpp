@@ -139,7 +139,7 @@ int main( int argc, char** argv )
         {
             const char* groupName = "Misc";
 
-            if( !metadata->groups.empty() )
+            if( metadata->groups.size() )
             {
                 groupName = metadata->groups[metadata->groups.size() - 1];
             }
