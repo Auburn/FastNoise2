@@ -89,43 +89,21 @@ void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
     }
 }
 
-static bool MatchingGroup( const std::vector<const char*>& a, const std::vector<const char*>& b )
+static bool MatchingGroup( const FastNoise::Metadata::Vector<const char*>& a, const FastNoise::Metadata::Vector<const char*>& b )
 {
-    // Check if the sizes of the vectors are the same
-    if( a.size() != b.size() )
+    return std::ranges::equal( a, b, []( auto& x, auto& y )
     {
-        return false;
-    }
-
-    // Directly compare each corresponding pair of strings
-    for( size_t i = 0; i < a.size(); ++i )
-    {
-        if( std::string_view( a[i] ) != std::string_view( b[i] ) )
-        {
-            return false;
-        }
-    }
-
-    // All pairs matched
-    return true;
+        return std::strcmp( x, y ) == 0;
+    } );
 }
 
 template<typename T>
-static bool MatchingMembers( const std::vector<T>& a, const std::vector<T>& b )
+static bool MatchingMembers( const FastNoise::Metadata::Vector<T>& a, const FastNoise::Metadata::Vector<T>& b )
 {
-    if( a.size() != b.size() )
+    return std::ranges::equal( a, b, []( auto& x, auto& y )
     {
-        return false;
-    }
-
-    for( size_t i = 0; i < a.size(); i++ )
-    {
-        if( std::string_view( a[i].name ) != std::string_view( b[i].name ) )
-        {
-            return false;
-        }
-    }
-    return true;
+        return std::strcmp( x.name, y.name ) == 0;
+    } );
 }
 
 static std::string TimeWithUnits( int64_t time, int significantDigits = 3 )
@@ -669,7 +647,20 @@ FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
 
         metaDataGroup->items.emplace_back( mContextMetadata.emplace_back( new MetadataMenuItem( metadata ) ).get() );
         std::sort( metaDataGroup->items.begin(), metaDataGroup->items.end(), menuSort );
-    }    
+    }
+
+    int debugMetadataVectorCheckIdx = 0;
+    std::pair<int32_t, const char*> state;
+    do
+    {
+        state = FastNoise::Metadata::DebugCheckVectorStorageSize( debugMetadataVectorCheckIdx++ );
+        if( state.first > 0 )
+        {
+            Error{} << "Non-optimal metadata vector, in FastNoise Metadata.cpp adjust gMetadataVectorSize " << state.second << " to: " << state.first;
+        }
+
+    } while( state.second );
+
 }
 
 FastNoiseNodeEditor::~FastNoiseNodeEditor()
@@ -1194,7 +1185,7 @@ void FastNoiseNodeEditor::DoNodes()
             break;
             case FastNoise::Metadata::MemberVariable::EEnum:
             {
-                if( ImGui::Combo( formatName.c_str(), &nodeData->variables[i].i, nodeVar.enumNames.data(), (int)nodeVar.enumNames.size() ) ||
+                if( ImGui::Combo( formatName.c_str(), &nodeData->variables[i].i, nodeVar.enumNames.begin(), (int)nodeVar.enumNames.size() ) ||
                     ImGuiExtra::ScrollCombo( &nodeData->variables[i].i, (int)nodeVar.enumNames.size() ) )
                 {
                     node.second.GeneratePreview();
@@ -1405,7 +1396,7 @@ void FastNoiseNodeEditor::DoContextMenu()
 
         auto newMetadata = mContextMetadata.front()->DrawUI( []( const FastNoise::Metadata* metadata )
         {
-            return !metadata->memberNodeLookups.empty() || !metadata->memberHybrids.empty();
+            return metadata->memberNodeLookups.size() || metadata->memberHybrids.size();
         } );
 
         if( newMetadata )

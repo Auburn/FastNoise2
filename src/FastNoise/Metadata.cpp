@@ -13,30 +13,70 @@
 
 using namespace FastNoise;
 
-std::vector<const Metadata*> Metadata::sAllMetadata;
+Metadata::Vector<const Metadata*> Metadata::sAllMetadata;
 
-NodeData::NodeData( const Metadata* data )
+template<typename T>
+constexpr static size_t gMetadataVectorSize = SIZE_MAX;
+
+// Setting these values avoids needless vector resizing and oversizing on startup
+// Sadly there is no way to automate this as they fill up as part of static init
+template<>
+constexpr size_t gMetadataVectorSize<const Metadata*> = 45;
+template<>
+constexpr size_t gMetadataVectorSize<const char*> = 83;
+template<>
+constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 75;
+template<>
+constexpr size_t gMetadataVectorSize<Metadata::MemberNodeLookup> = 30;
+template<>
+constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 50;
+
+template<typename T>
+static std::vector<T>& GetVectorStorage()
 {
-    metadata = data;
-
-    if( metadata )
+    static std::vector<T> v = []()
     {
-        for( const auto& value : metadata->memberVariables )
-        {
-            variables.push_back( value.valueDefault );
-        }
+        std::vector<T> vec;
+        vec.reserve( gMetadataVectorSize<T> );
+        return vec;
+    }();
+    return v;
+}
 
-        for( const auto& value : metadata->memberNodeLookups )
-        {
-            (void)value;
-            nodeLookups.push_back( nullptr );
-        }
+template<typename T>
+static int32_t DebugCheckType()
+{
+    return ( GetVectorStorage<T>().size() == gMetadataVectorSize<T> ? -1 : 1 ) * (int32_t)GetVectorStorage<T>().size();
+}
 
-        for( const auto& value : metadata->memberHybrids )
-        {
-            hybrids.emplace_back( nullptr, value.valueDefault );
-        }
+std::pair<int32_t, const char*> Metadata::DebugCheckVectorStorageSize( int i )
+{
+    switch( i )
+    {
+    case 0: return { DebugCheckType<const Metadata*>(),  "const Metadata*" };
+    case 1: return { DebugCheckType<const char*>(),      "const char*" };
+    case 2: return { DebugCheckType<MemberVariable>(),   "MemberVariable" };
+    case 3: return { DebugCheckType<MemberNodeLookup>(), "MemberNodeLookup" };
+    case 4: return { DebugCheckType<MemberHybrid>(),     "MemberHybrid" };
     }
+    return { 0, nullptr };
+}
+
+template<typename T>
+T* Metadata::Vector<T>::data() const
+{
+    return GetVectorStorage<T>().data();
+}
+
+template<typename T>
+void Metadata::Vector<T>::push_back( const T& value )
+{
+    std::vector<T>& vec = GetVectorStorage<T>();
+    vec.push_back( value );
+    assert( vec.size() <= (index_type)-1 );
+
+    mEnd = (index_type)vec.size() - 1;
+    mStart = std::min( mStart, mEnd++ );
 }
 
 template<typename T>
@@ -55,9 +95,9 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     const Metadata* metadata = nodeData->metadata;
 
     if( !metadata ||
-        nodeData->variables.size() != metadata->memberVariables.size()   ||
-        nodeData->nodeLookups.size()     != metadata->memberNodeLookups.size() ||
-        nodeData->hybrids.size()   != metadata->memberHybrids.size()     )
+        nodeData->variables.size() != metadata->memberVariables.size() ||
+        nodeData->nodeLookups.size() != metadata->memberNodeLookups.size() ||
+        nodeData->hybrids.size() != metadata->memberHybrids.size() )
     {
         assert( 0 ); // Member size mismatch with metadata
         return false;
@@ -168,7 +208,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
 
     referenceIds.emplace( nodeData, (uint16_t)referenceIds.size() );
 
-    return true; 
+    return true;
 }
 
 std::string Metadata::SerialiseNodeData( NodeData* nodeData, bool fixUp )
@@ -470,14 +510,10 @@ template<typename T>
 std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
 {
     auto* newMetadata = new MetadataT<T>;
-    newMetadata->name = className; 
-    newMetadata->memberVariables.shrink_to_fit();
-    newMetadata->memberNodeLookups.shrink_to_fit();
-    newMetadata->memberHybrids.shrink_to_fit();
-    newMetadata->groups.shrink_to_fit();
+    newMetadata->name = className;
 
     // Node must be in a group or it is not selectable in the UI
-    assert( !newMetadata->groups.empty() ); 
+    assert( newMetadata->groups.size() );
     return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 

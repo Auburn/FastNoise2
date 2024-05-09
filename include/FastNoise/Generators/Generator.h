@@ -259,7 +259,7 @@ namespace FastNoise
             member.description = nameDesc.desc;
             member.type = MemberVariable::EEnum;
             member.valueDefault = (int)defaultV;
-            member.enumNames = { enumNames... };
+            ( member.enumNames.push_back( enumNames ), ... );
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
             {
@@ -282,7 +282,10 @@ namespace FastNoise
             member.description = nameDesc.desc;
             member.type = MemberVariable::EEnum;
             member.valueDefault = (int)defaultV;
-            member.enumNames = { enumNames, enumNames + ENUM_NAMES };
+            for( const char* enumName : enumNames )
+            {
+                member.enumNames.push_back( enumName );
+            }
 
             member.setFunc = [func]( Generator* g, MemberVariable::ValueUnion v )
             {

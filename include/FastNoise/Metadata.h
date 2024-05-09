@@ -7,9 +7,6 @@
 
 #include "Utility/Config.h"
 
-#pragma warning( push )
-#pragma warning( disable : 4251 )
-
 namespace FastNoise
 {
     class Generator;
@@ -28,13 +25,127 @@ namespace FastNoise
     // Node name, member name+types, functions to set members
     struct FASTNOISE_API Metadata
     {
-        static constexpr float kDefaultUiDragSpeedFloat = 0.02f;
-        static constexpr float kDefaultUiDragSpeedInt = 0.2f;
+        template<typename T>
+        class FASTNOISE_API Vector
+        {
+        public:
+            using const_iterator = const T*;
+            // template solves dll linking when not inlining
+            template<typename = T> const_iterator begin() const { return data() + mStart; }
+            template<typename = T> const_iterator end() const { return data() + mEnd; }
+            template<typename = T> size_t size() const { return mEnd - mStart; }
+            template<typename = T> const T& operator []( size_t i ) const { return begin()[i]; }
+
+        private:
+            template<typename>
+            friend struct MetadataT;
+            friend struct Metadata;
+            friend class Generator;
+            using index_type = uint8_t;
+
+            T* data() const;
+            void push_back( const T& value );
+
+            index_type mStart = (index_type)-1;
+            index_type mEnd = (index_type)-1;
+        };
+
+        struct NameDesc
+        {
+            const char* name;
+            const char* desc;
+            
+            NameDesc( const char* name, const char* desc = "" ) : name( name ), desc( desc ) {}
+        };
+
+        // Base member struct
+        struct Member
+        {
+            const char* name = "";
+            const char* description = "";
+            int dimensionIdx = -1;
+        };
+
+        // float, int or enum value
+        struct MemberVariable : Member
+        {
+            enum eType
+            {
+                EFloat,
+                EInt,
+                EEnum
+            };
+
+            union ValueUnion
+            {
+                float f;
+                int i;
+
+                ValueUnion( float v = 0 )
+                {
+                    f = v;
+                }
+
+                ValueUnion( int v )
+                {
+                    i = v;
+                }
+
+                operator float()
+                {
+                    return f;
+                }
+
+                operator int()
+                {
+                    return i;
+                }
+
+                bool operator ==( const ValueUnion& rhs ) const
+                {
+                    return i == rhs.i;
+                }
+            };
+
+            eType type;
+            ValueUnion valueDefault, valueMin, valueMax;
+            float valueUiDragSpeed = 0;
+            Vector<const char*> enumNames;
+
+            // Function to set value for given generator
+            // Returns true if Generator is correct node class
+            std::function<bool( Generator*, ValueUnion )> setFunc;
+        };
+
+        // Node lookup (must be valid for node to function)
+        struct MemberNodeLookup : Member
+        {
+            // Function to set source for given generator
+            // Returns true if Generator* is correct node class and SmartNodeArg<> is correct node class
+            std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
+        };
+
+        // Either a constant float or node lookup
+        struct MemberHybrid : Member
+        {
+            float valueDefault, valueUiDragSpeed;
+
+            // Function to set value for given generator
+            // Returns true if Generator is correct node class
+            std::function<bool( Generator*, float )> setValueFunc;
+
+            // Function to set source for given generator
+            // Source takes priority if value is also set
+            // Returns true if Generator is correct node class and SmartNodeArg<> is correct node class
+            std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
+        };
+
+        static std::pair<int32_t, const char*> DebugCheckVectorStorageSize( int i );
 
         virtual ~Metadata() = default;
 
         /// <returns>Array containing metadata for every FastNoise node type</returns>
-        static const std::vector<const Metadata*>& GetAll()
+        static const Vector<const Metadata*>& GetAll()
         {
             return sAllMetadata;
         }
@@ -81,22 +192,6 @@ namespace FastNoise
         /// <returns>Root node</returns>
         static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
-        struct NameDesc
-        {
-            const char* name;
-            const char* desc;
-            
-            NameDesc( const char* name, const char* desc = "" ) : name( name ), desc( desc ) {}
-        };
-
-        // Base member struct
-        struct Member
-        {
-            const char* name = "";
-            const char* description = "";
-            int dimensionIdx = -1;            
-        };
-
         /// <summary>
         /// Add spaces to node names: DomainScale -> Domain Scale
         /// </summary>
@@ -113,90 +208,6 @@ namespace FastNoise
         /// <returns>string with formatted name</returns>
         static std::string FormatMetadataMemberName( const Member& member );
 
-        // float, int or enum value
-        struct MemberVariable : Member
-        {
-            enum eType
-            {
-                EFloat,
-                EInt,
-                EEnum
-            };
-
-            union ValueUnion
-            {
-                float f;
-                int i;
-
-                ValueUnion( float v = 0 )
-                {
-                    f = v;
-                }
-
-                ValueUnion( int v )
-                {
-                    i = v;
-                }
-
-                operator float()
-                {
-                    return f;
-                }
-
-                operator int()
-                {
-                    return i;
-                }
-
-                bool operator ==( const ValueUnion& rhs ) const
-                {
-                    return i == rhs.i;
-                }
-            };
-
-            eType type;
-            ValueUnion valueDefault, valueMin, valueMax;
-            float valueUiDragSpeed = 0;
-            std::vector<const char*> enumNames;
-
-            // Function to set value for given generator
-            // Returns true if Generator is correct node class
-            std::function<bool( Generator*, ValueUnion )> setFunc;
-        };
-
-        // Node lookup (must be valid for node to function)
-        struct MemberNodeLookup : Member
-        {
-            // Function to set source for given generator
-            // Returns true if Generator* is correct node class and SmartNodeArg<> is correct node class
-            std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
-        };
-
-        // Either a constant float or node lookup
-        struct MemberHybrid : Member
-        {
-            float valueDefault, valueUiDragSpeed;
-
-            // Function to set value for given generator
-            // Returns true if Generator is correct node class
-            std::function<bool( Generator*, float )> setValueFunc;
-
-            // Function to set source for given generator
-            // Source takes priority if value is also set
-            // Returns true if Generator is correct node class and SmartNodeArg<> is correct node class
-            std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
-        };
-
-        uint16_t id;
-        const char* name = "";
-        const char* description = "";
-        const char* formattedName = nullptr;
-        std::vector<const char*> groups;
-
-        std::vector<MemberVariable>   memberVariables;
-        std::vector<MemberNodeLookup> memberNodeLookups;
-        std::vector<MemberHybrid>     memberHybrids;
-
         /// <summary>
         /// Create new instance of a FastNoise node from metadata
         /// </summary>
@@ -208,28 +219,57 @@ namespace FastNoise
         /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
         virtual SmartNode<> CreateNode( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max ) const = 0;
 
+        uint16_t id;
+        Vector<MemberVariable>   memberVariables;
+        Vector<MemberNodeLookup> memberNodeLookups;
+        Vector<MemberHybrid>     memberHybrids;
+        Vector<const char*>      groups;
+
+        const char* name = "";
+        const char* description = "";
+        const char* formattedName = nullptr;
+
     protected:
         Metadata()
         {
             id = AddMetadata( this );
         }
 
+        static constexpr float kDefaultUiDragSpeedFloat = 0.02f;
+        static constexpr float kDefaultUiDragSpeedInt = 0.2f;
+
     private:
         static uint16_t AddMetadata( const Metadata* newMetadata )
         {
-            sAllMetadata.emplace_back( newMetadata );
+            sAllMetadata.push_back( newMetadata );
 
             return (uint16_t)sAllMetadata.size() - 1;
         }
 
-        static std::vector<const Metadata*> sAllMetadata;
+        static Vector<const Metadata*> sAllMetadata;
     };
 
     // Stores data to create an instance of a FastNoise node
     // Node type, member values
-    struct FASTNOISE_API NodeData
+    struct NodeData
     {
-        NodeData( const Metadata* metadata );
+        NodeData( const Metadata* data )
+        {
+            if( ( metadata = data ) )
+            {
+                for( const Metadata::MemberVariable& value: metadata->memberVariables )
+                {
+                    variables.push_back( value.valueDefault );
+                }
+
+                nodeLookups.assign( metadata->memberNodeLookups.size(), nullptr );
+
+                for( const Metadata::MemberHybrid& value: metadata->memberHybrids )
+                {
+                    hybrids.emplace_back( nullptr, value.valueDefault );
+                }
+            }
+        }
 
         const Metadata* metadata;
         std::vector<Metadata::MemberVariable::ValueUnion> variables;
@@ -245,5 +285,3 @@ namespace FastNoise
         }
     };
 }
-
-#pragma warning( pop )
