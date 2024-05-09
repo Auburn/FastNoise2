@@ -5,7 +5,7 @@ name: CI
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [master,NewFastSIMD]
   pull_request:
     branches: [master,NewFastSIMD]
   release:
