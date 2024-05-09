@@ -30,11 +30,11 @@ namespace FastNoise
         {
         public:
             using const_iterator = const T*;
-            // template solves dll linking when not inlining
-            template<typename = T> const_iterator begin() const { return data() + mStart; }
-            template<typename = T> const_iterator end() const { return data() + mEnd; }
-            template<typename = T> size_t size() const { return mEnd - mStart; }
-            template<typename = T> const T& operator []( size_t i ) const { return begin()[i]; }
+
+            const_iterator begin() const { return data() + mStart; }
+            const_iterator end() const { return data() + mEnd; }
+            size_t size() const { return mEnd - mStart; }
+            const T& operator []( size_t i ) const { return begin()[i]; }
 
         private:
             template<typename>

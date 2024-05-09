@@ -79,6 +79,12 @@ void Metadata::Vector<T>::push_back( const T& value )
     mStart = std::min( mStart, mEnd++ );
 }
 
+template class Metadata::Vector<const Metadata*>;
+template class Metadata::Vector<const char*>;
+template class Metadata::Vector<Metadata::MemberVariable>;
+template class Metadata::Vector<Metadata::MemberNodeLookup>;
+template class Metadata::Vector<Metadata::MemberHybrid>;
+
 template<typename T>
 void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
 {
