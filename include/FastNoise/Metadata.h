@@ -140,6 +140,8 @@ namespace FastNoise
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
+        using node_id = uint8_t;
+
         static std::pair<int32_t, const char*> DebugCheckVectorStorageSize( int i );
 
         virtual ~Metadata() = default;
@@ -151,7 +153,7 @@ namespace FastNoise
         }
 
         /// <returns>Metadata for given Metadata::id</returns>
-        static const Metadata* GetFromId( uint16_t nodeId )
+        static const Metadata* GetFromId( node_id nodeId )
         {
             // Metadata not loaded yet
             // Don't try to create nodes from metadata during static initialisation
@@ -219,7 +221,7 @@ namespace FastNoise
         /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
         virtual SmartNode<> CreateNode( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max ) const = 0;
 
-        uint16_t id;
+        node_id id;
         Vector<MemberVariable>   memberVariables;
         Vector<MemberNodeLookup> memberNodeLookups;
         Vector<MemberHybrid>     memberHybrids;
@@ -239,11 +241,11 @@ namespace FastNoise
         static constexpr float kDefaultUiDragSpeedInt = 0.2f;
 
     private:
-        static uint16_t AddMetadata( const Metadata* newMetadata )
+        static node_id AddMetadata( const Metadata* newMetadata )
         {
             sAllMetadata.push_back( newMetadata );
 
-            return (uint16_t)sAllMetadata.size() - 1;
+            return (node_id)sAllMetadata.size() - 1;
         }
 
         static Vector<const Metadata*> sAllMetadata;

@@ -138,7 +138,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     {
         // UINT16_MAX where node ID should be
         // Referenced by index in reference array, array ordering will match on decode
-        AddToDataStream( dataStream, std::numeric_limits<uint16_t>::max() );
+        AddToDataStream( dataStream, std::numeric_limits<Metadata::node_id>::max() );
         AddToDataStream( dataStream, reference->second );
         return true;
     }
@@ -245,14 +245,14 @@ bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& 
 
 SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::FeatureSet level = FastSIMD::FeatureSet::Max )
 {
-    uint16_t nodeId;
+    Metadata::node_id nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
     {
         return nullptr;
     }
 
     // UINT16_MAX indicates a reference node
-    if( nodeId == std::numeric_limits<uint16_t>::max() )
+    if( nodeId == std::numeric_limits<Metadata::node_id>::max() )
     {
         uint16_t referenceId;
         if( !GetFromDataStream( serialisedNodeData, serialIdx, referenceId ) )
@@ -359,14 +359,14 @@ SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeD
 
 NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx )
 {
-    uint16_t nodeId;
+    Metadata::node_id nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
     {
         return nullptr;
     }
 
     // UINT16_MAX indicates a reference node
-    if( nodeId == std::numeric_limits<uint16_t>::max() )
+    if( nodeId == std::numeric_limits<Metadata::node_id>::max() )
     {
         uint16_t referenceId;
         if( !GetFromDataStream( serialisedNodeData, serialIdx, referenceId ) )
