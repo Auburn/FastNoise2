@@ -38,25 +38,32 @@ public:
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
 
-        xs = InterpHermite( x - xs );
-        ys = InterpHermite( y - ys );
+        float32v xs1 = InterpHermite( x - xs );
+        float32v ys1 = InterpHermite( y - ys );
+        float32v xs0 = float32v( 1 ) - xs1;
+        float32v ys0 = float32v( 1 ) - ys1;
+
+        float32v normalise( 1.0f / (0xffff / 2.0f) );
 
     #define GRADIENT_COORD( _x, _y )\
         int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
-        float32v x##_x##_y = FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) );\
-        float32v y##_x##_y = FS::Convert<float>( (hash##_x##_y >> 16) & int32v( 0xffff ) );
+        float32v contrib##_x##_y = normalise * xs##_x * ys##_y;\
+        xWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
+        yWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16) ), yWarp )
 
-        GRADIENT_COORD( 0, 0 );
+        int32v hash00 = HashPrimesHB(seed, x0, y0 );
+        float32v contrib00 = normalise * xs0 * ys0;
+        float32v xWarp = contrib00 * FS::Convert<float>( hash00 & int32v( 0xffff ) );
+        float32v yWarp = contrib00 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash00, 16) );
+
         GRADIENT_COORD( 1, 0 );
         GRADIENT_COORD( 0, 1 );
         GRADIENT_COORD( 1, 1 );
 
     #undef GRADIENT_COORD
 
-        float32v normalise = float32v( 1.0f / (0xffff / 2.0f) );
-
-        float32v xWarp = (Lerp( Lerp( x00, x10, xs ), Lerp( x01, x11, xs ), ys ) - float32v( 0xffff / 2.0f )) * normalise;
-        float32v yWarp = (Lerp( Lerp( y00, y10, xs ), Lerp( y01, y11, xs ), ys ) - float32v( 0xffff / 2.0f )) * normalise;
+        xWarp -= float32v( 1 );
+        yWarp -= float32v( 1 );
 
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
@@ -79,17 +86,28 @@ public:
         int32v y1 = y0 + int32v( Primes::Y );
         int32v z1 = z0 + int32v( Primes::Z );
 
-        xs = InterpHermite( x - xs );
-        ys = InterpHermite( y - ys );
-        zs = InterpHermite( z - zs );
+        float32v xs1 = InterpHermite( x - xs );
+        float32v ys1 = InterpHermite( y - ys );
+        float32v zs1 = InterpHermite( z - zs );
+        float32v xs0 = float32v( 1 ) - xs1;
+        float32v ys0 = float32v( 1 ) - ys1;
+        float32v zs0 = float32v( 1 ) - zs1;
+
+        float32v normalise( 1.0f / (0x3ff / 2.0f) );
 
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\
-        float32v x##_x##_y##_z = FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) );\
-        float32v y##_x##_y##_z = FS::Convert<float>( (hash##_x##_y##_z >> 10) & int32v( 0x3ff ) );\
-        float32v z##_x##_y##_z = FS::Convert<float>( (hash##_x##_y##_z >> 20) & int32v( 0x3ff ) );
+        float32v contrib##_x##_y##_z = normalise * xs##_x * ys##_y * zs##_z;\
+        xWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
+        yWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
+        zWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
 
-        GRADIENT_COORD( 0, 0, 0 );
+        int32v hash000 = HashPrimesHB( seed, x0, y0, z0 );
+        float32v contrib000 = normalise * xs0 * ys0 * zs0;
+        float32v xWarp = contrib000 * FS::Convert<float>( hash000 & int32v( 0x3ff ) );
+        float32v yWarp = contrib000 * FS::Convert<float>( (hash000 >> 11) & int32v( 0x3ff ) );
+        float32v zWarp = contrib000 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash000, 22 ) );
+
         GRADIENT_COORD( 1, 0, 0 );
         GRADIENT_COORD( 0, 1, 0 );
         GRADIENT_COORD( 1, 1, 0 );
@@ -100,19 +118,9 @@ public:
 
     #undef GRADIENT_COORD
 
-        float32v x0z = Lerp( Lerp( x000, x100, xs ), Lerp( x010, x110, xs ), ys );
-        float32v y0z = Lerp( Lerp( y000, y100, xs ), Lerp( y010, y110, xs ), ys );
-        float32v z0z = Lerp( Lerp( z000, z100, xs ), Lerp( z010, z110, xs ), ys );
-                   
-        float32v x1z = Lerp( Lerp( x001, x101, xs ), Lerp( x011, x111, xs ), ys );
-        float32v y1z = Lerp( Lerp( y001, y101, xs ), Lerp( y011, y111, xs ), ys );
-        float32v z1z = Lerp( Lerp( z001, z101, xs ), Lerp( z011, z111, xs ), ys );
-
-        float32v normalise = float32v( 1.0f / (0x3ff / 2.0f) );
-
-        float32v xWarp = (Lerp( x0z, x1z, zs ) - float32v( 0x3ff / 2.0f )) * normalise;
-        float32v yWarp = (Lerp( y0z, y1z, zs ) - float32v( 0x3ff / 2.0f )) * normalise;
-        float32v zWarp = (Lerp( z0z, z1z, zs ) - float32v( 0x3ff / 2.0f )) * normalise;
+        xWarp -= float32v( 1 );
+        yWarp -= float32v( 1 );
+        zWarp -= float32v( 1 );
 
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
@@ -139,19 +147,32 @@ public:
         int32v z1 = z0 + int32v( Primes::Z );
         int32v w1 = w0 + int32v( Primes::W );
 
-        xs = InterpHermite( x - xs );
-        ys = InterpHermite( y - ys );
-        zs = InterpHermite( z - zs );
-        ws = InterpHermite( w - ws );
+        float32v xs1 = InterpHermite( x - xs );
+        float32v ys1 = InterpHermite( y - ys );
+        float32v zs1 = InterpHermite( z - zs );
+        float32v ws1 = InterpHermite( w - ws );
+        float32v xs0 = float32v( 1 ) - xs1;
+        float32v ys0 = float32v( 1 ) - ys1;
+        float32v zs0 = float32v( 1 ) - zs1;
+        float32v ws0 = float32v( 1 ) - ws1;
+
+        float32v normalise( 1.0f / (0xff / 2.0f) );
 
     #define GRADIENT_COORD( _x, _y, _z, _w )\
         int32v hash##_x##_y##_z##_w = HashPrimesHB( seed, x##_x, y##_y, z##_z, w##_w );\
-        float32v x##_x##_y##_z##_w = FS::Convert<float>( hash##_x##_y##_z##_w & int32v( 0xff ) );\
-        float32v y##_x##_y##_z##_w = FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & int32v( 0xff ) );\
-        float32v z##_x##_y##_z##_w = FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & int32v( 0xff ) );\
-        float32v w##_x##_y##_z##_w = FS::Convert<float>( (hash##_x##_y##_z##_w >> 24) & int32v( 0xff ) );
+        float32v contrib##_x##_y##_z##_w = normalise * xs##_x * ys##_y * zs##_z * ws##_w;\
+        xWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & int32v( 0xff ) ), xWarp );\
+        yWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & int32v( 0xff ) ), yWarp );\
+        zWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & int32v( 0xff ) ), zWarp );\
+        wWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
 
-        GRADIENT_COORD( 0, 0, 0, 0 );
+        int32v hash0000 = HashPrimesHB( seed, x0, y0, z0, w0 );
+        float32v contrib0000 = normalise * xs0 * ys0 * zs0 * ws0;
+        float32v xWarp = contrib0000 * FS::Convert<float>( hash0000 & int32v( 0xff ) );
+        float32v yWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 8) & int32v( 0xff ) );
+        float32v zWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 16) & int32v( 0xff ) );
+        float32v wWarp = contrib0000 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash0000, 24 ) );
+
         GRADIENT_COORD( 1, 0, 0, 0 );
         GRADIENT_COORD( 0, 1, 0, 0 );
         GRADIENT_COORD( 1, 1, 0, 0 );
@@ -170,22 +191,10 @@ public:
 
     #undef GRADIENT_COORD
 
-        float32v x0w = Lerp( Lerp( Lerp( x0000, x1000, xs ), Lerp( x0100, x1100, xs ), ys ), Lerp( Lerp( x0010, x1010, xs ), Lerp( x0110, x1110, xs ), ys ), zs );
-        float32v y0w = Lerp( Lerp( Lerp( y0000, y1000, xs ), Lerp( y0100, y1100, xs ), ys ), Lerp( Lerp( y0010, y1010, xs ), Lerp( y0110, y1110, xs ), ys ), zs );
-        float32v z0w = Lerp( Lerp( Lerp( z0000, z1000, xs ), Lerp( z0100, z1100, xs ), ys ), Lerp( Lerp( z0010, z1010, xs ), Lerp( z0110, z1110, xs ), ys ), zs );
-        float32v w0w = Lerp( Lerp( Lerp( w0000, w1000, xs ), Lerp( w0100, w1100, xs ), ys ), Lerp( Lerp( w0010, w1010, xs ), Lerp( w0110, w1110, xs ), ys ), zs );
-
-        float32v x1w = Lerp( Lerp( Lerp( x0001, x1001, xs ), Lerp( x0101, x1101, xs ), ys ), Lerp( Lerp( x0011, x1011, xs ), Lerp( x0111, x1111, xs ), ys ), zs );
-        float32v y1w = Lerp( Lerp( Lerp( y0001, y1001, xs ), Lerp( y0101, y1101, xs ), ys ), Lerp( Lerp( y0011, y1011, xs ), Lerp( y0111, y1111, xs ), ys ), zs );
-        float32v z1w = Lerp( Lerp( Lerp( z0001, z1001, xs ), Lerp( z0101, z1101, xs ), ys ), Lerp( Lerp( z0011, z1011, xs ), Lerp( z0111, z1111, xs ), ys ), zs );
-        float32v w1w = Lerp( Lerp( Lerp( w0001, w1001, xs ), Lerp( w0101, w1101, xs ), ys ), Lerp( Lerp( w0011, w1011, xs ), Lerp( w0111, w1111, xs ), ys ), zs );                        
-
-        float32v normalise = float32v( 1.0f / (0xff / 2.0f) );
-
-        float32v xWarp = (Lerp( x0w, x1w, ws ) - float32v( 0xff / 2.0f )) * normalise;
-        float32v yWarp = (Lerp( y0w, y1w, ws ) - float32v( 0xff / 2.0f )) * normalise;
-        float32v zWarp = (Lerp( z0w, z1w, ws ) - float32v( 0xff / 2.0f )) * normalise;
-        float32v wWarp = (Lerp( w0w, w1w, ws ) - float32v( 0xff / 2.0f )) * normalise;
+        xWarp -= float32v( 1 );
+        yWarp -= float32v( 1 );
+        zWarp -= float32v( 1 );
+        wWarp -= float32v( 1 );
 
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
