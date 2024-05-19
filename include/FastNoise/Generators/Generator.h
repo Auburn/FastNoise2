@@ -303,7 +303,7 @@ namespace FastNoise
         template<typename T, typename U, typename = std::enable_if_t<!std::is_enum_v<T>>>
         void AddPerDimensionVariable( NameDesc nameDesc, T defaultV, U&& func, T minV = 0, T maxV = 0, float uiDragSpeed = std::is_same_v<T, float> ? Metadata::kDefaultUiDragSpeedFloat : Metadata::kDefaultUiDragSpeedInt )
         {
-            for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<T>::varArray ) / sizeof( *PerDimensionVariable<T>::varArray ); idx++ )
+            for( int idx = 0; (size_t)idx < (size_t)Dim::Count; idx++ )
             {
                 MemberVariable member;
                 member.name = nameDesc.name;
@@ -360,7 +360,7 @@ namespace FastNoise
             using GeneratorSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
             using T = typename GeneratorSourceT::Type;
 
-            for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<GeneratorSourceT>::varArray ) / sizeof( *PerDimensionVariable<GeneratorSourceT>::varArray ); idx++ )
+            for( int idx = 0; (size_t)idx < (size_t)Dim::Count; idx++ )
             {
                 MemberNodeLookup member;
                 member.name = nameDesc.name;
@@ -428,7 +428,7 @@ namespace FastNoise
             using HybridSourceT = typename std::invoke_result_t<U, GetArg<U, 0>>::type::Type;
             using T = typename HybridSourceT::Type;
 
-            for( int idx = 0; (size_t)idx < sizeof( PerDimensionVariable<HybridSourceT>::varArray ) / sizeof( *PerDimensionVariable<HybridSourceT>::varArray ); idx++ )
+            for( int idx = 0; (size_t)idx < (size_t)Dim::Count; idx++ )
             {
                 MemberHybrid member;
                 member.name = nameDesc.name;

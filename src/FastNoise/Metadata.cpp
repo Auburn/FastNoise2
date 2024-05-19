@@ -16,7 +16,7 @@ using namespace FastNoise;
 Metadata::Vector<const Metadata*> Metadata::sAllMetadata;
 
 template<typename T>
-constexpr static size_t gMetadataVectorSize = SIZE_MAX;
+constexpr static std::nullptr_t gMetadataVectorSize = nullptr; // Invalid
 
 // Setting these values avoids needless vector resizing and oversizing on startup
 // Sadly there is no way to automate this as they fill up as part of static init
@@ -85,8 +85,19 @@ template class Metadata::Vector<Metadata::MemberVariable>;
 template class Metadata::Vector<Metadata::MemberNodeLookup>;
 template class Metadata::Vector<Metadata::MemberHybrid>;
 
+union MemberLookup
+{
+    struct
+    {
+        uint8_t type : 2;
+        uint8_t index : 6;
+    } member;
+
+    uint8_t data;
+};
+
 template<typename T>
-void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
+static void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
 {
     for( size_t i = 0; i < sizeof( T ); i++ )
     {
@@ -94,7 +105,16 @@ void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
     }
 }
 
-bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint8_t>& dataStream, std::unordered_map<const NodeData*, uint16_t>& referenceIds, std::unordered_set<const NodeData*> dependencies = {} )
+static void AddMemberLookupToDataStream( std::vector<uint8_t>& dataStream,  uint8_t type, uint8_t index )
+{
+    MemberLookup memberLookup;
+    memberLookup.member.type = type;
+    memberLookup.member.index = index;
+    AddToDataStream( dataStream, memberLookup.data );
+}
+
+
+static bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint8_t>& dataStream, std::unordered_map<const NodeData*, uint16_t>& referenceIds, std::unordered_set<const NodeData*> dependencies = {} )
 {
     // dependencies passed by value to avoid false positives from other branches in the node tree
 
@@ -136,7 +156,7 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
 
     if( reference != referenceIds.end() )
     {
-        // UINT16_MAX where node ID should be
+        // UINT8_MAX where node ID should be
         // Referenced by index in reference array, array ordering will match on decode
         AddToDataStream( dataStream, std::numeric_limits<Metadata::node_id>::max() );
         AddToDataStream( dataStream, reference->second );
@@ -149,7 +169,17 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     // Member variables
     for( size_t i = 0; i < metadata->memberVariables.size(); i++ )
     {
-        AddToDataStream( dataStream, nodeData->variables[i].i );
+        if( nodeData->variables[i].i != metadata->memberVariables[i].valueDefault.i )
+        {
+            AddMemberLookupToDataStream( dataStream, 0, i );
+
+            AddToDataStream( dataStream, nodeData->variables[i].i );
+        }
+    }
+
+    if( metadata->memberNodeLookups.size() )
+    {
+        AddMemberLookupToDataStream( dataStream, 1, (uint8_t)metadata->memberNodeLookups.size() );
     }
 
     // Member nodes
@@ -177,17 +207,16 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
     // Member hybrids
     for( size_t i = 0; i < metadata->memberHybrids.size(); i++ )
     {
-        // 1 byte to indicate:
-        // 0 = constant float value
-        // 1 = node lookup
-
         if( !nodeData->hybrids[i].first )
         {
-            AddToDataStream( dataStream, (uint8_t)0 );
+            if( nodeData->hybrids[i].second != metadata->memberHybrids[i].valueDefault )
+            {
+                AddMemberLookupToDataStream( dataStream, 2, i );
 
-            Metadata::MemberVariable::ValueUnion v = nodeData->hybrids[i].second;
+                Metadata::MemberVariable::ValueUnion v = nodeData->hybrids[i].second;
 
-            AddToDataStream( dataStream, v.i );
+                AddToDataStream( dataStream, v.i );
+            }
         }
         else
         {
@@ -204,13 +233,17 @@ bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vector<uint
                 }
             }
 
-            AddToDataStream( dataStream, (uint8_t)1 );
+            AddMemberLookupToDataStream( dataStream, 3, i );
+
             if( !SerialiseNodeDataInternal( nodeData->hybrids[i].first, fixUp, dataStream, referenceIds, dependencies ) )
             {
                 return false;
             }
         }
     }
+
+    // Mark end of node
+    AddToDataStream( dataStream, (uint8_t)255 );
 
     referenceIds.emplace( nodeData, (uint16_t)referenceIds.size() );
 
@@ -230,7 +263,7 @@ std::string Metadata::SerialiseNodeData( NodeData* nodeData, bool fixUp )
 }
 
 template<typename T>
-bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& value )
+static bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& value )
 {
     if( dataStream.size() < idx + sizeof( T ) )
     {
@@ -243,7 +276,7 @@ bool GetFromDataStream( const std::vector<uint8_t>& dataStream, size_t& idx, T& 
     return true;
 }
 
-SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::FeatureSet level = FastSIMD::FeatureSet::Max )
+static SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialisedNodeData, size_t& serialIdx, std::vector<SmartNode<>>& referenceNodes, FastSIMD::FeatureSet level = FastSIMD::FeatureSet::Max )
 {
     Metadata::node_id nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
@@ -251,7 +284,7 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
         return nullptr;
     }
 
-    // UINT16_MAX indicates a reference node
+    // UINT8_MAX indicates a reference node
     if( nodeId == std::numeric_limits<Metadata::node_id>::max() )
     {
         uint16_t referenceId;
@@ -283,8 +316,14 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
         return nullptr;
     }
 
+    MemberLookup memberLookup;
+    if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
+    {
+        return nullptr;
+    }
+
     // Member variables
-    for( const auto& var : metadata->memberVariables )
+    while( memberLookup.member.type == 0 )
     {
         Metadata::MemberVariable::ValueUnion v;
 
@@ -293,40 +332,66 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
             return nullptr;
         }
 
-        var.setFunc( generator.get(), v );
+        if( memberLookup.member.index < metadata->memberVariables.size() )
+        {
+            metadata->memberVariables[memberLookup.member.index].setFunc( generator.get(), v );
+        }
+
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
+        {
+            return nullptr;
+        }
     }
 
     // Member nodes
-    for( const auto& node : metadata->memberNodeLookups )
+    if( memberLookup.member.type == 1 )
     {
-        SmartNode<> nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, serialIdx, referenceNodes, level );
+        size_t i = 0;
+        for( ; i < std::min<size_t>( memberLookup.member.index, metadata->memberNodeLookups.size() ); i++ )
+        {
+            SmartNode<> nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, serialIdx, referenceNodes, level );
 
-        if( !nodeGen || !node.setFunc( generator.get(), nodeGen ) )
+            if( !nodeGen || !metadata->memberNodeLookups[i].setFunc( generator.get(), nodeGen ) )
+            {
+                return nullptr;
+            }
+        }
+        for( ; i < memberLookup.member.index; i++ )
+        {
+            // Still need to deserialise this even if there is no where to put it
+            if( !DeserialiseSmartNodeInternal( serialisedNodeData, serialIdx, referenceNodes, level ) )
+            {
+                return nullptr;
+            }
+        }
+        for( ; i < metadata->memberNodeLookups.size(); i++ )
+        {
+            // Attempt to use a dummy node to fill the new node lookup
+            if( !metadata->memberNodeLookups[i].setFunc( generator.get(), FastNoise::New<FastNoise::Constant>( level ) ) )
+            {
+                return nullptr;
+            }
+        }
+
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
         {
             return nullptr;
         }
     }
 
-    // Member variables
-    for( const auto& hybrid : metadata->memberHybrids )
+    // Member hybrids
+    while( memberLookup.data != 255 )
     {
-        uint8_t isGenerator;
-        // 1 byte to indicate:
-        // 0 = constant float value
-        // 1 = node lookup
-
-        if( !GetFromDataStream( serialisedNodeData, serialIdx, isGenerator ) || isGenerator > 1 )
-        {
-            return nullptr;
-        }
-
-        if( isGenerator )
+        if( memberLookup.member.type == 3 )
         {
             SmartNode<> nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, serialIdx, referenceNodes, level );
 
-            if( !nodeGen || !hybrid.setNodeFunc( generator.get(), nodeGen ) )
+            if( memberLookup.member.index < metadata->memberHybrids.size() )
             {
-                return nullptr;
+                if( !nodeGen || !metadata->memberHybrids[memberLookup.member.index].setNodeFunc( generator.get(), nodeGen ) )
+                {
+                    return nullptr;
+                }
             }
         }
         else
@@ -338,7 +403,15 @@ SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& serialised
                 return nullptr;
             }
 
-            hybrid.setValueFunc( generator.get(), v );
+            if( memberLookup.member.index < metadata->memberHybrids.size() )
+            {
+                metadata->memberHybrids[memberLookup.member.index].setValueFunc( generator.get(), v );
+            }
+        }
+
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
+        {
+            return nullptr;
         }
     }
 
@@ -357,7 +430,7 @@ SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeD
     return DeserialiseSmartNodeInternal( dataStream, startIdx, referenceNodes, level );
 }
 
-NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx )
+static NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, size_t& serialIdx )
 {
     Metadata::node_id nodeId;
     if( !GetFromDataStream( serialisedNodeData, serialIdx, nodeId ) )
@@ -365,7 +438,7 @@ NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNod
         return nullptr;
     }
 
-    // UINT16_MAX indicates a reference node
+    // UINT8_MAX indicates a reference node
     if( nodeId == std::numeric_limits<Metadata::node_id>::max() )
     {
         uint16_t referenceId;
@@ -392,54 +465,84 @@ NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serialisedNod
 
     std::unique_ptr<NodeData> nodeData( new NodeData( metadata ) );
 
-    // Member variables
-    for( auto& var : nodeData->variables )
+
+    MemberLookup memberLookup;
+    if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
     {
-        if( !GetFromDataStream( serialisedNodeData, serialIdx, var ) )
+        return nullptr;
+    }
+
+    // Member variables
+    while( memberLookup.member.type == 0 )
+    {
+        Metadata::MemberVariable::ValueUnion v;
+
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, v.i ) )
+        {
+            return nullptr;
+        }
+
+        if( memberLookup.member.index < metadata->memberVariables.size() )
+        {
+            nodeData->variables[memberLookup.member.index] = v;
+        }
+
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
         {
             return nullptr;
         }
     }
 
     // Member nodes
-    for( auto& node : nodeData->nodeLookups )
+    if( memberLookup.member.type == 1 )
     {
-        node = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, serialIdx );
+        size_t i = 0;
+        for( ; i < std::min<size_t>( memberLookup.member.index, metadata->memberNodeLookups.size() ); i++ )
+        {
+            nodeData->nodeLookups[i] = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, serialIdx );
+        }
+        for( ; i < memberLookup.member.index; i++ )
+        {
+            // Still need to deserialise this even if there is no where to put it
+            DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, serialIdx );
+        }
 
-        if( !node )
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
         {
             return nullptr;
         }
     }
 
     // Member hybrids
-    for( auto& hybrid : nodeData->hybrids )
+    while( memberLookup.data != 255 )
     {
-        uint8_t isGenerator;
-        // 1 byte to indicate:
-        // 0 = constant float value
-        // 1 = node lookup
-
-        if( !GetFromDataStream( serialisedNodeData, serialIdx, isGenerator ) || isGenerator > 1 )
+        if( memberLookup.member.type == 3 )
         {
-            return nullptr;
-        }
+            NodeData* node = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, serialIdx );
 
-        if( isGenerator )
-        {
-            hybrid.first = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, serialIdx );
-
-            if( !hybrid.first )
+            if( memberLookup.member.index < metadata->memberHybrids.size() )
             {
-                return nullptr;
+                nodeData->hybrids[memberLookup.member.index].first = node;
             }
         }
         else
         {
-            if( !GetFromDataStream( serialisedNodeData, serialIdx, hybrid.second ) )
+            float v;
+
+            if( !GetFromDataStream( serialisedNodeData, serialIdx, v ) )
             {
                 return nullptr;
             }
+
+            if( memberLookup.member.index < metadata->memberHybrids.size() )
+            {
+                nodeData->hybrids[memberLookup.member.index].second = v;
+            }
+        }
+
+        if( !GetFromDataStream( serialisedNodeData, serialIdx, memberLookup ) )
+        {
+            return nullptr;
         }
     }
 
@@ -513,7 +616,7 @@ namespace FastNoise
 }
 
 template<typename T>
-std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
+static std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
 {
     auto* newMetadata = new MetadataT<T>;
     newMetadata->name = className;
