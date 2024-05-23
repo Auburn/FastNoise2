@@ -42,10 +42,12 @@ namespace FastNoise
     template<typename T>
     struct MetadataT<Fractal<T>> : MetadataT<Generator>
     {
-        MetadataT( const char* sourceName = "Source" )
+        MetadataT( const char* sourceName = "Source", bool addGroup = true )
         {
-            groups.push_back( "Fractal" );
-
+            if( addGroup )
+            {
+                groups.push_back( "Fractal" );
+            }
             this->AddGeneratorSource( sourceName, &Fractal<T>::SetSource );
             this->AddHybridSource( "Gain", 0.5f, &Fractal<T>::SetGain, &Fractal<T>::SetGain );
             this->AddHybridSource( "Weighted Strength", 0.0f, &Fractal<T>::SetWeightedStrength, &Fractal<T>::SetWeightedStrength );
@@ -57,7 +59,8 @@ namespace FastNoise
 
     class FractalFBm : public virtual Fractal<>
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -70,7 +73,8 @@ namespace FastNoise
 
     class FractalRidged : public virtual Fractal<>
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -83,7 +87,8 @@ namespace FastNoise
 
     class FractalPingPong : public virtual Fractal<>
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         void SetPingPongStrength( float value ) { mPingPongStrength = value; }
         void SetPingPongStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPingPongStrength, gen ); }
