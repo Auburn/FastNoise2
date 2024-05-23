@@ -47,12 +47,12 @@ public:
 
     #define GRADIENT_COORD( _x, _y )\
         int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
-        float32v contrib##_x##_y = normalise * xs##_x * ys##_y;\
+        float32v contrib##_x##_y = xs##_x * ys##_y;\
         xWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
         yWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16) ), yWarp )
 
         int32v hash00 = HashPrimesHB(seed, x0, y0 );
-        float32v contrib00 = normalise * xs0 * ys0;
+        float32v contrib00 = xs0 * ys0;
         float32v xWarp = contrib00 * FS::Convert<float>( hash00 & int32v( 0xffff ) );
         float32v yWarp = contrib00 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash00, 16) );
 
@@ -62,8 +62,8 @@ public:
 
     #undef GRADIENT_COORD
 
-        xWarp -= float32v( 1 );
-        yWarp -= float32v( 1 );
+        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
 
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
@@ -97,13 +97,13 @@ public:
 
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\
-        float32v contrib##_x##_y##_z = normalise * xs##_x * ys##_y * zs##_z;\
+        float32v contrib##_x##_y##_z = xs##_x * ys##_y * zs##_z;\
         xWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
         yWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
         zWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
 
         int32v hash000 = HashPrimesHB( seed, x0, y0, z0 );
-        float32v contrib000 = normalise * xs0 * ys0 * zs0;
+        float32v contrib000 = xs0 * ys0 * zs0;
         float32v xWarp = contrib000 * FS::Convert<float>( hash000 & int32v( 0x3ff ) );
         float32v yWarp = contrib000 * FS::Convert<float>( (hash000 >> 11) & int32v( 0x3ff ) );
         float32v zWarp = contrib000 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash000, 22 ) );
@@ -118,9 +118,9 @@ public:
 
     #undef GRADIENT_COORD
 
-        xWarp -= float32v( 1 );
-        yWarp -= float32v( 1 );
-        zWarp -= float32v( 1 );
+        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
+        zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
 
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
@@ -160,14 +160,14 @@ public:
 
     #define GRADIENT_COORD( _x, _y, _z, _w )\
         int32v hash##_x##_y##_z##_w = HashPrimesHB( seed, x##_x, y##_y, z##_z, w##_w );\
-        float32v contrib##_x##_y##_z##_w = normalise * xs##_x * ys##_y * zs##_z * ws##_w;\
+        float32v contrib##_x##_y##_z##_w = xs##_x * ys##_y * zs##_z * ws##_w;\
         xWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & int32v( 0xff ) ), xWarp );\
         yWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & int32v( 0xff ) ), yWarp );\
         zWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & int32v( 0xff ) ), zWarp );\
         wWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
 
         int32v hash0000 = HashPrimesHB( seed, x0, y0, z0, w0 );
-        float32v contrib0000 = normalise * xs0 * ys0 * zs0 * ws0;
+        float32v contrib0000 = xs0 * ys0 * zs0 * ws0;
         float32v xWarp = contrib0000 * FS::Convert<float>( hash0000 & int32v( 0xff ) );
         float32v yWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 8) & int32v( 0xff ) );
         float32v zWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 16) & int32v( 0xff ) );
@@ -191,10 +191,10 @@ public:
 
     #undef GRADIENT_COORD
 
-        xWarp -= float32v( 1 );
-        yWarp -= float32v( 1 );
-        zWarp -= float32v( 1 );
-        wWarp -= float32v( 1 );
+        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
+        zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
+        wWarp = FS::FMulSub( wWarp, normalise, float32v( 1 ) );
 
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
