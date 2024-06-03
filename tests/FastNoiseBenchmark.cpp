@@ -6,7 +6,7 @@
 #include "FastNoise/Metadata.h"
 #include "FastSIMD/FastSIMD_FastNoise_config.h"
 
-#include "../tools/DemoNodeTrees.inl"
+#include "../tools/NodeEditor/util/DemoNodeTrees.inl"
 
 static const size_t gPositionCount = 8192;
 static float gPositionFloats[gPositionCount]; 
