@@ -13,14 +13,14 @@
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <Corrade/Containers/ArrayViewStl.h>
 
-#include "ImGuiExtra.h"
+#include "util/ImGuiExtra.h"
+#include "util/DemoNodeTrees.inl"
 #include "FastNoiseNodeEditor.h"
-#include "DemoNodeTrees.inl"
 #include "NodeEditorApp.h"
 
 using namespace Magnum;
 
-#include "SharedMemoryIpc.inl"
+#include "util/SharedMemoryIpc.inl"
 
 static constexpr const char* kNodeGraphSettingsFile = FILESYSTEM_ROOT "NodeGraph.ini";
 

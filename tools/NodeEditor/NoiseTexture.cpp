@@ -20,8 +20,8 @@
 
 #include <FastNoise/Metadata.h>
 
+#include "util/ImGuiExtra.h"
 #include "NoiseTexture.h"
-#include "ImGuiExtra.h"
 
 
 using namespace Magnum;

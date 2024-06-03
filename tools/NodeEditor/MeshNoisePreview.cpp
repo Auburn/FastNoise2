@@ -11,9 +11,9 @@
 #include <Magnum/GL/Context.h>
 #include <Magnum/GL/Extensions.h>
 
-#include "ImGuiExtra.h"
+#include "util/ImGuiExtra.h"
+#include "util/DmcTable.inl"
 #include "MeshNoisePreview.h"
-#include "DmcTable.inl"
 
 
 using namespace Magnum;

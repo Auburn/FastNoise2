@@ -13,7 +13,7 @@
 #endif
 
 #include "NodeEditorApp.h"
-#include "ImGuiExtra.h"
+#include "util/ImGuiExtra.h"
 #include "FastSIMD/FastSIMD_FastNoise_config.h"
 
 using namespace Magnum;
