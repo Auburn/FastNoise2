@@ -18,6 +18,7 @@ endif()
 
 option(FASTNOISE2_TOOLS "Build \"Node Editor\" executable" ${FASTNOISE2_STANDALONE_PROJECT})
 option(FASTNOISE2_TESTS "Build tests" OFF)
+option(FASTNOISE2_UTILITY "Build utility tools" OFF)
 
 option(FASTNOISE2_STRICT_FP "Enable strict floating point calculations to ensure output from different SIMD feature sets match EXACTLY" OFF)
 
@@ -47,6 +48,10 @@ endif()
 
 if(FASTNOISE2_TESTS)
     add_subdirectory(tests)
+endif()
+
+if(FASTNOISE2_UTILITY)
+    add_subdirectory(util)
 endif()
 
 
