@@ -37,7 +37,7 @@ jobs:
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           - os: macos-latest
             name: MacOS64-Clang
-            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
             
     steps:                
     - name: 'Install OpenGL & xorg'
