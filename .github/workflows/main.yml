@@ -12,7 +12,7 @@ on:
     types: [published]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:  
+jobs:
   ci-matrix:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
@@ -25,51 +25,56 @@ jobs:
             cmake_options: -A Win32
           - os: windows-latest
             name: Win64-MSVC
-            cmake_options: -A x64            
+            cmake_options: -A x64
           - os: windows-latest
             name: Win64-ClangCL
             cmake_options: -A x64 -T ClangCL
           - os: ubuntu-latest
             name: Linux64-GCC
-            cmake_options: -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++      
+            cmake_options: -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
           - os: ubuntu-latest
             name: Linux64-Clang
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-          - os: macos-latest
-            name: MacOS64-Clang
+          - os: macos-13
+            target: x86_64-apple-darwin
+            name: MacOSx86_64-Clang
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-            
-    steps:                
+          - os: macos-14
+            target: aarch64-apple-darwin
+            name: MacOSaarch64-Clang
+            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+
+    steps:
     - name: 'Install OpenGL & xorg'
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install libgl1-mesa-dev xorg-dev
-            
-    - name: 'Checkout' 
+
+    - name: 'Checkout'
       uses: actions/checkout@v3
-   
+
     - name: 'CMake Build Debug'
       run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
-   
+
     - name: 'CMake Install Debug'
       run: cmake --build ${{ github.workspace }}/debug --config Debug --target install --parallel 4
-   
+
     - name: 'CMake Build Release'
       run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/release -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_NOISETOOL=ON -DFASTNOISE2_TESTS=ON ${{ matrix.cmake_options }}
-   
+
     - name: 'CMake Install Release'
       run: cmake --build ${{ github.workspace }}/release --config Release --target install --parallel 4
-    
+
     - if: runner.os != 'Windows'
       run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NoiseTool
-    
+
     - name: 'Upload artifact'
       uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.name }}
         path: ${{ github.workspace }}/install/
-   
+
     - name: 'Zip artifacts'
       if: github.event_name == 'release'
       uses: papeloto/action-zip@v1
@@ -77,7 +82,7 @@ jobs:
         files: install/
         recursive: true
         dest: ${{ matrix.name }}.zip
-        
+
     - name: 'Upload release artifacts'
       if: github.event_name == 'release'
       uses: svenstaro/upload-release-action@v2
@@ -85,4 +90,58 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ github.workspace }}/${{ matrix.name }}.zip
         asset_name: FastNoise2-${{ github.event.release.tag_name }}-${{ matrix.name }}.zip
+        tag: ${{ github.ref }}
+
+  macos-universal:
+    if: ${{ always() }}
+    needs: [ ci-matrix ]
+    name: macos Universal Build
+    runs-on: macos-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+    - name: 'Download artifact'
+      uses: actions/download-artifact@v3
+      with:
+        name: MacOSaarch64-Clang
+        path: MacOSaarch64-Clang
+    - name: 'Download artifact'
+      uses: actions/download-artifact@v3
+      with:
+        name: MacOSx86_64-Clang
+        path: MacOSx86_64-Clang
+    - name: 'Create Universal Binary'
+      run: |
+        mkdir -p universal/FastNoise2/lib universal/FastNoise2/bin
+        lipo -create \
+          -output universal/FastNoise2/lib/libFastNoise.dylib \
+            MacOSaarch64-Clang/FastNoise2/lib/libFastNoise.dylib \
+            MacOSx86_64-Clang/FastNoise2/lib/libFastNoise.dylib
+        lipo -create \
+          -output universal/FastNoise2/bin/NoiseTool \
+            MacOSaarch64-Clang/FastNoise2/bin/NoiseTool \
+            MacOSx86_64-Clang/FastNoise2/bin/NoiseTool
+        chmod +x universal/FastNoise2/bin/NoiseTool
+
+    - name: 'Upload artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: MacOSUniversal-Clang
+        path: ${{ github.workspace }}/universal/
+
+    - name: 'Zip artifacts'
+      if: github.event_name == 'release'
+      uses: papeloto/action-zip@v1
+      with:
+        files: universal/
+        recursive: true
+        dest: MacOSUniversal-Clang.zip
+
+    - name: 'Upload release artifacts'
+      if: github.event_name == 'release'
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ github.workspace }}/MacOSUniversal-Clang.zip
+        asset_name: FastNoise2-${{ github.event.release.tag_name }}-MacOSUniversal-Clang.zip
         tag: ${{ github.ref }}
