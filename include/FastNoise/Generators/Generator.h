@@ -175,7 +175,10 @@ namespace FastNoise
         T varArray[(int)Dim::Count];
 
         template<typename U = T>
-        constexpr PerDimensionVariable( U value = 0 )
+#if __cplusplus >= 201402L
+        constexpr
+#endif
+        PerDimensionVariable( U value = 0 )
         {
             for( T& element : varArray )
             {
