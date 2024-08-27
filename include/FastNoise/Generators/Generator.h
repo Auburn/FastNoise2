@@ -89,10 +89,7 @@ namespace FastNoise
     {
         float constant;
 
-        constexpr HybridSourceT( float f = 0.0f )
-        {
-            constant = f;
-        }
+        constexpr HybridSourceT( float f = 0.0f ) : constant( f ) { }
     };
 
     class FASTNOISE_API Generator

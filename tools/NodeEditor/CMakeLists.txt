@@ -171,7 +171,9 @@ if (MSVC)
     target_compile_definitions(NodeEditor PRIVATE _CRT_SECURE_NO_WARNINGS=1)
 endif()
 
-set(install_targets ${install_targets} . PARENT_SCOPE)
+set(install_targets ${install_targets}
+    NodeEditor
+    PARENT_SCOPE)
 
 # Make the executable a default target to build & run in Visual Studio
 set_property(DIRECTORY ../.. PROPERTY VS_STARTUP_PROJECT .)
