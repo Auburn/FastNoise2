@@ -112,7 +112,6 @@ configure_file("resources/resources.conf" "${CMAKE_CURRENT_BINARY_DIR}/resources
 corrade_add_resource(NodeEditor_RESOURCES "${CMAKE_CURRENT_BINARY_DIR}/resources.conf")
 
 add_executable(NodeEditor
-    
     "NodeEditorApp.cpp"
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
@@ -122,7 +121,6 @@ add_executable(NodeEditor
 
 target_link_libraries(NodeEditor PRIVATE
     FastNoise
-    #FastSIMD_FastNoise
     Magnum::Application
     Magnum::Shaders
     Magnum::SceneGraph
@@ -171,9 +169,7 @@ if (MSVC)
     target_compile_definitions(NodeEditor PRIVATE _CRT_SECURE_NO_WARNINGS=1)
 endif()
 
-set(install_targets ${install_targets}
-    NodeEditor
-    PARENT_SCOPE)
+set(install_targets ${install_targets} NodeEditor PARENT_SCOPE)
 
 # Make the executable a default target to build & run in Visual Studio
 set_property(DIRECTORY ../.. PROPERTY VS_STARTUP_PROJECT .)
