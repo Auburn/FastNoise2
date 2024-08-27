@@ -40,7 +40,7 @@ jobs:
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           - os: macos-latest
             name: MacOSARM64-Clang
-            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+            cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
 
     steps:
     - name: 'Install OpenGL & xorg'
@@ -88,58 +88,4 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ github.workspace }}/${{ matrix.name }}.zip
         asset_name: FastNoise2-${{ github.event.release.tag_name }}-${{ matrix.name }}.zip
-        tag: ${{ github.ref }}
-
-  macos-universal:
-    if: ${{ always() }}
-    needs: [ ci-matrix ]
-    name: macos Universal Build
-    runs-on: macos-latest
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-    steps:
-    - name: 'Download artifact'
-      uses: actions/download-artifact@v3
-      with:
-        name: MacOSaarch64-Clang
-        path: MacOSaarch64-Clang
-    - name: 'Download artifact'
-      uses: actions/download-artifact@v3
-      with:
-        name: MacOSx86_64-Clang
-        path: MacOSx86_64-Clang
-    - name: 'Create Universal Binary'
-      run: |
-        mkdir -p universal/FastNoise2/lib universal/FastNoise2/bin
-        lipo -create \
-          -output universal/FastNoise2/lib/libFastNoise.dylib \
-            MacOSaarch64-Clang/FastNoise2/lib/libFastNoise.dylib \
-            MacOSx86_64-Clang/FastNoise2/lib/libFastNoise.dylib
-        lipo -create \
-          -output universal/FastNoise2/bin/NoiseTool \
-            MacOSaarch64-Clang/FastNoise2/bin/NoiseTool \
-            MacOSx86_64-Clang/FastNoise2/bin/NoiseTool
-        chmod +x universal/FastNoise2/bin/NoiseTool
-
-    - name: 'Upload artifact'
-      uses: actions/upload-artifact@v3
-      with:
-        name: MacOSUniversal-Clang
-        path: ${{ github.workspace }}/universal/
-
-    - name: 'Zip artifacts'
-      if: github.event_name == 'release'
-      uses: papeloto/action-zip@v1
-      with:
-        files: universal/
-        recursive: true
-        dest: MacOSUniversal-Clang.zip
-
-    - name: 'Upload release artifacts'
-      if: github.event_name == 'release'
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: ${{ github.workspace }}/MacOSUniversal-Clang.zip
-        asset_name: FastNoise2-${{ github.event.release.tag_name }}-MacOSUniversal-Clang.zip
         tag: ${{ github.ref }}
