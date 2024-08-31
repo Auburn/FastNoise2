@@ -156,11 +156,15 @@ namespace FastNoise
         const Metadata& GetMetadata() const override;
 
         template<Dim D>
-        void SetAxis( float multiplier, float offset = 0.0f ) { mMultiplier[(int)D] = multiplier; mOffset[(int)D] = offset; }
+        void SetMultiplier( float multiplier ) { mMultiplier[(int)D] = multiplier; }
+        template<Dim D>
+        void SetOffset( float offset ) { mOffset[(int)D] = offset; }
+        template<Dim D>
+        void SetOffset( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mOffset[(int)D], gen ); }
 
     protected:
         PerDimensionVariable<float> mMultiplier = 0.0f;
-        PerDimensionVariable<float> mOffset = 0.0f;
+        PerDimensionVariable<HybridSource> mOffset = 0.0f;
 
         template<typename T>
         friend struct MetadataT;
@@ -176,7 +180,7 @@ namespace FastNoise
         {
             groups.push_back( "Basic Generators" );
             this->AddPerDimensionVariable( { "Multiplier", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); }, 0.f, 0.f, 0.001f );
-            this->AddPerDimensionVariable( { "Offset", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); }, 0.f, 0.f, 0.25f );
+            this->AddPerDimensionHybridSource( { "Offset", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); }, 0.25f );
 
             description =
                 "Takes the input position and does the following per dimension\n"

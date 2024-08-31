@@ -90,9 +90,10 @@ class FastSIMD::DispatchClass<FastNoise::PositionOutput, SIMD> final : public vi
     {
         size_t offsetIdx = 0;
         size_t multiplierIdx = 0;
+        float32v r( 0 );
 
-        (((pos += float32v( mOffset[offsetIdx++] )) *= float32v( mMultiplier[multiplierIdx++] )), ...);
-        return (pos + ...);
+        ((r = FS::FMulAdd( pos + this->GetSourceValue( mOffset[offsetIdx++], seed, pos... ), float32v( mMultiplier[multiplierIdx++]), r )), ...);
+        return r;
     }
 };
 
@@ -104,9 +105,13 @@ class FastSIMD::DispatchClass<FastNoise::DistanceToPoint, SIMD> final : public v
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        size_t pointIdx = 0;
+        [this, seed] ( P&... out, std::remove_reference_t<P>... pos )
+        {
+            size_t pointIdx = 0;
+            ((out -= this->GetSourceValue( mPoint[pointIdx++], seed, pos... )), ...);
 
-        ((pos -= this->GetSourceValue( mPoint[pointIdx++], seed, pos... ) ), ...);
+        }( pos..., pos... );
+
         return CalcDistance( mDistanceFunction, mMinkowskiP, seed, pos... );
     }
 };
