@@ -2,14 +2,22 @@
 #include <FastNoise/FastNoise.h>
 #include <FastNoise/Metadata.h>
 
+namespace FastNoise::Internal
+{
+    void BumpNodeRefences( const Generator* ptr, bool up )
+    {
+        ptr->ReferencesFetchAdd( up ? 1 : -1 );
+    }
+}
+
 FastNoise::Generator* ToGen( void* p )
 {
-    return static_cast<FastNoise::SmartNode<>*>( p )->get();
+    return static_cast<FastNoise::Generator*>( p );
 }
 
 const FastNoise::Generator* ToGen( const void* p )
 {
-    return static_cast<const FastNoise::SmartNode<>*>( p )->get();
+    return static_cast<const FastNoise::Generator*>( p );
 }
 
 void StoreMinMax( float* floatArray2, FastNoise::OutputMinMax minMax )
@@ -25,14 +33,16 @@ void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned simdLevel )
 {
     if( FastNoise::SmartNode<> node = FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::FeatureSet)simdLevel ) )
     {
-        return new FastNoise::SmartNode<>( std::move( node ) );
+        FastNoise::Internal::BumpNodeRefences( node.get(), true );
+
+        return node.get();
     }
     return nullptr;
 }
 
 void fnDeleteNodeRef( void* node )
 {
-    delete static_cast<FastNoise::SmartNode<>*>( node );
+    FastNoise::Internal::BumpNodeRefences( ToGen( node ), false );
 }
 
 unsigned fnGetSIMDLevel( const void* node )
@@ -113,7 +123,10 @@ void* fnNewFromMetadata( int id, unsigned simdLevel )
 {
     if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
     {
-        return new FastNoise::SmartNode<>( metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel ) );
+        FastNoise::SmartNode<> node = metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel );
+        FastNoise::Internal::BumpNodeRefences( node.get(), true );
+
+        return node.get();
     }
     return nullptr;
 }

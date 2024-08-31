@@ -25,11 +25,11 @@ constexpr size_t gMetadataVectorSize<const Metadata*> = 45;
 template<>
 constexpr size_t gMetadataVectorSize<const char*> = 83;
 template<>
-constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 75;
+constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 71;
 template<>
 constexpr size_t gMetadataVectorSize<Metadata::MemberNodeLookup> = 30;
 template<>
-constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 50;
+constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 54;
 
 template<typename T>
 static std::vector<T>& GetVectorStorage()
@@ -105,7 +105,7 @@ static void AddToDataStream( std::vector<uint8_t>& dataStream, T value )
     }
 }
 
-static void AddMemberLookupToDataStream( std::vector<uint8_t>& dataStream,  uint8_t type, uint8_t index )
+static void AddMemberLookupToDataStream( std::vector<uint8_t>& dataStream, uint8_t type, uint8_t index )
 {
     MemberLookup memberLookup;
     memberLookup.member.type = type;
