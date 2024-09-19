@@ -42,7 +42,7 @@ namespace FastNoise
     template<typename T>
     struct MetadataT<Fractal<T>> : MetadataT<Generator>
     {
-        MetadataT( const char* sourceName = "Source", bool addGroup = true )
+        MetadataT( NameDesc sourceName = "Source", bool addGroup = true )
         {
             if( addGroup )
             {
