@@ -48,6 +48,30 @@ namespace FastNoise
         "Minkowski",
     };
 
+    enum class SimplexType
+    {
+        Standard,
+        Smooth
+    };
+
+    constexpr static const char* kSimplexType_Strings[] =
+    {
+        "Standard",
+        "Smooth",
+    };
+
+    enum class VectorizationScheme
+    {
+        OrthogonalGradientMatrix,
+        GradientOuterProduct
+    };
+
+    constexpr static const char* kVectorizationScheme_Strings[] =
+    {
+        "Orthogonal Gradient Matrix",
+        "Gradient Outer Product",
+    };
+
     struct OutputMinMax
     {
         float min =  INFINITY;
