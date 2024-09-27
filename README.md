@@ -33,6 +33,7 @@ Bindings:
 - [Unreal Engine CMake](https://github.com/caseymcc/UE4_FastNoise2)
 - [Unreal Engine Blueprint](https://github.com/DoubleDeez/UnrealFastNoise2)
 - [Rust](https://github.com/Lemonzyy/fastnoise2-rs)
+- [Java](https://github.com/CoolLoong/FastNoise2Bindings-Java)
 
 Roadmap:
 - [Vague collection of ideas](https://github.com/users/Auburn/projects/1)
