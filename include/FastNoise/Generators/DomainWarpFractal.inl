@@ -1,15 +1,12 @@
-#include "FastSIMD/InlInclude.h"
-
 #include "DomainWarpFractal.h"
 
-template<typename FS>
-class FS_T<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoise::DomainWarpFractalProgressive, public FS_T<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> final : public virtual FastNoise::DomainWarpFractalProgressive, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         auto* warp = this->GetSourceSIMD( mSource );
 
@@ -27,7 +24,7 @@ class FS_T<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoi
         {
             seedInc -= int32v( -1 );
             freq *= lacunarity;
-            amp *= FnUtils::Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
+            amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
             amp *= gain;
             strength = warp->Warp( seedInc, amp, (pos * freq)..., pos... );
         }
@@ -36,14 +33,13 @@ class FS_T<FastNoise::DomainWarpFractalProgressive, FS> : public virtual FastNoi
     }
 };
 
-template<typename FS>
-class FS_T<FastNoise::DomainWarpFractalIndependant, FS> : public virtual FastNoise::DomainWarpFractalIndependant, public FS_T<FastNoise::Fractal<FastNoise::DomainWarp>, FS>
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, SIMD> final : public virtual FastNoise::DomainWarpFractalIndependant, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
 {
-    FASTSIMD_DECLARE_FS_TYPES;
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
-    FS_INLINE float32v GenT( int32v seed, P... pos ) const
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return [this, seed] ( std::remove_reference_t<P>... noisePos, std::remove_reference_t<P>... warpPos )
         {
@@ -63,7 +59,7 @@ class FS_T<FastNoise::DomainWarpFractalIndependant, FS> : public virtual FastNoi
             {
                 seedInc -= int32v( -1 );
                 freq *= lacunarity;
-                amp *= FnUtils::Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
+                amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
                 amp *= gain;
                 strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
             }
