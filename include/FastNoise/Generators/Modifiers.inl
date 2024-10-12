@@ -24,12 +24,12 @@ class FS_T<FastNoise::DomainOffset, FS> : public virtual FastNoise::DomainOffset
     template<typename... P> 
     FS_INLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return [this, seed]( std::remove_reference_t<P>... sourcePos, std::remove_reference_t<P>... offset )
+        return [self = this, seed]( std::remove_reference_t<P>... sourcePos, std::remove_reference_t<P>... offset )
         {
             size_t idx = 0;
-            ((offset += this->GetSourceValue( mOffset[idx++], seed, sourcePos... )), ...);
+            ((offset += self->GetSourceValue( self->mOffset[idx++], seed, sourcePos... )), ...);
 
-            return this->GetSourceValue( mSource, seed, offset... );
+            return self->GetSourceValue( self->mSource, seed, offset... );
         } (pos..., pos...);
     }
 };
