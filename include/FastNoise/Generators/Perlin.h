@@ -3,18 +3,17 @@
 
 namespace FastNoise
 {
-    class Perlin : public virtual Generator
+    class Perlin : public virtual VariableRange<ScalableGenerator>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Perlin> : MetadataT<Generator>
+    struct MetadataT<Perlin> : MetadataT<VariableRange<ScalableGenerator>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

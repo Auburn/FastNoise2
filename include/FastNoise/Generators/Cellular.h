@@ -5,36 +5,43 @@
 
 namespace FastNoise
 {
-    class Cellular : public virtual Generator
+    template<typename PARENT = VariableRange<ScalableGenerator>>
+    class Cellular : public virtual PARENT
     {
     public:
-        void SetJitterModifier( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
-        void SetJitterModifier( float value ) { mJitterModifier = value; }
         void SetDistanceFunction( DistanceFunction value ) { mDistanceFunction = value; }
 
+        void SetMinkowskiP( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mMinkowskiP, gen ); }
+        void SetMinkowskiP( float value ) { mMinkowskiP = value; }
+
+        void SetJitterModifier( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
+        void SetJitterModifier( float value ) { mJitterModifier = value; }
+
     protected:
+        HybridSource mMinkowskiP = 1.5f;
         HybridSource mJitterModifier = 1.0f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
     };
 
 #ifdef FASTNOISE_METADATA
-    template<>
-    struct MetadataT<Cellular> : MetadataT<Generator>
+    template<typename PARENT>
+    struct MetadataT<Cellular<PARENT>> : MetadataT<PARENT>
     {
         MetadataT()
         {
-            groups.push_back( "Coherent Noise" );
-            this->AddHybridSource( { "Jitter Modifier", "Above 1.0 will cause grid artifacts" }, 1.0f, &Cellular::SetJitterModifier, &Cellular::SetJitterModifier );
+            this->groups.push_back( "Coherent Noise" );
             this->AddVariableEnum( { "Distance Function", "How distance to closest cells is calculated\nHybrid is EuclideanSquared + Manhattan" },
-                DistanceFunction::EuclideanSquared, &Cellular::SetDistanceFunction, kDistanceFunction_Strings );
+                DistanceFunction::EuclideanSquared, &Cellular<PARENT>::SetDistanceFunction, kDistanceFunction_Strings );
+            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 1.5f, &Cellular<PARENT>::SetMinkowskiP, &Cellular<PARENT>::SetMinkowskiP );
+
+            this->AddHybridSource( { "Jitter Modifier", "Above 1.0 will cause grid artifacts\n0.0 will output a uniform grid" }, 1.0f, &Cellular<PARENT>::SetJitterModifier, &Cellular<PARENT>::SetJitterModifier );
         }
     };
 #endif
 
-    class CellularValue : public virtual Cellular
+    class CellularValue : public virtual Cellular<>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         static const int kMaxDistanceCount = 4;
@@ -47,9 +54,9 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<CellularValue> : MetadataT<Cellular>
+    struct MetadataT<CellularValue> : MetadataT<Cellular<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -57,16 +64,14 @@ namespace FastNoise
 
             description = 
                 "Returns value of Nth closest cell\n"
-                "Value is generated using white noise\n"
-                "Output is bounded -1 : 1";
+                "Value is generated using white noise";
         }
     };
 #endif
 
-    class CellularDistance : public virtual Cellular
+    class CellularDistance : public virtual Cellular<>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         enum class ReturnType
@@ -92,9 +97,9 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<CellularDistance> : MetadataT<Cellular>
+    struct MetadataT<CellularDistance> : MetadataT<Cellular<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -110,30 +115,26 @@ namespace FastNoise
     };
 #endif
 
-    class CellularLookup : public virtual Cellular
+    class CellularLookup : public virtual Cellular<ScalableGenerator>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetLookup( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mLookup, gen ); }
-        void SetLookupFrequency( float freq ) { mLookupFreq = freq; }
 
     protected:
         GeneratorSource mLookup;
-        float mLookupFreq = 0.1f;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<CellularLookup> : MetadataT<Cellular>
+    struct MetadataT<CellularLookup> : MetadataT<Cellular<ScalableGenerator>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             this->AddGeneratorSource( { "Lookup", "Used to generate cell values" }, &CellularLookup::SetLookup );
-            this->AddVariable( { "Lookup Frequency", "Relative to the cellular frequency" }, 0.1f, &CellularLookup::SetLookupFrequency );
             
             description = 
                 "Returns value of closest cell\n"

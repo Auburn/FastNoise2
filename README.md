@@ -38,13 +38,13 @@ Bindings:
 Roadmap:
 - [Vague collection of ideas](https://github.com/users/Auburn/projects/1)
 
-## Noise Tool
+## Node Editor
 
-The FastNoise2 noise tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. The noise tool has 2D and 3D previews for the node graph output, see screenshots below for examples.
+The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D and 3D previews for the node graph output, see screenshots below for examples.
 
-Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled NoiseTool binaries
+Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries
 
-![NoiseTool](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
+![Node Editor](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
 
 ## Performance
 

@@ -3,18 +3,17 @@
 
 namespace FastNoise
 {
-    class Simplex : public virtual Generator
+    class Simplex : public virtual VariableRange<ScalableGenerator>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Simplex> : MetadataT<Generator>
+    struct MetadataT<Simplex> : MetadataT<VariableRange<ScalableGenerator>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -27,18 +26,17 @@ namespace FastNoise
     };
 #endif
 
-    class OpenSimplex2 : public virtual Generator
+    class OpenSimplex2 : public virtual VariableRange<ScalableGenerator>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<OpenSimplex2> : MetadataT<Generator>
+    struct MetadataT<OpenSimplex2> : MetadataT<VariableRange<ScalableGenerator>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -51,22 +49,21 @@ namespace FastNoise
     };
 #endif
 
-    class OpenSimplex2S : public virtual Generator
+    class OpenSimplex2S : public virtual VariableRange<ScalableGenerator>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT(FastNoise::SUPPORTED_SIMD_LEVELS);
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<OpenSimplex2S> : MetadataT<Generator>
+    struct MetadataT<OpenSimplex2S> : MetadataT<VariableRange<ScalableGenerator>>
     {
-        SmartNode<> CreateNode(FastSIMD::eLevel) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
-            groups.push_back("Coherent Noise");
+            groups.push_back( "Coherent Noise" );
 
             description =
                 "Smoother gradient noise from an N dimensional simplex grid\n"

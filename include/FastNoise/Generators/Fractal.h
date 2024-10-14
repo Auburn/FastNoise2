@@ -42,10 +42,12 @@ namespace FastNoise
     template<typename T>
     struct MetadataT<Fractal<T>> : MetadataT<Generator>
     {
-        MetadataT( const char* sourceName = "Source" )
+        MetadataT( NameDesc sourceName = "Source", bool addGroup = true )
         {
-            groups.push_back( "Fractal" );
-
+            if( addGroup )
+            {
+                groups.push_back( "Fractal" );
+            }
             this->AddGeneratorSource( sourceName, &Fractal<T>::SetSource );
             this->AddHybridSource( "Gain", 0.5f, &Fractal<T>::SetGain, &Fractal<T>::SetGain );
             this->AddHybridSource( "Weighted Strength", 0.0f, &Fractal<T>::SetWeightedStrength, &Fractal<T>::SetWeightedStrength );
@@ -58,7 +60,6 @@ namespace FastNoise
     class FractalFBm : public virtual Fractal<>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
@@ -66,14 +67,13 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalFBm> : MetadataT<Fractal<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class FractalRidged : public virtual Fractal<>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
@@ -81,14 +81,13 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalRidged> : MetadataT<Fractal<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
     };
 #endif
 
     class FractalPingPong : public virtual Fractal<>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
 
         void SetPingPongStrength( float value ) { mPingPongStrength = value; }
@@ -102,7 +101,7 @@ namespace FastNoise
     template<>
     struct MetadataT<FractalPingPong> : MetadataT<Fractal<>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
