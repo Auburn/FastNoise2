@@ -2,7 +2,7 @@
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG 868e77272ac0681a6b2936c1ef9087bb3ec8c153
+    GIT_TAG 2417e5b938d7e0aa4f4293d11682db0582a83ce8
 )
 
 set(install_targets ${install_targets}
@@ -69,13 +69,13 @@ endif()
 target_link_libraries(FastNoise PUBLIC FastSIMD FastSIMD_FastNoise)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /wd4251 /d2vzeroupper-)
+    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /wd4251 /permissive- /d2vzeroupper-)
     
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
         target_compile_options(FastSIMD_FastNoise PRIVATE /GS-)
     else()
-        target_compile_options(FastSIMD_FastNoise PRIVATE -fno-stack-protector)        
+        target_compile_options(FastSIMD_FastNoise PRIVATE -fno-stack-protector -Wno-nan-infinity-disabled)
     endif()
 
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

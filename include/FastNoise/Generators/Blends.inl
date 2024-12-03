@@ -49,6 +49,21 @@ class FastSIMD::DispatchClass<FastNoise::Divide, SIMD> final : public virtual Fa
 };
 
 template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::Modulus, SIMD> final : public virtual FastNoise::Modulus, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
+
+    template<typename... P>
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v a = this->GetSourceValue( mLHS, seed, pos... );
+        float32v b = this->GetSourceValue( mRHS, seed, pos... );
+
+        return FS::Modulus( a, b );
+    }
+};
+
+template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::PowFloat, SIMD> final : public virtual FastNoise::PowFloat, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;

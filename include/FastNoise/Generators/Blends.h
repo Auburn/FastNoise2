@@ -21,9 +21,9 @@ namespace FastNoise
     template<>
     struct MetadataT<OperatorSourceLHS> : MetadataT<Generator>
     {
-        MetadataT()
+        MetadataT( const char* group = "Blends" )
         {
-            groups.push_back( "Blends" );
+            groups.push_back( group );
             this->AddGeneratorSource( "LHS", &OperatorSourceLHS::SetLHS );
             this->AddHybridSource( "RHS", 0.0f, &OperatorSourceLHS::SetRHS, &OperatorSourceLHS::SetRHS );
         }
@@ -47,9 +47,9 @@ namespace FastNoise
     template<>
     struct MetadataT<OperatorHybridLHS> : MetadataT<Generator>
     {
-        MetadataT()
+        MetadataT( const char* group = "Blends" )
         {
-            groups.push_back( "Blends" );
+            groups.push_back( group );
             this->AddHybridSource( "LHS", 0.0f, &OperatorHybridLHS::SetLHS, &OperatorHybridLHS::SetLHS );
             this->AddHybridSource( "RHS", 0.0f, &OperatorHybridLHS::SetRHS, &OperatorHybridLHS::SetRHS );
         }
@@ -58,7 +58,8 @@ namespace FastNoise
 
     class Add : public virtual OperatorSourceLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -66,12 +67,15 @@ namespace FastNoise
     struct MetadataT<Add> : MetadataT<OperatorSourceLHS>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT() : MetadataT<OperatorSourceLHS>( "Operators" ) {}
     };
 #endif
 
     class Subtract : public virtual OperatorHybridLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -79,12 +83,15 @@ namespace FastNoise
     struct MetadataT<Subtract> : MetadataT<OperatorHybridLHS>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT() : MetadataT<OperatorHybridLHS>( "Operators" ) {}
     };
 #endif
 
     class Multiply : public virtual OperatorSourceLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -92,12 +99,15 @@ namespace FastNoise
     struct MetadataT<Multiply> : MetadataT<OperatorSourceLHS>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT() : MetadataT<OperatorSourceLHS>( "Operators" ) {}
     };
 #endif
 
     class Divide : public virtual OperatorHybridLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -105,12 +115,31 @@ namespace FastNoise
     struct MetadataT<Divide> : MetadataT<OperatorHybridLHS>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT() : MetadataT<OperatorHybridLHS>( "Operators" ) {}
+    };
+#endif
+
+    class Modulus : public virtual OperatorHybridLHS
+    {
+    public:
+        const Metadata& GetMetadata() const override;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<Modulus> : MetadataT<OperatorHybridLHS>
+    {
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT() : MetadataT<OperatorHybridLHS>( "Operators" ) {}
     };
 #endif
 
     class Min : public virtual OperatorSourceLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -123,7 +152,8 @@ namespace FastNoise
 
     class Max : public virtual OperatorSourceLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -136,7 +166,8 @@ namespace FastNoise
 
     class PowFloat : public virtual Generator
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
         void SetValue( float value ) { mValue = value; }
@@ -167,7 +198,8 @@ namespace FastNoise
 
     class PowInt : public virtual Generator
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         void SetValue( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mValue, gen ); }
         void SetPow( int value ) { mPow = value; }
@@ -196,7 +228,8 @@ namespace FastNoise
 
     class MinSmooth : public virtual OperatorSourceLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
         void SetSmoothness( float value ) { mSmoothness = value; }
@@ -226,7 +259,8 @@ namespace FastNoise
 
     class MaxSmooth : public virtual OperatorSourceLHS
     {
-    public:        const Metadata& GetMetadata() const override;
+    public:
+        const Metadata& GetMetadata() const override;
 
         void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
         void SetSmoothness( float value ) { mSmoothness = value; }
@@ -263,7 +297,8 @@ namespace FastNoise
             Hermite,
             Quintic,
         };
-        const Metadata& GetMetadata() const override;
+
+        const Metadata& GetMetadata() const override;
         void SetA( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mA, gen ); }
         void SetB( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mB, gen ); }
 

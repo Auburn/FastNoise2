@@ -21,15 +21,15 @@ constexpr static std::nullptr_t gMetadataVectorSize = nullptr; // Invalid
 // Setting these values avoids needless vector resizing and oversizing on startup
 // Sadly there is no way to automate this as they fill up as part of static init
 template<>
-constexpr size_t gMetadataVectorSize<const Metadata*> = 45;
+constexpr size_t gMetadataVectorSize<const Metadata*> = 46;
 template<>
-constexpr size_t gMetadataVectorSize<const char*> = 83;
+constexpr size_t gMetadataVectorSize<const char*> = 84;
 template<>
 constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 71;
 template<>
 constexpr size_t gMetadataVectorSize<Metadata::MemberNodeLookup> = 30;
 template<>
-constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 54;
+constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 56;
 
 template<typename T>
 static std::vector<T>& GetVectorStorage()
@@ -171,7 +171,7 @@ static bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vect
     {
         if( nodeData->variables[i].i != metadata->memberVariables[i].valueDefault.i )
         {
-            AddMemberLookupToDataStream( dataStream, 0, i );
+            AddMemberLookupToDataStream( dataStream, 0, (uint8_t)i );
 
             AddToDataStream( dataStream, nodeData->variables[i].i );
         }
@@ -211,7 +211,7 @@ static bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vect
         {
             if( nodeData->hybrids[i].second != metadata->memberHybrids[i].valueDefault )
             {
-                AddMemberLookupToDataStream( dataStream, 2, i );
+                AddMemberLookupToDataStream( dataStream, 2, (uint8_t)i );
 
                 Metadata::MemberVariable::ValueUnion v = nodeData->hybrids[i].second;
 
@@ -233,7 +233,7 @@ static bool SerialiseNodeDataInternal( NodeData* nodeData, bool fixUp, std::vect
                 }
             }
 
-            AddMemberLookupToDataStream( dataStream, 3, i );
+            AddMemberLookupToDataStream( dataStream, 3, (uint8_t)i );
 
             if( !SerialiseNodeDataInternal( nodeData->hybrids[i].first, fixUp, dataStream, referenceIds, dependencies ) )
             {

@@ -24,7 +24,7 @@ namespace FastNoise
 
         MetadataT()
         {
-            groups.push_back( "Modifiers" );
+            groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainScale::SetSource );
             this->AddVariable( "Scaling", 1.0f, &DomainScale::SetScaling );
         }
@@ -60,7 +60,7 @@ namespace FastNoise
 
         MetadataT()
         {
-            groups.push_back( "Modifiers" );
+            groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainOffset::SetSource );
             this->AddPerDimensionHybridSource( "Offset", 0.0f, []( DomainOffset* p ) { return std::ref( p->mOffset ); }, 0.25f );
         }
@@ -121,7 +121,7 @@ namespace FastNoise
 
         MetadataT()
         {
-            groups.push_back( "Modifiers" );
+            groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainRotate::SetSource );
             this->AddVariable( "Yaw", 0.0f, &DomainRotate::SetYaw );
             this->AddVariable( "Pitch", 0.0f, &DomainRotate::SetPitch );
@@ -309,7 +309,7 @@ namespace FastNoise
 
         MetadataT()
         {
-            groups.push_back( "Modifiers" );
+            groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainAxisScale::SetSource );
             this->AddPerDimensionVariable( "Scaling", 1.0f, []( DomainAxisScale* p ) { return std::ref( p->mScale ); } );
         }
@@ -338,7 +338,7 @@ namespace FastNoise
 
         MetadataT()
         {
-            groups.push_back( "Modifiers" );
+            groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &AddDimension::SetSource );
             this->AddHybridSource( "New Dimension Position", 0.0f, &AddDimension::SetNewDimensionPosition, &AddDimension::SetNewDimensionPosition );
         }
@@ -366,7 +366,7 @@ namespace FastNoise
 
         MetadataT()
         {
-            groups.push_back( "Modifiers" );
+            groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &RemoveDimension::SetSource );
             this->AddVariableEnum( "Remove Dimension", Dim::Y, &RemoveDimension::SetRemoveDimension, kDim_Strings );
         }

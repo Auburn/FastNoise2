@@ -161,7 +161,7 @@ public:
 
             index += int32v::ElementCount;
             xIdx += int32v( int32v::ElementCount );
-            
+
             AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
             AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
         }
