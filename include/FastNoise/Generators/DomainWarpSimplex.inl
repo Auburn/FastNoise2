@@ -118,9 +118,9 @@ protected:
         ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1, falloff1, valueX, valueY );
         ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2, falloff2, valueX, valueY );
 
-        constexpr double kBounding = constexpr( Scheme == VectorizationScheme::GradientOuterProduct ) ?
+        constexpr double kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             49.918426513671875 / 2.0 :
-            70.1480577066486;
+            70.1480577066486 );
 
         warpAmp *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
@@ -214,9 +214,9 @@ protected:
             valueZ += valueTransformDelta;
         }
 
-        constexpr double kBounding = constexpr( Scheme == VectorizationScheme::GradientOuterProduct ) ?
+        constexpr double kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             32.69428253173828125 / 1.4142135623730951 :
-            16.281631889139874;
+            16.281631889139874 );
 
         warpAmp *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
@@ -367,9 +367,9 @@ protected:
             xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
             dx4, dy4, dz4, dw4, falloff4, valueX, valueY, valueZ, valueW );
 
-        constexpr double kBounding = constexpr( Scheme == VectorizationScheme::GradientOuterProduct ) ?
+        constexpr double kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             33.653125584827855 / 1.4142135623730951 :
-            30.88161777516092;
+            30.88161777516092 );
 
         warpAmp *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
@@ -457,9 +457,9 @@ protected:
             ApplyVectorContributionSimplex<Scheme>( hash, dx, dy, falloff, valueX, valueY );
         }
 
-        constexpr double kBounding = constexpr( Scheme == VectorizationScheme::GradientOuterProduct ) ?
+        constexpr double kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             9.28993664146183 / 2.0 :
-            12.814453124999995;
+            12.814453124999995 );
 
         warpAmp *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
@@ -684,9 +684,9 @@ protected:
             valueZ += valueTransformDelta;
         }
 
-        constexpr double kBounding = constexpr( Scheme == VectorizationScheme::GradientOuterProduct ) ?
+        constexpr double kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             144.736422163332608 / 1.4142135623730951 :
-            37.63698669623629;
+            37.63698669623629 );
 
         warpAmp *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
@@ -1070,9 +1070,9 @@ protected:
                 ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
         }
 
-        constexpr double kBounding = constexpr( Scheme == VectorizationScheme::GradientOuterProduct ) ?
+        constexpr double kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             115.21625311930542 / 1.4142135623730951 :
-            48.80058117543753;
+            48.80058117543753 );
 
         warpAmp *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );

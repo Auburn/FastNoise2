@@ -123,11 +123,15 @@ namespace FastNoise
             float32v sign0 = FS::Cast<float>( index << 31 );
             float32v sign1 = FS::Cast<float>( ( index >> 1 ) << 31 );
 
-            mask32v thirdCombo = constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 ) ?
-                FS::Cast<FS::Mask<32>>( index << ( 31 - 3 ) ) :
-                index >= int32v( 8 );
-
-            float32v u = FS::Select( thirdCombo, fY, fX );
+            float32v u;
+            if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+            {
+                u = FS::SelectHighBit( index << ( 31 - 3 ), fY, fX );
+            }
+            else
+            {
+                u = FS::Select( index >= int32v( 8 ), fY, fX );
+            }
             float32v v = FS::Select( index >= int32v( 4 ), fZ, fY );
 
             return ( u ^ sign0 ) + ( v ^ sign1 );
@@ -199,7 +203,7 @@ namespace FastNoise
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
         int32v indexGradient = hashShifted * int32v( 12 >> 2 ); // [0,12) in the upper four bits
-        int32v indexOuterVector = ( hashShifted * int32v( ( -4LL << 30 ) / 3 ) ) & int32v( 0xC0000003 ); // [0,12) in bits 0,1,30,31
+        int32v indexOuterVector = ( hashShifted * int32v( 0xAAAAAAAB ) ) & int32v( 0xC0000003 ); // [0,12) in bits 0,1,30,31 // ( -4LL << 30 ) / 3 )
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
@@ -255,7 +259,7 @@ namespace FastNoise
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
         int32v indexGradient = FS::BitShiftRightZeroExtend( hashShifted * int32v( 12 >> 2 ), 28 ); // [0,12)
-        int32v indexOuterVector = ( hashShifted * int32v( ( -4LL << 30 ) / 3 ) ) & int32v( 0xC0000003 ); // [0,12) in bits 0,1,30,31
+        int32v indexOuterVector = ( hashShifted * int32v( 0xAAAAAAAB ) ) & int32v( 0xC0000003 ); // [0,12) in bits 0,1,30,31 // ( -4LL << 30 ) / 3 )
         indexOuterVector |= indexOuterVector >> 28;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
@@ -276,11 +280,15 @@ namespace FastNoise
                 float32v sign0 = FS::Cast<float>( indexGradient << 31 );
                 float32v sign1 = FS::Cast<float>( ( indexGradient >> 1 ) << 31 );
 
-                mask32v thirdCombo = constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 ) ?
-                    FS::Cast<FS::Mask<32>>( indexGradient << ( 31 - 3 ) ) :
-                    indexGradient >= int32v( 8 );
-
-                float32v u = FS::Select( thirdCombo, fY, fX );
+                float32v u;
+                if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+                {
+                    u = FS::SelectHighBit( indexGradient << ( 31 - 3 ), fY, fX );
+                }
+                else
+                {
+                    u = FS::Select( indexGradient >= int32v( 8 ), fY, fX );
+                }
                 float32v v = FS::Select( indexGradient >= int32v( 4 ), fZ, fY );
 
                 multiplier *= ( u ^ sign0 ) + ( v ^ sign1 );
@@ -307,7 +315,7 @@ namespace FastNoise
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash, 2 );
         int32v indexGradient = hashShifted * int32v( 20 >> 2 ); // [0,20) in the upper five bits
-        int32v indexOuterVector = hashShifted * int32v( ( -8LL << 29 ) / 5 );
+        int32v indexOuterVector = hashShifted * int32v( 0xCCCCCCCD ); // ( -8LL << 29 ) / 5
         indexOuterVector = ( indexOuterVector & int32v( 0xE0000003 ) ) * int32v( 3 | ( 1 << 27 ) ); // [0,20) in the upper five bits, independently of the above
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
@@ -424,14 +432,14 @@ namespace FastNoise
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
-        const float kComponentA = 2.224744871391589f;
-        const float kComponentB = -0.224744871391589f;
-        const float kComponentC = -1.0f;
-        const float kComponentsDE = 1.0f;
-        const float kComponentF = 2.0f;
+        constexpr float kComponentA = 2.224744871391589f;
+        constexpr float kComponentB = -0.224744871391589f;
+        constexpr float kComponentC = -1.0f;
+        constexpr float kComponentsDE = 1.0f;
+        constexpr float kComponentF = 2.0f;
         
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
-        int32v indexFacetBasisWithPermute2 = hashShifted * int32v( ( -4LL << 30 ) / 3 ); // [0,3) in the highest two bits, [0,8) in the lowest three bits
+        int32v indexFacetBasisWithPermute2 = hashShifted * int32v( 0xAAAAAAAB ); // [0,3) in the highest two bits, [0,8) in the lowest three bits // ( -4LL << 30 ) / 3
         int32v indexPermutation2HighBit = ( indexFacetBasisWithPermute2 << 29 ); // & int32v( 1 << 31 ); // [0,1) in the most significant bit
         int32v indexPermutation3 = FS::BitShiftRightZeroExtend( hashShifted * int32v( 3 ), 30 ); // [0,3)
         float32v finalSign = FS::Cast<float>( hash31 << 31 );
@@ -506,46 +514,46 @@ namespace FastNoise
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
-        const float kComponentPairwiseIndexedNegativeAB = -0.375999676691291f;
-        const float kComponentPairwiseUnindexedFillerAB = 0.222726847849776f;
-        const float kComponentPairwiseIndexedPositiveD = -kSkew4f;
-        const float kComponentPairwiseUnindexedD = kSkew4f;
+        constexpr float kComponentPairwiseIndexedNegativeAB = -0.375999676691291f;
+        constexpr float kComponentPairwiseUnindexedFillerAB = 0.222726847849776f;
+        constexpr float kComponentPairwiseIndexedPositiveD = -kSkew4f;
+        constexpr float kComponentPairwiseUnindexedD = kSkew4f;
 
-        const float kDeltaPairwiseToSingleAB = -0.124000323308709f;
-        const float kDeltaPairwiseToSingleD = 0.190983005625053f;
-        const float kDeltaSingleToExtra = kSkew4f;
-        const float kDeltaPairwiseABToC = 0.437016024448821f;
-        const float kDeltaUnindexedFillerToDiagonal = -kRoot2f;
+        constexpr float kDeltaPairwiseToSingleAB = -0.124000323308709f;
+        constexpr float kDeltaPairwiseToSingleD = 0.190983005625053f;
+        constexpr float kDeltaSingleToExtra = kSkew4f;
+        constexpr float kDeltaPairwiseABToC = 0.437016024448821f;
+        constexpr float kDeltaUnindexedFillerToDiagonal = -kRoot2f;
 
-        const float kDeltaPairwiseToSingleExtraAB = kDeltaPairwiseToSingleAB + kDeltaSingleToExtra;
-        const float kDeltaPairwiseToSingleExtraD = kDeltaPairwiseToSingleD + kDeltaSingleToExtra;
+        constexpr float kDeltaPairwiseToSingleExtraAB = kDeltaPairwiseToSingleAB + kDeltaSingleToExtra;
+        constexpr float kDeltaPairwiseToSingleExtraD = kDeltaPairwiseToSingleD + kDeltaSingleToExtra;
 
-        const float sIdxABC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseToSingleAB;
-        const float sDiagABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleAB + kDeltaUnindexedFillerToDiagonal;
-        const float sFillABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleAB;
-        const float sIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleD - 1;
-        const float sFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleD;
+        constexpr float sIdxABC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseToSingleAB;
+        constexpr float sDiagABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleAB + kDeltaUnindexedFillerToDiagonal;
+        constexpr float sFillABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleAB;
+        constexpr float sIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleD - 1;
+        constexpr float sFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleD;
 
-        const float pIdxPosAB = kComponentPairwiseIndexedNegativeAB + 1;
-        const float pIdxNegAB = kComponentPairwiseIndexedNegativeAB;
-        const float pFillAB = kComponentPairwiseUnindexedFillerAB;
-        const float pDiagAB = kComponentPairwiseUnindexedFillerAB + kDeltaUnindexedFillerToDiagonal;
-        const float pIdxPosC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseABToC + 1;
-        const float pIdxNegC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseABToC;
-        const float pFillC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseABToC;
-        const float pIdxPosD = kComponentPairwiseIndexedPositiveD;
-        const float pIdxNegD = kComponentPairwiseIndexedPositiveD - 1;
-        const float pFillD = kComponentPairwiseUnindexedD;
+        constexpr float pIdxPosAB = kComponentPairwiseIndexedNegativeAB + 1;
+        constexpr float pIdxNegAB = kComponentPairwiseIndexedNegativeAB;
+        constexpr float pFillAB = kComponentPairwiseUnindexedFillerAB;
+        constexpr float pDiagAB = kComponentPairwiseUnindexedFillerAB + kDeltaUnindexedFillerToDiagonal;
+        constexpr float pIdxPosC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseABToC + 1;
+        constexpr float pIdxNegC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseABToC;
+        constexpr float pFillC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseABToC;
+        constexpr float pIdxPosD = kComponentPairwiseIndexedPositiveD;
+        constexpr float pIdxNegD = kComponentPairwiseIndexedPositiveD - 1;
+        constexpr float pFillD = kComponentPairwiseUnindexedD;
 
-        const float eIdxABC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseToSingleExtraAB + 1;
-        const float eDiagABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleExtraAB + kDeltaUnindexedFillerToDiagonal;
-        const float eFillABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleExtraAB;
-        const float eIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleExtraD;
-        const float eFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleExtraD;
+        constexpr float eIdxABC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseToSingleExtraAB + 1;
+        constexpr float eDiagABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleExtraAB + kDeltaUnindexedFillerToDiagonal;
+        constexpr float eFillABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleExtraAB;
+        constexpr float eIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleExtraD;
+        constexpr float eFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleExtraD;
 
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 2 );
         int32v indexBasis = hashShifted * int32v( 20 >> 2 ); // [0,20) << 27
-        int32v indexPermutation3 = ( hashShifted * int32v( ( -4LL << 29 ) / 3 ) ) >> 29; // [0,3)
+        int32v indexPermutation3 = ( hashShifted * int32v( 0xD5555556 ) ) >> 29; // [0,3] // ( -4LL << 29 ) / 3
         int32v indexPermutation8 = indexBasis >> 24; // & int32v( 0x07 );
         float32v finalSign = FS::Cast<float>( hash31 << 31 );
 
@@ -911,18 +919,18 @@ namespace FastNoise
         }
     }
 
-    enum HashMultiplier
+    enum class HashMultiplier : int32_t
     {
         A = 0x27D4EB2D
     };
 
-    template<HashMultiplier Multiplier = A, typename... P>
+    template<HashMultiplier Multiplier = HashMultiplier::A, typename... P>
     FS_FORCEINLINE static int32v HashPrimes( int32v seed, P... primedPos )
     {
         int32v hash = seed;
         hash ^= ( primedPos ^ ... );
 
-        hash *= int32v( Multiplier );
+        hash *= int32v( (int32_t)Multiplier );
 
         return ( hash >> 15 ) ^ hash;
     }
@@ -933,7 +941,7 @@ namespace FastNoise
         int32v hash = seed;
         hash ^= ( primedPos ^ ... );
         
-        hash *= int32v( 0x27d4eb2d );
+        hash *= int32v( (int32_t)HashMultiplier::A );
         return hash;
     }
 
@@ -943,7 +951,7 @@ namespace FastNoise
         int32v hash = seed;
         hash ^= (primedPos ^ ...);
 
-        hash *= hash * int32v( 0x27d4eb2d );
+        hash *= hash * int32v( (int32_t)HashMultiplier::A );
         return FS::Convert<float>( hash );
     }
      
