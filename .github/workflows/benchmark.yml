@@ -74,9 +74,3 @@ jobs:
         repository: Auburn/FastNoise2Benchmarking
         event-type: benchmark
         client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}", "runid": "${{ github.run_id }}", "name": "${{ matrix.name }}", "msg": "${{ steps.message-format.outputs.value }}"}'
-
-  benchmarkbin-complete:
-    runs-on: ubuntu-latest
-    needs: benchmark-matrix
-    steps: 
-      - run: echo benchmarkbin-complete
