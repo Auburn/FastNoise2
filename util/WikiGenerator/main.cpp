@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <regex>
 #include <unordered_map>
 
 static constexpr int imageSizeX = 256;
@@ -136,12 +137,26 @@ bool CreateImage( const FastNoise::Metadata* metadata, const std::string& outDir
     return false;
 }
 
+std::string FormatDescription( const char* description )
+{
+    std::string formatted = description;
+    size_t pos = 0;
+    
+    while( (pos = formatted.find( '\n', pos )) != std::string::npos )
+    {
+        formatted.insert( pos, "<br/>" );
+        pos += 6; // Length of "\n<br/>"
+    }
+
+    return formatted;
+}
+
 void DoNode( std::stringstream& output, const FastNoise::Metadata* metadata, const std::string& outDir )
 {
     std::string nodeName = FastNoise::Metadata::FormatMetadataNodeName( metadata, false );
 
     output << "## " << nodeName << '\n';
-    output << metadata->description << "\n\n";
+    output << FormatDescription( metadata->description ) << "\n\n";
 
     if( CreateImage( metadata, outDir, nodeName ) )
     {
@@ -150,12 +165,12 @@ void DoNode( std::stringstream& output, const FastNoise::Metadata* metadata, con
 
     for( auto& node_lookup : metadata->memberNodeLookups )
     {
-        output << "### " << node_lookup.name << " - Node Lookup\n" << node_lookup.description << '\n';
+        output << "### " << node_lookup.name << " _- Node Lookup_\n" << FormatDescription( node_lookup.description ) << '\n';
     }
 
     for( auto& hybrid_lookup : metadata->memberHybrids )
     {
-        output << "### " << hybrid_lookup.name << " - Hybrid Lookup '= " << hybrid_lookup.valueDefault << "f`\n" << hybrid_lookup.description << '\n';
+        output << "### " << hybrid_lookup.name << " `= " << hybrid_lookup.valueDefault << "f` _- Hybrid Lookup_\n" << FormatDescription( hybrid_lookup.description ) << '\n';
     }
 
     for( auto& variable : metadata->memberVariables )
@@ -163,13 +178,13 @@ void DoNode( std::stringstream& output, const FastNoise::Metadata* metadata, con
         switch( variable.type )
         {
         case FastNoise::Metadata::MemberVariable::EFloat:
-            output << "### " << FastNoise::Metadata::FormatMetadataMemberName( variable ) << " `= " << variable.valueDefault.f << "f`\n" << variable.description << '\n';
+            output << "### " << FastNoise::Metadata::FormatMetadataMemberName( variable ) << " `= " << variable.valueDefault.f << "f`\n" << FormatDescription( variable.description ) << '\n';
             break;
         case FastNoise::Metadata::MemberVariable::EInt:
-            output << "### " << FastNoise::Metadata::FormatMetadataMemberName( variable ) << " `= " << variable.valueDefault.i << "`\n" << variable.description << '\n';
+            output << "### " << FastNoise::Metadata::FormatMetadataMemberName( variable ) << " `= " << variable.valueDefault.i << "`\n" << FormatDescription( variable.description ) << '\n';
             break;
         case FastNoise::Metadata::MemberVariable::EEnum:
-            output << "### " << FastNoise::Metadata::FormatMetadataMemberName( variable ) << " `= " << variable.enumNames[variable.valueDefault.i] << "`\n" << variable.description << '\n';
+            output << "### " << FastNoise::Metadata::FormatMetadataMemberName( variable ) << " `= " << variable.enumNames[variable.valueDefault.i] << "` _- Enum_\n" << FormatDescription( variable.description ) << '\n';
             for( size_t i = 0; i < variable.enumNames.size(); i++ )
             {
                 output << "* " << variable.enumNames[i] << (variable.valueDefault.i == i ? " (Default)\n" : "\n");

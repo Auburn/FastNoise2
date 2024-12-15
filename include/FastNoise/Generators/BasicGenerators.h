@@ -81,6 +81,9 @@ namespace FastNoise
         {
             groups.push_back( "Basic Generators" );
             this->AddVariable( { "Value", "Constant output" }, 1.0f, &Constant::SetValue );
+
+            description =
+                "Outputs a constant value";
         }
     };
 #endif
@@ -123,7 +126,8 @@ namespace FastNoise
         {
             groups.push_back( "Basic Generators" );
             description =
-                "Outputs checkerboard pattern";
+                "Outputs a checkerboard pattern\n"
+                "Each checkerboard cell is \"Feature Scale\" sized in each dimension";
         }
     };
 #endif
@@ -184,7 +188,7 @@ namespace FastNoise
 
             description =
                 "Takes the input position and does the following per dimension\n"
-                "(input + offset) * multiplier\n"
+                "`(input + offset) * multiplier`\n"
                 "The output is the sum of all results";
         }
     };
