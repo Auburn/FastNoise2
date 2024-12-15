@@ -656,7 +656,7 @@ FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
         state = FastNoise::Metadata::DebugCheckVectorStorageSize( debugMetadataVectorCheckIdx++ );
         if( state.first > 0 )
         {
-            Error{} << "Non-optimal metadata vector, in FastNoise Metadata.cpp adjust gMetadataVectorSize " << state.second << " to: " << state.first;
+            Error{} << "Non-optimal metadata vector, in FastNoise Metadata.cpp adjust gMetadataVectorSize<" << state.second << "> to: " << state.first;
         }
 
     } while( state.second );
@@ -838,13 +838,16 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
 
         ImNodes::MiniMap( 0.2f, ImNodesMiniMapLocation_BottomLeft );
 
+        // Capture in the editor imgui context
+        float editorMouseWheel = ImGui::GetIO().MouseWheel;
+
         ImNodes::EndNodeEditor();
 
         // Zoom
-        if( ImNodes::IsEditorHovered() && ImGui::GetIO().MouseWheel != 0 )
+        if( ImNodes::IsEditorHovered() && editorMouseWheel != 0 )
         {
             float zoom = ImNodes::EditorContextGetZoom();
-            if( ImGui::GetIO().MouseWheel > 0 )
+            if( editorMouseWheel > 0 )
             {
                 zoom *= 1.5f;
                 if( zoom > 0.9f )
@@ -1111,7 +1114,7 @@ void FastNoiseNodeEditor::DoNodes()
         }
         ImGui::PopStyleVar();
 
-        ImGui::PushItemWidth( 60.0f );
+        ImGui::PushItemWidth( 90.0f );
 
         ImNodes::PushAttributeFlag( ImNodesAttributeFlags_EnableLinkCreationOnSnap );
         ImNodes::PushAttributeFlag( ImNodesAttributeFlags_EnableLinkDetachWithDragClick );

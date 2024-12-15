@@ -34,12 +34,14 @@ namespace ImGuiExtra
             if( ImGui::GetIO().MouseWheel < 0 && *comboIndex < comboCount - 1 )
             {
                 (*comboIndex)++;
+                ImGui::GetIO().MouseWheel = 0;
                 return true;
             }
 
             if( ImGui::GetIO().MouseWheel > 0 && *comboIndex > 0 )
             {
                 (*comboIndex)--;
+                ImGui::GetIO().MouseWheel = 0;
                 return true;
             }
         }
