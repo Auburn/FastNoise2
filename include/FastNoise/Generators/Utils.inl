@@ -105,36 +105,42 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FS_FORCEINLINE static float32v GetGradientDotCommon( int32v hash31, float32v fX, float32v fY, float32v fZ )
+    FS_FORCEINLINE static float32v GetGradientDotCommon( int32v hash, float32v fX, float32v fY, float32v fZ )
     {
-        int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
-        int32v index = FS::BitShiftRightZeroExtend( hashShifted * int32v( 12 >> 2 ), 28 ); // [0,12)
-
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0 ) );
-            float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0 ) );
+            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
+            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+            float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 ) );
 
-            return FS::FMulAdd( gZ, fZ, FS::FMulAdd( fY, gY, fX * gX ) );
+            return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, fZ * gZ ));
         }
         else
         {
-            float32v sign0 = FS::Cast<float>( index << 31 );
-            float32v sign1 = FS::Cast<float>( ( index >> 1 ) << 31 );
+            int32v hasha13 = hash & int32v( 13 );
 
-            float32v u;
+            // if h > 7 then y, else x
+            mask32v gt7;
             if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
             {
-                u = FS::SelectHighBit( index << ( 31 - 3 ), fY, fX );
+                gt7 = FS::Cast<FS::Mask<32>>( hash << 28 );
             }
             else
             {
-                u = FS::Select( index >= int32v( 8 ), fY, fX );
+                gt7 = hasha13 > int32v( 7 );
             }
-            float32v v = FS::Select( index >= int32v( 4 ), fZ, fY );
+            float32v u = FS::Select( gt7, fY, fX );
 
-            return ( u ^ sign0 ) + ( v ^ sign1 );
+            // if h < 4 then y else if h is 12 or 14 then x else z
+            float32v v = FS::Select( hasha13 == int32v( 12 ), fX, fZ );
+            v = FS::Select( hasha13 < int32v( 2 ), fY, v );
+
+            // if h1 then -u else u
+            // if h2 then -v else v
+            float32v h1 = FS::Cast<float>( hash << 31 );
+            float32v h2 = FS::Cast<float>( ( hash >> 1 ) << 31 );
+            // then add them
+            return ( u ^ h1 ) + ( v ^ h2 );
         }
     }
 
