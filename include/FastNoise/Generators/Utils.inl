@@ -57,7 +57,16 @@ namespace FastNoise
             float32v a = u * FS::SelectHighBit( index, float32v( 2 ), float32v( kRoot3f ) );
             float32v b = v ^ FS::Cast<float>( ( index >> 30 ) << 31 );
 
-            return FS::MaskedAdd( index >= int32v( 0 ), a, b ) ^ FS::Cast<float>( ( index >> 28 ) << 31 );
+            if constexpr( SIMD & FastSIMD::FeatureFlag::x86 )
+            {
+                auto indexNegativeMask = FS::Cast<FS::Mask<32, false>>( index >> 31 );
+
+                return FS::InvMaskedAdd( indexNegativeMask, a, b ) ^ FS::Cast<float>( ( index >> 28 ) << 31 );
+            }
+            else
+            {
+                return FS::MaskedAdd( index >= int32v( 0 ), a, b ) ^ FS::Cast<float>( ( index >> 28 ) << 31 );
+            }
         }
     }
 
@@ -454,8 +463,11 @@ namespace FastNoise
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            //indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( FS_BIND_INTRINSIC( _mm512_rol_epi32 ), indexFacetBasisWithPermute2, 2 );
+#if defined( _MSC_VER ) && !defined( __clang__ )
+            indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( FS_BIND_INTRINSIC( _mm512_rol_epi32 ), indexFacetBasisWithPermute2, std::integral_constant<int, 2>() );
+#else
             indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( FS_BIND_INTRINSIC( _mm512_rolv_epi32 ), indexFacetBasisWithPermute2, int32v( 2 ) );
+#endif
 
             const auto tableA_gX = FS::Constant<float>( kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC, kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC );
             const auto tableA_gY = FS::Constant<float>( kComponentC, kComponentB, kComponentA, kComponentA, kComponentC, kComponentB, -kComponentA, -kComponentA, kComponentC, -kComponentB, kComponentA, kComponentA, kComponentC, -kComponentB, -kComponentA, -kComponentA );
@@ -489,22 +501,22 @@ namespace FastNoise
             float32v sign0 = FS::Cast<float>( indexFacetBasisWithPermute2 << 31 );
             float32v sign1 = FS::Cast<float>( ( indexFacetBasisWithPermute2 << 30 ) & int32v( 1 << 31 ) );
 
-            auto notYZ = indexFacetBasisWithPermute2 >= int32v( 0 );
-            auto notXY = ( indexFacetBasisWithPermute2 << 1 ) >= int32v( 0 );
+            auto notYZ = indexFacetBasisWithPermute2;
+            auto notXY = indexFacetBasisWithPermute2 << 1;
 
-            float32v valueA_gX = FS::Select( notYZ, float32v( kComponentA ) ^ sign0, float32v( kComponentC ) );
-            float32v valueA_gY = FS::Select( notYZ & notXY, float32v( kComponentC ), FS::Select( notXY, float32v( kComponentA ) ^ sign0, float32v( kComponentB ) ^ sign1 ) );
-            float32v valueA_gZ = FS::Select( notXY, float32v( kComponentB ) ^ sign1, float32v( kComponentC ) );
+            float32v valueA_gX = FS::SelectHighBit( notYZ, float32v( kComponentC ), float32v( kComponentA ) ^ sign0 );
+            float32v valueA_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, float32v( kComponentB ) ^ sign1, float32v( kComponentA ) ^ sign0 ), float32v( kComponentC ) );
+            float32v valueA_gZ = FS::SelectHighBit( notXY, float32v( kComponentC ), float32v( kComponentB ) ^ sign1 );
             float32v valueA = FS::FMulAdd( valueA_gZ, fZ, FS::FMulAdd( fY, valueA_gY, fX * valueA_gX ) );
 
-            float32v valueB_gX = FS::Select( notYZ, float32v( kComponentB ) ^ sign0, float32v( kComponentC ) );
-            float32v valueB_gY = FS::Select( notYZ & notXY, float32v( kComponentC ), FS::Select( notXY, float32v( kComponentB ) ^ sign0, float32v( kComponentA ) ^ sign1 ) );
-            float32v valueB_gZ = FS::Select( notXY, float32v( kComponentA ) ^ sign1, float32v( kComponentC ) );
+            float32v valueB_gX = FS::SelectHighBit( notYZ, float32v( kComponentC ), float32v( kComponentB ) ^ sign0 );
+            float32v valueB_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, float32v( kComponentA ) ^ sign1, float32v( kComponentB ) ^ sign0 ), float32v( kComponentC ) );
+            float32v valueB_gZ = FS::SelectHighBit( notXY, float32v( kComponentC ), float32v( kComponentA ) ^ sign1 );
             float32v valueB = FS::FMulAdd( valueB_gZ, fZ, FS::FMulAdd( fY, valueB_gY, fX * valueB_gX ) );
 
-            float32v valueC_gX = FS::Select( notYZ, float32v( kComponentsDE ) ^ sign0, float32v( kComponentF ) );
-            float32v valueC_gY = FS::Select( notYZ & notXY, float32v( kComponentF ), FS::Select( notXY, float32v( kComponentsDE ) ^ sign0, float32v( kComponentsDE ) ^ sign1 ) );
-            float32v valueC_gZ = FS::Select( notXY, float32v( kComponentsDE ) ^ sign1, float32v( kComponentF ) );
+            float32v valueC_gX = FS::SelectHighBit( notYZ, float32v( kComponentF ), float32v( kComponentsDE ) ^ sign0 );
+            float32v valueC_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, float32v( kComponentsDE ) ^ sign1, float32v( kComponentsDE ) ^ sign0 ), float32v( kComponentF ) );
+            float32v valueC_gZ = FS::SelectHighBit( notXY, float32v( kComponentF ), float32v( kComponentsDE ) ^ sign1 );
             valueC = FS::FMulAdd( valueC_gZ, fZ, FS::FMulAdd( fY, valueC_gY, fX * valueC_gX ) );
 
             valueAB = FS::SelectHighBit( indexPermutation2HighBit, valueB, valueA );
