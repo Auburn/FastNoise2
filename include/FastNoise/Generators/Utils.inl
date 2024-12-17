@@ -463,11 +463,7 @@ namespace FastNoise
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-#if defined( _MSC_VER ) && !defined( __clang__ )
-            indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( FS_BIND_INTRINSIC( _mm512_rol_epi32 ), indexFacetBasisWithPermute2, std::integral_constant<int, 2>() );
-#else
-            indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( FS_BIND_INTRINSIC( _mm512_rolv_epi32 ), indexFacetBasisWithPermute2, int32v( 2 ) );
-#endif
+            indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( []( auto a ){ return _mm512_rol_epi32( a, 2 ); }, indexFacetBasisWithPermute2 );
 
             const auto tableA_gX = FS::Constant<float>( kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC, kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC );
             const auto tableA_gY = FS::Constant<float>( kComponentC, kComponentB, kComponentA, kComponentA, kComponentC, kComponentB, -kComponentA, -kComponentA, kComponentC, -kComponentB, kComponentA, kComponentA, kComponentC, -kComponentB, -kComponentA, -kComponentA );
