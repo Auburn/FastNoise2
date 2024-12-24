@@ -6,11 +6,7 @@ namespace FastNoise
     class Simplex : public virtual VariableRange<ScalableGenerator>
     {
     public:
-        void SetType( SimplexType value ) { mType = value; }
         const Metadata& GetMetadata() const override;
-
-    protected:
-        SimplexType mType = SimplexType::Standard;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -26,12 +22,30 @@ namespace FastNoise
             description = 
                 "Smooth gradient noise from an N dimensional simplex grid\n"
                 "Developed by Ken Perlin in 2001";
+        }
+    };
+#endif
 
-            this->AddVariableEnum(
-                { "Type", "Noise character style" },
-                SimplexType::Standard, &Simplex::SetType,
-                kSimplexType_Strings
-            );
+    class SimplexSmooth : public virtual VariableRange<ScalableGenerator>
+    {
+    public:
+        const Metadata& GetMetadata() const override;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<SimplexSmooth> : MetadataT<VariableRange<ScalableGenerator>>
+    {
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT()
+        {
+            groups.push_back( "Coherent Noise" );
+
+            description =
+                "Extra smooth gradient noise from an N dimensional simplex grid\n"
+                "Slower to generate than Simplex noise\n"
+                "Developed by K.jpg";
         }
     };
 #endif

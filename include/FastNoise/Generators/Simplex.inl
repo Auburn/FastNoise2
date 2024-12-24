@@ -4,37 +4,7 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
-    {
-        switch( mType ) {
-        case SimplexType::Standard:
-            return Gen_Standard( seed, x, y );
-        case SimplexType::Smooth:
-            return Gen_Smooth( seed, x, y );
-        }
-    }
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
-    {
-        switch( mType ) {
-        case SimplexType::Standard:
-            return Gen_Standard( seed, x, y, z );
-        case SimplexType::Smooth:
-            return Gen_Smooth( seed, x, y, z );
-        }
-    }
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
-    {
-        switch( mType ) {
-        case SimplexType::Standard:
-            return Gen_Standard( seed, x, y, z, w );
-        case SimplexType::Smooth:
-            return Gen_Smooth( seed, x, y, z, w );
-        }
-    }
-
-    float32v FS_VECTORCALL Gen_Standard( int32v seed, float32v x, float32v y ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         this->ScalePositions( x, y );
 
@@ -90,7 +60,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Standard( int32v seed, float32v x, float32v y, float32v z ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         this->ScalePositions( x, y, z );
 
@@ -167,7 +137,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Standard( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         this->ScalePositions( x, y, z, w );
 
@@ -309,7 +279,12 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Smooth( int32v seed, float32v x, float32v y ) const
+};
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::SimplexSmooth, SIMD> final : public virtual FastNoise::SimplexSmooth, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         this->ScalePositions( x, y );
 
@@ -394,7 +369,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Smooth( int32v seed, float32v x, float32v y, float32v z ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         this->ScalePositions( x, y, z );
 
@@ -545,7 +520,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             float32v falloffBase = FS::Min( ( sign ^ dxBase ) - falloffBaseStemB, float32v( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
-        
+
         // Vertex <1, 0, 0> or <-1, 0, 0>
         {
             mask32v signMask = xNormal < float32v( 0 );
@@ -593,10 +568,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Smooth( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         this->ScalePositions( x, y, z, w );
-        
+
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
         constexpr double kUnskew4 = -1.0 / ( kRoot5 + 5.0 );
@@ -658,7 +633,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             maxScore -= wNormal;
             considerVertex( maxScore, moveMaskBits, yNormal, 0b1010 );
             considerVertex( maxScore, moveMaskBits, zNormal, 0b1100 );
-            
+
             mask32v moveX = ( moveMaskBits & int32v( 0b0001 ) ) != int32v( 0 );
             mask32v moveY = ( moveMaskBits & int32v( 0b0010 ) ) != int32v( 0 );
             mask32v moveZ = ( moveMaskBits & int32v( 0b0100 ) ) != int32v( 0 );
@@ -679,7 +654,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
         int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
         int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
-        
+
         float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed + dwSkewed;
         float32v twiceUnskewDelta = float32v( kTwiceUnskew4 ) * skewedCoordinateSum;
         float32v xNormal = dxSkewed + twiceUnskewDelta;
