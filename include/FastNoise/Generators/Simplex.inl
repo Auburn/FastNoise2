@@ -125,10 +125,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 
         mask32v maskX1 = xGreaterEqualY & xGreaterEqualZ;
         mask32v maskY1 = FS::BitwiseAndNot( yGreaterEqualZ, xGreaterEqualY );
-        mask32v maskZ1 = FS::BitwiseAndNot( ~xGreaterEqualZ, yGreaterEqualZ );
+        mask32v maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
 
-        mask32v nMaskX2 = ~( xGreaterEqualY | xGreaterEqualZ );
-        mask32v nMaskY2 = xGreaterEqualY & ~yGreaterEqualZ;
+        mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
+        mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
         mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
 
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );
@@ -136,8 +136,8 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v dz3 = dz0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dx1 = FS::MaskedSub( maskX1, dx3, float32v( 1 ) ); // kReflectUnskew3 * 3 + 1 = kReflectUnskew3, so dx0 - kReflectUnskew3 = dx3
         float32v dy1 = FS::MaskedSub( maskY1, dy3, float32v( 1 ) );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz3, float32v( 1 ) );
-        float32v dx2 = FS::MaskedIncrement( nMaskX2, dx0 ); // kReflectUnskew3 * 2 - 1 = 0, so dx0 + ( kReflectUnskew3 * 2 - 1 ) = dx0
+        float32v dz1 = FS::InvMaskedSub( maskZ1, dz3, float32v( 1 ) );
+        float32v dx2 = FS::MaskedIncrement( ~nMaskX2, dx0 ); // kReflectUnskew3 * 2 - 1 = 0, so dx0 + ( kReflectUnskew3 * 2 - 1 ) = dx0
         float32v dy2 = FS::MaskedIncrement( nMaskY2, dy0 );
         float32v dz2 = FS::MaskedIncrement( nMaskZ2, dz0 );
 
@@ -157,8 +157,8 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         falloff3 *= falloff3; falloff3 *= falloff3;
 
         float32v gradientRampValue0 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
-        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1 );
-        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( seed, FS::InvMaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2 );
+        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1 );
+        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2 );
         float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ) ), dx3, dy3, dz3 );
 
         constexpr double kBounding = 32.69428253173828125;
