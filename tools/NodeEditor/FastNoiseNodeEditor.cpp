@@ -1048,18 +1048,19 @@ void FastNoiseNodeEditor::DoNodes()
         }
 
         ImNodes::EndNodeTitleBar();
+        ImGuiID popupId = ImGui::GetItemID();
 
         if( ImGui::IsMouseReleased( ImGuiMouseButton_Right ) && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenBlockedByPopup ) )
         {
             ImGui::SetCurrentContext( mMainContext );
-            ImGui::OpenPopup( "node_title" );
+            ImGui::OpenPopup( popupId );
         }
 
         ImGui::SetCurrentContext( mMainContext );
         // Right click node title to change node type
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
 
-        if( ImGui::BeginPopup( "node_title" ) )
+        if( ImGui::BeginPopupEx( popupId, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings ) )
         {
             if( ImGui::MenuItem( "Copy Encoded Node Tree" ) )
             {
