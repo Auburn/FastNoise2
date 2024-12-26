@@ -126,6 +126,7 @@ namespace Magnum
         void UpdateSelected();
 
         NodeEditorApp& mNodeEditorApp;
+        ImGuiContext* mMainContext;
 
         std::unordered_map<FastNoise::NodeData*, Node> mNodes;
         FastNoise::NodeData* mDroppedLinkNode = nullptr;
