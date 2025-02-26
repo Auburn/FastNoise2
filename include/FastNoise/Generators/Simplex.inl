@@ -4,37 +4,7 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const final
-    {
-        switch( mType ) {
-        case SimplexType::Standard:
-            return Gen_Standard( seed, x, y );
-        case SimplexType::Smooth:
-            return Gen_Smooth( seed, x, y );
-        }
-    }
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const final
-    {
-        switch( mType ) {
-        case SimplexType::Standard:
-            return Gen_Standard( seed, x, y, z );
-        case SimplexType::Smooth:
-            return Gen_Smooth( seed, x, y, z );
-        }
-    }
-
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const final
-    {
-        switch( mType ) {
-        case SimplexType::Standard:
-            return Gen_Standard( seed, x, y, z, w );
-        case SimplexType::Smooth:
-            return Gen_Smooth( seed, x, y, z, w );
-        }
-    }
-
-    float32v FS_VECTORCALL Gen_Standard( int32v seed, float32v x, float32v y ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         this->ScalePositions( x, y );
 
@@ -90,7 +60,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Standard( int32v seed, float32v x, float32v y, float32v z ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         this->ScalePositions( x, y, z );
 
@@ -125,10 +95,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 
         mask32v maskX1 = xGreaterEqualY & xGreaterEqualZ;
         mask32v maskY1 = FS::BitwiseAndNot( yGreaterEqualZ, xGreaterEqualY );
-        mask32v maskZ1 = FS::BitwiseAndNot( ~xGreaterEqualZ, yGreaterEqualZ );
+        mask32v maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
 
-        mask32v nMaskX2 = ~( xGreaterEqualY | xGreaterEqualZ );
-        mask32v nMaskY2 = xGreaterEqualY & ~yGreaterEqualZ;
+        mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
+        mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
         mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
 
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );
@@ -136,8 +106,8 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v dz3 = dz0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dx1 = FS::MaskedSub( maskX1, dx3, float32v( 1 ) ); // kReflectUnskew3 * 3 + 1 = kReflectUnskew3, so dx0 - kReflectUnskew3 = dx3
         float32v dy1 = FS::MaskedSub( maskY1, dy3, float32v( 1 ) );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz3, float32v( 1 ) );
-        float32v dx2 = FS::MaskedIncrement( nMaskX2, dx0 ); // kReflectUnskew3 * 2 - 1 = 0, so dx0 + ( kReflectUnskew3 * 2 - 1 ) = dx0
+        float32v dz1 = FS::InvMaskedSub( maskZ1, dz3, float32v( 1 ) );
+        float32v dx2 = FS::MaskedIncrement( ~nMaskX2, dx0 ); // kReflectUnskew3 * 2 - 1 = 0, so dx0 + ( kReflectUnskew3 * 2 - 1 ) = dx0
         float32v dy2 = FS::MaskedIncrement( nMaskY2, dy0 );
         float32v dz2 = FS::MaskedIncrement( nMaskZ2, dz0 );
 
@@ -157,8 +127,8 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         falloff3 *= falloff3; falloff3 *= falloff3;
 
         float32v gradientRampValue0 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
-        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1 );
-        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( seed, FS::InvMaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2 );
+        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1 );
+        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2 );
         float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ) ), dx3, dy3, dz3 );
 
         constexpr double kBounding = 32.69428253173828125;
@@ -167,7 +137,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Standard( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         this->ScalePositions( x, y, z, w );
 
@@ -309,7 +279,12 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Smooth( int32v seed, float32v x, float32v y ) const
+};
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::SimplexSmooth, SIMD> final : public virtual FastNoise::SimplexSmooth, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         this->ScalePositions( x, y );
 
@@ -394,7 +369,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Smooth( int32v seed, float32v x, float32v y, float32v z ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         this->ScalePositions( x, y, z );
 
@@ -545,7 +520,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             float32v falloffBase = FS::Min( ( sign ^ dxBase ) - falloffBaseStemB, float32v( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
-        
+
         // Vertex <1, 0, 0> or <-1, 0, 0>
         {
             mask32v signMask = xNormal < float32v( 0 );
@@ -593,10 +568,10 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
     }
 
-    float32v FS_VECTORCALL Gen_Smooth( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         this->ScalePositions( x, y, z, w );
-        
+
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
         constexpr double kUnskew4 = -1.0 / ( kRoot5 + 5.0 );
@@ -658,7 +633,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             maxScore -= wNormal;
             considerVertex( maxScore, moveMaskBits, yNormal, 0b1010 );
             considerVertex( maxScore, moveMaskBits, zNormal, 0b1100 );
-            
+
             mask32v moveX = ( moveMaskBits & int32v( 0b0001 ) ) != int32v( 0 );
             mask32v moveY = ( moveMaskBits & int32v( 0b0010 ) ) != int32v( 0 );
             mask32v moveZ = ( moveMaskBits & int32v( 0b0100 ) ) != int32v( 0 );
@@ -679,7 +654,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
         int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
         int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
-        
+
         float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed + dwSkewed;
         float32v twiceUnskewDelta = float32v( kTwiceUnskew4 ) * skewedCoordinateSum;
         float32v xNormal = dxSkewed + twiceUnskewDelta;

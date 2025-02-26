@@ -199,8 +199,6 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
         genRGB->SetSource( scale );
         scale->SetSource( generator );
         scale->SetScaling( editor.mNodeScale );
-
-        FastNoise::SmartNode<FastNoise::ConvertRGBA8> l(nullptr);
         
         auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -335,7 +333,7 @@ bool FastNoiseNodeEditor::MetadataMenuItem::CanDraw( std::function<bool( const F
 
 const FastNoise::Metadata* FastNoiseNodeEditor::MetadataMenuItem::DrawUI( std::function<bool( const FastNoise::Metadata* )> isValid, bool drawGroups ) const
 {
-    std::string format = FastNoise::Metadata::FormatMetadataNodeName( metadata, true );
+    std::string format = FastNoise::Metadata::FormatMetadataNodeName( metadata, drawGroups );
     
     if( ImGui::MenuItem( format.c_str() ) )
     {
@@ -589,6 +587,7 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
 
 FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
     mNodeEditorApp( nodeEditorApp ),
+    mMainContext( ImGui::GetCurrentContext() ),
     mOverheadNode( *this, new FastNoise::NodeData( &FastNoise::Metadata::Get<FastNoise::Constant>() ), false )
 {
     if( !mNodeEditorApp.IsDetachedNodeGraph() )
@@ -830,9 +829,10 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
             OpenStandaloneNodeGraph();
         }
 
+        ImGui::SetCurrentContext( mMainContext );
         DoHelp();
-
         DoContextMenu();
+        ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
 
         DoNodes();
 
@@ -1048,10 +1048,19 @@ void FastNoiseNodeEditor::DoNodes()
         }
 
         ImNodes::EndNodeTitleBar();
+        ImGuiID popupId = ImGui::GetItemID();
 
+        if( ImGui::IsMouseReleased( ImGuiMouseButton_Right ) && ImGui::IsItemHovered( ImGuiHoveredFlags_AllowWhenBlockedByPopup ) )
+        {
+            ImGui::SetCurrentContext( mMainContext );
+            ImGui::OpenPopup( popupId );
+        }
+
+        ImGui::SetCurrentContext( mMainContext );
         // Right click node title to change node type
         ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
-        if( ImGui::BeginPopupContextItem() )
+
+        if( ImGui::BeginPopupEx( popupId, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings ) )
         {
             if( ImGui::MenuItem( "Copy Encoded Node Tree" ) )
             {
@@ -1074,7 +1083,7 @@ void FastNoiseNodeEditor::DoNodes()
                     MatchingMembers( newMetadata->memberNodeLookups, nodeMetadata->memberNodeLookups ) &&
                     MatchingMembers( newMetadata->memberHybrids, nodeMetadata->memberHybrids ) )
                 {
-                    nodeMetadata = newMetadata;                    
+                    nodeMetadata = newMetadata;
                 }
                 else
                 {
@@ -1104,7 +1113,7 @@ void FastNoiseNodeEditor::DoNodes()
                         links.pop();
                     }
 
-                    *node.second.data = std::move( newData );                  
+                    *node.second.data = std::move( newData );
                 }
 
                 node.second.GeneratePreview();
@@ -1113,6 +1122,8 @@ void FastNoiseNodeEditor::DoNodes()
             ImGui::EndPopup();
         }
         ImGui::PopStyleVar();
+
+        ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
 
         ImGui::PushItemWidth( 90.0f );
 
@@ -1286,7 +1297,7 @@ void FastNoiseNodeEditor::DoHelp()
     ImGui::Text( " Help" );
     if( ImGui::IsItemHovered() )
     {
-        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4.f, 4.f ) );
+        ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 6.f, 6.f ) );
         ImGui::BeginTooltip();
         constexpr float alignPx = 110;
 

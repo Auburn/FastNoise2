@@ -91,6 +91,7 @@ FASTNOISE_REGISTER_NODE( PositionOutput );
 FASTNOISE_REGISTER_NODE( DistanceToPoint );
 
 FASTNOISE_REGISTER_NODE( Simplex );
+FASTNOISE_REGISTER_NODE( SimplexSmooth );
 FASTNOISE_REGISTER_NODE( Perlin );
 FASTNOISE_REGISTER_NODE( Value );
                        
@@ -103,6 +104,7 @@ FASTNOISE_REGISTER_NODE( FractalPingPong );
 FASTNOISE_REGISTER_NODE( FractalRidged );
 
 FASTNOISE_REGISTER_NODE( DomainWarpSimplex );
+//FASTNOISE_REGISTER_NODE( DomainWarpSimplexSmooth );
 FASTNOISE_REGISTER_NODE( DomainWarpGradient );
 
 FASTNOISE_REGISTER_NODE( DomainWarpFractalProgressive );
