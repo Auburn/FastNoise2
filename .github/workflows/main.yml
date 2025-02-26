@@ -66,9 +66,9 @@ jobs:
 
     - if: runner.os != 'Windows'
       run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NodeEditor
-    
+      
     - name: 'Upload artifact'
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.name }}
         path: ${{ github.workspace }}/install/
