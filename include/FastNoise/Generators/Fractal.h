@@ -94,7 +94,7 @@ namespace FastNoise
         void SetPingPongStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPingPongStrength, gen ); }
 
     protected:
-        HybridSource mPingPongStrength = 0.0f;
+        HybridSource mPingPongStrength = 2.0f;
     };
 
 #ifdef FASTNOISE_METADATA
