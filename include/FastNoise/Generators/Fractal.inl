@@ -84,10 +84,10 @@ class FastSIMD::DispatchClass<FastNoise::FractalPingPong, SIMD> final : public v
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );
         float32v pingPongStrength = this->GetSourceValue( mPingPongStrength, seed, pos... );
         float32v lacunarity( mLacunarity );
-        float32v amp( mFractalBounding );
-        float32v noise = PingPong( (this->GetSourceValue( mSource, seed, pos... ) + float32v( 1 )) * pingPongStrength );
+        float32v amp( mFractalBounding * 2 );
+        float32v noise = PingPong( this->GetSourceValue( mSource, seed, pos... ) * pingPongStrength );
 
-        float32v sum = (noise - float32v( 0.5f )) * float32v( 2 ) * amp;
+        float32v sum = (noise - float32v( 0.5f )) * amp;
 
         for( int i = 1; i < mOctaves; i++ )
         {
@@ -95,8 +95,8 @@ class FastSIMD::DispatchClass<FastNoise::FractalPingPong, SIMD> final : public v
             amp *= Lerp( float32v( 1 ), noise, weightedStrength );
             amp *= gain;
 
-            noise = PingPong( (this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) + float32v( 1 )) * pingPongStrength );
-            sum += (noise - float32v( 0.5f )) * float32v( 2 ) * amp;
+            noise = PingPong( (this->GetSourceValue( mSource, seed, (pos *= lacunarity)... )) * pingPongStrength );
+            sum += (noise - float32v( 0.5f )) * amp;
         }
 
         return sum;
