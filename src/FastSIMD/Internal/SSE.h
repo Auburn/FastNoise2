@@ -263,6 +263,18 @@ namespace FastSIMD
             return _mm_loadu_si128( reinterpret_cast<__m128i const*>(p) );
         }
 
+        // Gather
+
+        FS_INLINE static float32v Gather_f32( void const* base, int32v offsets )
+        {
+            return _mm_set_ps(
+                *reinterpret_cast<float const*>(reinterpret_cast<uintptr_t>(base) + Extract0_i32(offsets)),
+                *reinterpret_cast<float const*>(reinterpret_cast<uintptr_t>(base) + Extract_i32(offsets, 1)),
+                *reinterpret_cast<float const*>(reinterpret_cast<uintptr_t>(base) + Extract_i32(offsets, 2)),
+                *reinterpret_cast<float const*>(reinterpret_cast<uintptr_t>(base) + Extract_i32(offsets, 3))
+            );
+        }
+
         // Store
 
         FS_INLINE static void Store_f32( void* p, float32v a )

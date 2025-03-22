@@ -252,6 +252,13 @@ namespace FastSIMD
             return _mm256_loadu_si256( reinterpret_cast<__m256i const*>(p) );
         }
 
+        // Gather
+
+        FS_INLINE static float32v Gather_f32( void const* base, int32v offsets )
+        {
+            return _mm256_i32gather_ps( reinterpret_cast<float const*>(base), offsets, 1 );
+        }
+
         // Store
 
         FS_INLINE static void Store_f32( void* p, float32v a )

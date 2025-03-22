@@ -249,6 +249,13 @@ namespace FastSIMD
             return _mm512_loadu_si512( p );
         }
 
+        // Gather
+
+        FS_INLINE static float32v Gather_f32( void const* base, int32v offsets )
+        {
+            return _mm512_i32gather_ps( offsets, base, 1 );
+        }
+
         // Store
 
         FS_INLINE static void Store_f32( void* p, float32v a )
