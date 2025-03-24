@@ -282,7 +282,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SimplexSmooth, SIMD> final : public virtual FastNoise::SimplexSmooth, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virtual FastNoise::SuperSimplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
