@@ -264,14 +264,15 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
 
-        float32v xcf = FS::Convert<float>( xc ) - x;
-        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v xcf = FS::Convert<float>( xc );
+        float32v ycfBase = FS::Convert<float>( ycBase );
 
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
 
         for( int xi = 0; xi < 3; xi++ )
         {
+            float32v xcfOffset = xcf - x;
             float32v ycf = ycfBase;
             int32v yc = ycBase;
             for ( int yi = 0; yi < 3; yi++ )
@@ -281,8 +282,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                 float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 16 ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
-                xd = FS::FMulAdd( xd, invMag, xcf );
-                yd = FS::FMulAdd( yd, invMag, ycf );
+                xd = FS::FMulAdd( xd, invMag, xcfOffset );
+                yd = FS::FMulAdd( yd, invMag, ycf - y );
 
                 float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
 
@@ -316,9 +317,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
         int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
 
-        float32v xcf = FS::Convert<float>( xc ) - x;
-        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
-        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
+        float32v xcf = FS::Convert<float>( xc );
+        float32v ycfBase = FS::Convert<float>( ycBase );
+        float32v zcfBase = FS::Convert<float>( zcBase );
 
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
@@ -326,10 +327,12 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 
         for( int xi = 0; xi < 3; xi++ )
         {
+            float32v xcfOffset = xcf - x;
             float32v ycf = ycfBase;
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
+                float32v ycfOffset = ycf - y;
                 float32v zcf = zcfBase;
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
@@ -340,9 +343,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                     float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
 
                     float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-                    xd = FS::FMulAdd( xd, invMag, xcf );
-                    yd = FS::FMulAdd( yd, invMag, ycf );
-                    zd = FS::FMulAdd( zd, invMag, zcf );
+                    xd = FS::FMulAdd( xd, invMag, xcfOffset );
+                    yd = FS::FMulAdd( yd, invMag, ycfOffset );
+                    zd = FS::FMulAdd( zd, invMag, zcf - z );
 
                     float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
 
@@ -380,10 +383,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
         int32v wcBase = FS::Convert<int32_t>( w ) + int32v( -1 );
 
-        float32v xcf = FS::Convert<float>( xc ) - x;
-        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
-        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
-        float32v wcfBase = FS::Convert<float>( wcBase ) - w;
+        float32v xcf = FS::Convert<float>( xc );
+        float32v ycfBase = FS::Convert<float>( ycBase );
+        float32v zcfBase = FS::Convert<float>( zcBase );
+        float32v wcfBase = FS::Convert<float>( wcBase );
 
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
@@ -392,14 +395,17 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 
         for( int xi = 0; xi < 3; xi++ )
         {
+            float32v xcfOffset = xcf - x;
             float32v ycf = ycfBase;
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
+                float32v ycfOffset = ycf - y;
                 float32v zcf = zcfBase;
                 int32v zc = zcBase;
                 for( int zi = 0; zi < 3; zi++ )
                 {
+                    float32v zcfOffset = zcf - z;
                     float32v wcf = wcfBase;
                     int32v wc = wcBase;
                     for( int wi = 0; wi < 3; wi++ )
@@ -411,10 +417,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                         float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
-                        xd = FS::FMulAdd( xd, invMag, xcf );
-                        yd = FS::FMulAdd( yd, invMag, ycf );
-                        zd = FS::FMulAdd( zd, invMag, zcf );
-                        wd = FS::FMulAdd( wd, invMag, wcf );
+                        xd = FS::FMulAdd( xd, invMag, xcfOffset );
+                        yd = FS::FMulAdd( yd, invMag, ycfOffset );
+                        zd = FS::FMulAdd( zd, invMag, zcfOffset );
+                        wd = FS::FMulAdd( wd, invMag, wcf - w );
 
                         float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
 
@@ -492,8 +498,8 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
 
-        float32v xcf = FS::Convert<float>( xc ) - x;
-        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
+        float32v xcf = FS::Convert<float>( xc );
+        float32v ycfBase = FS::Convert<float>( ycBase );
 
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
@@ -509,16 +515,18 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                 float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 16 ) ) - float32v( 0xffff / 2.0f );
 
                 float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
-                xd = FS::FMulAdd( xd, invMag, xcf );
-                yd = FS::FMulAdd( yd, invMag, ycf );
+                float32v localCellX = FS::FMulAdd( xd, invMag, xcf );
+                float32v localCellY = FS::FMulAdd( yd, invMag, ycf );
+                xd = localCellX - x;
+                yd = localCellY - y;
 
                 float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
 
                 mask32v closer = newDistance < distance;
                 distance = FS::Min( newDistance, distance );
 
-                cellX = FS::Select( closer, xd + x, cellX );
-                cellY = FS::Select( closer, yd + y, cellY );
+                cellX = FS::Select( closer, localCellX, cellX );
+                cellY = FS::Select( closer, localCellY, cellY );
 
                 ycf += float32v( 1 );
                 yc += int32v( Primes::Y );
@@ -542,9 +550,9 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
         int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
 
-        float32v xcf = FS::Convert<float>( xc ) - x;
-        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
-        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
+        float32v xcf = FS::Convert<float>( xc );
+        float32v ycfBase = FS::Convert<float>( ycBase );
+        float32v zcfBase = FS::Convert<float>( zcBase );
 
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
@@ -566,18 +574,21 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                     float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
 
                     float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-                    xd = FS::FMulAdd( xd, invMag, xcf );
-                    yd = FS::FMulAdd( yd, invMag, ycf );
-                    zd = FS::FMulAdd( zd, invMag, zcf );
+                    float32v localCellX = FS::FMulAdd( xd, invMag, xcf );
+                    float32v localCellY = FS::FMulAdd( yd, invMag, ycf );
+                    float32v localCellZ = FS::FMulAdd( zd, invMag, zcf );
+                    xd = localCellX - x;
+                    yd = localCellY - y;
+                    zd = localCellZ - z;
 
                     float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
 
                     mask32v closer = newDistance < distance;
                     distance = FS::Min( newDistance, distance );
 
-                    cellX = FS::Select( closer, xd + x, cellX );
-                    cellY = FS::Select( closer, yd + y, cellY );
-                    cellZ = FS::Select( closer, zd + z, cellZ );
+                    cellX = FS::Select( closer, localCellX, cellX );
+                    cellY = FS::Select( closer, localCellY, cellY );
+                    cellZ = FS::Select( closer, localCellZ, cellZ );
 
                     zcf += float32v( 1 );
                     zc += int32v( Primes::Z );
@@ -605,10 +616,10 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
         int32v zcBase = FS::Convert<int32_t>( z ) + int32v( -1 );
         int32v wcBase = FS::Convert<int32_t>( w ) + int32v( -1 );
 
-        float32v xcf = FS::Convert<float>( xc ) - x;
-        float32v ycfBase = FS::Convert<float>( ycBase ) - y;
-        float32v zcfBase = FS::Convert<float>( zcBase ) - z;
-        float32v wcfBase = FS::Convert<float>( wcBase ) - w;
+        float32v xcf = FS::Convert<float>( xc );
+        float32v ycfBase = FS::Convert<float>( ycBase );
+        float32v zcfBase = FS::Convert<float>( zcBase );
+        float32v wcfBase = FS::Convert<float>( wcBase );
 
         xc *= int32v( Primes::X );
         ycBase *= int32v( Primes::Y );
@@ -636,20 +647,24 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                         float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
                         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
-                        xd = FS::FMulAdd( xd, invMag, xcf );
-                        yd = FS::FMulAdd( yd, invMag, ycf );
-                        zd = FS::FMulAdd( zd, invMag, zcf );
-                        wd = FS::FMulAdd( wd, invMag, wcf );
+                        float32v localCellX = FS::FMulAdd( xd, invMag, xcf );
+                        float32v localCellY = FS::FMulAdd( yd, invMag, ycf );
+                        float32v localCellZ = FS::FMulAdd( zd, invMag, zcf );
+                        float32v localCellW = FS::FMulAdd( wd, invMag, wcf );
+                        xd = localCellX - x;
+                        yd = localCellY - y;
+                        zd = localCellZ - z;
+                        wd = localCellW - w;
 
                         float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
 
                         mask32v closer = newDistance < distance;
                         distance = FS::Min( newDistance, distance );
 
-                        cellX = FS::Select( closer, xd + x, cellX );
-                        cellY = FS::Select( closer, yd + y, cellY );
-                        cellZ = FS::Select( closer, zd + z, cellZ );
-                        cellW = FS::Select( closer, wd + w, cellW );
+                        cellX = FS::Select( closer, localCellX, cellX );
+                        cellY = FS::Select( closer, localCellY, cellY );
+                        cellZ = FS::Select( closer, localCellZ, cellZ );
+                        cellW = FS::Select( closer, localCellW, cellW );
 
                         wcf += float32v( 1 );
                         wc += int32v( Primes::W );
