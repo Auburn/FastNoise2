@@ -26,7 +26,7 @@ namespace FastNoise
     };
 #endif
 
-    class SimplexSmooth : public virtual VariableRange<ScalableGenerator>
+    class SuperSimplex : public virtual VariableRange<ScalableGenerator>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -34,7 +34,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<SimplexSmooth> : MetadataT<VariableRange<ScalableGenerator>>
+    struct MetadataT<SuperSimplex> : MetadataT<VariableRange<ScalableGenerator>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
