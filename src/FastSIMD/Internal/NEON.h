@@ -280,6 +280,8 @@ namespace FastSIMD
         typedef NEON_i32x4   int32v;
         typedef NEON_i32x4  mask32v;
 
+        // Load
+
         FS_INLINE static float32v Load_f32( void const* p )
         {
             return vld1q_f32( reinterpret_cast<float const*>(p) );
@@ -288,6 +290,13 @@ namespace FastSIMD
         FS_INLINE static int32v Load_i32( void const* p )
         {
             return vld1q_s32( reinterpret_cast<int32_t const*>(p) );
+        }
+
+        // Gather
+
+        FS_INLINE static float32v Gather_f32( void const* base, int32v offsets )
+        {
+            return vld1q_f32( reinterpret_cast<float const*>(base) + vgetq_lane_s32( offsets, 0 ) );
         }
 
         // Store

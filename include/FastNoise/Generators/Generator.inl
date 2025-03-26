@@ -329,6 +329,129 @@ public:
         return DoRemaining( noiseOut, count, index, min, max, gen );
     }
 
+    FastNoise::OutputMinMax GenStridedArray2D( float* noiseOut, int count, const Vector2* posArray, int seed ) const
+    {
+        if (count == 0) return FastNoise::OutputMinMax{};
+
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
+        intptr_t index = 0;
+        int32v baseIndex = int32v::FS_Incremented() * int32v( sizeof(Vector2) ) + int32v( index * sizeof(Vector2) );
+
+        while ( index < count - (intptr_t)FS_Size_32() )
+        {
+            // Gather x and y using FS_Gather_f32
+            float32v xPos = FS_Gather_f32( &posArray[0].x, baseIndex );
+            float32v yPos = FS_Gather_f32( &posArray[0].y, baseIndex );
+
+            // Generate value using Gen function
+            float32v gen = Gen( int32v(seed), xPos, yPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
+            index += FS_Size_32();
+            baseIndex += int32v( sizeof(Vector2) ) * int32v( FS_Size_32() ); // Advance the baseIndex
+        }
+
+        // Handle remaining values
+        baseIndex = int32v::FS_Incremented() * int32v( sizeof(Vector2) ) + int32v( index * sizeof(Vector2) );
+        float32v xPos = FS_Gather_f32( &posArray[0].x, baseIndex );
+        float32v yPos = FS_Gather_f32( &posArray[0].y, baseIndex );
+
+        float32v gen = Gen( int32v(seed), xPos, yPos );
+
+        return DoRemaining( noiseOut, count, index, min, max, gen );
+    }
+
+    FastNoise::OutputMinMax GenStridedArray3D( float* noiseOut, int count, const Vector3* posArray, int seed ) const
+    {
+        if (count == 0) return FastNoise::OutputMinMax{};
+
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
+        intptr_t index = 0;
+        int32v baseIndex = int32v::FS_Incremented() * int32v( sizeof(Vector3) ) + int32v( index * sizeof(Vector3) );
+
+        while ( index < count - (intptr_t)FS_Size_32() )
+        {
+            // Gather x, y, and z using FS_Gather_f32
+            float32v xPos = FS_Gather_f32( &posArray[0].x, baseIndex );
+            float32v yPos = FS_Gather_f32( &posArray[0].y, baseIndex );
+            float32v zPos = FS_Gather_f32( &posArray[0].z, baseIndex );
+
+            // Generate value using Gen function
+            float32v gen = Gen( int32v(seed), xPos, yPos, zPos );
+            FS_Store_f32( &noiseOut[index], gen );
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
+            index += FS_Size_32();
+            baseIndex += int32v( sizeof(Vector3) ) * int32v( FS_Size_32() ); // Advance the baseIndex
+        }
+
+        // Handle remaining values
+        baseIndex = int32v::FS_Incremented() * int32v( sizeof(Vector3) ) + int32v( index * sizeof(Vector3) );
+        float32v xPos = FS_Gather_f32( &posArray[0].x, baseIndex );
+        float32v yPos = FS_Gather_f32( &posArray[0].y, baseIndex );
+        float32v zPos = FS_Gather_f32( &posArray[0].z, baseIndex );
+
+        float32v gen = Gen( int32v(seed), xPos, yPos, zPos );
+
+        return DoRemaining( noiseOut, count, index, min, max, gen );
+    }
+
+    FastNoise::OutputMinMax GenStridedArray4D( float* noiseOut, int count, const Vector4* posArray, int seed ) const
+    {
+        if (count == 0) return FastNoise::OutputMinMax{};
+        
+        float32v min( INFINITY );
+        float32v max( -INFINITY );
+
+        intptr_t index = 0;
+        int32v baseIndex = int32v::FS_Incremented() * int32v(sizeof(Vector4)) + int32v(index * sizeof(Vector4));
+
+        while ( index < count - (intptr_t)FS_Size_32() )
+        {
+            // Gather x, y, and z using FS_Gather_f32
+            float32v xPos = FS_Gather_f32( &posArray[0].x, baseIndex );
+            float32v yPos = FS_Gather_f32( &posArray[0].y, baseIndex );
+            float32v zPos = FS_Gather_f32( &posArray[0].z, baseIndex );
+            float32v wPos = FS_Gather_f32( &posArray[0].w, baseIndex );
+
+            // Generate value using Gen function
+            float32v gen = Gen( int32v(seed), xPos, yPos, zPos, wPos );
+            FS_Store_f32(&noiseOut[index], gen);
+
+#if FASTNOISE_CALC_MIN_MAX
+            min = FS_Min_f32( min, gen );
+            max = FS_Max_f32( max, gen );
+#endif
+
+            index += FS_Size_32();
+            baseIndex += int32v( sizeof(Vector4)) * int32v(FS_Size_32() ); // Advance the baseIndex
+        }
+
+        // Handle remaining values
+        baseIndex = int32v::FS_Incremented() * int32v( sizeof(Vector4) ) + int32v( index * sizeof(Vector4) );
+        float32v xPos = FS_Gather_f32( &posArray[0].x, baseIndex );
+        float32v yPos = FS_Gather_f32( &posArray[0].y, baseIndex );
+        float32v zPos = FS_Gather_f32( &posArray[0].z, baseIndex );
+        float32v wPos = FS_Gather_f32( &posArray[0].w, baseIndex );
+
+        float32v gen = Gen( int32v(seed), xPos, yPos, zPos, wPos );
+
+        return DoRemaining( noiseOut, count, index, min, max, gen );
+    }
+
     float GenSingle2D( float x, float y, int seed ) const final
     {
         return FS_Extract0_f32( Gen( int32v( seed ), float32v( x ), float32v( y ) ) );

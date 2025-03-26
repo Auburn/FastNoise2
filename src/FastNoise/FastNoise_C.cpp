@@ -75,6 +75,21 @@ void fnGenPositionArray4D( const void* node, float* noiseOut, int count, const f
     StoreMinMax( outputMinMax, ToGen( node )->GenPositionArray4D( noiseOut, count, xPosArray, yPosArray, zPosArray, wPosArray, xOffset, yOffset, zOffset, wOffset, seed ) );
 }
 
+void fnGenStridedArray2D( const void* node, float* noiseOut, int count, const Vector2* posArray, int seed, float* outputMinMax )
+{
+    StoreMinMax( outputMinMax, ToGen( node )->GenStridedArray2D( noiseOut, count, reinterpret_cast<const FastNoise::Generator::Vector2*>(posArray), seed ) );
+}
+
+void fnGenStridedArray3D( const void* node, float* noiseOut, int count, const Vector3* posArray, int seed, float* outputMinMax )
+{
+    StoreMinMax( outputMinMax, ToGen( node )->GenStridedArray3D( noiseOut, count, reinterpret_cast<const FastNoise::Generator::Vector3*>(posArray), seed ) );
+}
+
+void fnGenStridedArray4D( const void* node, float* noiseOut, int count, const Vector4* posArray, int seed, float* outputMinMax )
+{
+    StoreMinMax( outputMinMax, ToGen( node )->GenStridedArray4D( noiseOut, count, reinterpret_cast<const FastNoise::Generator::Vector4*>(posArray), seed ) );
+}
+
 float fnGenSingle2D( const void* node, float x, float y, int seed )
 {
     return ToGen( node )->GenSingle2D( x, y, seed );

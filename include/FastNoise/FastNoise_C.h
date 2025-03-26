@@ -48,6 +48,22 @@ FASTNOISE_API void fnGenTileable2D( const void* node, float* noiseOut,
                                     int xSize, int ySize,
                                     float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
+struct Vector2 { float x; float y; };
+struct Vector3 { float x; float y; float z; };
+struct Vector4 { float x; float y; float z; float w; };
+
+FASTNOISE_API void fnGenStridedArray2D( const void* node, float* noiseOut, int count,
+                                        const Vector2* posArray, int seed,
+                                        float* outputMinMax /*nullptr or float[2]*/ );
+
+FASTNOISE_API void fnGenStridedArray3D( const void* node, float* noiseOut, int count,
+                                        const Vector3* posArray, int seed,
+                                        float* outputMinMax /*nullptr or float[2]*/ );
+
+FASTNOISE_API void fnGenStridedArray4D( const void* node, float* noiseOut, int count,
+                                        const Vector4* posArray, int seed,
+                                        float* outputMinMax /*nullptr or float[2]*/ );
+
 FASTNOISE_API float fnGenSingle2D( const void* node, float x, float y, int seed );
 FASTNOISE_API float fnGenSingle3D( const void* node, float x, float y, float z, int seed );
 FASTNOISE_API float fnGenSingle4D( const void* node, float x, float y, float z, float w, int seed );

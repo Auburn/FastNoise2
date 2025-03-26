@@ -71,6 +71,20 @@
 #define FS_Load_i32( ... ) FS::Load_i32( __VA_ARGS__ )
 
 
+// Gather
+
+/// <summary>
+/// Copies sizeof(float32v) bytes from a strided memory location into float32v
+/// </summary>
+/// <remarks>
+/// Memory does not need to be aligned
+/// </remarks>
+/// <code>
+/// float32v FS_Load_f32( void const* ptr )
+/// </code>
+#define FS_Gather_f32( ... ) FS::Gather_f32( __VA_ARGS__ )
+
+
 // Store
 
 /// <summary>

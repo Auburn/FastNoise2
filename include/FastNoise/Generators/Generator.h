@@ -128,6 +128,19 @@ namespace FastNoise
             const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, 
             float xOffset, float yOffset, float zOffset, float wOffset, int seed ) const = 0;
 
+        struct Vector2 { float x; float y; };
+        struct Vector3 { float x; float y; float z; };
+        struct Vector4 { float x; float y; float z; float w; };
+
+        virtual OutputMinMax GenStridedArray2D( float* out, int count,
+            const Vector2* posArray, int seed ) const = 0;
+
+        virtual OutputMinMax GenStridedArray3D( float* out, int count,
+            const Vector3* posArray, int seed ) const = 0;
+
+        virtual OutputMinMax GenStridedArray4D( float* out, int count,
+            const Vector4* posArray, int seed ) const = 0;
+
         virtual float GenSingle2D( float x, float y, int seed ) const = 0;
         virtual float GenSingle3D( float x, float y, float z, int seed ) const = 0;
         virtual float GenSingle4D( float x, float y, float z, float w, int seed ) const = 0;

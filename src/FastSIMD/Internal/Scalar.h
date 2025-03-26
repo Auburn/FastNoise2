@@ -256,6 +256,13 @@ namespace FastSIMD
             return *reinterpret_cast<int32v const*>(p);
         }
 
+        // Gather
+
+        FS_INLINE static float32v Gather_f32( void const* base, int32v offsets )
+        {
+            return *reinterpret_cast<float32v const*>(reinterpret_cast<float const*>(base) + offsets);
+        }
+
         // Store
 
         FS_INLINE static void Store_f32( void* p, float32v a )
