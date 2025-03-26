@@ -331,6 +331,8 @@ public:
 
     FastNoise::OutputMinMax GenStridedArray2D( float* noiseOut, int count, const Vector2* posArray, int seed ) const
     {
+        if (count == 0) return FastNoise::OutputMinMax{};
+
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -368,6 +370,8 @@ public:
 
     FastNoise::OutputMinMax GenStridedArray3D( float* noiseOut, int count, const Vector3* posArray, int seed ) const
     {
+        if (count == 0) return FastNoise::OutputMinMax{};
+
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
@@ -407,6 +411,8 @@ public:
 
     FastNoise::OutputMinMax GenStridedArray4D( float* noiseOut, int count, const Vector4* posArray, int seed ) const
     {
+        if (count == 0) return FastNoise::OutputMinMax{};
+        
         float32v min( INFINITY );
         float32v max( -INFINITY );
 
