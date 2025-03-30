@@ -54,7 +54,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1 );
         float32v gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2 );
 
-        constexpr double kBounding = 49.918426513671875;
+        constexpr double kBounding = 38.283687591552734375;
 
         return this->ScaleOutput( FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue2 * falloff2 ) ),
             -1 / kBounding, 1 / kBounding );
