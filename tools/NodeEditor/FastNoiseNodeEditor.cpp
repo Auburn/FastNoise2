@@ -1336,7 +1336,7 @@ void FastNoiseNodeEditor::DoContextMenu()
     ImGui::PushStyleVar( ImGuiStyleVar_WindowPadding, ImVec2( 4, 4 ) );
     if( distance < 5.0f && ImGui::BeginPopupContextWindow( "new_node", 1 ) )
     {
-        mContextStartPos = ImGui::GetMousePosOnOpeningCurrentPopup();
+        mContextStartPos = ImNodes::ConvertToEditorContextSpace( ImGui::GetMousePosOnOpeningCurrentPopup() );
 
         if( auto newMetadata = mContextMetadata.front()->DrawUI() )
         {
@@ -1406,7 +1406,7 @@ void FastNoiseNodeEditor::DoContextMenu()
     }
     if( ImGui::BeginPopup( "new_node_drop", ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings ) )
     {
-        ImVec2 startPos = ImGui::GetMousePosOnOpeningCurrentPopup();
+        ImVec2 startPos = ImNodes::ConvertToEditorContextSpace( ImGui::GetMousePosOnOpeningCurrentPopup() );
 
         auto newMetadata = mContextMetadata.front()->DrawUI( []( const FastNoise::Metadata* metadata )
         {
