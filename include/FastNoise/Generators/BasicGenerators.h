@@ -244,7 +244,9 @@ namespace FastNoise
             this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 1.5f, &DistanceToPoint::SetMinkowskiP, &DistanceToPoint::SetMinkowskiP );
 
             description =
-                "Outputs distance between point and input position";
+                "Outputs distance between point and input position\n"
+                "Distance is calculated in current domain space,\n"
+                "ie affected by Domain Modifiers/Warping";
         }
     };
 #endif

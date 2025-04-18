@@ -27,6 +27,9 @@ namespace FastNoise
             groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainScale::SetSource );
             this->AddVariable( "Scaling", 1.0f, &DomainScale::SetScaling );
+
+            description =
+                "Scales the input coordinates uniformly before passing them to the source generator.";
         }
     };
 #endif
@@ -63,6 +66,9 @@ namespace FastNoise
             groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainOffset::SetSource );
             this->AddPerDimensionHybridSource( "Offset", 0.0f, []( DomainOffset* p ) { return std::ref( p->mOffset ); }, 0.25f );
+
+            description =
+                "Adds an offset to the input coordinates before passing them to the source generator";
         }
     };
 #endif
@@ -126,6 +132,12 @@ namespace FastNoise
             this->AddVariable( "Yaw", 0.0f, &DomainRotate::SetYaw );
             this->AddVariable( "Pitch", 0.0f, &DomainRotate::SetPitch );
             this->AddVariable( "Roll", 0.0f, &DomainRotate::SetRoll ); 
+
+            description =
+                "Rotates the input coordinates around the origin before passing them to the source generator\n"
+                "For 2D input coordinates a 2D rotation with Yaw is performed if Pitch and Roll are 0, otherwise a 3D rotation is performed\n"
+                "For 3D input coordinates a 3D rotation is performed\n"
+                "For 4D input coordinates no rotation is applied";
         }
     };
 #endif
@@ -154,6 +166,9 @@ namespace FastNoise
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &SeedOffset::SetSource );
             this->AddVariable( "Seed Offset", 1, &SeedOffset::SetOffset );
+
+            description =
+                "Offsets the input seed before passing it to the source generator.";
         }
     };
 #endif
@@ -203,6 +218,10 @@ namespace FastNoise
             this->AddHybridSource( "From Max", 1.0f, &Remap::SetFromMax, &Remap::SetFromMax );
             this->AddHybridSource( "To Min", 0.0f, &Remap::SetToMin, &Remap::SetToMin );
             this->AddHybridSource( "To Max", 1.0f, &Remap::SetToMax, &Remap::SetToMax );            
+
+            description =
+                "Remaps the output value of the source generator from one range to another\n"
+                "Does not clamp values";
         }
     };
 #endif
@@ -246,6 +265,11 @@ namespace FastNoise
                 {
                     p->mMax = f;
                 } );
+
+            description =
+                "Used for converting a float into a greyscale RGBA8 texture format output\n"
+                "Clamps the source output between Min/Max, scales it to 0-255, and packs the result\n"
+                "into an RGBA8 color stored in a float. RGB will be the same value, Alpha is always 255";
         }
     };
 #endif
@@ -277,8 +301,11 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &Terrace::SetSource );
-            this->AddVariable( "Multiplier", 1.0f, &Terrace::SetMultiplier );
-            this->AddVariable( "Smoothness", 0.0f, &Terrace::SetSmoothness );
+            this->AddVariable( { "Multiplier", "The size of the steps" }, 1.0f, &Terrace::SetMultiplier );
+            this->AddVariable( { "Smoothness", "How smooth the transitions between levels are" }, 0.0f, &Terrace::SetSmoothness );
+
+            description =
+                "Maps the source output onto specified terrace levels (steps).\n";
         }
     };
 #endif
@@ -312,6 +339,9 @@ namespace FastNoise
             groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &DomainAxisScale::SetSource );
             this->AddPerDimensionVariable( "Scaling", 1.0f, []( DomainAxisScale* p ) { return std::ref( p->mScale ); } );
+
+            description =
+                "Scales each axis of the input coordinates independently before passing them to the source generator.";
         }
     };
 #endif
@@ -340,7 +370,11 @@ namespace FastNoise
         {
             groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &AddDimension::SetSource );
-            this->AddHybridSource( "New Dimension Position", 0.0f, &AddDimension::SetNewDimensionPosition, &AddDimension::SetNewDimensionPosition );
+            this->AddHybridSource( { "New Dimension Position", "The position of the new dimension" }, 0.0f, &AddDimension::SetNewDimensionPosition, &AddDimension::SetNewDimensionPosition );
+
+            description =
+                "Adds a dimension to the input coordinates, new dimension is always the last dimension\n"
+                "The coordinates with the new dimension are passed to the source generator";
         }
     };
 #endif
@@ -369,6 +403,9 @@ namespace FastNoise
             groups.push_back( "Domain Modifiers" );
             this->AddGeneratorSource( "Source", &RemoveDimension::SetSource );
             this->AddVariableEnum( "Remove Dimension", Dim::Y, &RemoveDimension::SetRemoveDimension, kDim_Strings );
+
+            description =
+                "Removes the specified dimension from the input coordinates before passing them to the source generator";
         }
     };
 #endif
@@ -394,6 +431,10 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &GeneratorCache::SetSource );
+
+            description =
+                "Caches the output of the source generator. If the same input coordinates and seed are\n"
+                "requested again, the cached value is returned, improving performance for complex source generators";
         }
     };
 #endif
@@ -419,6 +460,10 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &SquareRoot::SetSource );
+
+            description =
+                "Returns the square root of the absolute value of the source output,\n"
+                "preserving the original sign (signed square root).";
         }
     };
 #endif
@@ -444,6 +489,9 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &Abs::SetSource );
+
+            description =
+                "Returns the absolute value of the source output.";
         }
     };
 #endif
