@@ -44,6 +44,8 @@ namespace ImGuiExtra
                 ImGui::GetIO().MouseWheel = 0;
                 return true;
             }
+
+            ImGui::GetIO().MouseWheel = 0;
         }
         return false;
     }
