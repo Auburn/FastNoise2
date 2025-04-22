@@ -51,7 +51,7 @@ namespace FastNoise
     enum class SimplexType
     {
         Standard,
-        Smooth
+        Super
     };
 
     constexpr static const char* kSimplexType_Strings[] =

@@ -7,67 +7,43 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpSimplex, SIMD> final : public
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
-        switch( mType ) {
-        case SimplexType::Standard:
-            switch( mVectorizationScheme ) {
-            case VectorizationScheme::OrthogonalGradientMatrix:
-                return Warp_Standard<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, xOut, yOut );
-            case VectorizationScheme::GradientOuterProduct:
-                return Warp_Standard<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, xOut, yOut );
-            }
-        case SimplexType::Smooth:
-            switch( mVectorizationScheme ) {
-            case VectorizationScheme::OrthogonalGradientMatrix:
-                return Warp_Smooth<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, xOut, yOut );
-            case VectorizationScheme::GradientOuterProduct:
-                return Warp_Smooth<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, xOut, yOut );
-            }
+        switch( mVectorizationScheme )
+        {
+        default:
+        case VectorizationScheme::OrthogonalGradientMatrix:
+            return Warp_2D<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, xOut, yOut );
+        case VectorizationScheme::GradientOuterProduct:
+            return Warp_2D<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, xOut, yOut );
         }
     }
 
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const final
     {
-        switch( mType ) {
-        case SimplexType::Standard:
-            switch( mVectorizationScheme ) {
-            case VectorizationScheme::OrthogonalGradientMatrix:
-                return Warp_Standard<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
-            case VectorizationScheme::GradientOuterProduct:
-                return Warp_Standard<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
-            }
-        case SimplexType::Smooth:
-            switch( mVectorizationScheme ) {
-            case VectorizationScheme::OrthogonalGradientMatrix:
-                return Warp_Smooth<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
-            case VectorizationScheme::GradientOuterProduct:
-                return Warp_Smooth<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
-            }
-        }
+        switch( mVectorizationScheme ) 
+        {
+        default:
+        case VectorizationScheme::OrthogonalGradientMatrix:
+            return Warp_3D<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
+        case VectorizationScheme::GradientOuterProduct:
+            return Warp_3D<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
+        }        
     }
 
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const final
     {
-        switch( mType ) {
-        case SimplexType::Standard:
-            switch( mVectorizationScheme ) {
-            case VectorizationScheme::OrthogonalGradientMatrix:
-                return Warp_Standard<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
-            case VectorizationScheme::GradientOuterProduct:
-                return Warp_Standard<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
-            }
-        case SimplexType::Smooth:
-            switch( mVectorizationScheme ) {
-            case VectorizationScheme::OrthogonalGradientMatrix:
-                return Warp_Smooth<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
-            case VectorizationScheme::GradientOuterProduct:
-                return Warp_Smooth<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
-            }
+        switch( mVectorizationScheme )
+        {
+        default:
+        case VectorizationScheme::OrthogonalGradientMatrix:
+            return Warp_4D<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
+        case VectorizationScheme::GradientOuterProduct:
+            return Warp_4D<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
         }
     }
 
 protected:
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_Standard( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -131,7 +107,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_Standard( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -228,7 +204,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_Standard( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -379,9 +355,51 @@ protected:
         float32v warpLengthSq = FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
         return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
     }
+};
 
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarpSuperSimplex, SIMD> final : public virtual FastNoise::DomainWarpSuperSimplex, public FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD>
+{
+public:
+    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
+    {
+        switch( mVectorizationScheme )
+        {
+        default:
+        case VectorizationScheme::OrthogonalGradientMatrix:
+            return Warp_2D<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, xOut, yOut );
+        case VectorizationScheme::GradientOuterProduct:
+            return Warp_2D<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, xOut, yOut );
+        }
+    }
+
+    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const final
+    {
+        switch( mVectorizationScheme ) 
+        {
+        default:
+        case VectorizationScheme::OrthogonalGradientMatrix:
+            return Warp_3D<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
+        case VectorizationScheme::GradientOuterProduct:
+            return Warp_3D<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, xOut, yOut, zOut );
+        }        
+    }
+
+    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const final
+    {
+        switch( mVectorizationScheme )
+        {
+        default:
+        case VectorizationScheme::OrthogonalGradientMatrix:
+            return Warp_4D<VectorizationScheme::OrthogonalGradientMatrix>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
+        case VectorizationScheme::GradientOuterProduct:
+            return Warp_4D<VectorizationScheme::GradientOuterProduct>( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
+        }
+    }
+
+protected:
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_Smooth( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -470,7 +488,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_Smooth( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -697,7 +715,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_Smooth( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );

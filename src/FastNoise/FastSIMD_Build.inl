@@ -104,7 +104,7 @@ FASTNOISE_REGISTER_NODE( FractalPingPong );
 FASTNOISE_REGISTER_NODE( FractalRidged );
 
 FASTNOISE_REGISTER_NODE( DomainWarpSimplex );
-//FASTNOISE_REGISTER_NODE( DomainWarpSimplexSmooth );
+FASTNOISE_REGISTER_NODE( DomainWarpSuperSimplex );
 FASTNOISE_REGISTER_NODE( DomainWarpGradient );
 
 FASTNOISE_REGISTER_NODE( DomainWarpFractalProgressive );

@@ -8,12 +8,10 @@ namespace FastNoise
     {
     public:
         const Metadata& GetMetadata() const override;
-
-        void SetType( SimplexType value ) { mType = value; }
+        
         void SetVectorizationScheme( VectorizationScheme value ) { mVectorizationScheme = value; }
 
     protected:
-        SimplexType mType = SimplexType::Standard;
         VectorizationScheme mVectorizationScheme = VectorizationScheme::OrthogonalGradientMatrix;
     };
 
@@ -26,15 +24,28 @@ namespace FastNoise
         MetadataT()
         {
             this->AddVariableEnum(
-                { "Type", "Noise character style" },
-                SimplexType::Standard, &DomainWarpSimplex::SetType,
-                kSimplexType_Strings
-            );
-            this->AddVariableEnum(
                 { "Vectorization Scheme", "Construction used by the noise to produce a vector output" },
                 VectorizationScheme::OrthogonalGradientMatrix, &DomainWarpSimplex::SetVectorizationScheme,
                 kVectorizationScheme_Strings
             );
+        }
+    };
+#endif
+
+    class DomainWarpSuperSimplex : public virtual DomainWarpSimplex
+    {
+    public:
+        const Metadata& GetMetadata() const override;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<DomainWarpSuperSimplex> : MetadataT<DomainWarpSimplex>
+    {
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT()
+        {
         }
     };
 #endif
