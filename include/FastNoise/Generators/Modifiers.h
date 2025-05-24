@@ -495,5 +495,46 @@ namespace FastNoise
         }
     };
 #endif
+
+    enum class PlaneRotationType
+    {
+        ImproveXYPlanes,
+        ImproveXZPlanes
+    };
+
+    class DomainRotatePlane : public virtual Generator
+    {
+    public:
+        const Metadata& GetMetadata() const override;
+
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+        void SetRotationType( PlaneRotationType type ) { mRotationType = type; }
+
+    protected:
+        GeneratorSource mSource;
+        PlaneRotationType mRotationType = PlaneRotationType::ImproveXYPlanes;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<DomainRotatePlane> : MetadataT<Generator>
+    {
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT()
+        {
+            groups.push_back( "Domain Modifiers" );
+            this->AddGeneratorSource( "Source", &DomainRotatePlane::SetSource );
+            
+            this->AddVariableEnum( "Rotation Type", PlaneRotationType::ImproveXYPlanes, &DomainRotatePlane::SetRotationType, "Improve XY Planes", "Improve XZ Planes" );
+
+            description =
+                "Applies preset rotation to improve noise in specific 3D planes. Faster than DomainRotate.\n"
+                "This helps reduce axis aligned artifacts in 3D noise for the specified plane.\n"
+                "For 2D input coordinates a 3rd dimension is added and the noise is optimized for the XY plane\n"
+                "For 4D input coordinates only the first 3 dimensions are rotated, the 4th dimension is passed through unchanged";
+        }
+    };
+#endif
     
 }

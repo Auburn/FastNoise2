@@ -299,3 +299,63 @@ class FastSIMD::DispatchClass<FastNoise::Abs, SIMD> final : public virtual FastN
         return FS::Abs( value );
     }
 };
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainRotatePlane, SIMD> final : public virtual FastNoise::DomainRotatePlane, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+{
+    FS_FORCEINLINE void FS_VECTORCALL RotateCoords( PlaneRotationType rotationType, float32v& x, float32v& y, float32v& z ) const
+    {
+        float32v newX = x;
+        float32v newY = y;
+        float32v newZ = z;
+
+        switch( rotationType )
+        {
+        case PlaneRotationType::ImproveXYPlanes:
+        {
+            float32v xy = x + y;
+            float32v s2 = xy * float32v( -0.211324865405187f );
+            newZ = z * float32v( 0.577350269189626f );
+            newX = x + s2 - newZ;
+            newY = y + s2 - newZ;
+            newZ = newZ + xy * float32v( 0.577350269189626f );
+        }
+            break;
+
+        case PlaneRotationType::ImproveXZPlanes:
+        {
+            float32v xz = x + z;
+            float32v s2 = xz * float32v( -0.211324865405187f );
+            newY = y * float32v( 0.577350269189626f );
+            newX = x + s2 - newY;
+            newZ = z + s2 - newY;
+            newY = newY + xz * float32v( 0.577350269189626f );
+
+        }
+            break;
+        }
+        x = newX;
+        y = newY;
+        z = newZ;
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    {
+        float32v z = 0;
+        RotateCoords( PlaneRotationType::ImproveXYPlanes, x, y, z );
+
+        return this->GetSourceValue( mSource, seed, x, y, z );
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    {
+        RotateCoords( mRotationType, x, y, z );
+        return this->GetSourceValue( mSource, seed, x, y, z );
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    {
+        RotateCoords( mRotationType, x, y, z );
+        return this->GetSourceValue( mSource, seed, x, y, z, w );
+    }
+};
