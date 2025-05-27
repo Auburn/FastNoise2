@@ -3,6 +3,7 @@
 #include <memory>
 #include <thread>
 #include <cstring>
+#include <string>
 
 #include <Magnum/Magnum.h>
 #include <Magnum/GL/GL.h>
@@ -85,7 +86,7 @@ namespace Magnum
         static TextureData BuildTexture( const BuildData& buildData );
         static void GenerateLoopThread( GenerateQueue<BuildData>& generateQueue, CompleteQueue<TextureData>& completeQueue );
         
-        void DoExport();
+        void DrawExportMenu();
         void SetupSettingsHandlers();
         void SetPreviewTexture( ImageView2D& imageView );
 
@@ -97,6 +98,8 @@ namespace Magnum
         FastNoise::OutputMinMax mMinMax;
 
         std::atomic_bool mIsExporting = false;
+        bool mUseRelativeScaling = true;
+        std::string mExportFilename;
         std::thread mExportThread;
         std::vector<std::thread> mThreads;
         GenerateQueue<BuildData> mGenerateQueue;
