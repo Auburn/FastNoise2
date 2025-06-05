@@ -5,13 +5,18 @@ namespace FastNoise
 {
     namespace Primes
     {
-        static constexpr int X = 501125321;
-        static constexpr int Y = 1136930381;
-        static constexpr int Z = 1720413743;
-        static constexpr int W = 1066037191;
+        static constexpr int X = (int)0xF797C5C7;
+        static constexpr int Y = (int)0x6C060C89;
+        static constexpr int Z = (int)0x465FD04F;
+        static constexpr int W = (int)0xF7A62279;
 
         static constexpr int Lookup[] = { X,Y,Z,W };
     }
+
+    namespace HashMultiplier
+    {
+        static constexpr int A = (int)0xB7E0A5F5;
+    };
 
     static constexpr double kRoot2 = 1.4142135623730950488016887242097;
     static constexpr double kRoot3 = 1.7320508075688772935274463415059;
@@ -933,18 +938,13 @@ namespace FastNoise
         }
     }
 
-    enum class HashMultiplier : int32_t
-    {
-        A = 0x27D4EB2D
-    };
-
-    template<HashMultiplier Multiplier = HashMultiplier::A, typename... P>
+    template<typename... P>
     FS_FORCEINLINE static int32v HashPrimes( int32v seed, P... primedPos )
     {
         int32v hash = seed;
         hash ^= ( primedPos ^ ... );
 
-        hash *= int32v( (int32_t)Multiplier );
+        hash *= int32v( HashMultiplier::A );
 
         return ( hash >> 15 ) ^ hash;
     }
@@ -955,7 +955,7 @@ namespace FastNoise
         int32v hash = seed;
         hash ^= ( primedPos ^ ... );
         
-        hash *= int32v( (int32_t)HashMultiplier::A );
+        hash *= int32v( HashMultiplier::A );
         return hash;
     }
 
@@ -965,7 +965,7 @@ namespace FastNoise
         int32v hash = seed;
         hash ^= (primedPos ^ ...);
 
-        hash *= hash * int32v( (int32_t)HashMultiplier::A );
+        hash *= hash * int32v( HashMultiplier::A );
         return FS::Convert<float>( hash );
     }
      
