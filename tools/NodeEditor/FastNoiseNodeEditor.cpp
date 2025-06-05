@@ -580,6 +580,15 @@ void FastNoiseNodeEditor::SetupSettingsHandlers()
             }
         }
     };
+    editorSettings.ApplyAllFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler )
+    {
+        auto* nodeEditor = (FastNoiseNodeEditor*)handler->UserData;
+        for( auto& node : nodeEditor->mNodes )
+        {
+            node.second.GeneratePreview( false );
+        }
+    };
+
 
     ImGuiExtra::AddOrReplaceSettingsHandler( nodeSettings );
     ImGuiExtra::AddOrReplaceSettingsHandler( editorSettings );
@@ -727,16 +736,17 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     {
         ImGui::SetNextWindowSize( viewport->WorkSize );
         ImGui::SetNextWindowPos( ImVec2( 0, 0 ) );
-        windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings;
+        windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
     }
     else if( nodeGraphWindow && nodeGraphWindow->Collapsed )
     {
         // Avoid saving over the window position when it is minimised from detach
-        windowFlags = ImGuiWindowFlags_NoSavedSettings;
+        windowFlags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
     }
     else
     {
-        ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode );     
+        windowFlags = ImGuiWindowFlags_MenuBar;
+        ImGui::DockSpaceOverViewport( viewport, ImGuiDockNodeFlags_PassthruCentralNode );
         
         std::string simdTxt = "Current Feature Set: ";
         simdTxt += FastSIMD::GetFeatureSetString( mActualFeatureSet );
@@ -752,55 +762,74 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
     {
         UpdateSelected();
 
-        bool edited = false;
-        ImGui::PushItemWidth( 82.0f );
-        
-        edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenTypeStrings );
-        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenType_Count ); 
-        ImGui::SameLine();  
-
-        edited |= ImGui::DragInt( "Seed", &mNodeSeed );
-        ImGui::SameLine();
-        edited |= ImGui::DragFloat( "Scale", &mNodeScale, 0.05f );    
-        ImGui::SameLine();    
-
-        if( ImGui::Button( "Retest Node Performance" ) )
-        {
-            for( auto& node : mNodes )
-            {
-                node.second.generateAverages.clear();
-            }
-        }
-        if( ImGui::IsItemHovered() )
-        {
-            ImGui::BeginTooltip();
-            ImGui::TextUnformatted( "Disable \"Generate Mesh Preview\" for more accurate results" );
-            ImGui::EndTooltip();
-        }
-
+        // Declare variables used in menus
         bool openStandalonenodeGraph = false;
-        if( !isDetachedNodeEditor )
+
+        // Menu bar for preview settings
+        if( ImGui::BeginMenuBar() )
         {
-            ImGui::SameLine();
-            if( ImGui::Button( "Detach Node Graph" ) )
+            if( ImGui::BeginMenu( "Preview Settings" ) )
             {
-                openStandalonenodeGraph = true;
+                bool edited = false;
+                ImGui::PushItemWidth( 120.0f );
+                
+                edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenTypeStrings );
+                edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mNodeGenType ), NoiseTexture::GenType_Count ); 
+                
+                edited |= ImGui::DragInt( "Seed", &mNodeSeed );
+                edited |= ImGui::DragFloat( "Scale", &mNodeScale, 0.01f );
 
-                ImGui::SetWindowCollapsed( true );
-                ImGui::GetCurrentWindow()->Pos = ImVec2( 0, 0 );
+                ImGui::PopItemWidth();
+                
+                if( edited )
+                {
+                    for( auto& node : mNodes )
+                    {
+                        node.second.GeneratePreview( false );
+                    }
+
+                    mSettingsDirty = true;
+                }
+                
+                ImGui::EndMenu();
             }
-        }
-
-        ImGui::PopItemWidth();
-        
-        if( edited )
-        {
-            for( auto& node : mNodes )
+            
+            if( ImGui::BeginMenu( "Tools" ) )
             {
-                node.second.GeneratePreview( false );
-            }
+                if( ImGui::MenuItem( "Retest Node Performance" ) )
+                {
+                    for( auto& node : mNodes )
+                    {
+                        node.second.generateAverages.clear();
+                    }
+                }
+                if( ImGui::IsItemHovered() )
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::TextUnformatted( "Disable \"Generate Mesh Preview\" for more accurate results" );
+                    ImGui::EndTooltip();
+                }
 
-            mSettingsDirty = true;
+                if( !isDetachedNodeEditor )
+                {
+                    if( ImGui::MenuItem( "Detach Node Graph" ) )
+                    {
+                        openStandalonenodeGraph = true;
+
+                        ImGui::SetWindowCollapsed( true );
+                        ImGui::GetCurrentWindow()->Pos = ImVec2( 0, 0 );
+                    }
+                    if( ImGui::IsItemHovered() )
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::TextUnformatted( "Opens the node graph in a new window which can be moved to another monitor" );
+                        ImGui::EndTooltip();
+                    }
+                }
+                
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
         }
 
         ImNodes::BeginNodeEditor();

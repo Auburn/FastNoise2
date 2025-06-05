@@ -174,7 +174,10 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     }
 
     ImGui::Text( "Triangle Count: %0.1fM (%0.1fM)", mTriCount / 1000000.0f, drawnTriCount / 3000000.0f );
+    if( mBuildData.meshType != MeshType_Heightmap2D )
+    {
     ImGui::Text( "Voxel Count: %0.1fM", mChunks.size() * ( Chunk::SIZE * Chunk::SIZE * Chunk::SIZE / 1000000.0f ) );
+    }
     ImGui::Text( "Loaded Chunks: %zu (%d)", mChunks.size(), mMeshesCount );
 
     size_t generateCount = mGenerateQueue.Count();

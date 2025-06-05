@@ -93,6 +93,8 @@ void NoiseTexture::Draw()
                 edited |= ImGui::Combo( "Generation Type", reinterpret_cast<int*>( &mBuildData.generationType ), GenTypeStrings );
                 edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.generationType ), GenType_Count );
                 
+                edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
+
                 Vector2i texSize = { mBuildData.size.x(), mBuildData.size.y() };
                 if( ImGui::DragInt2( "Size", texSize.data(), 2, 4, 8192 ) )
                 {
@@ -104,14 +106,23 @@ void NoiseTexture::Draw()
                     ImGui::SetWindowSize( windowSize );
                 }
 
-                edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
-                edited |= ImGui::DragFloat( "Scale", &mBuildData.scale, 0.05f );
+                // Scale control with center-relative scaling
+                float previousScale = mBuildData.scale;
+                if( ImGui::DragFloat( "Scale", &mBuildData.scale, 0.01f ) )
+                {
+                    // Adjust offset to maintain visual center when scale changes
+                    if( mBuildData.scale != 0.0f )
+                    {
+                        mBuildData.offset *= previousScale / mBuildData.scale;
+                    }
+                    edited = true;
+                }
 
                 // Offset controls
                 if( mBuildData.generationType != GenType_2DTiled )
                 {
                     Vector2 xyOffset = { mBuildData.offset.x(), mBuildData.offset.y() };
-                    if( ImGui::DragFloat2( "Offset XY", xyOffset.data(), 1.0f ) )
+                    if( ImGui::DragFloat2( "Center X Y", xyOffset.data(), 1.0f ) )
                     {
                         mBuildData.offset.x() = xyOffset.x();
                         mBuildData.offset.y() = xyOffset.y();
@@ -124,7 +135,7 @@ void NoiseTexture::Draw()
                 {
                     // 3D mode: just Z offset
                     float zOffset = mBuildData.offset.z();
-                    if( ImGui::DragFloat( "Offset Z", &zOffset, 1.0f ) )
+                    if( ImGui::DragFloat( "Center Z", &zOffset, 1.0f ) )
                     {
                         mBuildData.offset.z() = zOffset;
                         edited = true;
@@ -134,7 +145,7 @@ void NoiseTexture::Draw()
                 {
                     // 4D mode: Z and W together
                     Vector2 zwOffset = { mBuildData.offset.z(), mBuildData.offset.w() };
-                    if( ImGui::DragFloat2( "Offset ZW", zwOffset.data(), 1.0f ) )
+                    if( ImGui::DragFloat2( "Center Z W", zwOffset.data(), 1.0f ) )
                     {
                         mBuildData.offset.z() = zwOffset.x();
                         mBuildData.offset.w() = zwOffset.y();
@@ -483,7 +494,7 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     {
     case GenType_2D:
         minMax = gen->GenUniformGrid2D( noiseData.data(), 
-            (int)buildData.offset.x(), (int)buildData.offset.y(),
+            (int)buildData.offset.x() - buildData.size.x() / 2, (int)buildData.offset.y() - buildData.size.y() / 2,
             buildData.size.x(), buildData.size.y(), buildData.seed );
         break;
 
@@ -494,13 +505,13 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
 
     case GenType_3D:
         minMax = gen->GenUniformGrid3D( noiseData.data(),
-            (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(),
+            (int)buildData.offset.x() - buildData.size.x() / 2, (int)buildData.offset.y() - buildData.size.y() / 2, (int)buildData.offset.z(),
             buildData.size.x(), buildData.size.y(), 1, buildData.seed );
         break;
 
     case GenType_4D:
         minMax = gen->GenUniformGrid4D( noiseData.data(),
-            (int)buildData.offset.x(), (int)buildData.offset.y(), (int)buildData.offset.z(), (int)buildData.offset.w(),
+            (int)buildData.offset.x() - buildData.size.x() / 2, (int)buildData.offset.y() - buildData.size.y() / 2, (int)buildData.offset.z(), (int)buildData.offset.w(),
             buildData.size.x(), buildData.size.y(), 1, 1, buildData.seed );
         break;
     case GenType_Count:
