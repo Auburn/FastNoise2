@@ -98,12 +98,12 @@ protected:
             49.918426513671875 / 2.0 :
             70.1480577066486 );
 
-        warpAmp *= float32v( kBounding );
+        valueX *= float32v( kBounding );
+        valueY *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
 
-        float32v warpLengthSq = FS::FMulAdd( valueY, valueY, valueX * valueX );
-        return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
+        return FS::FMulAdd( valueY, valueY, valueX * valueX );
     }
 
     template<VectorizationScheme Scheme>
@@ -194,13 +194,14 @@ protected:
             32.69428253173828125 / 1.4142135623730951 :
             16.281631889139874 );
 
-        warpAmp *= float32v( kBounding );
+        valueX *= float32v( kBounding );
+        valueY *= float32v( kBounding );
+        valueZ *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
 
-        float32v warpLengthSq = FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) );
-        return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
+        return FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) );
     }
 
     template<VectorizationScheme Scheme>
@@ -347,13 +348,15 @@ protected:
             33.653125584827855 / 1.4142135623730951 :
             30.88161777516092 );
 
-        warpAmp *= float32v( kBounding );
+        valueX *= float32v( kBounding );
+        valueY *= float32v( kBounding );
+        valueZ *= float32v( kBounding );
+        valueW *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
 
-        float32v warpLengthSq = FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
-        return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
+        return FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
     }
 };
 
@@ -479,12 +482,12 @@ protected:
             9.28993664146183 / 2.0 :
             12.814453124999995 );
 
-        warpAmp *= float32v( kBounding );
+        valueX *= float32v( kBounding );
+        valueY *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
 
-        float32v warpLengthSq = FS::FMulAdd( valueY, valueY, valueX * valueX );
-        return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
+        return FS::FMulAdd( valueY, valueY, valueX * valueX );
     }
 
     template<VectorizationScheme Scheme>
@@ -705,13 +708,14 @@ protected:
             144.736422163332608 / 1.4142135623730951 :
             37.63698669623629 );
 
-        warpAmp *= float32v( kBounding );
+        valueX *= float32v( kBounding );
+        valueY *= float32v( kBounding );
+        valueZ *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
 
-        float32v warpLengthSq = FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) );
-        return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
+        return FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) );
     }
 
     template<VectorizationScheme Scheme>
@@ -1091,12 +1095,14 @@ protected:
             115.21625311930542 / 1.4142135623730951 :
             48.80058117543753 );
 
-        warpAmp *= float32v( kBounding );
+        valueX *= float32v( kBounding );
+        valueY *= float32v( kBounding );
+        valueZ *= float32v( kBounding );
+        valueW *= float32v( kBounding );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
 
-        float32v warpLengthSq = FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
-        return warpLengthSq * FS::InvSqrt( warpLengthSq ) * warpAmp;
+        return FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
     }
 };

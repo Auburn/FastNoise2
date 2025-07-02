@@ -984,6 +984,20 @@ namespace FastNoise
         return t * t * t * FS::FMulAdd( t, FS::FMulAdd( t, float32v( 6 ), float32v( -15 )), float32v( 10 ) );
     }
 
+    FS_FORCEINLINE static float32v FastLengthSqrt( float32v sqrDist )
+    {
+        if constexpr( FastSIMD::IsRelaxed() )
+        {
+            float32v invSqrt = FS::InvSqrt( sqrDist );
+
+            return FS::Masked( invSqrt != float32v( INFINITY ), sqrDist * invSqrt );
+        }
+        else
+        {
+            return FS::Sqrt( sqrDist );
+        }
+    }
+
     template<bool DO_SQRT = true, FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault(), typename... P>
     FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, const HybridSource& minkowskiP, int32v seed, float32v pX, P... pos )
     {
@@ -996,9 +1010,7 @@ namespace FastNoise
                 float32v distSqr = pX * pX;
                 ((distSqr = FS::FMulAdd( pos, pos, distSqr )), ...);
 
-                float32v invSqrt = FS::InvSqrt( distSqr );
-
-                return FS::Masked( invSqrt != float32v( INFINITY ), distSqr * invSqrt );
+                return FastLengthSqrt( distSqr );
             }
 
             case DistanceFunction::EuclideanSquared:

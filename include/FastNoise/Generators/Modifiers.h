@@ -68,7 +68,8 @@ namespace FastNoise
             this->AddPerDimensionHybridSource( "Offset", 0.0f, []( DomainOffset* p ) { return std::ref( p->mOffset ); }, 0.25f );
 
             description =
-                "Adds an offset to the input coordinates before passing them to the source generator";
+                "Adds an offset to the input coordinates before passing them to the source generator\n"
+                "Doesn't add or remove dimensions";
         }
     };
 #endif

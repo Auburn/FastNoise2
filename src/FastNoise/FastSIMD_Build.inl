@@ -108,7 +108,7 @@ FASTNOISE_REGISTER_NODE( DomainWarpSuperSimplex );
 FASTNOISE_REGISTER_NODE( DomainWarpGradient );
 
 FASTNOISE_REGISTER_NODE( DomainWarpFractalProgressive );
-FASTNOISE_REGISTER_NODE( DomainWarpFractalIndependant );
+FASTNOISE_REGISTER_NODE( DomainWarpFractalIndependent );
                        
 FASTNOISE_REGISTER_NODE( Add );
 FASTNOISE_REGISTER_NODE( Subtract );

@@ -30,7 +30,7 @@ namespace FastNoise
     };
 #endif
 
-    class DomainWarpFractalIndependant : public virtual Fractal<DomainWarp>
+    class DomainWarpFractalIndependent : public virtual Fractal<DomainWarp>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -38,7 +38,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<DomainWarpFractalIndependant> : MetadataT<DomainWarpFractalProgressive> // Inherits from DomainWarpFractalProgressive just to avoid duplicate code
+    struct MetadataT<DomainWarpFractalIndependent> : MetadataT<DomainWarpFractalProgressive> // Inherits from DomainWarpFractalProgressive just to avoid duplicate code
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 

@@ -1,4 +1,5 @@
 #include "DomainWarpFractal.h"
+#include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> final : public virtual FastNoise::DomainWarpFractalProgressive, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
@@ -22,6 +23,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> fin
 
         for (int i = 1; i < mOctaves; i++)
         {
+            strength = FastLengthSqrt( strength );
             seedInc -= int32v( -1 );
             freq *= lacunarity;
             amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
@@ -34,7 +36,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> fin
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, SIMD> final : public virtual FastNoise::DomainWarpFractalIndependant, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependent, SIMD> final : public virtual FastNoise::DomainWarpFractalIndependent, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -57,6 +59,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependant, SIMD> fin
     
             for( int i = 1; i < mOctaves; i++ )
             {
+                strength = FastLengthSqrt( strength );
                 seedInc -= int32v( -1 );
                 freq *= lacunarity;
                 amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );

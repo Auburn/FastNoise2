@@ -49,12 +49,12 @@ public:
         int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
         float32v contrib##_x##_y = xs##_x * ys##_y;\
         xWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16) ), yWarp )
+        yWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16 ) ), yWarp )
 
         int32v hash00 = HashPrimesHB(seed, x0, y0 );
         float32v contrib00 = xs0 * ys0;
         float32v xWarp = contrib00 * FS::Convert<float>( hash00 & int32v( 0xffff ) );
-        float32v yWarp = contrib00 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash00, 16) );
+        float32v yWarp = contrib00 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash00, 16 ) );
 
         GRADIENT_COORD( 1, 0 );
         GRADIENT_COORD( 0, 1 );
@@ -68,9 +68,7 @@ public:
         xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
 
-        float32v warpLengthSq = FS::FMulAdd( xWarp, xWarp, yWarp * yWarp );
-
-        return warpLengthSq * FS::InvSqrt( warpLengthSq );
+        return FS::FMulAdd( xWarp, xWarp, yWarp * yWarp );
     }
             
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
@@ -126,9 +124,7 @@ public:
         yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
         zOut = FS::FMulAdd( zWarp, warpAmp, zOut );
 
-        float32v warpLengthSq = FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
-
-        return warpLengthSq * FS::InvSqrt( warpLengthSq );
+        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
     }
             
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
@@ -201,9 +197,7 @@ public:
         zOut = FS::FMulAdd( zWarp, warpAmp, zOut );
         wOut = FS::FMulAdd( wWarp, warpAmp, wOut );
 
-        float32v warpLengthSq = FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, FS::FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
-
-        return warpLengthSq * FS::InvSqrt( warpLengthSq );
+        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, FS::FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
     }
 };
 
