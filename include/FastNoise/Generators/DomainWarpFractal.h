@@ -48,7 +48,7 @@ namespace FastNoise
                 "The original input position is passed into all domain warp octaves\n"
                 "The warped offset from all octaves is accumulated\n"
                 "and added to the original input position\n"
-                "This position is the used to generate the source node on the attached domain warp node";
+                "This position is used to generate the source node on the attached domain warp node";
         }
     };
 #endif
