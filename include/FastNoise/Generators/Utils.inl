@@ -990,7 +990,7 @@ namespace FastNoise
         {
             float32v invSqrt = FS::InvSqrt( sqrDist );
 
-            return FS::Masked( invSqrt != float32v( INFINITY ), sqrDist * invSqrt );
+            return FS::Masked( invSqrt != float32v( kInfinity ), sqrDist * invSqrt );
         }
         else
         {

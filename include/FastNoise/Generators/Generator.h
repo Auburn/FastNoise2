@@ -72,10 +72,12 @@ namespace FastNoise
         "Gradient Outer Product",
     };
 
+    static constexpr float kInfinity = (float)(1e+300 * 1e+300);
+
     struct OutputMinMax
     {
-        float min =  INFINITY;
-        float max = -INFINITY;
+        float min =  kInfinity;
+        float max = -kInfinity;
 
         OutputMinMax& operator <<( float v )
         {

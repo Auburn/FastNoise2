@@ -79,8 +79,8 @@ public:
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int xStart, int yStart, int xSize, int ySize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         int32v xIdx( xStart );
         int32v yIdx( yStart );
@@ -125,8 +125,8 @@ public:
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         int32v xIdx( xStart );
         int32v yIdx( yStart );
@@ -178,8 +178,8 @@ public:
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         int32v xIdx( xStart );
         int32v yIdx( yStart );
@@ -238,8 +238,8 @@ public:
     FastNoise::OutputMinMax GenPositionArray2D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
@@ -268,8 +268,8 @@ public:
     FastNoise::OutputMinMax GenPositionArray3D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
@@ -300,8 +300,8 @@ public:
     FastNoise::OutputMinMax GenPositionArray4D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, float xOffset, float yOffset, float zOffset, float wOffset, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
@@ -352,8 +352,8 @@ public:
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
-        float32v min( INFINITY );
-        float32v max( -INFINITY );
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
 
         int32v xIdx( 0 );
         int32v yIdx( 0 );

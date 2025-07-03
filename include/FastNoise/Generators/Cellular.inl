@@ -23,7 +23,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         std::array<int32v, kMaxDistanceCount> valueHash;
         std::array<float32v, kMaxDistanceCount> distance;
         
-        distance.fill( float32v( INFINITY ) );
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( x, y );
 
@@ -88,7 +88,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         std::array<int32v, kMaxDistanceCount> valueHash;
         std::array<float32v, kMaxDistanceCount> distance;
         
-        distance.fill( float32v( INFINITY ) );
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( x, y, z );
         
@@ -165,7 +165,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
         std::array<int32v, kMaxDistanceCount> valueHash;
         std::array<float32v, kMaxDistanceCount> distance;
         
-        distance.fill( float32v( INFINITY ) );
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( x, y, z, w );
         
@@ -257,7 +257,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mJitterModifier, seed, x, y );
 
         std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( INFINITY ) );
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( x, y );
 
@@ -309,7 +309,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z );
 
         std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( INFINITY ) );
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( x, y, z );
 
@@ -374,7 +374,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mJitterModifier, seed, x, y, z, w );
 
         std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( INFINITY ) );
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( x, y, z, w );
 
