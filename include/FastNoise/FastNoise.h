@@ -28,7 +28,7 @@ namespace FastNoise
     SmartNode<T> New( FastSIMD::FeatureSet maxFeatureSet /*= FastSIMD::FeatureSet::Max*/ )
     {
         static_assert( std::is_base_of<Generator, T>::value, "This function should only be used for FastNoise node classes, for example FastNoise::Simplex" );
-        static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot create abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
+        static_assert( !std::is_same<decltype(&T::GetMetadata), decltype(&Generator::GetMetadata)>::value, "Cannot create abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
 
         return SmartNode<T>( FastSIMD::NewDispatchClass<T>( maxFeatureSet, &SmartNodeManager::Allocate ) );
     }

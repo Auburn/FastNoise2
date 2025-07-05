@@ -40,7 +40,7 @@ namespace FastNoise
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
-        MetadataT ()
+        MetadataT()
         {
             description =
                 "Warps the input position using a simple uniform grid gradient, similar to perlin noise gradients.\n"
