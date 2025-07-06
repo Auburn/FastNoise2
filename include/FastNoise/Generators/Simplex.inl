@@ -54,10 +54,11 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1 );
         float32v gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2 );
 
-        constexpr double kBounding = 38.283687591552734375;
+        float32v value = FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue2 * falloff2 ) );
 
-        return this->ScaleOutput( FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue2 * falloff2 ) ),
-            -1 / kBounding, 1 / kBounding );
+        constexpr float kBounding = 0.0261208079755306243896484375f;
+
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -131,10 +132,11 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
         float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2 );
         float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ) ), dx3, dy3, dz3 );
 
-        constexpr double kBounding = 32.69428253173828125;
+        float32v value = FS::FMulAdd( gradientRampValue3, falloff3, FS::FMulAdd( gradientRampValue2, falloff2, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue0 * falloff0 ) ) );
 
-        return this->ScaleOutput( FS::FMulAdd( gradientRampValue3, falloff3, FS::FMulAdd( gradientRampValue2, falloff2, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue0 * falloff0 ) ) ),
-            -1 / kBounding, 1 / kBounding );
+        constexpr float kBounding = 0.030586399137973785400390625f;
+
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
@@ -273,10 +275,11 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
             xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
             dx4, dy4, dz4, dw4 );
 
-        constexpr double kBounding = 33.653125584827855;
+        float32v value = FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, FS::FMulAdd( gradientRampValue2, falloff2, FS::FMulAdd( gradientRampValue3, falloff3, gradientRampValue4 * falloff4 ) ) ) );
 
-        return this->ScaleOutput( FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, FS::FMulAdd( gradientRampValue2, falloff2, FS::FMulAdd( gradientRampValue3, falloff3, gradientRampValue4 * falloff4 ) ) ) ),
-            -1 / kBounding, 1 / kBounding );
+        constexpr float kBounding = 0.036730043590068817138671875f;
+
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
 };
@@ -364,9 +367,9 @@ class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virt
             value = FS::FMulAdd( falloff, gradientRampValue, value );
         }
 
-        constexpr double kBounding = 9.28993664146183;
+        constexpr float kBounding = 0.14084912836551666259765625f;
 
-        return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -563,9 +566,8 @@ class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virt
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
-        constexpr double kBounding = 144.736422163332608;
-
-        return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
+        constexpr float kBounding = 0.0069091119803488254547119140625f;
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
@@ -922,8 +924,8 @@ class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virt
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
-        constexpr double kBounding = 115.21625311930542;
+        constexpr float kBounding = 0.011310013942420482635498046875;
 
-        return this->ScaleOutput( value, -1 / kBounding, 1 / kBounding );
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 };

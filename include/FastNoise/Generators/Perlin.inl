@@ -3,7 +3,8 @@
 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
-{    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+{
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         this->ScalePositions( x, y );
 
@@ -23,12 +24,13 @@ class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual Fa
         xs = InterpQuintic( xs );
         ys = InterpQuintic( ys );
 
-        constexpr float kBounding = 0.579106986522674560546875f;
-
-        return this->ScaleOutput( Lerp(
+        float32v value = Lerp(
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0 ), xf0, yf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs ),
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs ), ys ),
-            -1 / kBounding, 1 / kBounding );
+            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs ), ys );
+
+        constexpr float kBounding = 1.726796627044677734375f;
+
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -57,15 +59,16 @@ class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual Fa
         ys = InterpQuintic( ys );
         zs = InterpQuintic( zs );
 
-        constexpr float kBounding = 0.964921414852142333984375f;
-
-        return this->ScaleOutput( Lerp( Lerp(
+        float32v value = Lerp( Lerp(
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
-            Lerp( 
+            Lerp(
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs ),
-            -1 / kBounding, 1 / kBounding );
+            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
+
+        constexpr double kBounding = 1.0363423824310302734375;
+
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
@@ -100,20 +103,21 @@ class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual Fa
         zs = InterpQuintic( zs );
         ws = InterpQuintic( ws );
 
-        constexpr float kBounding = 0.964921414852142333984375f;
-
-        return this->ScaleOutput( Lerp( Lerp( Lerp(
+        float32v value = Lerp( Lerp( Lerp(
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z0, w0 ), xf0, yf0, zf0, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z0, w0 ), xf1, yf0, zf0, wf0 ), xs ),
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z0, w0 ), xf0, yf1, zf0, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z0, w0 ), xf1, yf1, zf0, wf0 ), xs ), ys ),
-            Lerp(                                                                                                                                                     
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w0 ), xf0, yf0, zf1, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w0 ), xf1, yf0, zf1, wf0 ), xs ),    
+            Lerp(
+            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w0 ), xf0, yf0, zf1, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w0 ), xf1, yf0, zf1, wf0 ), xs ),
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z1, w0 ), xf0, yf1, zf1, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z1, w0 ), xf1, yf1, zf1, wf0 ), xs ), ys ), zs ),
             Lerp( Lerp(
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z0, w1 ), xf0, yf0, zf0, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z0, w1 ), xf1, yf0, zf0, wf1 ), xs ),
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z0, w1 ), xf0, yf1, zf0, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z0, w1 ), xf1, yf1, zf0, wf1 ), xs ), ys ),
-            Lerp(                                                                                                                                                     
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w1 ), xf0, yf0, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w1 ), xf1, yf0, zf1, wf1 ), xs ),    
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z1, w1 ), xf0, yf1, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z1, w1 ), xf1, yf1, zf1, wf1 ), xs ), ys ), zs ), ws ),
-            -1 / kBounding, 1 / kBounding );
+            Lerp(
+            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w1 ), xf0, yf0, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w1 ), xf1, yf0, zf1, wf1 ), xs ),
+            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z1, w1 ), xf0, yf1, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z1, w1 ), xf1, yf1, zf1, wf1 ), xs ), ys ) , zs ), ws );
+
+        constexpr float kBounding = 1.33858621120452880859375;
+
+        return this->ScaleOutput( value, -kBounding, kBounding );
     }
 };
