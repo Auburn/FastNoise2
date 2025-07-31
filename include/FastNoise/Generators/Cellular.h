@@ -14,12 +14,15 @@ namespace FastNoise
         void SetMinkowskiP( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mMinkowskiP, gen ); }
         void SetMinkowskiP( float value ) { mMinkowskiP = value; }
 
-        void SetJitterModifier( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mJitterModifier, gen ); }
-        void SetJitterModifier( float value ) { mJitterModifier = value; }
+        void SetGridJitter( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mGridJitter, gen ); }
+        void SetGridJitter( float value ) { mGridJitter = value; }
 
+        void SetSizeJitter( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSizeJitter, gen ); }
+        void SetSizeJitter( float value ) { mSizeJitter = value; }
     protected:
         HybridSource mMinkowskiP = 1.5f;
-        HybridSource mJitterModifier = 1.0f;
+        HybridSource mGridJitter = 1.0f;
+        HybridSource mSizeJitter = 0.f;
         DistanceFunction mDistanceFunction = DistanceFunction::EuclideanSquared;
     };
 
@@ -30,11 +33,24 @@ namespace FastNoise
         MetadataT()
         {
             this->groups.push_back( "Coherent Noise" );
-            this->AddVariableEnum( { "Distance Function", "How distance to closest cells is calculated\nHybrid is EuclideanSquared + Manhattan" },
+            this->AddVariableEnum( { "Distance Function", "How distance to closest cells is calculated\n"
+                                                          "Hybrid is EuclideanSquared + Manhattan" },
                 DistanceFunction::EuclideanSquared, &Cellular<PARENT>::SetDistanceFunction, kDistanceFunction_Strings );
-            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 1.5f, &Cellular<PARENT>::SetMinkowskiP, &Cellular<PARENT>::SetMinkowskiP );
 
-            this->AddHybridSource( { "Jitter Modifier", "Above 1.0 will cause grid artifacts\n0.0 will output a uniform grid" }, 1.0f, &Cellular<PARENT>::SetJitterModifier, &Cellular<PARENT>::SetJitterModifier );
+            this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n"
+                                                    "1 = Manhattan\n"
+                                                    "2 = Euclidean" },
+                1.5f, &Cellular<PARENT>::SetMinkowskiP, &Cellular<PARENT>::SetMinkowskiP );
+
+            this->AddHybridSource( { "Grid Jitter", "How much to displace cells from their uniform grid position\n"
+                                                    "0.0 will output a uniform grid\n"
+                                                    "Above 1.0 will cause grid artifacts" },
+                1.0f, &Cellular<PARENT>::SetGridJitter, &Cellular<PARENT>::SetGridJitter );
+
+            this->AddHybridSource( { "Size Jitter", "Apply a random multiplier each cell's distance calculation\n"
+                                                    "Causes more variation in cell size\n"
+                                                    "Can cause grid artifacts" },
+                0.0f, &Cellular<PARENT>::SetSizeJitter, &Cellular<PARENT>::SetSizeJitter );
         }
     };
 #endif
