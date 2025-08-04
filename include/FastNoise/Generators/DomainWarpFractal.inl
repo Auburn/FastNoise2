@@ -11,7 +11,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> fin
     {
         auto* warp = this->GetSourceSIMD( mSource );
 
-        float32v amp = float32v( mFractalBounding ) * this->GetSourceValue( warp->GetWarpAmplitude(), seed, pos... );
+        float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, pos... );
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );
         float32v freq = float32v( warp->GetWarpFrequency() );
         int32v seedInc = seed;
@@ -47,7 +47,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependent, SIMD> fin
         {
             auto* warp = this->GetSourceSIMD( mSource );
 
-            float32v amp = float32v( mFractalBounding ) * this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
+            float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
             float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, noisePos... );
             float32v freq = float32v( warp->GetWarpFrequency() );
             int32v seedInc = seed;

@@ -91,7 +91,10 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
 {
     if( ImGui::Checkbox( "Generate Mesh Preview", &mEnabled ) )
     {
-        ReGenerate( mBuildData.generator );
+        if( mBuildData.generator )
+        {
+            ReGenerate( mBuildData.generator );
+        }
         ImGuiExtra::MarkSettingsDirty();
     }
 
@@ -236,7 +239,7 @@ void MeshNoisePreview::UpdateChunkQueues( const Vector3& position )
 
     // Unload further chunk if out of load range
     //size_t deletedChunks = 0;
-    while( !mChunks.empty() )
+    while( !mChunks.empty() && (double)mTriCount > mTriLimit * 0.7 )
     {
         Vector3i backChunkPos = mChunks.back().GetPos();
         float unloadRange = mLoadRange * 1.1f;

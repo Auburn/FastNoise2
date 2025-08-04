@@ -8,11 +8,11 @@ namespace FastNoise
     {
     public:
         void SetSource( SmartNodeArg<T> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetGain( float value ) { mGain = value; CalculateFractalBounding(); } 
-        void SetGain( SmartNodeArg<> gen ) { mGain = 1.0f; this->SetSourceMemberVariable( mGain, gen ); CalculateFractalBounding(); }
+        void SetGain( float value ) { mGain = value; }
+        void SetGain( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mGain, gen ); }
         void SetWeightedStrength( float value ) { mWeightedStrength = value; } 
         void SetWeightedStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mWeightedStrength, gen ); }
-        void SetOctaveCount( int value ) { mOctaves = value; CalculateFractalBounding(); } 
+        void SetOctaveCount( int value ) { mOctaves = value; }
         void SetLacunarity( float value ) { mLacunarity = value; } 
 
     protected:
@@ -22,20 +22,6 @@ namespace FastNoise
 
         int   mOctaves = 3;
         float mLacunarity = 2.0f;
-        float mFractalBounding = 1.0f / 1.75f;
-
-        void CalculateFractalBounding()
-        {
-            float gain = std::abs( mGain.constant );
-            float amp = gain;
-            float ampFractal = 1.0f;
-            for( int i = 1; i < mOctaves; i++ )
-            {
-                ampFractal += amp;
-                amp *= gain;
-            }
-            mFractalBounding = 1.0f / ampFractal;
-        }     
     };
 
 #ifdef FASTNOISE_METADATA

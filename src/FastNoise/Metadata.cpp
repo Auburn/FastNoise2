@@ -394,7 +394,7 @@ static SmartNode<> DeserialiseSmartNodeInternal( const std::vector<uint8_t>& ser
                 }
             }
         }
-        else
+        else // type == 2
         {
             float v;
 
@@ -525,7 +525,7 @@ static NodeData* DeserialiseNodeDataInternal( const std::vector<uint8_t>& serial
                 nodeData->hybrids[memberLookup.member.index].first = node;
             }
         }
-        else
+        else // type == 2
         {
             float v;
 
