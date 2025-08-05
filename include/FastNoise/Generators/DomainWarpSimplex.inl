@@ -98,8 +98,8 @@ protected:
             49.918426513671875 / 2.0 :
             70.1480577066486 );
 
-        valueX *= float32v( kBounding );
-        valueY *= float32v( kBounding );
+        valueX *= float32v( kBounding * this->mAxisScale[0] );
+        valueY *= float32v( kBounding * this->mAxisScale[1] );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
 
@@ -194,9 +194,9 @@ protected:
             32.69428253173828125 / 1.4142135623730951 :
             16.281631889139874 );
 
-        valueX *= float32v( kBounding );
-        valueY *= float32v( kBounding );
-        valueZ *= float32v( kBounding );
+        valueX *= float32v( kBounding * this->mAxisScale[0] );
+        valueY *= float32v( kBounding * this->mAxisScale[1] );
+        valueZ *= float32v( kBounding * this->mAxisScale[2] );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
@@ -348,13 +348,14 @@ protected:
             33.653125584827855 / 1.4142135623730951 :
             30.88161777516092 );
 
-        valueX *= float32v( kBounding );
-        valueY *= float32v( kBounding );
-        valueZ *= float32v( kBounding );
-        valueW *= float32v( kBounding );
+        valueX *= float32v( kBounding * this->mAxisScale[0] );
+        valueY *= float32v( kBounding * this->mAxisScale[1] );
+        valueZ *= float32v( kBounding * this->mAxisScale[2] );
+        valueW *= float32v( kBounding * this->mAxisScale[3] );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
+        wOut = FS::FMulAdd( valueW, warpAmp, wOut );
 
         return FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
     }
@@ -482,8 +483,8 @@ protected:
             9.28993664146183 / 2.0 :
             12.814453124999995 );
 
-        valueX *= float32v( kBounding );
-        valueY *= float32v( kBounding );
+        valueX *= float32v( kBounding * this->mAxisScale[0] );
+        valueY *= float32v( kBounding * this->mAxisScale[1] );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
 
@@ -708,9 +709,9 @@ protected:
             144.736422163332608 / 1.4142135623730951 :
             37.63698669623629 );
 
-        valueX *= float32v( kBounding );
-        valueY *= float32v( kBounding );
-        valueZ *= float32v( kBounding );
+        valueX *= float32v( kBounding * this->mAxisScale[0] );
+        valueY *= float32v( kBounding * this->mAxisScale[1] );
+        valueZ *= float32v( kBounding * this->mAxisScale[2] );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
@@ -1095,13 +1096,14 @@ protected:
             115.21625311930542 / 1.4142135623730951 :
             48.80058117543753 );
 
-        valueX *= float32v( kBounding );
-        valueY *= float32v( kBounding );
-        valueZ *= float32v( kBounding );
-        valueW *= float32v( kBounding );
+        valueX *= float32v( kBounding * this->mAxisScale[0] );
+        valueY *= float32v( kBounding * this->mAxisScale[1] );
+        valueZ *= float32v( kBounding * this->mAxisScale[2] );
+        valueW *= float32v( kBounding * this->mAxisScale[3] );
         xOut = FS::FMulAdd( valueX, warpAmp, xOut );
         yOut = FS::FMulAdd( valueY, warpAmp, yOut );
         zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
+        wOut = FS::FMulAdd( valueW, warpAmp, wOut );
 
         return FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
     }

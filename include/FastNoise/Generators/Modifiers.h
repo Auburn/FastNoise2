@@ -325,8 +325,7 @@ namespace FastNoise
         GeneratorSource mSource;
         PerDimensionVariable<float> mScale = 1.0f;
 
-        template<typename T>
-        friend struct MetadataT;
+        friend struct MetadataT<DomainAxisScale>;
     };
 
 #ifdef FASTNOISE_METADATA

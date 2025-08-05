@@ -65,8 +65,8 @@ public:
         xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
         yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
+        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
 
         return FS::FMulAdd( xWarp, xWarp, yWarp * yWarp );
     }
@@ -120,9 +120,9 @@ public:
         yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
         zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
-        zOut = FS::FMulAdd( zWarp, warpAmp, zOut );
+        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        zOut = FS::FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
 
         return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
     }
@@ -192,10 +192,10 @@ public:
         zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
         wWarp = FS::FMulSub( wWarp, normalise, float32v( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp, xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp, yOut );
-        zOut = FS::FMulAdd( zWarp, warpAmp, zOut );
-        wOut = FS::FMulAdd( wWarp, warpAmp, wOut );
+        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        zOut = FS::FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
+        wOut = FS::FMulAdd( wWarp, warpAmp * float32v( this->mAxisScale[3] ), wOut );
 
         return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, FS::FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
     }

@@ -10,9 +10,15 @@ namespace FastNoise
         void SetWarpAmplitude( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mWarpAmplitude, gen ); }
         void SetWarpAmplitude( float value ) { mWarpAmplitude = value; } 
 
+        template<Dim D>
+        void SetAmplitudeScaling( float value ) { mAxisScale[(int)D] = value; }
+
     protected:
         GeneratorSource mSource;
         HybridSource mWarpAmplitude = 50.0f;
+        PerDimensionVariable<float> mAxisScale = 1.0f;
+
+        friend struct MetadataT<DomainWarp>;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -24,6 +30,8 @@ namespace FastNoise
             groups.push_back( "Domain Warp" );
             this->AddGeneratorSource( "Source", &DomainWarp::SetSource );
             this->AddHybridSource( { "Warp Amplitude", "Maximum (euclidean) distance the position can be moved from it's original location" }, 50.0f, &DomainWarp::SetWarpAmplitude, &DomainWarp::SetWarpAmplitude, 0.1f );
+
+            this->AddPerDimensionVariable( "Amplitude Scaling", 1.0f, []( DomainWarp* p ) { return std::ref( p->mAxisScale ); } );
         }
     };
 #endif
