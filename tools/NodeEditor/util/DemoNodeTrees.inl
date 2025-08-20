@@ -2,6 +2,6 @@
 
 inline const char* gDemoNodeTrees[][2] =
 {
-    { "Simple Terrain", "EwAC@BB@AIEAFEgUVBQ0AB@CQAACBABQY@ACWQ/8CZmYmPwY@B//wMEBI/CdTz//wIAACBC/wIzMzM/BpqZmT7/" },
-    { "Cellular Caves", "FAAC@BB@A4EAFE@BEhCBRwFLgUlBQs@BlRATNzMw9C@AIMAMAw@ABAC@BFAM@BYAg@BcJ@BPkIEH4XrPgjNzEw//wsJ@BLkIEzczMvgg@B//////wP/AgAG7FE4Pv8CMzPzQP8CmpmZPgbNzEw//w==" },
+    { "Mountain Terrain", "E@BBZEE@BD8JFgIECArXIzwECiQIw/UoPwkuAAE@BJDQAH@BC@AIEAJBw@ABZECD0KV78QZmZmPwQDmpkZPwsAAIA/HAMAAHBCBA==" },
+    { "Cellular Caves", "FgIcCS4AAQ@BklCQs@BlRAjNzMw9E@AIMAYAw@ADAC@BCiQIzczMPgkJ@BPkIIH4XrPhDNzEw/DBIkCM3MzD4JCQ@ADBCCM3MzL4Q@BPyQC/wQAC+xROD4EChcJDQkI@CEEEA7geBT8LexQuPwQDj8J1PAw=" },
 };
