@@ -107,38 +107,4 @@ namespace FastNoise
         }
     };
 #endif
-
-    class FractalPingPong : public virtual Fractal<>
-    {
-    public:
-        const Metadata& GetMetadata() const override;
-
-        void SetPingPongStrength( float value ) { mPingPongStrength = value; }
-        void SetPingPongStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPingPongStrength, gen ); }
-
-    protected:
-        HybridSource mPingPongStrength = 2.0f;
-    };
-
-#ifdef FASTNOISE_METADATA
-    template<>
-    struct MetadataT<FractalPingPong> : MetadataT<Fractal<>>
-    {
-        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
-
-        MetadataT()
-        {
-            this->AddHybridSource( { "Ping Pong Strength",
-                "Controls how dramatically values bounce between extremes\n"
-                "Higher values create more pronounced ping-pong effects" },
-                2.0f, &FractalPingPong::SetPingPongStrength, &FractalPingPong::SetPingPongStrength );
-            
-            description = 
-                "Creates flow patterns by 'ping-ponging' input values between extremes\n"
-                "Multiplies input values by the ping pong strength and reflects values\n"
-                "that would normally go beyond -1.0 or 1.0 and bounce back instead.\n"
-                "Produces smooth, flowing patterns similar to contour lines";
-        }
-    };
-#endif
 }

@@ -281,13 +281,13 @@ namespace FastNoise
         const Metadata& GetMetadata() const override;
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
-        void SetMultiplier( float multiplier ) { mMultiplier = multiplier; mMultiplierRecip = 1 / multiplier; }
+        void SetStepCount( float stepCount ) { mStepCount = stepCount; mStepCountRecip = 1 / stepCount; }
         void SetSmoothness( float smoothness ) { mSmoothness = smoothness; if( mSmoothness != 0.0f ) mSmoothnessRecip = 1 + 1 / smoothness; }
 
     protected:
         GeneratorSource mSource;
-        float mMultiplier = 1.0f;
-        float mMultiplierRecip = 1.0f;
+        float mStepCount = 1.0f;
+        float mStepCountRecip = 1.0f;
         float mSmoothness = 0.0f;
         float mSmoothnessRecip = 0.0f;
     };
@@ -302,11 +302,50 @@ namespace FastNoise
         {
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &Terrace::SetSource );
-            this->AddVariable( { "Multiplier", "The size of the steps" }, 1.0f, &Terrace::SetMultiplier );
-            this->AddVariable( { "Smoothness", "How smooth the transitions between levels are" }, 0.0f, &Terrace::SetSmoothness );
+            this->AddVariable( { "Step Count", "Increasing the step count reduces the size of each step" }, 1.0f, &Terrace::SetStepCount );
+            this->AddVariable( { "Smoothness", "How smooth the transitions between steps are" }, 0.0f, &Terrace::SetSmoothness );
 
             description =
-                "Maps the source output onto specified terrace levels (steps).\n";
+                "Cuts the input value into steps to give a terraced terrain effect";
+        }
+    };
+#endif
+
+    class PingPong : public virtual Generator
+    {
+    public:
+        const Metadata& GetMetadata() const override;
+
+        void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
+
+        void SetPingPongStrength( float value ) { mPingPongStrength = value; }
+        void SetPingPongStrength( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mPingPongStrength, gen ); }
+
+    protected:
+        GeneratorSource mSource;
+        HybridSource mPingPongStrength = 2.0f;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<>
+    struct MetadataT<PingPong> : MetadataT<Generator>
+    {
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
+
+        MetadataT()
+        {
+            groups.push_back( "Modifiers" );
+            this->AddGeneratorSource( "Source", &PingPong::SetSource );
+            this->AddHybridSource( { "Ping Pong Strength",
+                "Controls how dramatically values bounce between extremes\n"
+                "Higher values create more pronounced ping-pong effects" },
+                2.0f, &PingPong::SetPingPongStrength, &PingPong::SetPingPongStrength );
+
+            description =
+                "Creates flow patterns by 'ping-ponging' input values between extremes\n"
+                "Multiplies input values by the ping pong strength and reflects values\n"
+                "that would normally go beyond -1.0 or 1.0 and bounce back instead.\n"
+                "Produces smooth, flowing patterns similar to contour lines";
         }
     };
 #endif

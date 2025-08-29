@@ -100,7 +100,7 @@ FASTNOISE_REGISTER_NODE( CellularDistance );
 FASTNOISE_REGISTER_NODE( CellularLookup );
                        
 FASTNOISE_REGISTER_NODE( FractalFBm );
-FASTNOISE_REGISTER_NODE( FractalPingPong );
+FASTNOISE_REGISTER_NODE( PingPong );
 FASTNOISE_REGISTER_NODE( FractalRidged );
 
 FASTNOISE_REGISTER_NODE( DomainWarpSimplex );

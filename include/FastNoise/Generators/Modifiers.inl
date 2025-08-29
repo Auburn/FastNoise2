@@ -128,7 +128,7 @@ class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> final : public virtual F
     {
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
-        source *= float32v( mMultiplier );
+        source *= float32v( mStepCount );
         float32v rounded = FS::Round( source );
 
         if( mSmoothness != 0.0f )
@@ -146,7 +146,26 @@ class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> final : public virtual F
             rounded += diff;
         }
 
-        return rounded * float32v( mMultiplierRecip );
+        return rounded * float32v( mStepCountRecip );
+    }
+};
+
+template<FastSIMD::FeatureSet SIMD>
+class FastSIMD::DispatchClass<FastNoise::PingPong, SIMD> final : public virtual FastNoise::PingPong, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+{
+    FASTNOISE_IMPL_GEN_T;
+
+    static float32v PingPong( float32v t )
+    {
+        t -= FS::Floor( t * float32v( 0.5f ) ) * float32v( 2 );
+        return FS::Select( t < float32v( 1 ), t, float32v( 2 ) - t );
+    }
+
+    template<typename... P>
+    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
+    {
+        float32v pingPongStrength = this->GetSourceValue( mPingPongStrength, seed, pos... );
+        return PingPong( this->GetSourceValue( mSource, seed, pos... ) * pingPongStrength );
     }
 };
 
