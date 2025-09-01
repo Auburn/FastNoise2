@@ -70,6 +70,9 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
 
     ImGui::GetIO().ConfigDragClickToInputText = true;
     mImGuiIntegrationContext = ImGuiIntegration::Context( *mImGuiContext, size, windowSize(), framebufferSize() );
+#ifndef CORRADE_TARGET_EMSCRIPTEN
+    mImGuiIntegrationContext.connectApplicationClipboard(*this);
+#endif
 
     GL::Renderer::enable( GL::Renderer::Feature::DepthTest );
 
