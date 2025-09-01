@@ -49,14 +49,14 @@ namespace Magnum
 
         void keyPressEvent( KeyEvent& event ) override;
         void keyReleaseEvent( KeyEvent& event ) override;
-        void mousePressEvent( MouseEvent& event ) override;
-        void mouseReleaseEvent( MouseEvent& event ) override;
-        void mouseMoveEvent( MouseMoveEvent& event ) override;
-        void mouseScrollEvent( MouseScrollEvent& event ) override;
+        void pointerPressEvent( PointerEvent& event ) override;
+        void pointerReleaseEvent( PointerEvent& event ) override;
+        void pointerMoveEvent( PointerMoveEvent& event ) override;
+        void scrollEvent( ScrollEvent& event ) override;
         void textInputEvent( TextInputEvent& event ) override;
 
         void UpdatePespectiveProjection();
-        void HandleKeyEvent( KeyEvent::Key key, bool value );
+        void HandleKeyEvent( Key key, bool value );
 
         bool mIsDetachedNodeGraph;
         std::string mExecutablePath;
@@ -77,7 +77,7 @@ namespace Magnum
         ImGuiContext* mImGuiContext;
         FastNoiseNodeEditor mNodeEditor;
 
-        enum Key
+        enum KeyMap
         {
             Key_W, Key_A, Key_S, Key_D, Key_Q, Key_E,
             Key_Left, Key_Right, Key_Up, Key_Down, Key_PgUp, Key_PgDn,

@@ -186,7 +186,7 @@ void NoiseTexture::Draw()
         ImGui::PushStyleColor( ImGuiCol_Button, 0 );
         ImGui::PushStyleColor( ImGuiCol_ButtonActive, 0 );
         ImGui::PushStyleColor( ImGuiCol_ButtonHovered, 0 );
-        ImGuiIntegration::imageButton( mNoiseTexture, Vector2( mBuildData.size ), { {}, Vector2 { 1 } }, 0 );
+        ImGuiIntegration::imageButton( "noise_texture", mNoiseTexture, Vector2( mBuildData.size ) );
         ImGui::PopStyleColor( 3 );
 
         if( ImGui::IsItemHovered() )

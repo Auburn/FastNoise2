@@ -267,50 +267,50 @@ void NodeEditorApp::keyReleaseEvent( KeyEvent& event )
     HandleKeyEvent( event.key(), false );
 }
 
-void NodeEditorApp::HandleKeyEvent( KeyEvent::Key key, bool value )
+void NodeEditorApp::HandleKeyEvent( Key key, bool value )
 {
     switch( key )
     {
-    case KeyEvent::Key::W:
+    case Key::W:
         mKeyDown[Key_W] = value;
         break;
-    case KeyEvent::Key::S:
+    case Key::S:
         mKeyDown[Key_S] = value;
         break;
-    case KeyEvent::Key::A:
+    case Key::A:
         mKeyDown[Key_A] = value;
         break;
-    case KeyEvent::Key::D:
+    case Key::D:
         mKeyDown[Key_D] = value;
         break;
-    case KeyEvent::Key::Q:
+    case Key::Q:
         mKeyDown[Key_Q] = value;
         break;
-    case KeyEvent::Key::E:
+    case Key::E:
         mKeyDown[Key_E] = value;
         break;
-    case KeyEvent::Key::Up:
+    case Key::Up:
         mKeyDown[Key_Up] = value;
         break;
-    case KeyEvent::Key::Down:
+    case Key::Down:
         mKeyDown[Key_Down] = value;
         break;
-    case KeyEvent::Key::Left:
+    case Key::Left:
         mKeyDown[Key_Left] = value;
         break;
-    case KeyEvent::Key::Right:
+    case Key::Right:
         mKeyDown[Key_Right] = value;
         break;
-    case KeyEvent::Key::PageDown:
+    case Key::PageDown:
         mKeyDown[Key_PgDn] = value;
         break;
-    case KeyEvent::Key::PageUp:
+    case Key::PageUp:
         mKeyDown[Key_PgUp] = value;
         break;
-    case KeyEvent::Key::LeftShift:
+    case Key::LeftShift:
         mKeyDown[Key_LShift] = value;
         break;
-    case KeyEvent::Key::RightShift:
+    case Key::RightShift:
         mKeyDown[Key_RShift] = value;
         break;
     default:
@@ -318,26 +318,26 @@ void NodeEditorApp::HandleKeyEvent( KeyEvent::Key key, bool value )
     }
 }
 
-void NodeEditorApp::mousePressEvent( MouseEvent& event )
+void NodeEditorApp::pointerPressEvent( PointerEvent& event )
 {
-    if( mImGuiIntegrationContext.handleMousePressEvent( event ) )
+    if( mImGuiIntegrationContext.handlePointerPressEvent( event ) )
         return;
-    if( event.button() != MouseEvent::Button::Left )
+    if( !event.isPrimary() || !(event.pointer() & Pointer::MouseLeft) )
         return;
 
     event.setAccepted();
 }
 
-void NodeEditorApp::mouseReleaseEvent( MouseEvent& event )
+void NodeEditorApp::pointerReleaseEvent( PointerEvent& event )
 {
-    if( mImGuiIntegrationContext.handleMouseReleaseEvent( event ) )
+    if( mImGuiIntegrationContext.handlePointerReleaseEvent( event ) )
         return;
 
     event.setAccepted();
 }
 
-void NodeEditorApp::mouseScrollEvent( MouseScrollEvent& event ) {
-    if( mImGuiIntegrationContext.handleMouseScrollEvent( event ) )
+void NodeEditorApp::scrollEvent( ScrollEvent& event ) {
+    if( mImGuiIntegrationContext.handleScrollEvent( event ) )
     {
         /* Prevent scrolling the page */
         event.setAccepted();
@@ -345,11 +345,11 @@ void NodeEditorApp::mouseScrollEvent( MouseScrollEvent& event ) {
     }
 }
 
-void NodeEditorApp::mouseMoveEvent( MouseMoveEvent& event )
+void NodeEditorApp::pointerMoveEvent( PointerMoveEvent& event )
 {
-    if( mImGuiIntegrationContext.handleMouseMoveEvent( event ) )
+    if( mImGuiIntegrationContext.handlePointerMoveEvent( event ) )
         return;
-    if( !(event.buttons() & MouseMoveEvent::Button::Left) )
+    if( !event.isPrimary() || !(event.pointers() & Pointer::MouseLeft) )
         return;
 
     constexpr float mouseSensitivity = 0.22f;
