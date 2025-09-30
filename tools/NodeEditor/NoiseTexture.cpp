@@ -483,36 +483,36 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     noiseData.resize( (size_t)buildData.size.x() * buildData.size.y() );
 
     auto gen = FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetActiveFeatureSet() );
-    auto scale = FastNoise::New<FastNoise::DomainScale>( buildData.generator->GetActiveFeatureSet() );
-    gen->SetSource( scale );
-    scale->SetSource( buildData.generator );
-    scale->SetScaling( buildData.scale );
-
+        gen->SetSource( buildData.generator );
+    
     FastNoise::OutputMinMax minMax;
+
+    float xOffset = buildData.offset.x() - (buildData.size.x() / 2.0f) * buildData.scale;
+    float yOffset = buildData.offset.y() - (buildData.size.y() / 2.0f) * buildData.scale;
 
     switch( buildData.generationType )
     {
     case GenType_2D:
         minMax = gen->GenUniformGrid2D( noiseData.data(), 
-            (int)buildData.offset.x() - buildData.size.x() / 2, (int)buildData.offset.y() - buildData.size.y() / 2,
-            buildData.size.x(), buildData.size.y(), buildData.seed );
+            xOffset, yOffset,
+            buildData.size.x(), buildData.size.y(), buildData.scale, buildData.scale, buildData.seed );
         break;
 
     case GenType_2DTiled:
         minMax = gen->GenTileable2D( noiseData.data(),
-            buildData.size.x(), buildData.size.y(), buildData.seed );
+            buildData.size.x(), buildData.size.y(), buildData.scale, buildData.scale, buildData.seed );
         break;
 
     case GenType_3D:
         minMax = gen->GenUniformGrid3D( noiseData.data(),
-            (int)buildData.offset.x() - buildData.size.x() / 2, (int)buildData.offset.y() - buildData.size.y() / 2, (int)buildData.offset.z(),
-            buildData.size.x(), buildData.size.y(), 1, buildData.seed );
+            xOffset, yOffset, buildData.offset.z(),
+            buildData.size.x(), buildData.size.y(), 1, buildData.scale, buildData.scale, buildData.scale, buildData.seed );
         break;
 
     case GenType_4D:
         minMax = gen->GenUniformGrid4D( noiseData.data(),
-            (int)buildData.offset.x() - buildData.size.x() / 2, (int)buildData.offset.y() - buildData.size.y() / 2, (int)buildData.offset.z(), (int)buildData.offset.w(),
-            buildData.size.x(), buildData.size.y(), 1, 1, buildData.seed );
+            xOffset, yOffset, buildData.offset.z(), buildData.offset.w(),
+            buildData.size.x(), buildData.size.y(), 1, 1, buildData.scale, buildData.scale, buildData.scale, buildData.scale, buildData.seed );
         break;
     case GenType_Count:
         break;

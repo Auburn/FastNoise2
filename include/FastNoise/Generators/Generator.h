@@ -144,22 +144,27 @@ namespace FastNoise
         virtual const Metadata& GetMetadata() const = 0;
 
         virtual OutputMinMax GenUniformGrid2D( float* out,
-            int xStart, int yStart,
-            int xSize,  int ySize,
-            int seed ) const = 0;
+            float xOffset,   float yOffset,
+              int xCount,      int yCount,
+            float xStepSize, float yStepSize,
+            int seed ) const = 0; 
 
         virtual OutputMinMax GenUniformGrid3D( float* out,
-            int xStart, int yStart, int zStart, 
-            int xSize,  int ySize,  int zSize, 
+            float xOffset,   float yOffset,   float zOffset,
+              int xCount,      int yCount,      int zCount,
+            float xStepSize, float yStepSize, float zStepSize,
             int seed ) const = 0;
 
         virtual OutputMinMax GenUniformGrid4D( float* out,
-            int xStart, int yStart, int zStart, int wStart,
-            int xSize,  int ySize,  int zSize,  int wSize,
+            float xOffset,   float yOffset,   float zOffset,   float wOffset,
+              int xCount,      int yCount,      int zCount,      int wCount,
+            float xStepSize, float yStepSize, float zStepSize, float wStepSize,
             int seed ) const = 0;
 
         virtual OutputMinMax GenTileable2D( float* out,
-            int xSize, int ySize, int seed ) const = 0; 
+            int xSize, int ySize,
+            float xStepSize, float yStepSize,
+            int seed ) const = 0; 
 
         virtual OutputMinMax GenPositionArray2D( float* out, int count,
             const float* xPosArray, const float* yPosArray,

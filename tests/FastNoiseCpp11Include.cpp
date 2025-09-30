@@ -16,7 +16,7 @@ int main()
 
     float noise[size * size];
 
-    node->GenUniformGrid2D( noise, 0, 0, size, size, 1337 );
+    node->GenUniformGrid2D( noise, 0.0f, 0.0f, size, size, 1.0f, 1.0f, 1337 );
 
     for( int i = 0; i < sizeof(noise) / sizeof(float); i++ )
     {

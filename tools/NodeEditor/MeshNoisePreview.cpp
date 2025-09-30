@@ -391,8 +391,8 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
 {
     static constexpr uint32_t SIZE_GEN = SIZE + 2;
     FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid3D( densityValues,
-                                                                                  buildData.pos.x() - 1, buildData.pos.y() - 1, buildData.pos.z() - 1,
-                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.seed );
+                                                                                  buildData.pos.x() - 1.0f, buildData.pos.y() - 1.0f, buildData.pos.z() - 1.0f,
+                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, 1.0f, buildData.seed );
     float minAir = INFINITY;
     float maxSolid = -INFINITY;
 
@@ -533,8 +533,8 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
     static constexpr uint32_t SIZE_GEN = SIZE + 4;
 
     FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid3D( densityValues,
-                                                                                  buildData.pos.x() - 2, buildData.pos.y() - 2, buildData.pos.z() - 2,
-                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, buildData.seed );
+                                                                                  buildData.pos.x() - 2.0f, buildData.pos.y() - 2.0f, buildData.pos.z() - 2.0f,
+                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, 1.0f, buildData.seed );
     float minAir = INFINITY;
     float maxSolid = -INFINITY;
 
@@ -891,7 +891,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
 
     FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid2D( densityValues,
                                                                                   buildData.pos.x(), buildData.pos.z(),
-                                                                                  SIZE_GEN, SIZE_GEN, buildData.seed );
+                                                                                  SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, buildData.seed );
     constexpr int32_t STEP_X = 1;
     constexpr int32_t STEP_Y = SIZE_GEN;
 

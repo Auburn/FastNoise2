@@ -15,18 +15,21 @@ FASTNOISE_API unsigned fnGetSIMDLevel( const void* node );
 FASTNOISE_API int fnGetMetadataID( const void* node );
 
 FASTNOISE_API void fnGenUniformGrid2D( const void* node, float* noiseOut,
-                                       int xStart, int yStart,
-                                       int xSize, int ySize,
+                                       float xOffset, float yOffset,
+                                       int xCount, int yCount,
+                                       float xStepSize, float yStepSize,
                                        int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API void fnGenUniformGrid3D( const void* node, float* noiseOut,
-                                       int xStart, int yStart, int zStart,
-                                       int xSize, int ySize, int zSize,
+                                       float xOffset, float yOffset, float zOffset,
+                                       int xCount, int yCount, int zCount,
+                                       float xStepSize, float yStepSize, float zStepSize,
                                        int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API void fnGenUniformGrid4D( const void* node, float* noiseOut,
-                                       int xStart, int yStart, int zStart, int wStart,
-                                       int xSize, int ySize, int zSize, int wSize,
+                                       float xOffset, float yOffset, float zOffset, float wOffset,
+                                       int xCount, int yCount, int zCount, int wCount,
+                                       float xStepSize, float yStepSize, float zStepSize, float wStepSize,
                                        int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API void fnGenPositionArray2D( const void* node, float* noiseOut, int count,
@@ -46,6 +49,7 @@ FASTNOISE_API void fnGenPositionArray4D( const void* node, float* noiseOut, int 
 
 FASTNOISE_API void fnGenTileable2D( const void* node, float* noiseOut,
                                     int xSize, int ySize,
+                                    float xStepSize, float yStepSize,
                                     int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API float fnGenSingle2D( const void* node, float x, float y, int seed );

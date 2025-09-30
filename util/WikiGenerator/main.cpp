@@ -47,12 +47,10 @@ FastNoise::SmartNode<> BuildGenerator( const FastNoise::Metadata* metadata )
 
 bool CreateImage( const FastNoise::Metadata* metadata, const std::string& outDir, const std::string& nodeName )
 {
-    auto node = FastNoise::New<FastNoise::DomainScale>();
-    node->SetSource( BuildGenerator( metadata ) );
-    node->SetScaling( 3.f );
+    auto node = BuildGenerator( metadata );
 
     std::vector<float> noiseData( imageSizeX * imageSizeY );
-    auto noiseMinMax = node->GenUniformGrid2D( noiseData.data(), imageSizeX / -2, imageSizeY / -2, imageSizeX, imageSizeY, 1337 );
+    auto noiseMinMax = node->GenUniformGrid2D( noiseData.data(), (float)(imageSizeX / -2), (float)(imageSizeY / -2), imageSizeX, imageSizeY, 3.0f, 3.0f, 1337 );
 
     if( noiseMinMax.min == noiseMinMax.max || !std::isfinite( noiseMinMax.min  ) || !std::isfinite( noiseMinMax.max ) )
     {

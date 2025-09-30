@@ -76,29 +76,33 @@ public:
         return simdT;
     }
 
-    FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, int xStart, int yStart, int xSize, int ySize, int seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        int32v xIdx( xStart );
-        int32v yIdx( yStart );
+        int32v xIdx( 0 );
+        int32v yIdx( 0 );
+        float32v xOffsetV( xOffset );
+        float32v yOffsetV( yOffset );
+        float32v xScale( xStepSize );
+        float32v yScale( yStepSize );
 
-        int32v xSizeV( xSize );
-        int32v xMax = xSizeV + xIdx + int32v( -1 );
+        int32v xCountV( xCount );
+        int32v xMax = xCountV + int32v( -1 );
 
-        intptr_t totalValues = xSize * ySize;
+        intptr_t totalValues = xCount * yCount;
         intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
-        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
+        AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::Convert<float>( xIdx );
-            float32v yPos = FS::Convert<float>( yIdx );
+            float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+            float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos );
             FS::Store( &noiseOut[index], gen );
@@ -111,45 +115,51 @@ public:
             index += int32v::ElementCount;
             xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+            AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
         }
 
-        float32v xPos = FS::Convert<float>( xIdx );
-        float32v yPos = FS::Convert<float>( yIdx );
+        float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, int xStart, int yStart, int zStart, int xSize, int ySize, int zSize, int seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        int32v xIdx( xStart );
-        int32v yIdx( yStart );
-        int32v zIdx( zStart );
+        int32v xIdx( 0 );
+        int32v yIdx( 0 );
+        int32v zIdx( 0 );
+        float32v xOffsetV( xOffset );
+        float32v yOffsetV( yOffset );
+        float32v zOffsetV( zOffset );
+        float32v xScale( xStepSize );
+        float32v yScale( yStepSize );
+        float32v zScale( zStepSize );
 
-        int32v xSizeV( xSize );
-        int32v xMax = xSizeV + xIdx + int32v( -1 );
-        int32v ySizeV( ySize );
-        int32v yMax = ySizeV + yIdx + int32v( -1 );
+        int32v xCountV( xCount );
+        int32v xMax = xCountV + int32v( -1 );
+        int32v yCountV( yCount );
+        int32v yMax = yCountV + int32v( -1 );
 
-        intptr_t totalValues = xSize * ySize * zSize;
+        intptr_t totalValues = xCount * yCount * zCount;
         intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
-        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
-        AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
+        AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
+        AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::Convert<float>( xIdx );
-            float32v yPos = FS::Convert<float>( yIdx );
-            float32v zPos = FS::Convert<float>( zIdx );
+            float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+            float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+            float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
             FS::Store( &noiseOut[index], gen );
@@ -162,52 +172,60 @@ public:
             index += int32v::ElementCount;
             xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
-            AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
+            AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+            AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
         }
 
-        float32v xPos = FS::Convert<float>( xIdx );
-        float32v yPos = FS::Convert<float>( yIdx );
-        float32v zPos = FS::Convert<float>( zIdx );
+        float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+        float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
 
-    FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, int xStart, int yStart, int zStart, int wStart, int xSize, int ySize, int zSize, int wSize, int seed ) const final
+    FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        int32v xIdx( xStart );
-        int32v yIdx( yStart );
-        int32v zIdx( zStart );
-        int32v wIdx( wStart );
+        int32v xIdx( 0 );
+        int32v yIdx( 0 );
+        int32v zIdx( 0 );
+        int32v wIdx( 0 );
+        float32v xOffsetV( xOffset );
+        float32v yOffsetV( yOffset );
+        float32v zOffsetV( zOffset );
+        float32v wOffsetV( wOffset );
+        float32v xScale( xStepSize );
+        float32v yScale( yStepSize );
+        float32v zScale( zStepSize );
+        float32v wScale( wStepSize );
 
-        int32v xSizeV( xSize );
-        int32v xMax = xSizeV + xIdx + int32v( -1 );
-        int32v ySizeV( ySize );
-        int32v yMax = ySizeV + yIdx + int32v( -1 );
-        int32v zSizeV( zSize );
-        int32v zMax = zSizeV + zIdx + int32v( -1 );
+        int32v xCountV( xCount );
+        int32v xMax = xCountV + int32v( -1 );
+        int32v yCountV( yCount );
+        int32v yMax = yCountV + int32v( -1 );
+        int32v zCountV( zCount );
+        int32v zMax = zCountV + int32v( -1 );
 
-        intptr_t totalValues = xSize * ySize * zSize * wSize;
+        intptr_t totalValues = xCount * yCount * zCount * wCount;
         intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
-        AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
-        AxisReset<true>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
-        AxisReset<true>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
+        AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
+        AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+        AxisReset<true>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::Convert<float>( xIdx );
-            float32v yPos = FS::Convert<float>( yIdx );
-            float32v zPos = FS::Convert<float>( zIdx );
-            float32v wPos = FS::Convert<float>( wIdx );
+            float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+            float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+            float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+            float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
             float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
             FS::Store( &noiseOut[index], gen );
@@ -220,15 +238,15 @@ public:
             index += int32v::ElementCount;
             xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
-            AxisReset<false>( yIdx, zIdx, yMax, ySizeV, xSize * ySize );
-            AxisReset<false>( zIdx, wIdx, zMax, zSizeV, xSize * ySize * zSize );
+            AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+            AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+            AxisReset<false>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
         }
 
-        float32v xPos = FS::Convert<float>( xIdx );
-        float32v yPos = FS::Convert<float>( yIdx );
-        float32v zPos = FS::Convert<float>( zIdx );
-        float32v wPos = FS::Convert<float>( wIdx );
+        float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+        float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+        float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
@@ -349,7 +367,7 @@ public:
         return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
     }
 
-    FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, int seed ) const final
+    FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
     {
         ScopeExitx86ZeroUpper zeroUpper;
         float32v min( kInfinity );
@@ -360,7 +378,7 @@ public:
 
         int32v xSizeV( xSize );
         int32v ySizeV( ySize );
-        int32v xMax = xSizeV + xIdx + int32v( -1 );
+        int32v xMax = xSizeV + int32v( -1 );
 
         intptr_t totalValues = xSize * ySize;
         intptr_t index = 0;
@@ -368,8 +386,8 @@ public:
         float pi2Recip( 0.15915493667f );
         float xSizePi = (float)xSize * pi2Recip;
         float ySizePi = (float)ySize * pi2Recip;
-        float32v xFreq = float32v( xSizePi );
-        float32v yFreq = float32v( ySizePi );
+        float32v xFreq = float32v( xSizePi * xStepSize );
+        float32v yFreq = float32v( ySizePi * yStepSize );
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 

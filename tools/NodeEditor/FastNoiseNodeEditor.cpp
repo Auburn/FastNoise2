@@ -195,10 +195,7 @@ void FastNoiseNodeEditor::Node::GeneratePreview( bool nodeTreeChanged, bool benc
     if( generator )
     {
         auto genRGB = FastNoise::New<FastNoise::ConvertRGBA8>( editor.mMaxFeatureSet );
-        auto scale = FastNoise::New<FastNoise::DomainScale>( editor.mMaxFeatureSet );
-        genRGB->SetSource( scale );
-        scale->SetSource( generator );
-        scale->SetScaling( editor.mNodeScale );
+        genRGB->SetSource( generator );
         
         auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -1469,26 +1466,29 @@ std::string_view FastNoiseNodeEditor::GetSelectedEncodedNodeTree()
 
 FastNoise::OutputMinMax FastNoiseNodeEditor::GenerateNodePreviewNoise( FastNoise::Generator* gen, float* noise )
 {
+    float xOffset = (float)(Node::NoiseSize / -2.0f) * mNodeScale;
+    float yOffset = (float)(Node::NoiseSize / -2.0f) * mNodeScale;
+    
     switch( mNodeGenType )
     {
     case NoiseTexture::GenType_2D:
         return gen->GenUniformGrid2D( noise,
-            Node::NoiseSize / -2, Node::NoiseSize / -2,
-            Node::NoiseSize, Node::NoiseSize, mNodeSeed );
+            xOffset, yOffset,
+            Node::NoiseSize, Node::NoiseSize, mNodeScale, mNodeScale, mNodeSeed );
 
     case NoiseTexture::GenType_2DTiled:
         return gen->GenTileable2D( noise,
-            Node::NoiseSize, Node::NoiseSize, mNodeSeed );
+            Node::NoiseSize, Node::NoiseSize, mNodeScale, mNodeScale, mNodeSeed );
 
     case NoiseTexture::GenType_3D:
         return gen->GenUniformGrid3D( noise,
-            Node::NoiseSize / -2, Node::NoiseSize / -2, 0,
-            Node::NoiseSize, Node::NoiseSize, 1, mNodeSeed );
+            xOffset, yOffset, 0.0f,
+            Node::NoiseSize, Node::NoiseSize, 1, mNodeScale, mNodeScale, mNodeScale, mNodeSeed );
 
     case NoiseTexture::GenType_4D:
         return gen->GenUniformGrid4D( noise,
-            Node::NoiseSize / -2, Node::NoiseSize / -2, 0, 0,
-            Node::NoiseSize, Node::NoiseSize, 1, 1, mNodeSeed );
+                xOffset, yOffset, 0.0f, 0.0f,
+            Node::NoiseSize, Node::NoiseSize, 1, 1, mNodeScale, mNodeScale, mNodeScale, mNodeScale, mNodeSeed );
 
     case NoiseTexture::GenType_Count:
         break;
