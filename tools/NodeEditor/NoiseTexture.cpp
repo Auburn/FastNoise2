@@ -82,6 +82,7 @@ void NoiseTexture::Draw()
         //ImGui::Text( "Min: %0.6f Max: %0.6f", mMinMax.min, mMinMax.max );
         
         bool edited = false;
+        ImVec2 windowSizeDelta = { 0, 0 };
         
         // Menu bar dropdown
         if( ImGui::BeginMenuBar() )
@@ -99,11 +100,7 @@ void NoiseTexture::Draw()
                 if( ImGui::DragInt2( "Size", texSize.data(), 2, 4, 8192 ) )
                 {
                     ImVec2 delta( Vector2{ texSize - mBuildData.size } );
-                    ImVec2 windowSize = ImGui::GetWindowSize();
-                    windowSize += delta;
-                    ImVec2 contentSize = ImGui::GetContentRegionAvail();
-                    contentSize += delta;
-                    ImGui::SetWindowSize( windowSize );
+                    windowSizeDelta = delta;
                 }
 
                 // Scale control with center-relative scaling
@@ -128,6 +125,12 @@ void NoiseTexture::Draw()
                         mBuildData.offset.y() = xyOffset.y();
                         edited = true;
                     }
+                    if( ImGui::IsItemHovered() )
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::TextUnformatted( "Left mouse drag on preview to pan X Y" );
+                        ImGui::EndTooltip();
+                    }
                 }
                 
                 // Show Z, W offset for 3D and 4D generation types
@@ -140,6 +143,12 @@ void NoiseTexture::Draw()
                         mBuildData.offset.z() = zOffset;
                         edited = true;
                     }
+                    if( ImGui::IsItemHovered() )
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::TextUnformatted( "Right mouse drag left/right on preview to change Z" );
+                        ImGui::EndTooltip();
+                    }
                 }
                 else if( mBuildData.generationType == GenType_4D )
                 {
@@ -150,6 +159,12 @@ void NoiseTexture::Draw()
                         mBuildData.offset.z() = zwOffset.x();
                         mBuildData.offset.w() = zwOffset.y();
                         edited = true;
+                    }
+                    if( ImGui::IsItemHovered() )
+                    {
+                        ImGui::BeginTooltip();
+                        ImGui::TextUnformatted( "Right mouse drag on preview to change Z and W" );
+                        ImGui::EndTooltip();
                     }
                 }
                 
@@ -166,28 +181,31 @@ void NoiseTexture::Draw()
             ImGui::EndMenuBar();
         }
         
+        // Get content size AFTER menu bar has been processed (or would have been processed)
+        ImVec2 contentSize = ImGui::GetContentRegionAvail() + windowSizeDelta;
+        
         if( edited )
         {
             ImGuiExtra::MarkSettingsDirty();
         }
-
-        ImVec2 contentSize = ImGui::GetContentRegionAvail();
         
         if( contentSize.x >= 1 && contentSize.y >= 1 &&
             (edited || mBuildData.size.x() != (int)contentSize.x || mBuildData.size.y() != (int)contentSize.y) )
         {
             Vector2i newSize = { (int)contentSize.x, (int)contentSize.y };
 
-            mBuildData.offset.xy() -= Vector2( newSize - mBuildData.size ) / 2;
             mBuildData.size = newSize;
             ReGenerate( mBuildData.generator );
+            
+            ImGui::SetWindowSize( ImGui::GetWindowSize() + windowSizeDelta );
         }
 
-        ImGui::PushStyleColor( ImGuiCol_Button, 0 );
-        ImGui::PushStyleColor( ImGuiCol_ButtonActive, 0 );
-        ImGui::PushStyleColor( ImGuiCol_ButtonHovered, 0 );
-        ImGuiIntegration::imageButton( "noise_texture", mNoiseTexture, Vector2( mBuildData.size ) );
-        ImGui::PopStyleColor( 3 );
+        ImVec2 cursorPos = ImGui::GetCursorPos();
+        ImGuiIntegration::image( mNoiseTexture, Vector2( mBuildData.size ) );
+        
+        // Add invisible button over the image to capture mouse input (since image widget doesn't capture input)
+        ImGui::SetCursorPos( cursorPos );
+        ImGui::InvisibleButton( "noise_texture_input", ImVec2( (float)mBuildData.size.x(), (float)mBuildData.size.y() ) );
 
         if( ImGui::IsItemHovered() )
         {
@@ -198,8 +216,9 @@ void NoiseTexture::Draw()
                 Vector2 dragDelta( ImGui::GetMouseDragDelta( ImGuiMouseButton_Left ) );
                 ImGui::ResetMouseDragDelta( ImGuiMouseButton_Left );
 
-                mBuildData.offset.x() -= dragDelta.x();
-                mBuildData.offset.y() += dragDelta.y();
+                // Scale the drag delta to match the current scale factor
+                mBuildData.offset.x() -= dragDelta.x() * mBuildData.scale;
+                mBuildData.offset.y() += dragDelta.y() * mBuildData.scale;
             }
             else if( (mBuildData.generationType == GenType_3D || mBuildData.generationType == GenType_4D)
                 && ImGui::IsMouseDragging( ImGuiMouseButton_Right ) )
@@ -207,11 +226,12 @@ void NoiseTexture::Draw()
                 Vector2 dragDelta( ImGui::GetMouseDragDelta( ImGuiMouseButton_Right ) );
                 ImGui::ResetMouseDragDelta( ImGuiMouseButton_Right );
 
-                mBuildData.offset.z() -= dragDelta.x();
+                // Scale the drag delta to match the current scale factor
+                mBuildData.offset.z() -= dragDelta.x() * mBuildData.scale;
 
                 if( mBuildData.generationType == GenType_4D )
                 {
-                    mBuildData.offset.w() -= dragDelta.y();
+                    mBuildData.offset.w() += dragDelta.y() * mBuildData.scale;
                 }
             }
 
@@ -483,8 +503,8 @@ NoiseTexture::TextureData NoiseTexture::BuildTexture( const BuildData& buildData
     noiseData.resize( (size_t)buildData.size.x() * buildData.size.y() );
 
     auto gen = FastNoise::New<FastNoise::ConvertRGBA8>( buildData.generator->GetActiveFeatureSet() );
-        gen->SetSource( buildData.generator );
-    
+    gen->SetSource( buildData.generator );
+
     FastNoise::OutputMinMax minMax;
 
     float xOffset = buildData.offset.x() - (buildData.size.x() / 2.0f) * buildData.scale;
