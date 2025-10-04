@@ -478,7 +478,7 @@ namespace FastNoise
     };
 #endif
 
-    class SquareRoot : public virtual Generator
+    class SignedSquareRoot : public virtual Generator
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -491,14 +491,14 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<SquareRoot> : MetadataT<Generator>
+    struct MetadataT<SignedSquareRoot> : MetadataT<Generator>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             groups.push_back( "Modifiers" );
-            this->AddGeneratorSource( "Source", &SquareRoot::SetSource );
+            this->AddGeneratorSource( "Source", &SignedSquareRoot::SetSource );
 
             description =
                 "Returns the square root of the absolute value of the source output,\n"

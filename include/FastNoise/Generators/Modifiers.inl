@@ -290,7 +290,7 @@ class FastSIMD::DispatchClass<FastNoise::GeneratorCache, SIMD> final : public vi
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SquareRoot, SIMD> final : public virtual FastNoise::SquareRoot, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::SignedSquareRoot, SIMD> final : public virtual FastNoise::SignedSquareRoot, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -299,7 +299,7 @@ class FastSIMD::DispatchClass<FastNoise::SquareRoot, SIMD> final : public virtua
     {
         float32v value = this->GetSourceValue( mSource, seed, pos... );
         
-        return FastLengthSqrt( FS::Abs( value ) );
+        return FastLengthSqrt( FS::Abs( value ) ) | FS::SignBit( value );
     }
 };
 
