@@ -282,14 +282,16 @@ namespace FastNoise
 
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
         void SetStepCount( float stepCount ) { mStepCount = stepCount; mStepCountRecip = 1 / stepCount; }
-        void SetSmoothness( float smoothness ) { mSmoothness = smoothness; if( mSmoothness != 0.0f ) mSmoothnessRecip = 1 + 1 / smoothness; }
+        
+        void SetSmoothness( float smoothness ) { mSmoothness = smoothness; if( smoothness != 0.0f ) mSmoothnessRecip = 1 + 1 / smoothness; }
+        void SetSmoothness( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSmoothness, gen ); }
 
     protected:
         GeneratorSource mSource;
+        HybridSource mSmoothness = 0.0f;
+        float mSmoothnessRecip = 0.0f;
         float mStepCount = 1.0f;
         float mStepCountRecip = 1.0f;
-        float mSmoothness = 0.0f;
-        float mSmoothnessRecip = 0.0f;
     };
 
 #ifdef FASTNOISE_METADATA
@@ -303,7 +305,7 @@ namespace FastNoise
             groups.push_back( "Modifiers" );
             this->AddGeneratorSource( "Source", &Terrace::SetSource );
             this->AddVariable( { "Step Count", "Increasing the step count reduces the size of each step" }, 1.0f, &Terrace::SetStepCount );
-            this->AddVariable( { "Smoothness", "How smooth the transitions between steps are" }, 0.0f, &Terrace::SetSmoothness );
+            this->AddHybridSource( { "Smoothness", "How smooth the transitions between steps are" }, 0.0f, &Terrace::SetSmoothness, &Terrace::SetSmoothness );
 
             description =
                 "Cuts the input value into steps to give a terraced terrain effect";

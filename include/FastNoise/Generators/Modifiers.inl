@@ -131,8 +131,31 @@ class FastSIMD::DispatchClass<FastNoise::Terrace, SIMD> final : public virtual F
         source *= float32v( mStepCount );
         float32v rounded = FS::Round( source );
 
-        if( mSmoothness != 0.0f )
+        if( mSmoothness.simdGeneratorPtr )
         {
+            // Dynamic smoothness from generator
+            float32v smoothness = this->GetSourceValue( mSmoothness, seed, pos... );
+            mask32v smoothnessMask = smoothness != float32v( 0.0f );
+
+            if( FS::AnyMask( smoothnessMask ) )
+            {
+                float32v diff = rounded - source;
+                mask32v diffSign = diff < float32v( 0 );
+
+                diff = FS::Abs( diff );
+                diff = float32v( 0.5f ) - diff;
+
+                float32v smoothnessRecip = float32v( 1.0f ) + FS::Reciprocal( smoothness );
+                diff *= smoothnessRecip;
+                diff = FS::Min( diff, float32v( 0.5f ) );
+                diff = FS::Select( diffSign, float32v( 0.5f ) - diff, diff - float32v( 0.5f ) );
+
+                rounded = FS::Select( smoothnessMask, rounded + diff, rounded );
+            }
+        }
+        else if( mSmoothness.constant != 0.0f )
+        {
+            // Constant smoothness, use precomputed reciprocal
             float32v diff = rounded - source;
             mask32v diffSign = diff < float32v( 0 );
 
