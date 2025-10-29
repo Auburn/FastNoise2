@@ -154,7 +154,7 @@ namespace FastNoise
     };
 #endif
 
-    class PositionOutput : public virtual Generator
+    class Gradient : public virtual Generator
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -176,15 +176,15 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<PositionOutput> : MetadataT<Generator>
+    struct MetadataT<Gradient> : MetadataT<Generator>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddPerDimensionVariable( { "Multiplier", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mMultiplier ); }, 0.f, 0.f, 0.001f );
-            this->AddPerDimensionHybridSource( { "Offset", "Read node description" }, 0.0f, []( PositionOutput* p ) { return std::ref( p->mOffset ); }, 0.25f );
+            this->AddPerDimensionVariable( { "Multiplier", "Read node description" }, 0.0f, []( Gradient* p ) { return std::ref( p->mMultiplier ); }, 0.f, 0.f, 0.001f );
+            this->AddPerDimensionHybridSource( { "Offset", "Read node description" }, 0.0f, []( Gradient* p ) { return std::ref( p->mOffset ); }, 0.25f );
 
             description =
                 "Takes the input position and does the following per dimension\n"

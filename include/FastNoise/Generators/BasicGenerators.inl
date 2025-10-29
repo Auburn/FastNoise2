@@ -81,7 +81,7 @@ class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::PositionOutput, SIMD> final : public virtual FastNoise::PositionOutput, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Gradient, SIMD> final : public virtual FastNoise::Gradient, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
