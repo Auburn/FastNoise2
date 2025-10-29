@@ -760,7 +760,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         UpdateSelected();
 
         // Declare variables used in menus
-        bool openStandalonenodeGraph = false;
+        bool openStandaloneNodeGraph = false;
 
         // Menu bar for preview settings
         if( ImGui::BeginMenuBar() )
@@ -807,11 +807,28 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
                     ImGui::EndTooltip();
                 }
 
+                ImGui::Separator();
+
+                if( ImGui::MenuItem( "Clear All Nodes" ) )
+                {
+                    mNodes.clear();
+                    mSelectedNode = nullptr;
+                    SetPreviewGenerator( "" );
+                }
+                if( ImGui::IsItemHovered() )
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::TextUnformatted( "Remove all nodes from the graph" );
+                    ImGui::EndTooltip();
+                }
+
                 if( !isDetachedNodeEditor )
                 {
+                    ImGui::Separator();
+
                     if( ImGui::MenuItem( "Detach Node Graph" ) )
                     {
-                        openStandalonenodeGraph = true;
+                        openStandaloneNodeGraph = true;
 
                         ImGui::SetWindowCollapsed( true );
                         ImGui::GetCurrentWindow()->Pos = ImVec2( 0, 0 );
@@ -842,7 +859,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
             ImGui::MarkIniSettingsDirty();
             mSettingsDirty = false;
         }
-        if( ImGui::GetIO().WantSaveIniSettings || openStandalonenodeGraph )
+        if( ImGui::GetIO().WantSaveIniSettings || openStandaloneNodeGraph )
         {
             ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
             ImGui::GetIO().WantSaveIniSettings = false;
@@ -850,7 +867,7 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         }
 
         // Open this after saving settings
-        if( openStandalonenodeGraph )
+        if( openStandaloneNodeGraph )
         {
             OpenStandaloneNodeGraph();
         }
@@ -1014,7 +1031,7 @@ void FastNoiseNodeEditor::UpdateSelected()
 
     int selectedNodeCount = ImNodes::NumSelectedNodes();
 
-    if( selectedNodeCount && ImGui::IsKeyPressed( ImGui::GetKeyIndex( ImGuiKey_Delete ), false ) )
+    if( selectedNodeCount && delKeyPressed )
     {
         std::vector<int> selected( selectedNodeCount );
 
