@@ -2,7 +2,7 @@
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG 2417e5b938d7e0aa4f4293d11682db0582a83ce8
+    GIT_TAG 0822b6bd14c91b94ee2099a4ede669b970afa391
 )
 
 set(install_targets ${install_targets}
