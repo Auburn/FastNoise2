@@ -29,6 +29,30 @@ static constexpr Vector3 NormaliseConstExpr( const Vector3& vec )
     return vec / SqrtNewtonRaphson( lenSqr, lenSqr, 0 );
 }
 
+// Helper function to get axis component from Vector3
+static inline float GetAxisValue( const Vector3& v, MeshNoisePreview::Axis axis )
+{
+    switch( axis )
+    {
+    case MeshNoisePreview::Axis_X: return v.x();
+    case MeshNoisePreview::Axis_Y: return v.y();
+    case MeshNoisePreview::Axis_Z: return v.z();
+    default: return v.y();
+    }
+}
+
+// Helper function to get axis component from Vector3i
+static inline int32_t GetAxisValueI( const Vector3i& v, MeshNoisePreview::Axis axis )
+{
+    switch( axis )
+    {
+    case MeshNoisePreview::Axis_X: return v.x();
+    case MeshNoisePreview::Axis_Y: return v.y();
+    case MeshNoisePreview::Axis_Z: return v.z();
+    default: return v.y();
+    }
+}
+
 MeshNoisePreview::MeshNoisePreview()
 {
     mBuildData.scale = 1.f;
@@ -37,6 +61,8 @@ MeshNoisePreview::MeshNoisePreview()
     mBuildData.heightmapMultiplier = 100.0f;
     mBuildData.color = Color3( 1.0f );
     mBuildData.meshType = MeshType_DualMarchingCubes3D;
+    mBuildData.densityDirection = Axis_Y;
+    mBuildData.upAxis = Axis_Y;
 
     uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
 
@@ -161,7 +187,12 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     else
     {
         edited |= ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f );
+        edited |= ImGui::Combo( "Density Direction", reinterpret_cast<int*>( &mBuildData.densityDirection ), AxisStrings );
+        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.densityDirection ), Axis_Count );
     }
+
+    edited |= ImGui::Combo( "Up Axis", reinterpret_cast<int*>( &mBuildData.upAxis ), AxisStrings );
+    edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.upAxis ), Axis_Count );
 
     if( edited )
     {
@@ -399,11 +430,11 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
 #if FASTNOISE_CALC_MIN_MAX
     if( minMax.min > buildData.isoSurface )
     {
-        minAir = (float)buildData.pos.y();
+        minAir = (float)GetAxisValueI( buildData.pos, buildData.densityDirection );
     }
     else if( minMax.max < buildData.isoSurface )
     {
-        maxSolid = (float)buildData.pos.y() - 1.0f + SIZE;
+        maxSolid = (float)GetAxisValueI( buildData.pos, buildData.densityDirection ) - 1.0f + SIZE;
     }
     else
 #endif
@@ -427,10 +458,12 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
                 for( uint32_t x = 0; x < SIZE; x++ )
                 {
                     float xf = x + (float)buildData.pos.x();
+                    Vector3 currentPos( xf, yf, zf );
+                    float densityDirValue = GetAxisValue( currentPos, buildData.densityDirection );
 
                     if( densityValues[noiseIdx] <= buildData.isoSurface ) // Is Solid?
                     {
-                        maxSolid = std::max( yf, maxSolid );
+                        maxSolid = std::max( densityDirValue, maxSolid );
 
                         if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
                         {
@@ -470,7 +503,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
                     }
                     else
                     {
-                        minAir = std::min( yf, minAir );
+                        minAir = std::min( densityDirValue, minAir );
                     }
                     noiseIdx++;
                 }
@@ -541,11 +574,11 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
 #if FASTNOISE_CALC_MIN_MAX
     if( minMax.min > buildData.isoSurface )
     {
-        minAir = (float)buildData.pos.y();
+        minAir = (float)GetAxisValueI( buildData.pos, buildData.densityDirection );
     }
     else if( minMax.max < buildData.isoSurface )
     {
-        maxSolid = (float)buildData.pos.y() - 1.0f + SIZE;
+        maxSolid = (float)GetAxisValueI( buildData.pos, buildData.densityDirection ) - 1.0f + SIZE;
     }
     else
 #endif
@@ -640,19 +673,19 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                             if( density <= buildData.isoSurface )
                             {
                                 maxSolid = std::max( { maxSolid, 
-                                    vertexData[quadVertIndicies[0]].posLight.y(),
-                                    vertexData[quadVertIndicies[1]].posLight.y(),
-                                    vertexData[quadVertIndicies[2]].posLight.y(),
-                                    vertexData[quadVertIndicies[3]].posLight.y()
+                                    GetAxisValue( vertexData[quadVertIndicies[0]].posLight.xyz(), buildData.densityDirection ),
+                                    GetAxisValue( vertexData[quadVertIndicies[1]].posLight.xyz(), buildData.densityDirection ),
+                                    GetAxisValue( vertexData[quadVertIndicies[2]].posLight.xyz(), buildData.densityDirection ),
+                                    GetAxisValue( vertexData[quadVertIndicies[3]].posLight.xyz(), buildData.densityDirection )
                                 } );
                             }
                             else
                             {
                                 minAir = std::min( { minAir,
-                                    vertexData[quadVertIndicies[0]].posLight.y(),
-                                    vertexData[quadVertIndicies[1]].posLight.y(),
-                                    vertexData[quadVertIndicies[2]].posLight.y(),
-                                    vertexData[quadVertIndicies[3]].posLight.y()
+                                    GetAxisValue( vertexData[quadVertIndicies[0]].posLight.xyz(), buildData.densityDirection ),
+                                    GetAxisValue( vertexData[quadVertIndicies[1]].posLight.xyz(), buildData.densityDirection ),
+                                    GetAxisValue( vertexData[quadVertIndicies[2]].posLight.xyz(), buildData.densityDirection ),
+                                    GetAxisValue( vertexData[quadVertIndicies[3]].posLight.xyz(), buildData.densityDirection )
                                 } );                                
                             }
                         }
@@ -1078,6 +1111,8 @@ void MeshNoisePreview::SetupSettingsHandlers()
         outBuf->appendf( "seed=%d\n", meshNoisePreview->mBuildData.seed );
         outBuf->appendf( "color=%d\n", (int)meshNoisePreview->mBuildData.color.toSrgbInt() );
         outBuf->appendf( "mesh_type=%d\n", (int)meshNoisePreview->mBuildData.meshType );
+        outBuf->appendf( "density_direction=%d\n", (int)meshNoisePreview->mBuildData.densityDirection );
+        outBuf->appendf( "up_axis=%d\n", (int)meshNoisePreview->mBuildData.upAxis );
         outBuf->appendf( "enabled=%d\n", (int)meshNoisePreview->mEnabled );
     };
     editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
@@ -1097,6 +1132,8 @@ void MeshNoisePreview::SetupSettingsHandlers()
         sscanf( line, "heightmap_multiplier=%f", &meshNoisePreview->mBuildData.heightmapMultiplier );
         sscanf( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
         sscanf( line, "mesh_type=%d", (int*)&meshNoisePreview->mBuildData.meshType );
+        sscanf( line, "density_direction=%d", (int*)&meshNoisePreview->mBuildData.densityDirection );
+        sscanf( line, "up_axis=%d", (int*)&meshNoisePreview->mBuildData.upAxis );
 
         int i;
         if( sscanf( line, "color=%d", &i ) == 1 )

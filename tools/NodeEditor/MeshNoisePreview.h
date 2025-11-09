@@ -23,6 +23,14 @@ namespace Magnum
     class MeshNoisePreview
     {
     public:
+        enum Axis
+        {
+            Axis_X,
+            Axis_Y,
+            Axis_Z,
+            Axis_Count
+        };
+
         MeshNoisePreview();
         ~MeshNoisePreview();
 
@@ -43,6 +51,11 @@ namespace Magnum
             "Bloxel 3D\0"
             "Dual Marching Cubes 3D\0"
             "Heightmap 2D\0";
+
+        inline static const char* AxisStrings =
+            "X\0"
+            "Y\0"
+            "Z\0";
 
         class VertexLightShader : public GL::AbstractShaderProgram
         {
@@ -129,6 +142,8 @@ namespace Magnum
                 float scale, isoSurface, heightmapMultiplier;
                 int32_t seed;
                 MeshType meshType;
+                Axis densityDirection;
+                Axis upAxis;
                 uint32_t genVersion;
             };
 
