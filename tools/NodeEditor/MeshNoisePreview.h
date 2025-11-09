@@ -168,7 +168,7 @@ namespace Magnum
 
             template<uint32_t STEP_X, uint32_t STEP_Y, uint32_t STEP_Z, uint32_t SIZE_GEN>
             static uint32_t DmcGetVertIndex( uint32_t cellIndex, uint16_t edge, Vector3 vertOffset, const float* densityArray, float isoSurface,
-                std::vector<VertexData>& vertexData, robin_hood::unordered_flat_map<uint64_t, uint32_t>& vertIndexMap );
+                std::vector<VertexData>& vertexData, robin_hood::unordered_flat_map<uint64_t, uint32_t>& vertIndexMap, Axis upAxis );
 
             static constexpr uint32_t SIZE_DENSITY = SIZE + 4;
 

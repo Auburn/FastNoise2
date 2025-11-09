@@ -53,6 +53,26 @@ static inline int32_t GetAxisValueI( const Vector3i& v, MeshNoisePreview::Axis a
     }
 }
 
+// Helper function to transform light direction based on up axis
+// This transforms a Y-up light direction to the specified up axis
+static inline Vector3 GetTransformedLightDir( const Vector3& lightDirYUp, MeshNoisePreview::Axis upAxis )
+{
+    switch( upAxis )
+    {
+    case MeshNoisePreview::Axis_X:
+        // X is up: swap Y and X, negate X
+        return Vector3( -lightDirYUp.y(), lightDirYUp.x(), lightDirYUp.z() );
+    case MeshNoisePreview::Axis_Y:
+        // Y is up: no transformation needed
+        return lightDirYUp;
+    case MeshNoisePreview::Axis_Z:
+        // Z is up: swap Y and Z
+        return Vector3( lightDirYUp.x(), lightDirYUp.z(), lightDirYUp.y() );
+    default:
+        return lightDirYUp;
+    }
+}
+
 MeshNoisePreview::MeshNoisePreview()
 {
     mBuildData.scale = 1.f;
@@ -439,7 +459,8 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( co
     else
 #endif
     {
-        constexpr Vector3 SUN = LIGHT_DIR * ( 1.0f - AMBIENT_LIGHT );
+        const Vector3 transformedLightDir = GetTransformedLightDir( LIGHT_DIR, buildData.upAxis );
+        const Vector3 SUN = transformedLightDir * ( 1.0f - AMBIENT_LIGHT );
 
         constexpr int32_t STEP_X = 1;
         constexpr int32_t STEP_Y = SIZE_GEN;
@@ -619,10 +640,10 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                         {
                             // generate quad
                             const uint32_t quadVertIndicies[] = {
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex, DMC::EDGE0, cellOffset, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Z, DMC::EDGE2, cellOffset - VEC_Z, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y, DMC::EDGE4, cellOffset - VEC_Y, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y - STEP_Z, DMC::EDGE6, cellOffset - (VEC_Y + VEC_Z), densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex, DMC::EDGE0, cellOffset, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Z, DMC::EDGE2, cellOffset - VEC_Z, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y, DMC::EDGE4, cellOffset - VEC_Y, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y - STEP_Z, DMC::EDGE6, cellOffset - (VEC_Y + VEC_Z), densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
                             };
 
                             // Slice quad for best vertex lighting
@@ -650,10 +671,10 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                         {
                             // generate quad
                             const uint32_t quadVertIndicies[] = {
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex, DMC::EDGE8, cellOffset, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X, DMC::EDGE9, cellOffset - VEC_X, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Z, DMC::EDGE11, cellOffset - VEC_Z, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X - STEP_Z, DMC::EDGE10, cellOffset - (VEC_X + VEC_Z), densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex, DMC::EDGE8, cellOffset, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X, DMC::EDGE9, cellOffset - VEC_X, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Z, DMC::EDGE11, cellOffset - VEC_Z, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X - STEP_Z, DMC::EDGE10, cellOffset - (VEC_X + VEC_Z), densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
                             };
 
                             // Slice quad for best vertex lighting
@@ -700,10 +721,10 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
                         {
                             // generate quad
                             const uint32_t quadVertIndicies[] = {
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex, DMC::EDGE3, cellOffset, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y, DMC::EDGE7, cellOffset - VEC_Y, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X, DMC::EDGE1, cellOffset - VEC_X, densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
-                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X - STEP_Y, DMC::EDGE5, cellOffset - (VEC_X + VEC_Y), densityValues, buildData.isoSurface, vertexData, vertIndexMap ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex, DMC::EDGE3, cellOffset, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_Y, DMC::EDGE7, cellOffset - VEC_Y, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X, DMC::EDGE1, cellOffset - VEC_X, densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
+                                DmcGetVertIndex<STEP_X, STEP_Y, STEP_Z, SIZE_GEN>( cellIndex - STEP_X - STEP_Y, DMC::EDGE5, cellOffset - (VEC_X + VEC_Y), densityValues, buildData.isoSurface, vertexData, vertIndexMap, buildData.upAxis ),
                             };
 
                             // Slice quad for best vertex lighting
@@ -735,7 +756,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const
 
 template<uint32_t STEP_X, uint32_t STEP_Y, uint32_t STEP_Z, uint32_t SIZE_GEN>
 uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t edge, Vector3 vertOffset, const float* densityArray, float isoSurface,
-                                                   std::vector<VertexData>& vertexData, robin_hood::unordered_flat_map<uint64_t, uint32_t>& vertIndexMap )
+                                                   std::vector<VertexData>& vertexData, robin_hood::unordered_flat_map<uint64_t, uint32_t>& vertIndexMap, Axis upAxis )
 {
     uint32_t cellCode = 0;
     if( densityArray[cellIndex] > isoSurface )
@@ -907,7 +928,7 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
         cellIndex += STEP_Z - STEP_Y * 2;
     }
 
-    float light = ( NormaliseConstExpr( -LIGHT_DIR ) * derivative.normalized() ).sum() * ( 0.5f - AMBIENT_LIGHT * 0.5f ) + ( 0.5f + AMBIENT_LIGHT * 0.5f );
+    float light = ( NormaliseConstExpr( -GetTransformedLightDir( LIGHT_DIR, upAxis ) ) * derivative.normalized() ).sum() * ( 0.5f - AMBIENT_LIGHT * 0.5f ) + ( 0.5f + AMBIENT_LIGHT * 0.5f );
     light *= light;
 
     // Catch NaNs
@@ -944,7 +965,8 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
             Vector3 v11( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );
 
             // Normal for quad
-            float light = ( LIGHT_DIR * ( Math::cross( v10 - v11, v00 - v11 ).normalized() + Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
+            const Vector3 transformedLightDir = GetTransformedLightDir( LIGHT_DIR, buildData.upAxis );
+            float light = ( transformedLightDir * ( Math::cross( v10 - v11, v00 - v11 ).normalized() + Math::cross( v01 - v00, v11 - v00 ).normalized() ).normalized() ).dot();
 
             uint32_t vertIdx = (uint32_t)vertexData.size();
             vertexData.emplace_back( v00, light );
