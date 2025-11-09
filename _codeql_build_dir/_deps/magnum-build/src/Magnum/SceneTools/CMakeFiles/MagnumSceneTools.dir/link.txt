@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../../../../Release/lib/libMagnumSceneTools.a CMakeFiles/MagnumSceneTools.dir/Combine.cpp.o CMakeFiles/MagnumSceneTools.dir/Copy.cpp.o CMakeFiles/MagnumSceneTools.dir/Filter.cpp.o CMakeFiles/MagnumSceneTools.dir/Hierarchy.cpp.o CMakeFiles/MagnumSceneTools.dir/Map.cpp.o CMakeFiles/MagnumSceneTools.dir/FlattenMeshHierarchy.cpp.o
+/usr/bin/ranlib ../../../../../Release/lib/libMagnumSceneTools.a

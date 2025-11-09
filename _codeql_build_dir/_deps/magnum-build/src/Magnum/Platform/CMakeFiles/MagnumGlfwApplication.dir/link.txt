@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../../../../Release/lib/libMagnumGlfwApplication.a CMakeFiles/MagnumGlfwApplication.dir/GlfwApplication.cpp.o CMakeFiles/MagnumPlatformObjects.dir/Implementation/DpiScaling.cpp.o CMakeFiles/MagnumGlxContextObjects.dir/Implementation/OpenGLFunctionLoader.cpp.o CMakeFiles/MagnumGlxContextObjects.dir/__/__/MagnumExternal/OpenGL/GL/flextGLPlatform.cpp.o
+/usr/bin/ranlib ../../../../../Release/lib/libMagnumGlfwApplication.a

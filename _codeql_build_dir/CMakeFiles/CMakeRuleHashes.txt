@@ -1,0 +1,22 @@
+# Hashes of file build rules.
+ed75730e7525573db7a9b7fe233c1b43 _deps/glfw-build/src/CMakeFiles/update_mappings
+27cbd73f626ba952ff3f8197156900f5 _deps/glfw-build/src/fractional-scale-v1-client-protocol-code.h
+3db6604faac44dafbe44eb611bb5445a _deps/glfw-build/src/fractional-scale-v1-client-protocol.h
+723937ff5e1de90281514c729a0bf026 _deps/glfw-build/src/idle-inhibit-unstable-v1-client-protocol-code.h
+2669adc8d76b9a35aa488c34c5bd0a7a _deps/glfw-build/src/idle-inhibit-unstable-v1-client-protocol.h
+cab1b52cc7705207ec81e846953e7f8d _deps/glfw-build/src/pointer-constraints-unstable-v1-client-protocol-code.h
+9224296aa0fd4cff912f9d5aa8d09791 _deps/glfw-build/src/pointer-constraints-unstable-v1-client-protocol.h
+e1b3e04f00239857b53ecebc822e5337 _deps/glfw-build/src/relative-pointer-unstable-v1-client-protocol-code.h
+5db822da470aa784b58f157b864771a1 _deps/glfw-build/src/relative-pointer-unstable-v1-client-protocol.h
+bc5970329b243f989bc2f0d1de80f8a9 _deps/glfw-build/src/viewporter-client-protocol-code.h
+28d783cf772e307014db0c5194070450 _deps/glfw-build/src/viewporter-client-protocol.h
+07b3bbf1947d92f220bb9cd868c9790e _deps/glfw-build/src/wayland-client-protocol-code.h
+4b2094d460956504ca2c2690dba105c7 _deps/glfw-build/src/wayland-client-protocol.h
+d4217f3bf1cf8bba864bde24605d4c6c _deps/glfw-build/src/xdg-activation-v1-client-protocol-code.h
+8714213d218315d0f9b84b726be52344 _deps/glfw-build/src/xdg-activation-v1-client-protocol.h
+1ea3b6e3e22f7c669ff3566efc90c23c _deps/glfw-build/src/xdg-decoration-unstable-v1-client-protocol-code.h
+8ef3ca87270e8a8b25e414908d928203 _deps/glfw-build/src/xdg-decoration-unstable-v1-client-protocol.h
+d2796f8eec1e277af68825e70652fbab _deps/glfw-build/src/xdg-shell-client-protocol-code.h
+d3ea831206e6352d90c7364cae1dd00d _deps/glfw-build/src/xdg-shell-client-protocol.h
+d227b228610de7aac8b57f0fc9ed5533 _deps/magnum-build/src/Magnum/Shaders/resource_MagnumShaders_RESOURCES_GL.cpp
+30c7fd18bda0ef53cd68013ccd1eb9ff tools/NodeEditor/resource_NodeEditor_RESOURCES.cpp

@@ -1,0 +1,41 @@
+file(REMOVE_RECURSE
+  "../../../../../Release/lib/libMagnumMeshTools.a"
+  "../../../../../Release/lib/libMagnumMeshTools.pdb"
+  "CMakeFiles/MagnumMeshTools.dir/Combine.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Combine.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/CombineIndexedArrays.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/CombineIndexedArrays.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Compile.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Compile.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/CompileLines.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/CompileLines.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/CompressIndices.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/CompressIndices.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Concatenate.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Concatenate.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Copy.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Copy.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Duplicate.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Duplicate.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Filter.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Filter.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/FlipNormals.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/FlipNormals.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/GenerateIndices.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/GenerateIndices.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/GenerateLines.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/GenerateLines.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/GenerateNormals.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/GenerateNormals.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Interleave.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Interleave.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/RemoveDuplicates.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/RemoveDuplicates.cpp.o.d"
+  "CMakeFiles/MagnumMeshTools.dir/Transform.cpp.o"
+  "CMakeFiles/MagnumMeshTools.dir/Transform.cpp.o.d"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/MagnumMeshTools.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

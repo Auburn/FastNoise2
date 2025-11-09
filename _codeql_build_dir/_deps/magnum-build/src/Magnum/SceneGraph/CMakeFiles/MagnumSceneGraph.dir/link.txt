@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../../../../Release/lib/libMagnumSceneGraph.a CMakeFiles/MagnumSceneGraph.dir/instantiation.cpp.o CMakeFiles/MagnumSceneGraphObjects.dir/Animable.cpp.o
+/usr/bin/ranlib ../../../../../Release/lib/libMagnumSceneGraph.a

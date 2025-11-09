@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../../../../Release/lib/libMagnumMaterialTools.a CMakeFiles/MagnumMaterialTools.dir/Filter.cpp.o CMakeFiles/MagnumMaterialTools.dir/Merge.cpp.o CMakeFiles/MagnumMaterialTools.dir/RemoveDuplicates.cpp.o CMakeFiles/MagnumMaterialToolsObjects.dir/Copy.cpp.o CMakeFiles/MagnumMaterialToolsObjects.dir/PhongToPbrMetallicRoughness.cpp.o
+/usr/bin/ranlib ../../../../../Release/lib/libMagnumMaterialTools.a

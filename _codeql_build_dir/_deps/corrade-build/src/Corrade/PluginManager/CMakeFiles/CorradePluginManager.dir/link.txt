@@ -1,0 +1,2 @@
+/usr/bin/ar qc ../../../../../Release/lib/libCorradePluginManager.a CMakeFiles/CorradePluginManager.dir/AbstractPlugin.cpp.o CMakeFiles/CorradePluginManager.dir/AbstractManager.cpp.o CMakeFiles/CorradePluginManagerObjects.dir/PluginMetadata.cpp.o
+/usr/bin/ranlib ../../../../../Release/lib/libCorradePluginManager.a
