@@ -40,3 +40,4 @@
 /CMakeUserPresets.json
 
 external/
+_codeql_build_dir/
