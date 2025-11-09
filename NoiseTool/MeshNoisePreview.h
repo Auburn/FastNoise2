@@ -42,6 +42,19 @@ namespace Magnum
             "Voxel 3D\0"
             "Heightmap 2D\0";
 
+        enum UpAxis
+        {
+            UpAxis_Y,
+            UpAxis_Z,
+            UpAxis_X,
+            UpAxis_Count
+        };
+
+        inline static const char* UpAxisStrings =
+            "Y Up\0"
+            "Z Up\0"
+            "X Up\0";
+
         class VertexLightShader : public GL::AbstractShaderProgram
         {
         public:
@@ -126,6 +139,8 @@ namespace Magnum
                 float frequency, isoSurface, heightmapMultiplier;
                 int32_t seed;
                 MeshType meshType;
+                UpAxis upAxis;
+                bool invertIsoSurface;
                 uint32_t genVersion;
             };
 
@@ -144,7 +159,7 @@ namespace Magnum
             static constexpr float    AO_STRENGTH   = 0.6f;
 
         private:
-            static void AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
+            static void AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface, bool invertIsoSurface,
                                    int32_t idx, int32_t facingIdx, int32_t offsetA, int32_t offsetB, float light, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 );
 
             static constexpr uint32_t SIZE_GEN = SIZE + 2;
