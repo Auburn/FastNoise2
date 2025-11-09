@@ -23,6 +23,8 @@ MeshNoisePreview::MeshNoisePreview()
     mBuildData.heightmapMultiplier = 100.0f;
     mBuildData.color = Color3( 1.0f );
     mBuildData.meshType = MeshType_Voxel3D;
+    mBuildData.upAxis = UpAxis_Y;
+    mBuildData.invertIsoSurface = false;
 
     uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
 
@@ -132,6 +134,9 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     edited |= ImGui::DragInt( "Seed", &mBuildData.seed );
     edited |= ImGui::DragFloat( "Frequency", &mBuildData.frequency, 0.0005f, 0, 0, "%.4f" );
 
+    edited |= ImGui::Combo( "Up Axis", reinterpret_cast<int*>( &mBuildData.upAxis ), UpAxisStrings );
+    edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.upAxis ), UpAxis_Count );
+
     if( mBuildData.meshType == MeshType_Heightmap2D )
     {
         edited |= ImGui::DragFloat( "Heightmap Multiplier", &mBuildData.heightmapMultiplier, 0.5f );        
@@ -139,6 +144,7 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     else
     {
         edited |= ImGui::DragFloat( "Iso Surface", &mBuildData.isoSurface, 0.02f );
+        edited |= ImGui::Checkbox( "Invert Iso Surface", &mBuildData.invertIsoSurface );
     }
 
     if( edited )
@@ -361,6 +367,28 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
     return MeshData( buildData.pos, {}, vertexData, indicies );
 }
 
+// Helper function to transform coordinates based on the selected up axis
+static Vector3 TransformCoordinates( float x, float y, float z, MeshNoisePreview::UpAxis upAxis )
+{
+    switch( upAxis )
+    {
+    case MeshNoisePreview::UpAxis_Y:
+        return Vector3( x, y, z ); // Y-up (default)
+    case MeshNoisePreview::UpAxis_Z:
+        return Vector3( x, -z, y ); // Z-up (swap Y and Z, negate new Y)
+    case MeshNoisePreview::UpAxis_X:
+        return Vector3( y, z, x ); // X-up (rotate axes)
+    default:
+        return Vector3( x, y, z );
+    }
+}
+
+// Helper function to check if a density value represents solid based on iso surface settings
+static bool IsSolid( float density, float isoSurface, bool invertIsoSurface )
+{
+    return invertIsoSurface ? (density >= isoSurface) : (density <= isoSurface);
+}
+
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
     FastNoise::OutputMinMax minMax = buildData.generator->GenUniformGrid3D( densityValues,
@@ -370,11 +398,14 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( con
     float maxSolid = -INFINITY;
 
 #if FASTNOISE_CALC_MIN_MAX
-    if( minMax.min > buildData.isoSurface )
+    bool allSolid = buildData.invertIsoSurface ? (minMax.min >= buildData.isoSurface) : (minMax.max <= buildData.isoSurface);
+    bool allAir = buildData.invertIsoSurface ? (minMax.max < buildData.isoSurface) : (minMax.min > buildData.isoSurface);
+    
+    if( allAir )
     {
         minAir = (float)buildData.pos.y();
     }
-    else if( minMax.max < buildData.isoSurface )
+    else if( allSolid )
     {
         maxSolid = (float)buildData.pos.y() - 1.0f + SIZE;
     }
@@ -405,44 +436,50 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( con
                 {
                     float xf = x + (float)buildData.pos.x();
 
-                    if( densityValues[noiseIdx] <= buildData.isoSurface ) // Is Solid?
+                    if( IsSolid( densityValues[noiseIdx], buildData.isoSurface, buildData.invertIsoSurface ) ) // Is Solid?
                     {
                         maxSolid = std::max( yf, maxSolid );
 
-                        if( densityValues[noiseIdx + STEP_X] > buildData.isoSurface ) // Right
+                        if( !IsSolid( densityValues[noiseIdx + STEP_X], buildData.isoSurface, buildData.invertIsoSurface ) ) // Right
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
-                                       Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, buildData.invertIsoSurface, noiseIdx, STEP_X, STEP_Y, STEP_Z, xLight,
+                                       TransformCoordinates( xf + 1, yf, zf, buildData.upAxis ), TransformCoordinates( xf + 1, yf + 1, zf, buildData.upAxis ), 
+                                       TransformCoordinates( xf + 1, yf + 1, zf + 1, buildData.upAxis ), TransformCoordinates( xf + 1, yf, zf + 1, buildData.upAxis ) );
                         }
 
-                        if( densityValues[noiseIdx - STEP_X] > buildData.isoSurface ) // Left
+                        if( !IsSolid( densityValues[noiseIdx - STEP_X], buildData.isoSurface, buildData.invertIsoSurface ) ) // Left
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - xLight,
-                                       Vector3( xf, yf + 1, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, buildData.invertIsoSurface, noiseIdx, -STEP_X, -STEP_Y, STEP_Z, 1.0f - xLight,
+                                       TransformCoordinates( xf, yf + 1, zf, buildData.upAxis ), TransformCoordinates( xf, yf, zf, buildData.upAxis ), 
+                                       TransformCoordinates( xf, yf, zf + 1, buildData.upAxis ), TransformCoordinates( xf, yf + 1, zf + 1, buildData.upAxis ) );
                         }
 
-                        if( densityValues[noiseIdx + STEP_Y] > buildData.isoSurface ) // Up
+                        if( !IsSolid( densityValues[noiseIdx + STEP_Y], buildData.isoSurface, buildData.invertIsoSurface ) ) // Up
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, yLight,
-                                       Vector3( xf, yf + 1, zf ), Vector3( xf, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf + 1, yf + 1, zf ) );
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, buildData.invertIsoSurface, noiseIdx, STEP_Y, STEP_Z, STEP_X, yLight,
+                                       TransformCoordinates( xf, yf + 1, zf, buildData.upAxis ), TransformCoordinates( xf, yf + 1, zf + 1, buildData.upAxis ), 
+                                       TransformCoordinates( xf + 1, yf + 1, zf + 1, buildData.upAxis ), TransformCoordinates( xf + 1, yf + 1, zf, buildData.upAxis ) );
                         }
 
-                        if( densityValues[noiseIdx - STEP_Y] > buildData.isoSurface ) // Down
+                        if( !IsSolid( densityValues[noiseIdx - STEP_Y], buildData.isoSurface, buildData.invertIsoSurface ) ) // Down
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - yLight,
-                                       Vector3( xf, yf, zf + 1 ), Vector3( xf, yf, zf ), Vector3( xf + 1, yf, zf ), Vector3( xf + 1, yf, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, buildData.invertIsoSurface, noiseIdx, -STEP_Y, -STEP_Z, STEP_X, 1.0f - yLight,
+                                       TransformCoordinates( xf, yf, zf + 1, buildData.upAxis ), TransformCoordinates( xf, yf, zf, buildData.upAxis ), 
+                                       TransformCoordinates( xf + 1, yf, zf, buildData.upAxis ), TransformCoordinates( xf + 1, yf, zf + 1, buildData.upAxis ) );
                         }
 
-                        if( densityValues[noiseIdx + STEP_Z] > buildData.isoSurface ) // Forward
+                        if( !IsSolid( densityValues[noiseIdx + STEP_Z], buildData.isoSurface, buildData.invertIsoSurface ) ) // Forward
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, zLight,
-                                       Vector3( xf, yf, zf + 1 ), Vector3( xf + 1, yf, zf + 1 ), Vector3( xf + 1, yf + 1, zf + 1 ), Vector3( xf, yf + 1, zf + 1 ) );
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, buildData.invertIsoSurface, noiseIdx, STEP_Z, STEP_X, STEP_Y, zLight,
+                                       TransformCoordinates( xf, yf, zf + 1, buildData.upAxis ), TransformCoordinates( xf + 1, yf, zf + 1, buildData.upAxis ), 
+                                       TransformCoordinates( xf + 1, yf + 1, zf + 1, buildData.upAxis ), TransformCoordinates( xf, yf + 1, zf + 1, buildData.upAxis ) );
                         }
 
-                        if( densityValues[noiseIdx - STEP_Z] > buildData.isoSurface ) // Back
+                        if( !IsSolid( densityValues[noiseIdx - STEP_Z], buildData.isoSurface, buildData.invertIsoSurface ) ) // Back
                         {
-                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - zLight,
-                                       Vector3( xf + 1, yf, zf ), Vector3( xf, yf, zf ), Vector3( xf, yf + 1, zf ), Vector3( xf + 1, yf + 1, zf ) );
+                            AddQuadAO( vertexData, indicies, densityValues, buildData.isoSurface, buildData.invertIsoSurface, noiseIdx, -STEP_Z, -STEP_X, STEP_Y, 1.0f - zLight,
+                                       TransformCoordinates( xf + 1, yf, zf, buildData.upAxis ), TransformCoordinates( xf, yf, zf, buildData.upAxis ), 
+                                       TransformCoordinates( xf, yf + 1, zf, buildData.upAxis ), TransformCoordinates( xf + 1, yf + 1, zf, buildData.upAxis ) );
                         }
                     }
                     else
@@ -462,20 +499,20 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildVoxel3DMesh( con
     return MeshData( buildData.pos, minMax, vertexData, indicies, minAir, maxSolid );
 }
 
-void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface,
+void MeshNoisePreview::Chunk::AddQuadAO( std::vector<VertexData>& verts, std::vector<uint32_t>& indicies, const float* density, float isoSurface, bool invertIsoSurface,
                                          int32_t idx, int32_t facingOffset, int32_t offsetA, int32_t offsetB, float light, Vector3 pos00, Vector3 pos01, Vector3 pos11, Vector3 pos10 )
 {
     int32_t facingIdx = idx + facingOffset;
 
-    uint8_t sideA0 = density[facingIdx - offsetA] <= isoSurface;
-    uint8_t sideA1 = density[facingIdx + offsetA] <= isoSurface;
-    uint8_t sideB0 = density[facingIdx - offsetB] <= isoSurface;
-    uint8_t sideB1 = density[facingIdx + offsetB] <= isoSurface;
+    uint8_t sideA0 = IsSolid( density[facingIdx - offsetA], isoSurface, invertIsoSurface );
+    uint8_t sideA1 = IsSolid( density[facingIdx + offsetA], isoSurface, invertIsoSurface );
+    uint8_t sideB0 = IsSolid( density[facingIdx - offsetB], isoSurface, invertIsoSurface );
+    uint8_t sideB1 = IsSolid( density[facingIdx + offsetB], isoSurface, invertIsoSurface );
     
-    uint8_t corner00 = (sideA0 & sideB0) || density[facingIdx - offsetA - offsetB] <= isoSurface;
-    uint8_t corner01 = (sideA0 & sideB1) || density[facingIdx - offsetA + offsetB] <= isoSurface;
-    uint8_t corner10 = (sideA1 & sideB0) || density[facingIdx + offsetA - offsetB] <= isoSurface;
-    uint8_t corner11 = (sideA1 & sideB1) || density[facingIdx + offsetA + offsetB] <= isoSurface;
+    uint8_t corner00 = (sideA0 & sideB0) || IsSolid( density[facingIdx - offsetA - offsetB], isoSurface, invertIsoSurface );
+    uint8_t corner01 = (sideA0 & sideB1) || IsSolid( density[facingIdx - offsetA + offsetB], isoSurface, invertIsoSurface );
+    uint8_t corner10 = (sideA1 & sideB0) || IsSolid( density[facingIdx + offsetA - offsetB], isoSurface, invertIsoSurface );
+    uint8_t corner11 = (sideA1 & sideB1) || IsSolid( density[facingIdx + offsetA + offsetB], isoSurface, invertIsoSurface );
 
     constexpr float aoAdjust = AO_STRENGTH / 3.0f; 
 
@@ -525,10 +562,10 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
         {
             float xf = x + (float)buildData.pos.x();
 
-            Vector3 v00( xf, densityValues[noiseIdx] * buildData.heightmapMultiplier, yf );
-            Vector3 v01( xf, densityValues[noiseIdx + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );
-            Vector3 v10( xf + 1, densityValues[noiseIdx + STEP_X] * buildData.heightmapMultiplier, yf );
-            Vector3 v11( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1 );            
+            Vector3 v00 = TransformCoordinates( xf, densityValues[noiseIdx] * buildData.heightmapMultiplier, yf, buildData.upAxis );
+            Vector3 v01 = TransformCoordinates( xf, densityValues[noiseIdx + STEP_Y] * buildData.heightmapMultiplier, yf + 1, buildData.upAxis );
+            Vector3 v10 = TransformCoordinates( xf + 1, densityValues[noiseIdx + STEP_X] * buildData.heightmapMultiplier, yf, buildData.upAxis );
+            Vector3 v11 = TransformCoordinates( xf + 1, densityValues[noiseIdx + STEP_X + STEP_Y] * buildData.heightmapMultiplier, yf + 1, buildData.upAxis );            
 
             // Normal for quad
             float light = ( sunLight * (
@@ -700,6 +737,8 @@ void MeshNoisePreview::SetupSettingsHandlers()
         outBuf->appendf( "seed=%d\n", meshNoisePreview->mBuildData.seed );
         outBuf->appendf( "color=%d\n", (int)meshNoisePreview->mBuildData.color.toSrgbInt() );
         outBuf->appendf( "mesh_type=%d\n", (int)meshNoisePreview->mBuildData.meshType );
+        outBuf->appendf( "up_axis=%d\n", (int)meshNoisePreview->mBuildData.upAxis );
+        outBuf->appendf( "invert_iso_surface=%d\n", (int)meshNoisePreview->mBuildData.invertIsoSurface );
         outBuf->appendf( "enabled=%d\n", (int)meshNoisePreview->mEnabled );
     };
     editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
@@ -719,11 +758,16 @@ void MeshNoisePreview::SetupSettingsHandlers()
         sscanf( line, "heightmap_multiplier=%f", &meshNoisePreview->mBuildData.heightmapMultiplier );
         sscanf( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
         sscanf( line, "mesh_type=%d", (int*)&meshNoisePreview->mBuildData.meshType );
+        sscanf( line, "up_axis=%d", (int*)&meshNoisePreview->mBuildData.upAxis );
 
         int i;
         if( sscanf( line, "color=%d", &i ) == 1 )
         {
             meshNoisePreview->mBuildData.color = Color3::fromSrgbInt( i );
+        }
+        else if( sscanf( line, "invert_iso_surface=%d", &i ) == 1 )
+        {
+            meshNoisePreview->mBuildData.invertIsoSurface = i;
         }
         else if( sscanf( line, "enabled=%d", &i ) == 1 )
         {
