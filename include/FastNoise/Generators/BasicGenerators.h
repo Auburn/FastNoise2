@@ -29,6 +29,33 @@ namespace FastNoise
 #endif
 
     template<typename PARENT>
+    class Seeded : public virtual PARENT
+    {
+    public:
+        void SetSeedOffset( int value )
+        {
+            mSeedOffset = value;
+        }
+
+    protected:
+        int mSeedOffset = 0;
+    };
+
+#ifdef FASTNOISE_METADATA
+    template<typename PARENT>
+    struct MetadataT<Seeded<PARENT>> : MetadataT<PARENT>
+    {
+        MetadataT()
+        {
+            this->AddVariable( { "Seed Offset",
+                "This value is added to the seed before generation\n"
+                "Doesn't affect the seed passed to child nodes\n"
+                "Useful if you have multiple nodes of the same type and want them to give different outputs" }, 0, &Seeded<PARENT>::SetSeedOffset );
+        }
+    };
+#endif
+
+    template<typename PARENT>
     class VariableRange : public virtual PARENT
     {
     public:
@@ -88,7 +115,7 @@ namespace FastNoise
     };
 #endif
 
-    class White : public virtual VariableRange<Generator>
+    class White : public virtual VariableRange<Seeded<Generator>>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -96,7 +123,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<White> : MetadataT<VariableRange<Generator>>
+    struct MetadataT<White> : MetadataT<VariableRange<Seeded<Generator>>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 

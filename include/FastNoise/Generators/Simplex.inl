@@ -2,10 +2,11 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual FastNoise::Simplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
@@ -63,6 +64,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
@@ -141,6 +143,7 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z, w );
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
@@ -285,10 +288,11 @@ class FastSIMD::DispatchClass<FastNoise::Simplex, SIMD> final : public virtual F
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virtual FastNoise::SuperSimplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virtual FastNoise::SuperSimplex, public FastSIMD::DispatchClass<FastNoise::VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
@@ -374,6 +378,7 @@ class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virt
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
@@ -572,6 +577,7 @@ class FastSIMD::DispatchClass<FastNoise::SuperSimplex, SIMD> final : public virt
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z, w );
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;

@@ -1,9 +1,9 @@
 #pragma once
-#include "Generator.h"
+#include "BasicGenerators.h"
 
 namespace FastNoise
 {
-    class Simplex : public virtual VariableRange<ScalableGenerator>
+    class Simplex : public virtual VariableRange<Seeded<ScalableGenerator>>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -11,7 +11,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Simplex> : MetadataT<VariableRange<ScalableGenerator>>
+    struct MetadataT<Simplex> : MetadataT<VariableRange<Seeded<ScalableGenerator>>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
@@ -26,7 +26,7 @@ namespace FastNoise
     };
 #endif
 
-    class SuperSimplex : public virtual VariableRange<ScalableGenerator>
+    class SuperSimplex : public virtual VariableRange<Seeded<ScalableGenerator>>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -34,7 +34,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<SuperSimplex> : MetadataT<VariableRange<ScalableGenerator>>
+    struct MetadataT<SuperSimplex> : MetadataT<VariableRange<Seeded<ScalableGenerator>>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 

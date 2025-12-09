@@ -2,16 +2,18 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD> : public virtual FastNoise::DomainWarp, public FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD>
+class FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD> : public virtual FastNoise::DomainWarp, public FastSIMD::DispatchClass<FastNoise::Seeded<FastNoise::ScalableGenerator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
+        int32v sourceSeed = seed;
+        seed += int32v( mSeedOffset );
+        Warp( seed, this->GetSourceValue( mWarpAmplitude, sourceSeed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
 
-        return this->GetSourceValue( mSource, seed, pos...);
+        return this->GetSourceValue( mSource, sourceSeed, pos...);
     }
 
 public:
@@ -30,6 +32,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, SIMD> final : publi
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
+        seed += int32v( mSeedOffset );
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
@@ -73,6 +76,7 @@ public:
             
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
+        seed += int32v( mSeedOffset );
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
@@ -129,6 +133,7 @@ public:
             
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
+        seed += int32v( mSeedOffset );
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );

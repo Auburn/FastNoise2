@@ -1,11 +1,11 @@
 #pragma once
-#include "Generator.h"
+#include "BasicGenerators.h"
 
 #include <algorithm>
 
 namespace FastNoise
 {
-    template<typename PARENT = VariableRange<ScalableGenerator>>
+    template<typename PARENT = VariableRange<Seeded<ScalableGenerator>>>
     class Cellular : public virtual PARENT
     {
     public:
@@ -131,7 +131,7 @@ namespace FastNoise
     };
 #endif
 
-    class CellularLookup : public virtual Cellular<ScalableGenerator>
+    class CellularLookup : public virtual Cellular<Seeded<ScalableGenerator>>
     {
     public:
         const Metadata& GetMetadata() const override;

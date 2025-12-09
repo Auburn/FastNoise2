@@ -2,10 +2,11 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual FastNoise::Value, public FastSIMD::DispatchClass<FastNoise::VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y );
 
         float32v xs = FS::Floor( x );
@@ -27,6 +28,7 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z );
 
         float32v xs = FS::Floor( x );
@@ -55,6 +57,7 @@ class FastSIMD::DispatchClass<FastNoise::Value, SIMD> final : public virtual Fas
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
+        seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z, w );
 
         float32v xs = FS::Floor( x );

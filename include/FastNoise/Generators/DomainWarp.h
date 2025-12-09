@@ -1,9 +1,9 @@
 #pragma once
-#include "Generator.h"
+#include "BasicGenerators.h"
 
 namespace FastNoise
 {
-    class DomainWarp : public virtual ScalableGenerator
+    class DomainWarp : public virtual Seeded<ScalableGenerator>
     {
     public:
         void SetSource( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mSource, gen ); }
@@ -23,7 +23,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<DomainWarp> : MetadataT<ScalableGenerator>
+    struct MetadataT<DomainWarp> : MetadataT<Seeded<ScalableGenerator>>
     {
         MetadataT()
         {

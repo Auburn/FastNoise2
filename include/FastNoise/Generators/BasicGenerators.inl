@@ -1,6 +1,13 @@
 #include "BasicGenerators.h"
 #include "Utils.inl"
 
+template<FastSIMD::FeatureSet SIMD, typename PARENT>
+class FastSIMD::DispatchClass<FastNoise::Seeded<PARENT>, SIMD> : public virtual FastNoise::Seeded<PARENT>, public FastSIMD::DispatchClass<PARENT, SIMD>
+{
+
+};
+
+
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD> : public virtual FastNoise::ScalableGenerator, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
 {
@@ -36,13 +43,14 @@ class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual FastNoise::White, public FastSIMD::DispatchClass<FastNoise::VariableRange<Generator>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual FastNoise::White, public FastSIMD::DispatchClass<FastNoise::VariableRange<FastNoise::Seeded<Generator>>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        seed += int32v( mSeedOffset );
         size_t idx = 0;
         ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 

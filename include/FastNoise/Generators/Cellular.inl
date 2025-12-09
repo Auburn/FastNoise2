@@ -19,12 +19,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, seed, x, y );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y ) * float32v( -1.f / 0x3ff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
         std::array<int32v, kMaxDistanceCount> valueHash;
@@ -58,7 +60,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 int32v newCellValueHash = hash;
-                float32v newDistance = CalcDistance<true>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
+                float32v newDistance = CalcDistance<true>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -96,12 +98,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, seed, x, y, z );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y, z ) * float32v( -1.f / 0xffff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
         std::array<int32v, kMaxDistanceCount> valueHash;
@@ -144,7 +148,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                     zd = FS::FMulAdd( zd, invMag, zcf );
 
                     int32v newCellValueHash = hash;
-                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd, zd );
                     if( sizeJitterActive )
                     {
                         float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -185,12 +189,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
-        float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, seed, x, y, z, w );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y, z, w ) * float32v( -1.f / 0xfffff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
         std::array<int32v, kMaxDistanceCount> valueHash;
@@ -242,7 +248,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularValue, SIMD> final : public vir
                         wd = FS::FMulAdd( wd, invMag, wcf );
 
                         int32v newCellValueHash = hash;
-                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd, zd, wd );
                         if( sizeJitterActive )
                         {
                             float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -290,12 +296,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, seed, x, y );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y ) * float32v( -1.f / 0x3ff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
         std::array<float32v, kMaxDistanceCount> distance;
@@ -327,7 +335,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                 xd = FS::FMulAdd( xd, invMag, xcfOffset );
                 yd = FS::FMulAdd( yd, invMag, ycf - y );
 
-                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -353,12 +361,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, seed, x, y, z );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y, z ) * float32v( -1.f / 0xffff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
         std::array<float32v, kMaxDistanceCount> distance;
@@ -400,7 +410,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                     yd = FS::FMulAdd( yd, invMag, ycfOffset );
                     zd = FS::FMulAdd( zd, invMag, zcf - z );
 
-                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd, zd );
                     if( sizeJitterActive )
                     {
                         float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -429,12 +439,14 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, seed, x, y, z, w );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y, z, w ) * float32v( -1.f / 0xfffff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
         std::array<float32v, kMaxDistanceCount> distance;
@@ -486,7 +498,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
                         zd = FS::FMulAdd( zd, invMag, zcfOffset );
                         wd = FS::FMulAdd( wd, invMag, wcf - w );
 
-                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd, zd, wd );
                         if( sizeJitterActive )
                         {
                             float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -554,16 +566,18 @@ class FastSIMD::DispatchClass<FastNoise::CellularDistance, SIMD> final : public 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public virtual FastNoise::CellularLookup, public FastSIMD::DispatchClass<FastNoise::Cellular<Seeded<ScalableGenerator>>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, seed, x, y );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y ) * float32v( -1.f / 0x3ff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
         float32v distance( FLT_MAX );
@@ -596,7 +610,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                 xd = localCellX - x;
                 yd = localCellY - y;
 
-                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -616,17 +630,19 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             xc += int32v( Primes::X );
         }
 
-        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
+        return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, seed, x, y, z );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y, z ) * float32v( -1.f / 0xffff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
         float32v distance( FLT_MAX );
@@ -669,7 +685,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                     yd = localCellY - y;
                     zd = localCellZ - z;
 
-                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd );
+                    float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd, zd );
                     if( sizeJitterActive )
                     {
                         float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -693,17 +709,19 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             xc += int32v( Primes::X );
         }
 
-        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ) );
+        return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ) );
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, seed, x, y, z, w );
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v sizeJitter;
         bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
         if( sizeJitterActive )
         {
-            sizeJitter = this->GetSourceValue( mSizeJitter, seed, x, y, z, w ) * float32v( -1.f / 0xfffff );
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
         float32v distance( FLT_MAX );
@@ -756,7 +774,7 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
                         zd = localCellZ - z;
                         wd = localCellW - w;
 
-                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, seed, xd, yd, zd, wd );
+                        float32v newDistance = CalcDistance<false>( mDistanceFunction, mMinkowskiP, sourceSeed, xd, yd, zd, wd );
                         if( sizeJitterActive )
                         {
                             float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -784,6 +802,6 @@ class FastSIMD::DispatchClass<FastNoise::CellularLookup, SIMD> final : public vi
             xc += int32v( Primes::X );
         }
 
-        return this->GetSourceValue( mLookup, seed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ), cellW * float32v( mScale ) );
+        return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ), cellW * float32v( mScale ) );
     }
 };

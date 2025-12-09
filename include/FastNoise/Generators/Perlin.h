@@ -1,9 +1,9 @@
 #pragma once
-#include "Generator.h"
+#include "BasicGenerators.h"
 
 namespace FastNoise
 {
-    class Perlin : public virtual VariableRange<ScalableGenerator>
+    class Perlin : public virtual VariableRange<Seeded<ScalableGenerator>>
     {
     public:
         const Metadata& GetMetadata() const override;
@@ -11,7 +11,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Perlin> : MetadataT<VariableRange<ScalableGenerator>>
+    struct MetadataT<Perlin> : MetadataT<VariableRange<Seeded<ScalableGenerator>>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
