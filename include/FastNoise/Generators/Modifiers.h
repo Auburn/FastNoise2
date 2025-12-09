@@ -193,12 +193,16 @@ namespace FastNoise
         void SetToMax( float value ) { mToMax = value; }
         void SetToMax( SmartNodeArg<> gen ) { this->SetSourceMemberVariable( mToMax, gen ); }
 
+        void SetClampOutput( Boolean value ) { mClampOutput = value; }
+        void SetClampOutput( bool value ) { mClampOutput = value ? Boolean::True : Boolean::False; }
+
     protected:
         GeneratorSource mSource;
         HybridSource mFromMin = -1.0f;
         HybridSource mFromMax = 1.0f;
         HybridSource mToMin = 0.0f;
         HybridSource mToMax = 1.0f;
+        Boolean mClampOutput = Boolean::False;
 
         template<typename T>
         friend struct MetadataT;
@@ -218,11 +222,12 @@ namespace FastNoise
             this->AddHybridSource( "From Min", -1.0f, &Remap::SetFromMin, &Remap::SetFromMin );
             this->AddHybridSource( "From Max", 1.0f, &Remap::SetFromMax, &Remap::SetFromMax );
             this->AddHybridSource( "To Min", 0.0f, &Remap::SetToMin, &Remap::SetToMin );
-            this->AddHybridSource( "To Max", 1.0f, &Remap::SetToMax, &Remap::SetToMax );            
+            this->AddHybridSource( "To Max", 1.0f, &Remap::SetToMax, &Remap::SetToMax );
+            this->AddVariableEnum<Boolean>( { "Clamp Output", "Clamp output between \"To Min\" & \"To Max\"" }, Boolean::False, &Remap::SetClampOutput, kBoolean_Strings );
 
             description =
                 "Remaps the output value of the source generator from one range to another\n"
-                "Does not clamp values";
+                "Optionally clamps output to the To Min/Max range";
         }
     };
 #endif

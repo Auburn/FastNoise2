@@ -86,8 +86,16 @@ class FastSIMD::DispatchClass<FastNoise::Remap, SIMD> final : public virtual Fas
         float32v fromMax = this->GetSourceValue( mFromMax, seed, pos... );
         float32v toMin = this->GetSourceValue( mToMin, seed, pos... );
         float32v toMax = this->GetSourceValue( mToMax, seed, pos... );
-            
-        return toMin + ( ( source - fromMin ) / ( fromMax - fromMin ) * ( toMax - toMin ) );
+
+        float32v result = toMin + ( ( source - fromMin ) / ( fromMax - fromMin ) * ( toMax - toMin ) );
+
+        if( mClampOutput == Boolean::True )
+        {
+            result = FS::Max( result, toMin );
+            result = FS::Min( result, toMax );
+        }
+
+        return result;
     }
 };
 

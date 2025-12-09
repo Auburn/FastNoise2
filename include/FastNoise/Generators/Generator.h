@@ -48,18 +48,6 @@ namespace FastNoise
         "Minkowski",
     };
 
-    enum class SimplexType
-    {
-        Standard,
-        Super
-    };
-
-    constexpr static const char* kSimplexType_Strings[] =
-    {
-        "Standard",
-        "Smooth",
-    };
-
     enum class VectorizationScheme
     {
         OrthogonalGradientMatrix,
@@ -70,6 +58,18 @@ namespace FastNoise
     {
         "Orthogonal Gradient Matrix",
         "Gradient Outer Product",
+    };
+
+    enum class Boolean
+    {
+        False,
+        True
+    };
+
+    constexpr static const char* kBoolean_Strings[] =
+    {
+        "False",
+        "True",
     };
 
     static constexpr float kInfinity =
