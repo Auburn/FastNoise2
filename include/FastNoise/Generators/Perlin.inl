@@ -2,7 +2,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Perlin, SIMD> final : public virtual FastNoise::Perlin, public FastSIMD::DispatchClass<FastNoise::VariableRange<Seeded<ScalableGenerator>>, SIMD>
+class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {

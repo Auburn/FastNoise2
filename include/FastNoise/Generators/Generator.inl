@@ -13,7 +13,7 @@ using int32v = FS::Register<std::int32_t, kRegisterSize>;
 using mask32v = typename float32v::MaskType;
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Generator, SIMD> : public virtual FastNoise::Generator
+class FastSIMD::DispatchClass<Generator, SIMD> : public virtual Generator
 {
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;

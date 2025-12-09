@@ -2,7 +2,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> final : public virtual FastNoise::DomainWarpFractalProgressive, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
+class FastSIMD::DispatchClass<DomainWarpFractalProgressive, SIMD> final : public virtual DomainWarpFractalProgressive, public DispatchClass<Fractal<DomainWarp>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -36,7 +36,7 @@ class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalProgressive, SIMD> fin
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarpFractalIndependent, SIMD> final : public virtual FastNoise::DomainWarpFractalIndependent, public FastSIMD::DispatchClass<FastNoise::Fractal<FastNoise::DomainWarp>, SIMD>
+class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public virtual DomainWarpFractalIndependent, public DispatchClass<Fractal<DomainWarp>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 

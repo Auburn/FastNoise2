@@ -2,7 +2,7 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD> : public virtual FastNoise::DomainWarp, public FastSIMD::DispatchClass<FastNoise::Seeded<FastNoise::ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<DomainWarp, SIMD> : public virtual DomainWarp, public DispatchClass<Seeded<ScalableGenerator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -27,7 +27,7 @@ public:
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DomainWarpGradient, SIMD> final : public virtual FastNoise::DomainWarpGradient, public FastSIMD::DispatchClass<FastNoise::DomainWarp, SIMD>
+class FastSIMD::DispatchClass<DomainWarpGradient, SIMD> final : public virtual DomainWarpGradient, public DispatchClass<DomainWarp, SIMD>
 {
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const

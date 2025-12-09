@@ -1,13 +1,13 @@
 #include "Fractal.h"
 
 template<FastSIMD::FeatureSet SIMD, typename T>
-class FastSIMD::DispatchClass<FastNoise::Fractal<T>, SIMD> : public virtual FastNoise::Fractal<T>, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<Fractal<T>, SIMD> : public virtual Fractal<T>, public DispatchClass<Generator, SIMD>
 {
 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::FractalFBm, SIMD> final : public virtual FastNoise::FractalFBm, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+class FastSIMD::DispatchClass<FractalFBm, SIMD> final : public virtual FractalFBm, public DispatchClass<Fractal<>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -37,7 +37,7 @@ class FastSIMD::DispatchClass<FastNoise::FractalFBm, SIMD> final : public virtua
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::FractalRidged, SIMD> final : public virtual FastNoise::FractalRidged, public FastSIMD::DispatchClass<FastNoise::Fractal<>, SIMD>
+class FastSIMD::DispatchClass<FractalRidged, SIMD> final : public virtual FractalRidged, public DispatchClass<Fractal<>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 

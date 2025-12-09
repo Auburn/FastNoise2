@@ -2,14 +2,14 @@
 #include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD, typename PARENT>
-class FastSIMD::DispatchClass<FastNoise::Seeded<PARENT>, SIMD> : public virtual FastNoise::Seeded<PARENT>, public FastSIMD::DispatchClass<PARENT, SIMD>
+class FastSIMD::DispatchClass<Seeded<PARENT>, SIMD> : public virtual Seeded<PARENT>, public DispatchClass<PARENT, SIMD>
 {
 
 };
 
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::ScalableGenerator, SIMD> : public virtual FastNoise::ScalableGenerator, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<ScalableGenerator, SIMD> : public virtual ScalableGenerator, public DispatchClass<Generator, SIMD>
 {
 protected:
     template<typename... P>
@@ -21,7 +21,7 @@ protected:
 };
 
 template<FastSIMD::FeatureSet SIMD, typename PARENT>
-class FastSIMD::DispatchClass<FastNoise::VariableRange<PARENT>, SIMD> : public virtual FastNoise::VariableRange<PARENT>, public FastSIMD::DispatchClass<PARENT, SIMD>
+class FastSIMD::DispatchClass<VariableRange<PARENT>, SIMD> : public virtual VariableRange<PARENT>, public DispatchClass<PARENT, SIMD>
 {
 protected:
     FS_FORCEINLINE float32v ScaleOutput( float32v value, float nativeMin, float nativeMax ) const
@@ -31,7 +31,7 @@ protected:
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual FastNoise::Constant, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<Constant, SIMD> final : public virtual Constant, public DispatchClass<Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -43,7 +43,7 @@ class FastSIMD::DispatchClass<FastNoise::Constant, SIMD> final : public virtual 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual FastNoise::White, public FastSIMD::DispatchClass<FastNoise::VariableRange<FastNoise::Seeded<Generator>>, SIMD>
+class FastSIMD::DispatchClass<White, SIMD> final : public virtual White, public DispatchClass<VariableRange<Seeded<Generator>>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -59,7 +59,7 @@ class FastSIMD::DispatchClass<FastNoise::White, SIMD> final : public virtual Fas
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virtual FastNoise::Checkerboard, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<Checkerboard, SIMD> final : public virtual Checkerboard, public DispatchClass<VariableRange<ScalableGenerator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -75,7 +75,7 @@ class FastSIMD::DispatchClass<FastNoise::Checkerboard, SIMD> final : public virt
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual FastNoise::SineWave, public FastSIMD::DispatchClass<FastNoise::VariableRange<ScalableGenerator>, SIMD>
+class FastSIMD::DispatchClass<SineWave, SIMD> final : public virtual SineWave, public DispatchClass<VariableRange<ScalableGenerator>, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -89,7 +89,7 @@ class FastSIMD::DispatchClass<FastNoise::SineWave, SIMD> final : public virtual 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::Gradient, SIMD> final : public virtual FastNoise::Gradient, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<Gradient, SIMD> final : public virtual Gradient, public DispatchClass<Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
@@ -106,7 +106,7 @@ class FastSIMD::DispatchClass<FastNoise::Gradient, SIMD> final : public virtual 
 };
 
 template<FastSIMD::FeatureSet SIMD>
-class FastSIMD::DispatchClass<FastNoise::DistanceToPoint, SIMD> final : public virtual FastNoise::DistanceToPoint, public FastSIMD::DispatchClass<FastNoise::Generator, SIMD>
+class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual DistanceToPoint, public DispatchClass<Generator, SIMD>
 {
     FASTNOISE_IMPL_GEN_T;
 
