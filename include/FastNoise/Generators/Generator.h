@@ -48,18 +48,6 @@ namespace FastNoise
         "Minkowski",
     };
 
-    enum class VectorizationScheme
-    {
-        OrthogonalGradientMatrix,
-        GradientOuterProduct
-    };
-
-    constexpr static const char* kVectorizationScheme_Strings[] =
-    {
-        "Orthogonal Gradient Matrix",
-        "Gradient Outer Product",
-    };
-
     enum class Boolean
     {
         False,

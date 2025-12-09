@@ -4,6 +4,18 @@
 
 namespace FastNoise
 {
+    enum class VectorizationScheme
+    {
+        OrthogonalGradientMatrix,
+        GradientOuterProduct
+    };
+
+    constexpr static const char* kVectorizationScheme_Strings[] =
+    {
+        "Orthogonal Gradient Matrix",
+        "Gradient Outer Product",
+    };
+
     class DomainWarpSimplex : public virtual DomainWarp
     {
     public:
