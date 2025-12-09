@@ -35,7 +35,7 @@ jobs:
           - os: ubuntu-latest
             name: Linux64-Clang
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-          - os: macos-13
+          - os: macos-15-intel
             name: MacOS64-Clang
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
           - os: macos-latest
