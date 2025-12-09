@@ -25,11 +25,11 @@ constexpr size_t gMetadataVectorSize<const Metadata*> = 47;
 template<>
 constexpr size_t gMetadataVectorSize<const char*> = 91;
 template<>
-constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 82;
+constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 91;
 template<>
 constexpr size_t gMetadataVectorSize<Metadata::MemberNodeLookup> = 32;
 template<>
-constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 58;
+constexpr size_t gMetadataVectorSize<Metadata::MemberHybrid> = 59;
 
 template<typename T>
 static std::vector<T>& GetVectorStorage()
