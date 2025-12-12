@@ -7,7 +7,7 @@ int main()
 {
     auto node = FastNoise::New<FastNoise::FractalFBm>();
 
-    std::cout << node->GetSIMDLevel() << std::endl;
+    std::cout << (unsigned)node->GetActiveFeatureSet() << std::endl;
 
     node->SetSource( FastNoise::New<FastNoise::Simplex>() );
     node->SetGain( FastNoise::New<FastNoise::Value>() );
@@ -16,7 +16,7 @@ int main()
 
     float noise[size * size];
 
-    node->GenUniformGrid2D( noise, 0, 0, size, size, 0.02f, 1337 );
+    node->GenUniformGrid2D( noise, 0.0f, 0.0f, size, size, 1.0f, 1.0f, 1337 );
 
     for( int i = 0; i < sizeof(noise) / sizeof(float); i++ )
     {
@@ -26,7 +26,6 @@ int main()
     std::cout << std::endl;
 
     // SmartNode down cast example
-#if !FASTNOISE_USE_SHARED_PTR
     {
         // New Checkerboard node stored in base SmartNode type
         FastNoise::SmartNode<> base = FastNoise::New<FastNoise::Checkerboard>();
@@ -38,12 +37,11 @@ int main()
         auto checkerboard = FastNoise::SmartNode<FastNoise::Checkerboard>::DynamicCast( base );
 
         // Ok
-        checkerboard->SetSize( 8.0f );
+        checkerboard->SetScale( 8.0f );
 
         // Down cast to wrong type will return nullptr
         auto simplex = FastNoise::SmartNode<FastNoise::Simplex>::DynamicCast( base );
 
         std::cout << ( simplex ? "valid" : "nullptr" ) << std::endl;
     }
-#endif
 }

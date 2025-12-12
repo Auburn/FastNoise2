@@ -1,13 +1,13 @@
 #ifndef FASTNOISE_C_H
 #define FASTNOISE_C_H
 
-#include "FastNoise_Export.h"
+#include "Utility/Export.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::eLevel*/ simdLevel /*0 = Auto*/ );
+FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::FeatureSet*/ simdLevel /*~0u = Auto*/ );
 
 FASTNOISE_API void fnDeleteNodeRef( void* node );
 
@@ -15,19 +15,22 @@ FASTNOISE_API unsigned fnGetSIMDLevel( const void* node );
 FASTNOISE_API int fnGetMetadataID( const void* node );
 
 FASTNOISE_API void fnGenUniformGrid2D( const void* node, float* noiseOut,
-                                       int xStart, int yStart,
-                                       int xSize, int ySize,
-                                       float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
+                                       float xOffset, float yOffset,
+                                       int xCount, int yCount,
+                                       float xStepSize, float yStepSize,
+                                       int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API void fnGenUniformGrid3D( const void* node, float* noiseOut,
-                                       int xStart, int yStart, int zStart,
-                                       int xSize, int ySize, int zSize,
-                                       float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
+                                       float xOffset, float yOffset, float zOffset,
+                                       int xCount, int yCount, int zCount,
+                                       float xStepSize, float yStepSize, float zStepSize,
+                                       int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API void fnGenUniformGrid4D( const void* node, float* noiseOut,
-                                       int xStart, int yStart, int zStart, int wStart,
-                                       int xSize, int ySize, int zSize, int wSize,
-                                       float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
+                                       float xOffset, float yOffset, float zOffset, float wOffset,
+                                       int xCount, int yCount, int zCount, int wCount,
+                                       float xStepSize, float yStepSize, float zStepSize, float wStepSize,
+                                       int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API void fnGenPositionArray2D( const void* node, float* noiseOut, int count,
                                          const float* xPosArray, const float* yPosArray,
@@ -46,7 +49,8 @@ FASTNOISE_API void fnGenPositionArray4D( const void* node, float* noiseOut, int 
 
 FASTNOISE_API void fnGenTileable2D( const void* node, float* noiseOut,
                                     int xSize, int ySize,
-                                    float frequency, int seed, float* outputMinMax /*nullptr or float[2]*/ );
+                                    float xStepSize, float yStepSize,
+                                    int seed, float* outputMinMax /*nullptr or float[2]*/ );
 
 FASTNOISE_API float fnGenSingle2D( const void* node, float x, float y, int seed );
 FASTNOISE_API float fnGenSingle3D( const void* node, float x, float y, float z, int seed );
@@ -54,7 +58,7 @@ FASTNOISE_API float fnGenSingle4D( const void* node, float x, float y, float z, 
 
 FASTNOISE_API int fnGetMetadataCount();
 FASTNOISE_API const char* fnGetMetadataName( int id ); // valid IDs up to `fnGetMetadataCount() - 1`
-FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::eLevel*/ simdLevel /*0 = Auto*/ );
+FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::FeatureSet*/ simdLevel /*~0u = Auto*/ );
 
 FASTNOISE_API int fnGetMetadataVariableCount( int id );
 FASTNOISE_API const char* fnGetMetadataVariableName( int id, int variableIndex );

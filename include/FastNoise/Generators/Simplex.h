@@ -1,20 +1,19 @@
 #pragma once
-#include "Generator.h"
+#include "BasicGenerators.h"
 
 namespace FastNoise
 {
-    class Simplex : public virtual Generator
+    class Simplex : public virtual VariableRange<Seeded<ScalableGenerator>>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Simplex> : MetadataT<Generator>
+    struct MetadataT<Simplex> : MetadataT<VariableRange<Seeded<ScalableGenerator>>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
@@ -27,50 +26,26 @@ namespace FastNoise
     };
 #endif
 
-    class OpenSimplex2 : public virtual Generator
+    class SuperSimplex : public virtual VariableRange<Seeded<ScalableGenerator>>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<OpenSimplex2> : MetadataT<Generator>
+    struct MetadataT<SuperSimplex> : MetadataT<VariableRange<Seeded<ScalableGenerator>>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {
             groups.push_back( "Coherent Noise" );
 
-            description = 
-                "Smooth gradient noise from an N dimensional simplex grid, alternate implementation\n"
-                "Developed by K.jpg in 2019";
-        }
-    };
-#endif
-
-    class OpenSimplex2S : public virtual Generator
-    {
-    public:
-        FASTSIMD_LEVEL_SUPPORT(FastNoise::SUPPORTED_SIMD_LEVELS);
-        const Metadata& GetMetadata() const override;
-    };
-
-#ifdef FASTNOISE_METADATA
-    template<>
-    struct MetadataT<OpenSimplex2S> : MetadataT<Generator>
-    {
-        SmartNode<> CreateNode(FastSIMD::eLevel) const override;
-
-        MetadataT()
-        {
-            groups.push_back("Coherent Noise");
-
             description =
-                "Smoother gradient noise from an N dimensional simplex grid\n"
-                "Developed by K.jpg in 2017";
+                "Extra smooth gradient noise from an N dimensional simplex grid\n"
+                "Slower to generate than Simplex noise\n"
+                "Developed by K.jpg";
         }
     };
 #endif

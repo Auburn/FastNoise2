@@ -5,10 +5,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "FastNoise_Config.h"
-
-#pragma warning( push )
-#pragma warning( disable : 4251 )
+#include "Utility/Config.h"
 
 namespace FastNoise
 {
@@ -28,55 +25,30 @@ namespace FastNoise
     // Node name, member name+types, functions to set members
     struct FASTNOISE_API Metadata
     {
-        virtual ~Metadata() = default;
-
-        /// <returns>Array containing metadata for every FastNoise node type</returns>
-        static const std::vector<const Metadata*>& GetAll()
-        {
-            return sAllMetadata;
-        }
-
-        /// <returns>Metadata for given Metadata::id</returns>
-        static const Metadata* GetFromId( uint16_t nodeId )
-        {
-            // Metadata not loaded yet
-            // Don't try to create nodes from metadata during static initialisation
-            // Metadata is loaded using static variable and static variable init is done in a random order
-            assert( sAllMetadata.size() );
-
-            if( nodeId < sAllMetadata.size() )
-            {
-                return sAllMetadata[nodeId];
-            }
-
-            return nullptr;
-        }
-
-        /// <returns>Metadata for given node class</returns>
         template<typename T>
-        static const Metadata& Get()
+        class FASTNOISE_API Vector
         {
-            static_assert( std::is_base_of<Generator, T>::value, "This function should only be used for FastNoise node classes, for example FastNoise::Simplex" );
-            static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot get Metadata for abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
+        public:
+            using const_iterator = const T*;
 
-            return Impl::GetMetadata<T>();
-        }
+            const_iterator begin() const { return data() + mStart; }
+            const_iterator end() const { return data() + mEnd; }
+            size_t size() const { return mEnd - mStart; }
+            const T& operator []( size_t i ) const { return begin()[i]; }
 
-        /// <summary>
-        /// Serialise node data and any source node datas (recursive)
-        /// </summary>
-        /// <param name="nodeData">Root node data</param>
-        /// <param name="fixUp">Remove dependency loops and invalid node types</param>
-        /// <returns>Empty string on error</returns>
-        static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
+        private:
+            template<typename>
+            friend struct MetadataT;
+            friend struct Metadata;
+            friend class Generator;
+            using index_type = uint8_t;
 
-        /// <summary>
-        /// Deserialise a string created from SerialiseNodeData to a node data tree
-        /// </summary>
-        /// <param name="serialisedBase64NodeData">Encoded string to deserialise</param>
-        /// <param name="nodeDataOut">Storage for new node data</param>
-        /// <returns>Root node</returns>
-        static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
+            T* data() const;
+            void push_back( const T& value );
+
+            index_type mStart = (index_type)-1;
+            index_type mEnd = (index_type)-1;
+        };
 
         struct NameDesc
         {
@@ -91,24 +63,8 @@ namespace FastNoise
         {
             const char* name = "";
             const char* description = "";
-            int dimensionIdx = -1;            
+            int dimensionIdx = -1;
         };
-
-        /// <summary>
-        /// Add spaces to node names: DomainScale -> Domain Scale
-        /// </summary>
-        /// <param name="metadata">FastNoise node metadata</param>
-        /// <param name="removeGroups">Removes metadata groups from name: FractalFBm -> FBm</param>
-        /// <returns>string with formatted name</returns>
-        static std::string FormatMetadataNodeName( const Metadata* metadata, bool removeGroups = false );
-
-        /// <summary>
-        /// Adds dimension prefix to member varibles that per-dimension:
-        /// DomainAxisScale::Scale -> X Scale
-        /// </summary>
-        /// <param name="member">FastNoise node metadata member</param>
-        /// <returns>string with formatted name</returns>
-        static std::string FormatMetadataMemberName( const Member& member );
 
         // float, int or enum value
         struct MemberVariable : Member
@@ -153,7 +109,8 @@ namespace FastNoise
 
             eType type;
             ValueUnion valueDefault, valueMin, valueMax;
-            std::vector<const char*> enumNames;
+            float valueUiDragSpeed = 0;
+            Vector<const char*> enumNames;
 
             // Function to set value for given generator
             // Returns true if Generator is correct node class
@@ -171,7 +128,7 @@ namespace FastNoise
         // Either a constant float or node lookup
         struct MemberHybrid : Member
         {
-            float valueDefault = 0.0f;
+            float valueDefault, valueUiDragSpeed;
 
             // Function to set value for given generator
             // Returns true if Generator is correct node class
@@ -183,14 +140,75 @@ namespace FastNoise
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
-        uint16_t id;
-        const char* name = "";
-        const char* description = "";
-        std::vector<const char*> groups;
+        using node_id = uint8_t;
 
-        std::vector<MemberVariable>   memberVariables;
-        std::vector<MemberNodeLookup> memberNodeLookups;
-        std::vector<MemberHybrid>     memberHybrids;
+        static std::pair<int32_t, const char*> DebugCheckVectorStorageSize( int i );
+
+        virtual ~Metadata() = default;
+
+        /// <returns>Array containing metadata for every FastNoise node type</returns>
+        static const Vector<const Metadata*>& GetAll()
+        {
+            return sAllMetadata;
+        }
+
+        /// <returns>Metadata for given Metadata::id</returns>
+        static const Metadata* GetFromId( node_id nodeId )
+        {
+            // Metadata not loaded yet
+            // Don't try to create nodes from metadata during static initialisation
+            // Metadata is loaded using static variable and static variable init is done in a random order
+            assert( sAllMetadata.size() );
+
+            if( nodeId < sAllMetadata.size() )
+            {
+                return sAllMetadata[nodeId];
+            }
+
+            return nullptr;
+        }
+
+        /// <returns>Metadata for given node class</returns>
+        template<typename T>
+        static const Metadata& Get()
+        {
+            static_assert( std::is_base_of<Generator, T>::value, "This function should only be used for FastNoise node classes, for example FastNoise::Simplex" );
+            static_assert( std::is_member_function_pointer<decltype(&T::GetMetadata)>::value, "Cannot get Metadata for abstract node class, use a derived class, for example: Fractal -> FractalFBm" );
+
+            return Impl::GetMetadata<T>();
+        }
+
+        /// <summary>
+        /// Serialise node data and any source node datas (recursive)
+        /// </summary>
+        /// <param name="nodeData">Root node data</param>
+        /// <param name="fixUp">Remove dependency loops and invalid node types</param>
+        /// <returns>Empty string on error</returns>
+        static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
+
+        /// <summary>
+        /// Deserialise a string created from SerialiseNodeData to a node data tree
+        /// </summary>
+        /// <param name="serialisedBase64NodeData">Encoded string to deserialise</param>
+        /// <param name="nodeDataOut">Storage for new node data</param>
+        /// <returns>Root node</returns>
+        static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
+
+        /// <summary>
+        /// Add spaces to node names: DomainScale -> Domain Scale
+        /// </summary>
+        /// <param name="metadata">FastNoise node metadata</param>
+        /// <param name="removeGroups">Removes metadata groups from name: FractalFBm -> FBm</param>
+        /// <returns>string with formatted name</returns>
+        static std::string FormatMetadataNodeName( const Metadata* metadata, bool removeGroups = false );
+
+        /// <summary>
+        /// Adds dimension prefix to member varibles that per-dimension:
+        /// DomainAxisScale::Scale -> X Scale
+        /// </summary>
+        /// <param name="member">FastNoise node metadata member</param>
+        /// <returns>string with formatted name</returns>
+        static std::string FormatMetadataMemberName( const Member& member );
 
         /// <summary>
         /// Create new instance of a FastNoise node from metadata
@@ -201,7 +219,17 @@ namespace FastNoise
         /// </example>
         /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
         /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
-        virtual SmartNode<> CreateNode( FastSIMD::eLevel maxSimdLevel = FastSIMD::Level_Null ) const = 0;
+        virtual SmartNode<> CreateNode( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max ) const = 0;
+
+        node_id id;
+        Vector<MemberVariable>   memberVariables;
+        Vector<MemberNodeLookup> memberNodeLookups;
+        Vector<MemberHybrid>     memberHybrids;
+        Vector<const char*>      groups;
+
+        const char* name = "";
+        const char* description = "";
+        const char* formattedName = nullptr;
 
     protected:
         Metadata()
@@ -209,22 +237,41 @@ namespace FastNoise
             id = AddMetadata( this );
         }
 
-    private:
-        static uint16_t AddMetadata( const Metadata* newMetadata )
-        {
-            sAllMetadata.emplace_back( newMetadata );
+        static constexpr float kDefaultUiDragSpeedFloat = 0.02f;
+        static constexpr float kDefaultUiDragSpeedInt = 0.2f;
 
-            return (uint16_t)sAllMetadata.size() - 1;
+    private:
+        static node_id AddMetadata( const Metadata* newMetadata )
+        {
+            sAllMetadata.push_back( newMetadata );
+
+            return (node_id)sAllMetadata.size() - 1;
         }
 
-        static std::vector<const Metadata*> sAllMetadata;
+        static Vector<const Metadata*> sAllMetadata;
     };
 
     // Stores data to create an instance of a FastNoise node
     // Node type, member values
-    struct FASTNOISE_API NodeData
+    struct NodeData
     {
-        NodeData( const Metadata* metadata );
+        NodeData( const Metadata* data )
+        {
+            if( ( metadata = data ) )
+            {
+                for( const Metadata::MemberVariable& value: metadata->memberVariables )
+                {
+                    variables.push_back( value.valueDefault );
+                }
+
+                nodeLookups.assign( metadata->memberNodeLookups.size(), nullptr );
+
+                for( const Metadata::MemberHybrid& value: metadata->memberHybrids )
+                {
+                    hybrids.emplace_back( nullptr, value.valueDefault );
+                }
+            }
+        }
 
         const Metadata* metadata;
         std::vector<Metadata::MemberVariable::ValueUnion> variables;
@@ -240,5 +287,3 @@ namespace FastNoise
         }
     };
 }
-
-#pragma warning( pop )

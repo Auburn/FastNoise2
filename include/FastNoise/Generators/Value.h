@@ -1,20 +1,19 @@
 #pragma once
-#include "Generator.h"
+#include "BasicGenerators.h"
 
 namespace FastNoise
 {
-    class Value : public virtual Generator
+    class Value : public virtual VariableRange<Seeded<ScalableGenerator>>
     {
     public:
-        FASTSIMD_LEVEL_SUPPORT( FastNoise::SUPPORTED_SIMD_LEVELS );
         const Metadata& GetMetadata() const override;
     };
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<Value> : MetadataT<Generator>
+    struct MetadataT<Value> : MetadataT<VariableRange<Seeded<ScalableGenerator>>>
     {
-        SmartNode<> CreateNode( FastSIMD::eLevel ) const override;
+        SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
         MetadataT()
         {

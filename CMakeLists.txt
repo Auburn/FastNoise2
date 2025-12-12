@@ -1,34 +1,8 @@
 # CMakeList.txt : CMake project for FastNoise2
-cmake_minimum_required(VERSION 3.7.1)
+cmake_minimum_required(VERSION 3.10)
 
-project(FastNoise2 VERSION 0.10.0)
+project(FastNoise2 VERSION 0.9.4)
 set(CMAKE_CXX_STANDARD 17)
-
-message("FastNoise2 Arch: ${CMAKE_SYSTEM_PROCESSOR}") 
-
-if(CMAKE_SYSTEM_PROCESSOR MATCHES armv7)
-
-    set(FASTSIMD_COMPILE_ARMV7 true)
-    set(FASTSIMD_COMPILE_ARM true)
-    set(FASTSIMD_COMPILE_HAVE_NEON true)
-
-elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL aarch64)
-
-    set(FASTSIMD_COMPILE_AARCH64 true)
-    set(FASTSIMD_COMPILE_ARM true)
-    set(FASTSIMD_COMPILE_HAVE_NEON true)
-
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES arm64)
-
-    set(FASTSIMD_COMPILE_ARM true)
-    set(FASTSIMD_COMPILE_HAVE_NEON true)
-
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES arm)
-
-    set(FASTSIMD_COMPILE_ARM true)
-
-endif()
-
 
 # determine whether this is a standalone project or included by other projects
 if (NOT DEFINED FASTNOISE2_STANDALONE_PROJECT)
@@ -42,8 +16,11 @@ endif()
 # Build DLL
 #set(BUILD_SHARED_LIBS ON) 
 
-option(FASTNOISE2_NOISETOOL "Build NoiseTool application" ${FASTNOISE2_STANDALONE_PROJECT})
+option(FASTNOISE2_TOOLS "Build \"Node Editor\" executable" ${FASTNOISE2_STANDALONE_PROJECT})
 option(FASTNOISE2_TESTS "Build tests" OFF)
+option(FASTNOISE2_UTILITY "Build utility tools" OFF)
+
+option(FASTNOISE2_STRICT_FP "Enable strict floating point calculations to ensure output from different SIMD feature sets match EXACTLY" OFF)
 
 if(MSVC)
     #setup pdb target location
@@ -62,16 +39,19 @@ endif()
 include(GNUInstallDirs) 
 set(install_targets "")
 
+include(cmake/CPM.cmake)
 add_subdirectory(src)
 
-if(FASTNOISE2_NOISETOOL)
-    include(cmake/CPM.cmake)
-    add_subdirectory(NoiseTool)
+if(FASTNOISE2_TOOLS)
+    add_subdirectory(tools)
 endif()
 
 if(FASTNOISE2_TESTS)
-    include(cmake/CPM.cmake)  
     add_subdirectory(tests)
+endif()
+
+if(FASTNOISE2_UTILITY)
+    add_subdirectory(util)
 endif()
 
 
