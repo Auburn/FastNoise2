@@ -144,7 +144,7 @@ namespace FastNoise
 
 #ifdef FASTNOISE_METADATA
     template<>
-    struct MetadataT<CellularLookup> : MetadataT<Cellular<ScalableGenerator>>
+    struct MetadataT<CellularLookup> : MetadataT<Cellular<Seeded<ScalableGenerator>>>
     {
         SmartNode<> CreateNode( FastSIMD::FeatureSet ) const override;
 
