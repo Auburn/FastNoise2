@@ -451,9 +451,10 @@ void NoiseTexture::DrawExportMenu()
                     ), filename.c_str(), fileString.data(), fileString.length() );
 #else
                 file.close();
+                std::string fileString = fullPath.string();
 #endif
 
-                Debug{} << "BMP Export Complete:" << fullPath.string().c_str();
+                Debug{} << "BMP Export Complete:" << fileString.data();
                 mIsExporting = false;
             }
         } );
