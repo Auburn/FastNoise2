@@ -1,7 +1,7 @@
 CPMAddPackage(
     NAME corrade
     GITHUB_REPOSITORY mosra/corrade
-    GIT_TAG f37591439479a5169134f8f2eba551b95054057a
+    GIT_TAG e716388dd792d90d08b0936d460f6ccdb34150de
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -36,7 +36,7 @@ endif()
 CPMAddPackage(
     NAME magnum
     GITHUB_REPOSITORY mosra/magnum
-    GIT_TAG b85f0c8dfeef12c209bfb2dfc4efd1d79cdd1c9e
+    GIT_TAG 179a68229f57bd0f833dad30647f2988fd8d8966
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -64,7 +64,7 @@ set(IMGUI_DIR ${imgui_SOURCE_DIR})
 CPMAddPackage(
     NAME magnum-integration
     GITHUB_REPOSITORY mosra/magnum-integration
-    GIT_TAG 30d179f341eafb2b69d9c29d9b7af2b736122786
+    GIT_TAG 354f1295b91b14f86edd18b1574567d83cad5704
     GIT_SUBMODULES "src"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -143,13 +143,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_link_options(NodeEditor PRIVATE 
         "-sPTHREAD_POOL_SIZE=Math.max(2,navigator.hardwareConcurrency)+3-navigator.hardwareConcurrency/4"
         -pthread -sALLOW_MEMORY_GROWTH=1 -lidbfs.js -s FORCE_FILESYSTEM
-        --shell-file "resources/emscripten_shell.html"
-        --pre-js "resources/emscripten_pre.js"
+        --shell-file "${CMAKE_CURRENT_LIST_DIR}/resources/emscripten_shell.html"
+        --pre-js "${CMAKE_CURRENT_LIST_DIR}/resources/emscripten_pre.js"
         -Wl,-u,_emscripten_run_callback_on_thread
     )
     add_custom_command(TARGET NodeEditor POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "resources/emscripten_enable_shared_array_buffer.js"
+        "${CMAKE_CURRENT_LIST_DIR}/resources/emscripten_enable_shared_array_buffer.js"
         $<TARGET_FILE_DIR:NodeEditor>
     )
 
