@@ -125,7 +125,7 @@ bool CreateImage( const FastNoise::Metadata* metadata, const std::string& outDir
 
         file.close();
 
-        std::string convertCmd = "magick convert \"";
+        std::string convertCmd = "magick \"";
         convertCmd += tempFile.string();
         convertCmd += "\" \"" + outDir + "/images/" + nodeName + ".png";
 
