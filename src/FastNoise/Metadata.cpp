@@ -25,7 +25,7 @@ constexpr size_t gMetadataVectorSize<const Metadata*> = 47;
 template<>
 constexpr size_t gMetadataVectorSize<const char*> = 93;
 template<>
-constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 92;
+constexpr size_t gMetadataVectorSize<Metadata::MemberVariable> = 93;
 template<>
 constexpr size_t gMetadataVectorSize<Metadata::MemberNodeLookup> = 32;
 template<>
