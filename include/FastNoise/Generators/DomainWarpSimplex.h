@@ -40,6 +40,12 @@ namespace FastNoise
                 VectorizationScheme::OrthogonalGradientMatrix, &DomainWarpSimplex::SetVectorizationScheme,
                 kVectorizationScheme_Strings
             );
+
+            description =
+                "Warp the domain using a simplex grid\n"
+                "The warped position is used when generating the attached source node\n"
+                "This node does not change the output value of the source node\n"
+                "A higher quality domain warp compared to DomainWarpGradient at the cost of performance";
         }
     };
 #endif
@@ -58,6 +64,11 @@ namespace FastNoise
 
         MetadataT()
         {
+            description =
+                "Warp the domain using a smooth simplex grid\n"
+                "The warped position is used when generating the attached source node\n"
+                "This node does not change the output value of the source node\n"
+                "A higher quality smoother warp compared to DomainWarpSimplex at the cost of performance";
         }
     };
 #endif
