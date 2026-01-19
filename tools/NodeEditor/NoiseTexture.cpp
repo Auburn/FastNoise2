@@ -440,14 +440,18 @@ void NoiseTexture::DrawExportMenu()
                     const tempBuffer = new ArrayBuffer( $2 );
                     const tempView = new Uint8Array( tempBuffer );
 
-                    let sharedView = new Uint8Array( Module["HEAPU8"].buffer, $1, $2 );
+                    let sharedView = new Uint8Array( wasmMemory.buffer, $1, $2 );
                     tempView.set( sharedView );
 
                     /// Offer a buffer in memory as a file to download, specifying download filename and mime type
                     var a = document.createElement( 'a' );
                     a.download = UTF8ToString( $0 );
                     a.href = URL.createObjectURL( new Blob( [tempView], {type: 'image/bmp'} ) );
+                    a.style.display = 'none';
+                    document.body.appendChild( a );
                     a.click();
+                    document.body.removeChild( a );
+                    URL.revokeObjectURL( a.href );
                     ), filename.c_str(), fileString.data(), fileString.length() );
 #else
                 file.close();
