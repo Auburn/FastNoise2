@@ -47,7 +47,7 @@ jobs:
 
     steps:
     - name: 'Install OpenGL & xorg'
-      if: matrix.os == 'ubuntu-latest'
+      if: startsWith(matrix.name, 'Linux')
       run: |
         sudo apt-get update
         sudo apt-get install libgl1-mesa-dev libwayland-dev libxkbcommon-dev xorg-dev
@@ -81,7 +81,7 @@ jobs:
     - name: 'CMake Install Release'
       run: cmake --build ${{ github.workspace }}/release --config Release --target install
 
-    - if: runner.os != 'Windows'
+    - if: runner.os != 'Windows' && matrix.name != 'Emscripten-WASM' 
       run: chmod +x ${{ github.workspace }}/install/FastNoise2/bin/NodeEditor
       
     - name: 'Upload artifact'
