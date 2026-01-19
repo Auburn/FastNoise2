@@ -453,12 +453,14 @@ void NoiseTexture::DrawExportMenu()
                     document.body.removeChild( a );
                     URL.revokeObjectURL( a.href );
                     ), filename.c_str(), fileString.data(), fileString.length() );
+                    
+                std::string_view fileSaveString = filename;
 #else
                 file.close();
-                std::string fileString = fullPath.string();
+                std::string fileSaveString = fullPath.string();
 #endif
 
-                Debug{} << "BMP Export Complete:" << fileString.data();
+                Debug{} << "BMP Export Complete:" << fileSaveString.data();
                 mIsExporting = false;
             }
         } );

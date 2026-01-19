@@ -41,6 +41,9 @@ jobs:
           - os: macos-latest
             name: MacOSARM64-Clang
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          - os: ubuntu-latest
+            name: Emscripten-WASM
+            cmake_options: -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/toolchains/generic/Emscripten-wasm.cmake
 
     steps:
     - name: 'Install OpenGL & xorg'
@@ -49,8 +52,22 @@ jobs:
         sudo apt-get update
         sudo apt-get install libgl1-mesa-dev libwayland-dev libxkbcommon-dev xorg-dev
 
+    - name: 'Setup Emscripten'
+      if: matrix.name == 'Emscripten-WASM'
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: 4.0.21
+
     - name: 'Checkout'
       uses: actions/checkout@v3
+
+    - name: 'Checkout toolchains'        
+      if: matrix.name == 'Emscripten-WASM'
+      uses: actions/checkout@v3
+      with:
+        repository: mosra/toolchains
+        ref: 01fba65ea1183b301ddc1305cf4ddb7011d9208d
+        path: toolchains
 
     - name: 'CMake Build Debug'
       run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/debug -DCMAKE_BUILD_TYPE=Debug -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install/FastNoise2" -DFASTNOISE2_TOOLS=OFF -DFASTNOISE2_TESTS=OFF ${{ matrix.cmake_options }}
