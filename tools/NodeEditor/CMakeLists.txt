@@ -152,6 +152,13 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         "${CMAKE_CURRENT_LIST_DIR}/resources/emscripten_enable_shared_array_buffer.js"
         $<TARGET_FILE_DIR:NodeEditor>
     )
+    # Install Emscripten-generated companion files
+    install(FILES 
+        $<TARGET_FILE_DIR:NodeEditor>/NodeEditor.js
+        $<TARGET_FILE_DIR:NodeEditor>/NodeEditor.wasm
+        "${CMAKE_CURRENT_LIST_DIR}/resources/emscripten_enable_shared_array_buffer.js"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    )
 
 elseif (UNIX)
     target_link_options(NodeEditor PRIVATE -pthread)
