@@ -43,7 +43,7 @@ jobs:
             cmake_options: -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
           - os: ubuntu-latest
             name: Emscripten-WASM
-            cmake_options: -G Ninja -DCMAKE_TOOLCHAIN_FILE=./toolchains/generic/Emscripten-wasm.cmake -DFASTNOISE2_TESTS=OFF
+            cmake_options: -G Ninja -DCMAKE_TOOLCHAIN_FILE=./toolchains/generic/Emscripten-wasm.cmake -DFASTNOISE2_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
 
     steps:
     - name: 'Install OpenGL & xorg'
