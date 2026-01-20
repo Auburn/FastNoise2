@@ -103,17 +103,9 @@ void NoiseTexture::Draw()
                     windowSizeDelta = delta;
                 }
 
-                // Scale control with center-relative scaling
-                float previousScale = mBuildData.scale;
-                if( ImGui::DragFloat( "Scale", &mBuildData.scale, 0.01f ) )
-                {
-                    // Adjust offset to maintain visual center when scale changes
-                    if( mBuildData.scale != 0.0f )
-                    {
-                        mBuildData.offset *= previousScale / mBuildData.scale;
-                    }
-                    edited = true;
-                }
+                // Scale control - offset is already the center point in noise space,
+                // so no adjustment is needed to maintain visual center when scale changes
+                edited |= ImGui::DragFloat( "Scale", &mBuildData.scale, 0.01f );
 
                 // Offset controls
                 if( mBuildData.generationType != GenType_2DTiled )
