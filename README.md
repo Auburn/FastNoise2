@@ -65,8 +65,7 @@ Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for c
 
 [FastNoise Lite](https://github.com/Auburn/FastNoiseLite) is a simpler, portable library best suited for basic noise needs in many languages. Choose **FastNoise2** when you need:
 - Maximum performance through SIMD optimization
-- Complex noise combinations without performance penalties
-- Domain warping and advanced modifiers
+- Better tools to create interesting noise generation
 - Runtime-configurable node graphs
 
 ## Platform Support
