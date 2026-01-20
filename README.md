@@ -50,7 +50,7 @@ The FastNoise2 Node Editor tool provides a node graph editor to create trees of 
 
 [Web WASM Node Editor](https://auburn.github.io/fastnoise2nodeeditor/)
 
-Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries
+Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries for desktop platforms
 
 ![Node Editor Mountain Terrain](https://github.com/user-attachments/assets/acda59bd-1245-40dd-8f0e-06fa8a17c60d)
 
