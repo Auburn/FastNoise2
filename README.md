@@ -6,6 +6,8 @@
 
 Modular node based noise generation library using SIMD, focused on performance, modern C++17 and designed with ease of use in mind.
 
+Noise node graphs can be created in code or with the help of the included visual "Node Editor" tool. Or if you just want basic coherent noise you can easily generate it from a single Simplex/Perlin node
+
 Uses [FastSIMD](https://github.com/Auburn/FastSIMD) to compile code with multiple SIMD architectures and selects the fastest supported SIMD level at runtime
 - Scalar (non-SIMD)
 - SSE2
