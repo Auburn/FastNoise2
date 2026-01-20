@@ -8,6 +8,50 @@ Modular node based noise generation library using SIMD, focused on performance, 
 
 Noise node graphs can be created in code or with the help of the included visual "Node Editor" tool. Or if you just want basic coherent noise you can easily generate it from a single Simplex/Perlin node
 
+### Why Nodes?
+
+The node-based approach keeps all noise generation and operations (add, multiply, blend, etc.) within the SIMD pipeline. This means when combining multiple noise types or applying modifiers, the intermediate values stay in SIMD registers rather than being written to memory. Traditional approaches require allocating separate arrays for each noise type, generating them individually, then combining them afterwards with scalar or less efficient operations. With FastNoise2's node graph, the entire computation is fused and executed in SIMD, maximizing throughput and minimizing both memory allocation and bandwidth.
+
+## Features
+
+**Coherent Noise**
+- Perlin, Simplex, SuperSimplex (OpenSimplex2S), Value
+- Cellular Value, Cellular Distance, Cellular Lookup
+
+**Fractals**
+- FBm, Ridged
+
+**Blends & Operators**
+- Add, Subtract, Multiply, Divide, (Smooth)Min, (Smooth)Max, Fade, and more
+
+**Modifiers**
+- Remap, Terrace, Domain Scale/Offset/Rotate, and more
+
+**Domain Warping**
+- Gradient, Simplex, SuperSimplex
+- Fractal Progressive, Fractal Independent
+
+**Dimensions**
+- 2D, 3D, 4D noise generation + 2D tiling support
+
+**Thread Safety**
+- Fully thread-safe: generate noise in parallel across multiple threads with the same node tree
+
+**Serialization**
+- Node trees can be encoded to compact strings and decoded at runtime for quick iteration
+- Create complex noise setups in the Node Editor and load them directly into your application
+- Connect your application directly to the node editor and see live node tree update in your engine
+
+## FastNoise2 vs FastNoise Lite
+
+[FastNoise Lite](https://github.com/Auburn/FastNoise_Lite) is a simpler, portable library best suited for basic noise needs in many languages. Choose **FastNoise2** when you need:
+- Maximum performance through SIMD optimization
+- Complex noise combinations without performance penalties
+- Domain warping and advanced modifiers
+- Runtime-configurable node graphs
+
+## Platform Support
+
 Uses [FastSIMD](https://github.com/Auburn/FastSIMD) to compile code with multiple SIMD architectures and selects the fastest supported SIMD level at runtime
 - Scalar (non-SIMD)
 - SSE2
