@@ -12,7 +12,7 @@ Noise node graphs can be created in code or with the help of the included visual
 
 The node-based approach keeps all noise generation and operations (add, multiply, blend, etc.) within the SIMD pipeline. This means when combining multiple noise types or applying modifiers, the intermediate values stay in SIMD registers rather than being written to memory.
 
-Traditional approaches require allocating separate arrays for each noise type, generating them individually, then combining them afterwards with scalar or less efficient operations. With FastNoise2's node graph, the entire computation is fused and executed in SIMD, maximizing throughput and minimizing both memory allocation and bandwidth.
+The traditional approach of generating noise types separately and combining them with scalar operations doesn't make sense if you want to benefit from SIMD. With just SIMD noise generation each noise type is generated into its own array, then the arrays would need to be combined afterwards in separate passes. With FastNoise2's node graph, the entire computation is fused and executed in SIMD, maximizing throughput and minimizing both memory allocation and bandwidth.
 
 ## Features
 
@@ -43,6 +43,11 @@ Traditional approaches require allocating separate arrays for each noise type, g
 - Node trees can be encoded to compact strings and decoded at runtime for quick iteration
 - Create complex noise setups in the Node Editor and load them directly into your application
 - Connect your application directly to the node editor and see live node tree update in your engine
+
+**Extendable**
+- Create custom noise nodes using the SIMD-agnostic interface provided by FastSIMD
+- Write code once and it automatically compiles for all supported SIMD architectures
+- Custom nodes work in the Node Editor and node tree serialisation with minimal effort
 
 ## Node Editor
 
