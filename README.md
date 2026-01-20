@@ -4,19 +4,16 @@
 
 # FastNoise2
 
-WIP successor to [FastNoiseSIMD](https://github.com/Auburn/FastNoiseSIMD)
+Modular node based noise generation library using SIMD, focused on performance, modern C++17 and designed with ease of use in mind.
 
-Modular node based noise generation library using SIMD, modern C++17 and templates
-
-FastNoise2 is a fully featured noise generation library which aims to meet all your coherent noise needs while being extremely fast
-
-Uses FastSIMD to compile classes with multiple SIMD types and selects the fastest supported SIMD level at runtime
+Uses [FastSIMD](https://github.com/Auburn/FastSIMD) to compile code with multiple SIMD architectures and selects the fastest supported SIMD level at runtime
 - Scalar (non-SIMD)
 - SSE2
 - SSE4.1
 - AVX2
 - AVX512
 - NEON
+- WASM SIMD
 
 Supports:
 - 32/64 bit
@@ -24,9 +21,11 @@ Supports:
 - Linux
 - Android
 - MacOS x86/ARM
+- iOS
 - MSVC
 - Clang
 - GCC
+- Emscripten (WASM)
 
 Bindings:
 - [C#](https://github.com/Auburn/FastNoise2Bindings)
@@ -40,11 +39,16 @@ Roadmap:
 
 ## Node Editor
 
-The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D and 3D previews for the node graph output, see screenshots below for examples.
+The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D texture/heightmap and 3D mesh previews for the node graph output, generation is infinite in all dimensions. See screenshots below for examples.
+
+Live web version WASM, [Web Node Editor](https://auburn.github.io/fastnoise2nodeeditor/)
 
 Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries
 
-![Node Editor](https://user-images.githubusercontent.com/1349548/90967950-4e8da600-e4de-11ea-902a-94e72cb86481.png)
+![Node Editor Mountain Terrain](https://github.com/user-attachments/assets/acda59bd-1245-40dd-8f0e-06fa8a17c60d)
+
+![Node Editor Crazy Terrain](https://github.com/user-attachments/assets/22bb2052-b17d-415e-897d-999869991fa9)
+
 
 ## Performance
 
@@ -78,4 +82,4 @@ Million points of noise generated per second (higher = better)
 
 # Getting Started
 
-See [documentation](https://github.com/Auburn/FastNoise2/wiki)
+See [Wiki](https://github.com/Auburn/FastNoise2/wiki)
