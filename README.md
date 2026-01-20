@@ -10,7 +10,9 @@ Noise node graphs can be created in code or with the help of the included visual
 
 ### Why Nodes?
 
-The node-based approach keeps all noise generation and operations (add, multiply, blend, etc.) within the SIMD pipeline. This means when combining multiple noise types or applying modifiers, the intermediate values stay in SIMD registers rather than being written to memory. Traditional approaches require allocating separate arrays for each noise type, generating them individually, then combining them afterwards with scalar or less efficient operations. With FastNoise2's node graph, the entire computation is fused and executed in SIMD, maximizing throughput and minimizing both memory allocation and bandwidth.
+The node-based approach keeps all noise generation and operations (add, multiply, blend, etc.) within the SIMD pipeline. This means when combining multiple noise types or applying modifiers, the intermediate values stay in SIMD registers rather than being written to memory.
+
+Traditional approaches require allocating separate arrays for each noise type, generating them individually, then combining them afterwards with scalar or less efficient operations. With FastNoise2's node graph, the entire computation is fused and executed in SIMD, maximizing throughput and minimizing both memory allocation and bandwidth.
 
 ## Features
 
@@ -41,6 +43,18 @@ The node-based approach keeps all noise generation and operations (add, multiply
 - Node trees can be encoded to compact strings and decoded at runtime for quick iteration
 - Create complex noise setups in the Node Editor and load them directly into your application
 - Connect your application directly to the node editor and see live node tree update in your engine
+
+## Node Editor
+
+The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D texture/heightmap and 3D mesh previews for the node graph output, generation is infinite in all dimensions. See screenshots below for examples.
+
+Live web version WASM, [Web Node Editor](https://auburn.github.io/fastnoise2nodeeditor/)
+
+Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries
+
+![Node Editor Mountain Terrain](https://github.com/user-attachments/assets/acda59bd-1245-40dd-8f0e-06fa8a17c60d)
+
+![Node Editor Crazy Terrain](https://github.com/user-attachments/assets/22bb2052-b17d-415e-897d-999869991fa9)
 
 ## FastNoise2 vs FastNoise Lite
 
@@ -82,19 +96,6 @@ Bindings:
 
 Roadmap:
 - [Vague collection of ideas](https://github.com/users/Auburn/projects/1)
-
-## Node Editor
-
-The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D texture/heightmap and 3D mesh previews for the node graph output, generation is infinite in all dimensions. See screenshots below for examples.
-
-Live web version WASM, [Web Node Editor](https://auburn.github.io/fastnoise2nodeeditor/)
-
-Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries
-
-![Node Editor Mountain Terrain](https://github.com/user-attachments/assets/acda59bd-1245-40dd-8f0e-06fa8a17c60d)
-
-![Node Editor Crazy Terrain](https://github.com/user-attachments/assets/22bb2052-b17d-415e-897d-999869991fa9)
-
 
 ## Performance
 
