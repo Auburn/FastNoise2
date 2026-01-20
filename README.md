@@ -45,9 +45,9 @@ The traditional approach of generating noise types separately and combining them
 - Connect your application directly to the node editor and see live node tree update in your engine
 
 **Extendable**
-- Create custom noise nodes using the SIMD-agnostic interface provided by FastSIMD
+- Create custom nodes using the SIMD-agnostic interface provided by FastSIMD
 - Write code once and it automatically compiles for all supported SIMD architectures
-- Custom nodes work in the Node Editor and node tree serialisation with minimal effort
+- Custom nodes work in the Node Editor, serialisation and other language bindings with minimal effort thanks to node metadata
 
 ## Node Editor
 
