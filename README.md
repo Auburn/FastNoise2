@@ -91,7 +91,7 @@ Supports:
 - GCC
 - Emscripten (WASM)
 
-On Windows using ClangCL is recommended as MSVC has SIMD compiler bugs, which cause incorrect outputs. Remember ClangCL binaries/libraries are fully compatible with MSVC!
+On Windows using ClangCL is recommended as MSVC has SIMD compiler bugs, which cause incorrect generation. ClangCL also complies much faster and has measurable runtime performance increases. Remember ClangCL binaries/libraries are fully compatible with MSVC!
 
 Bindings:
 - [C#](https://github.com/Auburn/FastNoise2Bindings)
