@@ -87,9 +87,11 @@ Supports:
 - MacOS x86/ARM
 - iOS
 - MSVC
-- Clang
+- Clang(CL)
 - GCC
 - Emscripten (WASM)
+
+On Windows using ClangCL is recommended as MSVC has SIMD compiler bugs, which cause incorrect outputs. Remember ClangCL binaries/libraries are fully compatible with MSVC!
 
 Bindings:
 - [C#](https://github.com/Auburn/FastNoise2Bindings)
