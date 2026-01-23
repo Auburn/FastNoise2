@@ -34,7 +34,7 @@ install(
 file(GLOB FastNoise_headers "../include/FastNoise/*.h")
 file(GLOB_RECURSE FastNoise_generators "../include/FastNoise/Generators/*")
 file(GLOB_RECURSE FastNoise_utility "../include/FastNoise/Utility/*")
-file(GLOB_RECURSE FastNoise_source "../src/*")
+file(GLOB_RECURSE FastNoise_source "../src/*.h" "../src/*.cpp" "../src/*.inl")
 
 source_group("FastNoise" FILES ${FastNoise_headers})
 source_group("FastNoise" FILES ${FastNoise_source})
@@ -44,8 +44,8 @@ source_group("FastNoise/Utility" FILES ${FastNoise_utility})
 add_library(FastNoise
     ${FastNoise_headers}
     ${FastNoise_source}
-    ${FastNoise_generators_headers}
-    ${FastNoise_utility_headers}
+    ${FastNoise_generators}
+    ${FastNoise_utility}
 )
 
 add_library(FastNoise2 ALIAS FastNoise)
