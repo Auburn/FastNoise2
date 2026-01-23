@@ -65,8 +65,7 @@ Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for c
 
 [FastNoise Lite](https://github.com/Auburn/FastNoiseLite) is a simpler, portable library best suited for basic noise needs in many languages. Choose **FastNoise2** when you need:
 - Maximum performance through SIMD optimization
-- Complex noise combinations without performance penalties
-- Domain warping and advanced modifiers
+- Better tools to create interesting noise generation
 - Runtime-configurable node graphs
 
 ## Platform Support
@@ -88,9 +87,11 @@ Supports:
 - MacOS x86/ARM
 - iOS
 - MSVC
-- Clang
+- Clang(CL)
 - GCC
 - Emscripten (WASM)
+
+On Windows using ClangCL is recommended as MSVC has SIMD compiler bugs, which cause incorrect generation. ClangCL also complies much faster and has measurable runtime performance increases. Remember ClangCL binaries/libraries are fully compatible with MSVC!
 
 Bindings:
 - [C#](https://github.com/Auburn/FastNoise2Bindings)
