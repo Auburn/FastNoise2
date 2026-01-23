@@ -49,6 +49,7 @@ target_include_directories(FastNoise PUBLIC
 )
    
 target_compile_definitions(FastNoise PRIVATE FASTNOISE_EXPORT)
+target_compile_definitions(FastNoise PUBLIC FASTNOISE2_VERSION="${FastNoise2_VERSION}")
 
 set_target_properties(FastNoise PROPERTIES
     DEBUG_POSTFIX D

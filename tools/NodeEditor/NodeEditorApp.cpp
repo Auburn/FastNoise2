@@ -162,6 +162,8 @@ void NodeEditorApp::drawEvent()
 
             ImGui::Checkbox( "Backface Culling", &mBackFaceCulling );
 
+            ImGui::Text( "FastNoise2 v" FASTNOISE2_VERSION );
+
             ImGui::Text( "Application average %.3f ms/frame (%.1f FPS)",
                          1000.0 / Double( ImGui::GetIO().Framerate ), Double( ImGui::GetIO().Framerate ) );
 
