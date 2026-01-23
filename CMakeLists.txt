@@ -103,19 +103,6 @@ install(
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
-# Headers:
-install(
-    FILES ${install_fastsimd_headers}
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/FastSIMD"
-)
-install(
-    FILES ${install_fastnoise_headers}
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/FastNoise"
-)
-install(
-    FILES ${install_fastnoise_generators_headers}
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/FastNoise/Generators"
-)
 
 # Config
 #   * <prefix>/lib/cmake/${PROJECT_NAME}/${PROJECT_NAME}Config.cmake

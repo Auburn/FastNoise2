@@ -11,34 +11,41 @@ set(install_targets ${install_targets}
     FastSIMD_FastNoise  
     PARENT_SCOPE)
 
+install(
+    DIRECTORY "${FastNoise2_SOURCE_DIR}/include/FastNoise"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    FILES_MATCHING PATTERN "*.h"
+)
+install(
+    DIRECTORY "${FastSIMD_SOURCE_DIR}/include/FastSIMD/Utility"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/FastSIMD"
+    FILES_MATCHING PATTERN "*.h"
+)
+install(
+    FILES "${FastSIMD_SOURCE_DIR}/include/FastSIMD/DispatchClass.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/FastSIMD"
+)
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/fastsimd/FastSIMD_FastNoise/include/FastSIMD/FastSIMD_FastNoise_config.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/FastSIMD"
+)
+
 
 file(GLOB FastNoise_headers "../include/FastNoise/*.h")
-file(GLOB FastNoise_inl "../include/FastNoise/*.inl")
-file(GLOB_RECURSE FastNoise_generators_headers "../include/FastNoise/Generators/*.h")
-file(GLOB_RECURSE FastNoise_generators_inl "../include/FastNoise/Generators/*.inl")
-
-set(install_fastnoise_headers ${FastNoise_headers} PARENT_SCOPE)
-set(install_fastnoise_generators_headers ${FastNoise_generators_headers} PARENT_SCOPE)
-
-list(APPEND FastNoise_headers ${FastNoise_inl})
-list(APPEND FastNoise_generators_headers ${FastNoise_generators_inl})
-
-set(FastNoise_source
-    FastNoise/Metadata.cpp
-    FastNoise/SmartNode.cpp
-    FastNoise/FastNoise_C.cpp)
+file(GLOB_RECURSE FastNoise_generators "../include/FastNoise/Generators/*")
+file(GLOB_RECURSE FastNoise_utility "../include/FastNoise/Utility/*")
+file(GLOB_RECURSE FastNoise_source "../src/*")
 
 source_group("FastNoise" FILES ${FastNoise_headers})
 source_group("FastNoise" FILES ${FastNoise_source})
-source_group("FastNoise/Generators" FILES ${FastNoise_generators_headers})
+source_group("FastNoise/Generators" FILES ${FastNoise_generators})
+source_group("FastNoise/Utility" FILES ${FastNoise_utility})
 
 add_library(FastNoise
     ${FastNoise_headers}
     ${FastNoise_source}
     ${FastNoise_generators_headers}
-    ${FastSIMD_headers}
-    ${FastSIMD_internal_headers}
-    ${FastSIMD_sources}
+    ${FastNoise_utility_headers}
 )
 
 add_library(FastNoise2 ALIAS FastNoise)
