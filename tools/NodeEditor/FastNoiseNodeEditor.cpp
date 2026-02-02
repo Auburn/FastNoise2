@@ -762,6 +762,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         // Declare variables used in menus
         bool openStandaloneNodeGraph = false;
 
+        ImGuiWindow* nodeGraphWindow = ImGui::GetCurrentWindow();
+
         // Menu bar for preview settings
         if( ImGui::BeginMenuBar() )
         {
@@ -830,8 +832,8 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
                     {
                         openStandaloneNodeGraph = true;
 
-                        ImGui::SetWindowCollapsed( true );
-                        ImGui::GetCurrentWindow()->Pos = ImVec2( 0, 0 );
+                        ImGui::SetWindowCollapsed( nodeGraphWindow, true );
+                        nodeGraphWindow->Pos = ImVec2( 0, 0 );
                     }
                     if( ImGui::IsItemHovered() )
                     {
