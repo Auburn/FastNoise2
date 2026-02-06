@@ -113,10 +113,10 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        [this, seed] ( P&... out, std::remove_reference_t<P>... pos )
+        [self = this, seed] ( P&... out, std::remove_reference_t<P>... pos )
         {
             size_t pointIdx = 0;
-            ((out -= this->GetSourceValue( mPoint[pointIdx++], seed, pos... )), ...);
+            ((out -= self->GetSourceValue( self->mPoint[pointIdx++], seed, pos... )), ...);
 
         }( pos..., pos... );
 
