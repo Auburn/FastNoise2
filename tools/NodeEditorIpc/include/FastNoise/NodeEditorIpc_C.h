@@ -51,6 +51,21 @@ FASTNOISE_API bool fnEditorIpcSendImportRequest( void* ipc, const char* encodedN
 /// <returns>Message type (1 = selected node, 2 = import request), 0 if no new message, -1 if buffer too small</returns>
 FASTNOISE_API int fnEditorIpcPollMessage( void* ipc, char* outBuffer, int bufferSize );
 
+/// <summary>
+/// Set the full path to the NodeEditor executable (overrides automatic discovery)
+/// </summary>
+/// <param name="path">Full path to NodeEditor executable, or NULL to clear</param>
+FASTNOISE_API void fnEditorIpcSetNodeEditorPath( const char* path );
+
+/// <summary>
+/// Start a NodeEditor process
+/// </summary>
+/// <param name="encodedNodeTree">Initial encoded node tree to load, or NULL for default</param>
+/// <param name="detached">If true, start in detached node graph mode (no 3D preview panel)</param>
+/// <param name="childProcess">If true, the spawned editor dies when the calling process exits</param>
+/// <returns>true on success, false if NodeEditor binary was not found or launch failed</returns>
+FASTNOISE_API bool fnEditorIpcStartNodeEditor( const char* encodedNodeTree, bool detached, bool childProcess );
+
 #ifdef __cplusplus
 }
 #endif

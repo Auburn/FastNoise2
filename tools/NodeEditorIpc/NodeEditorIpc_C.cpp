@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cstring>
+#include <string>
 
 #ifndef __EMSCRIPTEN__
 #ifdef _WIN32
@@ -16,11 +17,34 @@
 #include <sys/stat.h>   // For mode constants
 #include <unistd.h>
 #include <cerrno>
+#include <dlfcn.h>      // For dladdr
+#include <libgen.h>     // For dirname
 #endif
+#endif
+
+// For filesystem operations
+#ifdef _WIN32
+#include <direct.h>
+#else
+#include <sys/types.h>
+#include <sys/wait.h>
 #endif
 
 static constexpr const char* kSharedMemoryName = "/FastNoise2NodeEditor";
 static constexpr unsigned int kSharedMemorySize = 64 * 1024;
+
+#ifdef _WIN32
+static HMODULE g_hModule = nullptr;
+
+BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
+{
+    if( fdwReason == DLL_PROCESS_ATTACH )
+    {
+        g_hModule = hinstDLL;
+    }
+    return TRUE;
+}
+#endif
 
 struct IpcContext
 {
@@ -253,4 +277,235 @@ int fnEditorIpcPollMessage( void* ipc, char* outBuffer, int bufferSize )
 
     std::memcpy( outBuffer, data, dataLen + 1 );
     return dataType;
+}
+
+// Global override for NodeEditor binary path
+static std::string g_nodeEditorPath;
+
+void fnEditorIpcSetNodeEditorPath( const char* path )
+{
+    if( path )
+    {
+        g_nodeEditorPath = path;
+    }
+    else
+    {
+        g_nodeEditorPath.clear();
+    }
+}
+
+// Helper to find the NodeEditor executable
+static std::string FindNodeEditorBinary()
+{
+    // If path was manually set, use it
+    if( !g_nodeEditorPath.empty() )
+    {
+        return g_nodeEditorPath;
+    }
+
+#ifdef _WIN32
+    char modulePath[MAX_PATH];
+    
+    // Try to get path
+    if( GetModuleFileNameA( g_hModule, modulePath, MAX_PATH ) )
+    {
+        // Extract directory from DLL path
+        std::string moduleDir( modulePath );
+        size_t lastSlash = moduleDir.find_last_of( "\\/" );
+        if( lastSlash != std::string::npos )
+        {
+            moduleDir = moduleDir.substr( 0, lastSlash );
+            
+            // Try: same directory as DLL
+            std::string candidate = moduleDir + "\\NodeEditor.exe";
+            if( GetFileAttributesA( candidate.c_str() ) != INVALID_FILE_ATTRIBUTES )
+            {
+                return candidate;
+            }
+            
+            // Try: ../bin relative to DLL
+            candidate = moduleDir + "\\..\\bin\\NodeEditor.exe";
+            if( GetFileAttributesA( candidate.c_str() ) != INVALID_FILE_ATTRIBUTES )
+            {
+                return candidate;
+            }
+        }
+    }
+    
+    return "";
+#else
+    Dl_info dlInfo;
+    
+    // Try to get SO path using a function pointer from this library (works for dynamic library)
+    if( dladdr( (void*)fnEditorIpcSetup, &dlInfo ) && dlInfo.dli_fname )
+    {
+        char* pathCopy = strdup( dlInfo.dli_fname );
+        char* soDir = dirname( pathCopy );
+        
+        // Try: same directory as SO
+        std::string candidate = std::string( soDir ) + "/NodeEditor";
+        if( access( candidate.c_str(), X_OK ) == 0 )
+        {
+            free( pathCopy );
+            return candidate;
+        }
+        
+        // Try: ../bin relative to SO
+        candidate = std::string( soDir ) + "/../bin/NodeEditor";
+        if( access( candidate.c_str(), X_OK ) == 0 )
+        {
+            free( pathCopy );
+            return candidate;
+        }
+        
+        free( pathCopy );
+    }
+    
+    // Static library fallback: try common paths relative to current working directory
+    // Try: ./NodeEditor
+    if( access( "./NodeEditor", X_OK ) == 0 )
+    {
+        return "./NodeEditor";
+    }
+    
+    // Try: ../bin/NodeEditor
+    if( access( "../bin/NodeEditor", X_OK ) == 0 )
+    {
+        return "../bin/NodeEditor";
+    }
+    
+    // Try: ./bin/NodeEditor
+    if( access( "./bin/NodeEditor", X_OK ) == 0 )
+    {
+        return "./bin/NodeEditor";
+    }
+    
+    return "";
+#endif
+}
+
+bool fnEditorIpcStartNodeEditor( const char* encodedNodeTree, bool detached, bool childProcess )
+{
+#ifdef __EMSCRIPTEN__
+    return false;
+#else
+    // Find the NodeEditor binary
+    std::string editorPath = FindNodeEditorBinary();
+    if( editorPath.empty() )
+    {
+        return false;
+    }
+    
+    // Build command line arguments
+    std::string cmdLine = "\"" + editorPath + "\"";
+    
+    if( detached )
+    {
+        cmdLine += " --detached";
+    }
+    
+    if( encodedNodeTree && encodedNodeTree[0] != '\0' )
+    {
+        cmdLine += " --import-ent ";
+        cmdLine += encodedNodeTree;
+    }
+    
+#ifdef _WIN32
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    
+    ZeroMemory( &si, sizeof( si ) );
+    si.cb = sizeof( si );
+    ZeroMemory( &pi, sizeof( pi ) );
+    
+    HANDLE hJob = nullptr;
+    
+    if( childProcess )
+    {
+        // Create a job object to terminate child when parent exits
+        hJob = CreateJobObjectA( NULL, NULL );
+        if( hJob )
+        {
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+            ZeroMemory( &jeli, sizeof( jeli ) );
+            jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            SetInformationJobObject( hJob, JobObjectExtendedLimitInformation, &jeli, sizeof( jeli ) );
+        }
+    }
+    
+    // Start the child process
+    if( !CreateProcessA( NULL,                  // No module name (use command line)
+                        (LPSTR)cmdLine.c_str(), // Command line
+                        NULL,                   // Process handle not inheritable
+                        NULL,                   // Thread handle not inheritable
+                        FALSE,                  // Set handle inheritance to FALSE
+                        0,                      // No creation flags
+                        NULL,                   // Use parent's environment block
+                        NULL,                   // Use parent's starting directory
+                        &si,                    // Pointer to STARTUPINFO structure
+                        &pi ) )                 // Pointer to PROCESS_INFORMATION structure
+    {
+        if( hJob )
+        {
+            CloseHandle( hJob );
+        }
+        return false;
+    }
+    
+    // Assign the child process to the job object
+    if( hJob )
+    {
+        AssignProcessToJobObject( hJob, pi.hProcess );
+    }
+    
+    // Close handles to the child process and primary thread
+    CloseHandle( pi.hProcess );
+    CloseHandle( pi.hThread );
+    
+    return true;
+    
+#else
+    pid_t pid = fork(); // Duplicate current process
+    
+    if( pid == 0 )
+    {
+        // Child process
+        if( !childProcess )
+        {
+            // Create a new session so the child survives parent exit
+            setsid();
+        }
+        
+        // Build argv array
+        const char* executable = editorPath.c_str();
+        
+        if( detached && encodedNodeTree && encodedNodeTree[0] != '\0' )
+        {
+            execl( executable, executable, "--detached", "--import-ent", encodedNodeTree, (char*)NULL );
+        }
+        else if( detached )
+        {
+            execl( executable, executable, "--detached", (char*)NULL );
+        }
+        else if( encodedNodeTree && encodedNodeTree[0] != '\0' )
+        {
+            execl( executable, executable, "--import-ent", encodedNodeTree, (char*)NULL );
+        }
+        else
+        {
+            execl( executable, executable, (char*)NULL );
+        }
+        
+        // If execl returns, it means it has failed
+        exit( EXIT_FAILURE );
+    }
+    
+    if( pid < 0 )
+    {
+        return false;
+    }
+    
+    return true;
+#endif
+#endif // __EMSCRIPTEN__
 }

@@ -30,7 +30,26 @@ void InitResources()
 
 static bool IsDetached( const NodeEditorApp::Arguments& arguments )
 {
-    return arguments.argc > 1 && std::string_view { arguments.argv[1] } == "-detached";
+    for( int i = 1; i < arguments.argc; ++i )
+    {
+        if( std::string_view{ arguments.argv[i] } == "--detached" )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static std::string InitialNodeTree( const NodeEditorApp::Arguments& arguments )
+{
+    for( int i = 1; i < arguments.argc - 1; ++i )
+    {
+        if( std::string_view{ arguments.argv[i] } == "--import-ent" )
+        {
+            return arguments.argv[i + 1];
+        }
+    }
+    return "";
 }
 
 NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
@@ -48,6 +67,7 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     },
     mIsDetachedNodeGraph( IsDetached( arguments ) ),
     mExecutablePath( arguments.argv[0] ),
+    mInitialNodeTree( InitialNodeTree( arguments ) ),
     mIpcContext( fnEditorIpcSetup( false ) ),
     mImGuiIntegrationContext{ NoCreate },
     mImGuiContext{ ImGui::CreateContext() },

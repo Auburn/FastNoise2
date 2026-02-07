@@ -41,6 +41,11 @@ namespace Magnum
             return mExecutablePath;
         }
 
+        const char* GetInitialNodeTree()
+        {
+            return mInitialNodeTree.empty() ? nullptr : mInitialNodeTree.c_str();
+        }
+
         static void SyncFileSystem();
 
     private:
@@ -60,6 +65,7 @@ namespace Magnum
 
         bool mIsDetachedNodeGraph;
         std::string mExecutablePath;
+        std::string mInitialNodeTree;
         void* mIpcContext;
 
         SceneGraph::Object<SceneGraph::MatrixTransformation3D> mCameraObject;

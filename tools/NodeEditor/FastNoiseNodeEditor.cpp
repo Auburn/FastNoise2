@@ -2,12 +2,6 @@
 #include <random>
 #include <cstdio>
 
-#ifdef _WIN32
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#endif
-
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -30,66 +24,9 @@ static constexpr const char* kNodeGraphSettingsFile = FILESYSTEM_ROOT "NodeGraph
 
 void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 {
-#ifdef WIN32
-    std::string startArgs = "\"";
-    startArgs += mNodeEditorApp.GetExecutablePath();
-    startArgs += "\" -detached";
-
-    STARTUPINFOA si;
-    PROCESS_INFORMATION pi;
-
-    ZeroMemory( &si, sizeof( si ) );
-    si.cb = sizeof( si );
-    ZeroMemory( &pi, sizeof( pi ) );
-
-    // Create a job object
-    HANDLE hJob = CreateJobObject( NULL, NULL );
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
-    ZeroMemory( &jeli, sizeof( jeli ) );
-
-    // Configure the job object to terminate processes when the handle is closed
-    jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-    SetInformationJobObject( hJob, JobObjectExtendedLimitInformation, &jeli, sizeof( jeli ) );
-
-    // Start the child process.
-    if( CreateProcessA( NULL, // No module name (use command line)
-                         (LPSTR)startArgs.data(), // Command line
-                         NULL, // Process handle not inheritable
-                         NULL, // Thread handle not inheritable
-                         FALSE, // Set handle inheritance to FALSE
-                         0, // No creation flags
-                         NULL, // Use parent's environment block
-                         NULL, // Use parent's starting directory
-                         &si, // Pointer to STARTUPINFO structure
-                         &pi ) ) // Pointer to PROCESS_INFORMATION structure
+    if( !fnEditorIpcStartNodeEditor( nullptr, true, true ) )
     {
-        // Assign the child process to the job object
-        AssignProcessToJobObject( hJob, pi.hProcess );
-
-        // Close handles to the child process and primary thread
-        CloseHandle( pi.hProcess );
-        CloseHandle( pi.hThread );
-    }
-    else
-#elif !defined( __EMSCRIPTEN__ )
-    pid_t pid = fork(); // Duplicate current process
-
-    if( pid == 0 )
-    {
-        // Child process
-        const char* executable = mNodeEditorApp.GetExecutablePath().data(); // Path to the current executable
-        execl( executable, executable, "-detached", (char*)NULL );
-        // If execl returns, it means it has failed
-        exit( EXIT_FAILURE ); // Ensure the child process exits if execl fails
-    }
-    if( pid < 0 )
-#endif
-    {
-        Debug {} << "Failed to launch standalone node graph process"
-#ifdef WIN32
-            << GetLastError()
-#endif
-        ;
+        Debug {} << "Failed to launch standalone node graph process";
     }
 }
 
@@ -674,12 +611,16 @@ FastNoiseNodeEditor::FastNoiseNodeEditor( NodeEditorApp& nodeEditorApp ) :
 
 FastNoiseNodeEditor::~FastNoiseNodeEditor()
 {
-    // Go into node graph context and trigger save
-    ImGuiContext* currentContext = ImGui::GetCurrentContext();
-    ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
-    ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
-    NodeEditorApp::SyncFileSystem();
-    ImGui::SetCurrentContext( currentContext );
+    // Only save if we're not in initial node tree mode
+    if( !mNodeEditorApp.GetInitialNodeTree() )
+    {
+        // Go into node graph context and trigger save
+        ImGuiContext* currentContext = ImGui::GetCurrentContext();
+        ImGui::SetCurrentContext( ImNodes::GetNodeEditorImGuiContext() );
+        ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+        NodeEditorApp::SyncFileSystem();
+        ImGui::SetCurrentContext( currentContext );
+    }
 
     ImNodes::DestroyContext();
 }
@@ -882,8 +823,18 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         // Setup setting handles in zoom context
         if( ImGui::GetFrameCount() == 1 )
         {
-            SetupSettingsHandlers();
-            ImGui::LoadIniSettingsFromDisk( kNodeGraphSettingsFile );
+            const char* initialNodeTree = mNodeEditorApp.GetInitialNodeTree();
+            if( !initialNodeTree )
+            {
+                // Normal mode: load from ini file
+                SetupSettingsHandlers();
+                ImGui::LoadIniSettingsFromDisk( kNodeGraphSettingsFile );
+            }
+            else
+            {
+                // Initial tree mode: load from command line argument
+                AddNodeFromEncodedString( initialNodeTree, ImVec2( 0, 0 ) );
+            }
         }
         if( mSettingsDirty )
         {
@@ -892,9 +843,18 @@ void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& pr
         }
         if( ImGui::GetIO().WantSaveIniSettings || openStandaloneNodeGraph )
         {
-            ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
-            ImGui::GetIO().WantSaveIniSettings = false;
-            NodeEditorApp::SyncFileSystem();
+            // Only save if we're not in initial node tree mode
+            if( !mNodeEditorApp.GetInitialNodeTree() )
+            {
+                ImGui::SaveIniSettingsToDisk( kNodeGraphSettingsFile );
+                ImGui::GetIO().WantSaveIniSettings = false;
+                NodeEditorApp::SyncFileSystem();
+            }
+            else
+            {
+                // Clear the flag without saving
+                ImGui::GetIO().WantSaveIniSettings = false;
+            }
         }
 
         // Open this after saving settings
