@@ -10,9 +10,9 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
-#endif
-
+#else
 #include "FastNoise/NodeEditorIpc_C.h"
+#endif
 #include "FastSIMD/FastSIMD_FastNoise_config.h"
 #include "NodeEditorApp.h"
 #include "util/ImGuiExtra.h"
@@ -51,6 +51,13 @@ static std::string InitialNodeTree( const NodeEditorApp::Arguments& arguments )
     }
     return "";
 }
+
+#ifdef __EMSCRIPTEN__
+static void* fnEditorIpcSetup( bool )
+{
+    return nullptr;
+}
+#endif
 
 NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     Platform::Application{ arguments,
@@ -131,7 +138,9 @@ NodeEditorApp::~NodeEditorApp()
     ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
     ImGui::GetIO().IniFilename = nullptr;
 
+#ifndef __EMSCRIPTEN__
     fnEditorIpcRelease( mIpcContext );
+#endif
 }
 
 void NodeEditorApp::SyncFileSystem()

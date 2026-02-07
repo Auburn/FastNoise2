@@ -16,7 +16,10 @@
 #include "util/DemoNodeTrees.inl"
 #include "FastNoiseNodeEditor.h"
 #include "NodeEditorApp.h"
+
+#ifndef __EMSCRIPTEN__
 #include "FastNoise/NodeEditorIpc_C.h"
+#endif
 
 using namespace Magnum;
 
@@ -24,10 +27,12 @@ static constexpr const char* kNodeGraphSettingsFile = FILESYSTEM_ROOT "NodeGraph
 
 void FastNoiseNodeEditor::OpenStandaloneNodeGraph()
 {
+#ifndef __EMSCRIPTEN__
     if( !fnEditorIpcStartNodeEditor( nullptr, true, true ) )
     {
         Debug {} << "Failed to launch standalone node graph process";
     }
+#endif
 }
 
 static bool MatchingGroup( const FastNoise::Metadata::Vector<const char*>& a, const FastNoise::Metadata::Vector<const char*>& b )
@@ -657,6 +662,7 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
 
 void FastNoiseNodeEditor::DoIpcPolling()
 {
+#ifndef __EMSCRIPTEN__
     void* ipcContext = mNodeEditorApp.GetIpcContext();
 
     if( ipcContext )
@@ -678,6 +684,7 @@ void FastNoiseNodeEditor::DoIpcPolling()
             break;
         }
     }
+#endif
 }
 
 void FastNoiseNodeEditor::Draw( const Matrix4& transformation, const Matrix4& projection, const Vector3& cameraPosition )
@@ -1542,6 +1549,7 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
     if( !encodedNodeTree.empty() )
     {
         // Send updated node tree via IPC
+#ifndef __EMSCRIPTEN__
         void* ipcContext = mNodeEditorApp.GetIpcContext();
 
         if( ipcContext )
@@ -1551,6 +1559,7 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
                 Debug {} << "Failed to send node tree via IPC (too large?)";
             }
         }
+#endif
             
         SetPreviewGenerator( encodedNodeTree );        
     }

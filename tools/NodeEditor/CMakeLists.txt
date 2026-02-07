@@ -113,7 +113,6 @@ add_executable(NodeEditor
 
 target_link_libraries(NodeEditor PRIVATE
     FastNoise
-    NodeEditorIpc
     Magnum::Application
     Magnum::Shaders
     Magnum::SceneGraph
@@ -122,6 +121,11 @@ target_link_libraries(NodeEditor PRIVATE
     imnodes
     robin_hood
 )
+
+# Link NodeEditorIpc on non-Emscripten platforms
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    target_link_libraries(NodeEditor PRIVATE NodeEditorIpc)
+endif()
 
 target_compile_features(NodeEditor PRIVATE cxx_std_20)
 
