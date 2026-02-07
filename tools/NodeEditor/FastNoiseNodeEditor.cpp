@@ -1,7 +1,12 @@
 #include <sstream>
 #include <random>
 #include <cstdio>
-#include <atomic>
+
+#ifdef _WIN32
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
@@ -17,10 +22,9 @@
 #include "util/DemoNodeTrees.inl"
 #include "FastNoiseNodeEditor.h"
 #include "NodeEditorApp.h"
+#include "FastNoise/NodeEditorIpc_C.h"
 
 using namespace Magnum;
-
-#include "util/SharedMemoryIpc.inl"
 
 static constexpr const char* kNodeGraphSettingsFile = FILESYSTEM_ROOT "NodeGraph.ini";
 
@@ -705,6 +709,31 @@ void FastNoiseNodeEditor::DoNodeBenchmarks()
         if( !itr->second.serialised.empty() && itr->second.generateAverages.size() < mNodeBenchmarkMax )
         {
             itr->second.GeneratePreview( false, true );
+            break;
+        }
+    }
+}
+
+void FastNoiseNodeEditor::DoIpcPolling()
+{
+    void* ipcContext = mNodeEditorApp.GetIpcContext();
+
+    if( ipcContext )
+    {
+        static char buffer[64 * 1024];
+        int msgType = fnEditorIpcPollMessage( ipcContext, buffer, sizeof( buffer ) );
+
+        switch( msgType )
+        {
+        case FASTNOISE_EDITORIPC_MSG_SELECTED_NODE:
+            SetPreviewGenerator( buffer );
+            break;
+
+        case FASTNOISE_EDITORIPC_MSG_IMPORT_REQUEST:
+            AddNodeFromEncodedString( buffer, mContextStartPos );
+            break;
+
+        default:
             break;
         }
     }
@@ -1553,26 +1582,17 @@ void FastNoiseNodeEditor::ChangeSelectedNode( FastNoise::NodeData* newId )
     if( !encodedNodeTree.empty() )
     {
         // Send updated node tree via IPC
-        unsigned char* sharedMemory = static_cast<unsigned char*>( mNodeEditorApp.GetIpcSharedMemory() );
+        void* ipcContext = mNodeEditorApp.GetIpcContext();
 
-        if( encodedNodeTree.length() + 3 >= kSharedMemorySize )
+        if( ipcContext )
         {
-            Debug {} << "Encoded node tree too large to send via IPC " << encodedNodeTree.length();
-            sharedMemory = nullptr;
+            if( !fnEditorIpcSendSelectedNode( ipcContext, encodedNodeTree.data() ) )
+            {
+                Debug {} << "Failed to send node tree via IPC (too large?)";
+            }
         }
-
-        if( sharedMemory )
-        {
-            std::memcpy( sharedMemory + 2, encodedNodeTree.data(), encodedNodeTree.length() + 1 );
-            sharedMemory[1] = 0;
-
-            std::atomic_thread_fence( std::memory_order_acq_rel );
-            sharedMemory[0]++; // Increment counter to mark updated tree
-        }
-        else
-        {
-            SetPreviewGenerator( encodedNodeTree );
-        }
+            
+        SetPreviewGenerator( encodedNodeTree );        
     }
 }
 

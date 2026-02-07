@@ -121,6 +121,7 @@ add_executable(NodeEditor
 
 target_link_libraries(NodeEditor PRIVATE
     FastNoise
+    NodeEditorIpc
     Magnum::Application
     Magnum::Shaders
     Magnum::SceneGraph

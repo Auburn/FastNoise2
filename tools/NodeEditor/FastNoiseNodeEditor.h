@@ -30,9 +30,6 @@ namespace Magnum
         void SetSIMDLevel( FastSIMD::FeatureSet lvl );
         void DoIpcPolling();
 
-        static void* SetupSharedMemoryIpc();
-        static void ReleaseSharedMemoryIpc();
-
     private:
         struct Node
         {

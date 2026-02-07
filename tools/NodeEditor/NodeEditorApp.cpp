@@ -12,9 +12,10 @@
 #include <emscripten.h>
 #endif
 
+#include "FastNoise/NodeEditorIpc_C.h"
+#include "FastSIMD/FastSIMD_FastNoise_config.h"
 #include "NodeEditorApp.h"
 #include "util/ImGuiExtra.h"
-#include "FastSIMD/FastSIMD_FastNoise_config.h"
 
 using namespace Magnum;
 
@@ -47,7 +48,7 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
     },
     mIsDetachedNodeGraph( IsDetached( arguments ) ),
     mExecutablePath( arguments.argv[0] ),
-    mIpcSharedMemory( FastNoiseNodeEditor::SetupSharedMemoryIpc() ),
+    mIpcContext( fnEditorIpcSetup( false ) ),
     mImGuiIntegrationContext{ NoCreate },
     mImGuiContext{ ImGui::CreateContext() },
     mNodeEditor( *this )
@@ -110,7 +111,7 @@ NodeEditorApp::~NodeEditorApp()
     ImGui::SaveIniSettingsToDisk( ImGui::GetIO().IniFilename );
     ImGui::GetIO().IniFilename = nullptr;
 
-    FastNoiseNodeEditor::ReleaseSharedMemoryIpc();
+    fnEditorIpcRelease( mIpcContext );
 }
 
 void NodeEditorApp::SyncFileSystem()
