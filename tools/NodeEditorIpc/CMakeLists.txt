@@ -17,19 +17,13 @@ endif()
 
 set_target_properties(NodeEditorIpc PROPERTIES
     DEBUG_POSTFIX D
-    COMPILE_PDB_NAME_DEBUG NodeEditorIpcD)
+    COMPILE_PDB_NAME_DEBUG NodeEditorIpcD
+)
 
 # Link rt library on Linux (required for shm_open)
 if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     target_link_libraries(NodeEditorIpc PRIVATE rt)
 endif()
-
-# Ensure NodeEditorIpc.dll is built into the same dir as NodeEditor.exe
-set_target_properties(NodeEditorIpc PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-)
 
 # Install headers
 install(

@@ -39,6 +39,20 @@ endif()
 include(GNUInstallDirs) 
 set(install_targets "")
 
+# Set default output directories for standalone builds so all
+# targets (libs and executables) end up in the same location
+if(FASTNOISE2_STANDALONE_PROJECT)
+    if(NOT DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+        set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
+    endif()
+    if(NOT DEFINED CMAKE_LIBRARY_OUTPUT_DIRECTORY)
+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+    endif()
+    if(NOT DEFINED CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
+        set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+    endif()
+endif()
+
 include(cmake/CPM.cmake)
 add_subdirectory(src)
 

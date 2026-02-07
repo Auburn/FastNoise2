@@ -69,7 +69,7 @@ CPMAddPackage(
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BUILD_STATIC ON"
-        "MAGNUM_WITH_IMGUI ON"
+        "MAGNUM_WITH_IMGUIINTEGRATION ON"
 )
 
 # Use modules from magnum-integration since it has everything we need
@@ -95,14 +95,6 @@ CPMAddPackage(
     GITHUB_REPOSITORY martinus/robin-hood-hashing
     GIT_TAG 3.11.5    
     EXCLUDE_FROM_ALL YES
-)
-
-# Ensure FastNoise.dll is built into the same dir as NodeEditor.exe
-set_target_properties(FastNoise
-    PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 )
 
 # Bundle a better font
