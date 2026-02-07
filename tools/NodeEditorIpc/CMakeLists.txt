@@ -17,8 +17,7 @@ endif()
 
 set_target_properties(NodeEditorIpc PROPERTIES
     DEBUG_POSTFIX D
-    COMPILE_PDB_NAME_DEBUG NodeEditorIpcD
-)
+    COMPILE_PDB_NAME_DEBUG NodeEditorIpcD)
 
 # Link rt library on Linux (required for shm_open)
 if(UNIX AND NOT APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
