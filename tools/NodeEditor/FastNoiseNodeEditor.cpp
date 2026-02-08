@@ -2,6 +2,10 @@
 #include <random>
 #include <cstdio>
 
+#if !defined( WIN32 ) && !defined( __EMSCRIPTEN__ )
+#include <unistd.h>  // For getppid(), pid_t
+#endif
+
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 #include <misc/cpp/imgui_stdlib.h>
