@@ -285,21 +285,23 @@ void NodeEditorApp::viewportEvent( ViewportEvent& event )
 
 void NodeEditorApp::keyPressEvent( KeyEvent& event )
 {
-    if( mImGuiIntegrationContext.handleKeyPressEvent( event ) )
-        return;
-
-    HandleKeyEvent( event.key(), true );
+    if( mImGuiIntegrationContext.handleKeyPressEvent( event ) ||
+        HandleKeyEvent( event.key(), true ) )
+    {
+        event.setAccepted();
+    }
 }
 
 void NodeEditorApp::keyReleaseEvent( KeyEvent& event )
 {
-    if( mImGuiIntegrationContext.handleKeyReleaseEvent( event ) )
-        return;
-
-    HandleKeyEvent( event.key(), false );
+    if( mImGuiIntegrationContext.handleKeyReleaseEvent( event ) ||
+        HandleKeyEvent( event.key(), false ) )
+    {
+        event.setAccepted();
+    }
 }
 
-void NodeEditorApp::HandleKeyEvent( Key key, bool value )
+bool NodeEditorApp::HandleKeyEvent( Key key, bool value )
 {
     switch( key )
     {
@@ -346,8 +348,9 @@ void NodeEditorApp::HandleKeyEvent( Key key, bool value )
         mKeyDown[Key_RShift] = value;
         break;
     default:
-        break;
+        return false;
     }
+    return true;
 }
 
 void NodeEditorApp::pointerPressEvent( PointerEvent& event )

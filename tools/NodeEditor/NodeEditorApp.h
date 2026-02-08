@@ -61,7 +61,7 @@ namespace Magnum
         void textInputEvent( TextInputEvent& event ) override;
 
         void UpdatePespectiveProjection();
-        void HandleKeyEvent( Key key, bool value );
+        bool HandleKeyEvent( Key key, bool value );
 
         bool mIsDetachedNodeGraph;
         std::string mExecutablePath;
