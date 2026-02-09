@@ -3,9 +3,20 @@
 
 namespace FastNoise
 {
+    /** @brief Base class for generators that have a configurable spatial scale (feature size).
+     *
+     *  Scale controls the size of noise features in world units. A scale of 100 means
+     *  one full noise period spans 100 units. Internally this is stored as both scale
+     *  and its reciprocal (frequency = 1/scale) for efficient computation.
+     *
+     *  The "Feature Scale" parameter in the Node Editor corresponds to this value.
+     */
     class ScalableGenerator : public virtual Generator
     {
     public:
+        /** @brief Set the feature scale (effectively 1.0 / frequency).
+         *  @param value  Scale in world units. Larger values produce larger features.
+         */
         void SetScale( float value )
         {
             mScale = value;
@@ -13,8 +24,8 @@ namespace FastNoise
         }
 
     protected:
-        float mScale = 100;
-        float mFrequency = 1.0f / 100;
+        float mScale = 100;            ///< Feature scale in world units.
+        float mFrequency = 1.0f / 100; ///< Reciprocal of scale (frequency).
     };
 
 #ifdef FASTNOISE_METADATA
@@ -28,17 +39,29 @@ namespace FastNoise
     };
 #endif
 
+    /** @brief Mixin that adds a seed offset to a generator.
+     *
+     *  The seed offset is added to the generation seed before this node evaluates,
+     *  but does not propagate to child source nodes. This is useful when you have
+     *  multiple nodes of the same type and want each to produce different output
+     *  from the same base seed.
+     *
+     *  @tparam PARENT  The parent class in the inheritance chain.
+     */
     template<typename PARENT>
     class Seeded : public virtual PARENT
     {
     public:
+        /** @brief Set an offset that is added to the seed before generation.
+         *  @param value  Seed offset. Does not affect seeds passed to child nodes.
+         */
         void SetSeedOffset( int value )
         {
             mSeedOffset = value;
         }
 
     protected:
-        int mSeedOffset = 0;
+        int mSeedOffset = 0; ///< Offset added to the seed for this node only.
     };
 
 #ifdef FASTNOISE_METADATA
@@ -55,24 +78,38 @@ namespace FastNoise
     };
 #endif
 
+    /** @brief Mixin that adds configurable output range scaling to a generator.
+     *
+     *  By default, coherent noise generators output values in the range [-1, 1].
+     *  VariableRange allows remapping this to an arbitrary [min, max] range, which
+     *  is applied internally during generation for maximum efficiency.
+     *
+     *  @tparam PARENT  The parent class in the inheritance chain.
+     */
     template<typename PARENT>
     class VariableRange : public virtual PARENT
     {
     public:
+        /** @brief Set the minimum bound of the output range.
+         *  @param value  New minimum output value.
+         */
         void SetOutputMin( float value )
         {
             mRangeScale += mRangeMin - value;
             mRangeMin = value;
         }
 
+        /** @brief Set the maximum bound of the output range.
+         *  @param value  New maximum output value.
+         */
         void SetOutputMax( float value )
         {
             mRangeScale = ( value - mRangeMin );
         }
 
     protected:
-        float mRangeMin = -1;
-        float mRangeScale = 2;
+        float mRangeMin = -1;   ///< Minimum of the output range (default -1).
+        float mRangeScale = 2;  ///< Scale factor (max - min) for output mapping.
     };
 
 #ifdef FASTNOISE_METADATA

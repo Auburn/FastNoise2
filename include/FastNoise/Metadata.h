@@ -21,8 +21,20 @@ namespace FastNoise
         FASTNOISE_API const Metadata& GetMetadata();
     }
 
-    // Stores definition of a FastNoise node class
-    // Node name, member name+types, functions to set members
+    /** @brief Runtime reflection data for a FastNoise node class.
+     *
+     *  Each concrete node type (e.g. Simplex, FractalFBm) has a corresponding Metadata
+     *  instance that describes its name, parameters, source inputs, and how to create
+     *  and configure instances at runtime. This powers serialisation/deserialisation,
+     *  the Node Editor UI, and language bindings.
+     *
+     *  Use Metadata::GetAll() to enumerate all registered node types, or
+     *  Metadata::Get<T>() to get the metadata for a specific node class.
+     *
+     *  The auto-generated wiki Node reference pages are populated from metadata descriptions.
+     *
+     *  @see NodeData, MetadataT
+     */
     struct FASTNOISE_API Metadata
     {
         template<typename T>
@@ -50,6 +62,7 @@ namespace FastNoise
             index_type mEnd = (index_type)-1;
         };
 
+        /** @brief Name and description pair used when registering node parameters. */
         struct NameDesc
         {
             const char* name;
@@ -58,15 +71,21 @@ namespace FastNoise
             NameDesc( const char* name, const char* desc = "" ) : name( name ), desc( desc ) {}
         };
 
-        // Base member struct
+        /** @brief Base struct for all metadata member descriptors (variables, sources, hybrids).
+         *  @see MemberVariable, MemberNodeLookup, MemberHybrid
+         */
         struct Member
         {
-            const char* name = "";
-            const char* description = "";
-            int dimensionIdx = -1;
+            const char* name = "";        ///< Display name of the member.
+            const char* description = ""; ///< Human-readable description shown in UI/docs.
+            int dimensionIdx = -1;        ///< Dimension index for per-dimension members, or -1 if not per-dimension.
         };
 
-        // float, int or enum value
+        /** @brief Describes a float, int, or enum parameter on a node.
+         *
+         *  Stores the parameter type, default/min/max values, and a function to apply
+         *  the value to a Generator instance at runtime.
+         */
         struct MemberVariable : Member
         {
             enum eType
@@ -112,31 +131,44 @@ namespace FastNoise
             float valueUiDragSpeed = 0;
             Vector<const char*> enumNames;
 
-            // Function to set value for given generator
-            // Returns true if Generator is correct node class
+            /** @brief Set the value on a generator instance.
+             *  @return true if the generator was the correct node class for this member.
+             */
             std::function<bool( Generator*, ValueUnion )> setFunc;
         };
 
-        // Node lookup (must be valid for node to function)
+        /** @brief Describes a required generator source input on a node.
+         *
+         *  Represents a connection that must be wired to another Generator node
+         *  for the owning node to function (e.g. Fractal source, DomainWarp source).
+         */
         struct MemberNodeLookup : Member
         {
-            // Function to set source for given generator
-            // Returns true if Generator* is correct node class and SmartNodeArg<> is correct node class
+            /** @brief Connect a source generator to this input.
+             *  @return true if both the target generator and source node are the correct types.
+             */
             std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
         };
 
-        // Either a constant float or node lookup
+        /** @brief Describes a hybrid input that accepts either a constant float or a generator node.
+         *
+         *  When a generator node is connected it takes priority over the constant value.
+         *  This allows parameters like fractal gain or warp amplitude to be driven by
+         *  another noise source for spatial variation, or set to a simple constant.
+         */
         struct MemberHybrid : Member
         {
-            float valueDefault, valueUiDragSpeed;
+            float valueDefault;     ///< Default constant value.
+            float valueUiDragSpeed; ///< UI drag speed hint.
 
-            // Function to set value for given generator
-            // Returns true if Generator is correct node class
+            /** @brief Set the constant float value.
+             *  @return true if the generator was the correct node class.
+             */
             std::function<bool( Generator*, float )> setValueFunc;
 
-            // Function to set source for given generator
-            // Source takes priority if value is also set
-            // Returns true if Generator is correct node class and SmartNodeArg<> is correct node class
+            /** @brief Connect a generator node as the source (overrides constant value).
+             *  @return true if both the generator and source node are the correct types.
+             */
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };
 
@@ -146,18 +178,21 @@ namespace FastNoise
 
         virtual ~Metadata() = default;
 
-        /// <returns>Array containing metadata for every FastNoise node type</returns>
+        /** @brief Get the metadata for every registered FastNoise node type.
+         *  @return Array of pointers to all node metadata, indexed by node_id.
+         */
         static const Vector<const Metadata*>& GetAll()
         {
             return sAllMetadata;
         }
 
-        /// <returns>Metadata for given Metadata::id</returns>
+        /** @brief Look up metadata by its numeric node ID.
+         *  @param nodeId  The ID to look up (corresponds to Metadata::id).
+         *  @return Pointer to the metadata, or nullptr if the ID is out of range.
+         *  @warning Do not call during static initialisation; metadata registration order is undefined.
+         */
         static const Metadata* GetFromId( node_id nodeId )
         {
-            // Metadata not loaded yet
-            // Don't try to create nodes from metadata during static initialisation
-            // Metadata is loaded using static variable and static variable init is done in a random order
             assert( sAllMetadata.size() );
 
             if( nodeId < sAllMetadata.size() )
@@ -168,7 +203,10 @@ namespace FastNoise
             return nullptr;
         }
 
-        /// <returns>Metadata for given node class</returns>
+        /** @brief Get the metadata for a specific node class at compile time.
+         *  @tparam T  Concrete node class (e.g. FastNoise::Simplex). Must not be abstract.
+         *  @return Reference to the metadata for node type T.
+         */
         template<typename T>
         static const Metadata& Get()
         {
@@ -178,58 +216,70 @@ namespace FastNoise
             return Impl::GetMetadata<T>();
         }
 
-        /// <summary>
-        /// Serialise node data and any source node datas (recursive)
-        /// </summary>
-        /// <param name="nodeData">Root node data</param>
-        /// <param name="fixUp">Remove dependency loops and invalid node types</param>
-        /// <returns>Empty string on error</returns>
+        /** @brief Serialise a node data tree to an encoded string.
+         *
+         *  Recursively serialises the root node and all of its source nodes.
+         *  The resulting string can be deserialised with DeserialiseNodeData() or
+         *  loaded directly with FastNoise::NewFromEncodedNodeTree().
+         *
+         *  @param nodeData  Root node data to serialise.
+         *  @param fixUp     If true, removes dependency loops and invalid node types before serialising.
+         *  @return Encoded string, or an empty string on error.
+         */
         static std::string SerialiseNodeData( NodeData* nodeData, bool fixUp = false );
 
-        /// <summary>
-        /// Deserialise a string created from SerialiseNodeData to a node data tree
-        /// </summary>
-        /// <param name="serialisedBase64NodeData">Encoded string to deserialise</param>
-        /// <param name="nodeDataOut">Storage for new node data</param>
-        /// <returns>Root node</returns>
+        /** @brief Deserialise an encoded string back into a node data tree.
+         *
+         *  @param serialisedBase64NodeData  Encoded string previously created by SerialiseNodeData().
+         *  @param[out] nodeDataOut          Vector that receives ownership of all allocated NodeData objects.
+         *  @return Pointer to the root NodeData in the tree, or nullptr on failure.
+         */
         static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
-        /// <summary>
-        /// Add spaces to node names: DomainScale -> Domain Scale
-        /// </summary>
-        /// <param name="metadata">FastNoise node metadata</param>
-        /// <param name="removeGroups">Removes metadata groups from name: FractalFBm -> FBm</param>
-        /// <returns>string with formatted name</returns>
+        /** @brief Format a node class name for display by inserting spaces at word boundaries.
+         *
+         *  For example: `DomainScale` becomes `"Domain Scale"`.
+         *
+         *  @param metadata      The node metadata to format.
+         *  @param removeGroups  If true, strips group prefixes from the name (e.g. `FractalFBm` becomes `"FBm"`).
+         *  @return The formatted display name.
+         */
         static std::string FormatMetadataNodeName( const Metadata* metadata, bool removeGroups = false );
 
-        /// <summary>
-        /// Adds dimension prefix to member varibles that per-dimension:
-        /// DomainAxisScale::Scale -> X Scale
-        /// </summary>
-        /// <param name="member">FastNoise node metadata member</param>
-        /// <returns>string with formatted name</returns>
+        /** @brief Format a member name for display, adding a dimension prefix for per-dimension members.
+         *
+         *  For example: `DomainAxisScale::Scale` with dimensionIdx 0 becomes `"X Scale"`.
+         *
+         *  @param member  The member descriptor to format.
+         *  @return The formatted display name.
+         */
         static std::string FormatMetadataMemberName( const Member& member );
 
-        /// <summary>
-        /// Create new instance of a FastNoise node from metadata
-        /// </summary>
-        /// <example>
-        /// auto node = metadata->CreateNode();
-        /// metadata->memberVariables[0].setFunc( node.get(), 1.5f );
-        /// </example>
-        /// <param name="maxSimdLevel">Max SIMD level, Null = Auto</param>
-        /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
+        /** @brief Create a new generator node instance from this metadata.
+         *
+         *  This allows creating nodes dynamically at runtime without compile-time type knowledge.
+         *  Configure the node by calling the setFunc on memberVariables, memberNodeLookups,
+         *  and memberHybrids.
+         *
+         *  @code
+         *  auto node = metadata->CreateNode();
+         *  metadata->memberVariables[0].setFunc( node.get(), 1.5f );
+         *  @endcode
+         *
+         *  @param maxFeatureSet  Maximum SIMD feature set to use. Defaults to auto-detect.
+         *  @return A SmartNode owning the new generator, or null if maxFeatureSet is below the min compiled SIMD feature set.
+         */
         virtual SmartNode<> CreateNode( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max ) const = 0;
 
-        node_id id;
-        Vector<MemberVariable>   memberVariables;
-        Vector<MemberNodeLookup> memberNodeLookups;
-        Vector<MemberHybrid>     memberHybrids;
-        Vector<const char*>      groups;
+        node_id id;                                ///< Unique numeric identifier for this node type.
+        Vector<MemberVariable>   memberVariables;  ///< Float, int, and enum parameters.
+        Vector<MemberNodeLookup> memberNodeLookups; ///< Required generator source inputs.
+        Vector<MemberHybrid>     memberHybrids;    ///< Hybrid inputs (constant float or generator).
+        Vector<const char*>      groups;           ///< Category groups (e.g. "Coherent Noise", "Fractal").
 
-        const char* name = "";
-        const char* description = "";
-        const char* formattedName = nullptr;
+        const char* name = "";            ///< Node class name (e.g. "Simplex", "FractalFBm").
+        const char* description = "";     ///< Human-readable description of the node's behaviour.
+        const char* formattedName = nullptr; ///< Cached formatted display name, or nullptr if not yet formatted.
 
     protected:
         Metadata()
@@ -251,10 +301,19 @@ namespace FastNoise
         static Vector<const Metadata*> sAllMetadata;
     };
 
-    // Stores data to create an instance of a FastNoise node
-    // Node type, member values
+    /** @brief Serialisable data representation of a FastNoise node instance.
+     *
+     *  Stores the node type (via its Metadata pointer) and all configured parameter
+     *  values, source connections, and hybrid inputs. Used as an intermediate format
+     *  for serialisation/deserialisation of node trees.
+     *
+     *  @see Metadata::SerialiseNodeData, Metadata::DeserialiseNodeData
+     */
     struct NodeData
     {
+        /** @brief Construct a NodeData from metadata, initialising all members to their defaults.
+         *  @param data  Metadata describing the node type. May be nullptr.
+         */
         NodeData( const Metadata* data )
         {
             if( ( metadata = data ) )
@@ -273,10 +332,10 @@ namespace FastNoise
             }
         }
 
-        const Metadata* metadata;
-        std::vector<Metadata::MemberVariable::ValueUnion> variables;
-        std::vector<NodeData*> nodeLookups;
-        std::vector<std::pair<NodeData*, float>> hybrids;
+        const Metadata* metadata; ///< The node type this data represents.
+        std::vector<Metadata::MemberVariable::ValueUnion> variables; ///< Current values for each MemberVariable.
+        std::vector<NodeData*> nodeLookups; ///< Connected source nodes (parallel to Metadata::memberNodeLookups).
+        std::vector<std::pair<NodeData*, float>> hybrids; ///< Hybrid inputs: (source node or nullptr, constant value).
 
         bool operator ==( const NodeData& rhs ) const
         {

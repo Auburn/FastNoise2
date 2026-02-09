@@ -16,15 +16,23 @@
 
 namespace FastNoise
 {
-    /// <summary>
-    /// Create new instance of a FastNoise node
-    /// </summary>
-    /// <example>
-    /// auto node = FastNoise::New<FastNoise::Simplex>();
-    /// </example>
-    /// <typeparam name="T">Node class to create</typeparam>
-    /// <param name="maxSimdLevel">Max SIMD level, Max = Auto</param>
-    /// <returns>SmartNode<T> is guaranteed not nullptr</returns>
+    /** @brief Create a new instance of a FastNoise generator node.
+     *
+     *  This is the primary way to create nodes in code. The returned SmartNode
+     *  manages the node's lifetime via reference counting.
+     *
+     *  @code
+     *  auto simplex = FastNoise::New<FastNoise::Simplex>();
+     *  auto fractal = FastNoise::New<FastNoise::FractalFBm>();
+     *  fractal->SetSource( simplex );
+     *  @endcode
+     *
+     *  @tparam T  Concrete node class to create (e.g. FastNoise::Simplex, FastNoise::FractalFBm).
+     *             Must not be an abstract base class.
+     *  @param  maxFeatureSet  Maximum SIMD feature set to use. Defaults to auto-detecting
+     *                         the best available on the current CPU.
+     *  @return A SmartNode<T> owning the new node. null if the maxFeatureSet is below the min compiled SIMD feature set
+     */
     template<typename T>
     SmartNode<T> New( FastSIMD::FeatureSet maxFeatureSet /*= FastSIMD::FeatureSet::Max*/ )
     {
@@ -34,14 +42,25 @@ namespace FastNoise
         return SmartNode<T>( FastSIMD::NewDispatchClass<T>( maxFeatureSet, &SmartNodeManager::Allocate ) );
     }
 
-    /// <summary>
-    /// Create a tree of FastNoise nodes from an encoded string
-    /// </summary>
-    /// <example>
-    /// FastNoise::SmartNode<> rootNode = FastNoise::NewFromEncodedNodeTree( "DQAFAAAAAAAAQAgAAAAAAD8AAAAAAA==" );
-    /// </example>
-    /// <param name="encodedNodeTreeString">Can be generated using the Node Editor tool</param>
-    /// <param name="maxSimdLevel">Max SIMD level, Max = Auto</param>
-    /// <returns>Root node of the tree, nullptr for invalid strings</returns>
+    /** @brief Create a tree of FastNoise nodes from an encoded string.
+     *
+     *  Deserialises a node tree that was previously serialised to a string.
+     *  Encoded strings can be generated using the Node Editor tool (right-click a node
+     *  title and select "Copy Encoded Node Tree"), or programmatically via
+     *  Metadata::SerialiseNodeData().
+     *
+     *  @code
+     *  FastNoise::SmartNode<> generator = FastNoise::NewFromEncodedNodeTree( "DQkGDA==" );
+     *  if( generator )
+     *  {
+     *      std::vector<float> noise( 256 * 256 );
+     *      generator->GenUniformGrid2D( noise.data(), 0, 0, 256, 256, 1, 1, 1337 );
+     *  }
+     *  @endcode
+     *
+     *  @param  encodedNodeTreeString  Encoded node tree string.
+     *  @param  maxFeatureSet          Maximum SIMD feature set to use. Defaults to auto-detect.
+     *  @return Root node of the deserialised tree, or nullptr if the string is invalid.
+     */
     FASTNOISE_API SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max );
 }

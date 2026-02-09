@@ -15,6 +15,13 @@ namespace FastNoise
     template<typename T = Generator>
     class SmartNode;
 
+    /** @brief Alias for passing SmartNode references as function arguments.
+     *
+     *  Used throughout the API for setter functions that accept a source node
+     *  (e.g. `SetSource( SmartNodeArg<> gen )`). Equivalent to `const SmartNode<const T>&`.
+     *
+     *  @tparam T  Node type constraint. Defaults to Generator (accepts any node).
+     */
     template<typename T = Generator>
     using SmartNodeArg = const SmartNode<const T>&;
 
