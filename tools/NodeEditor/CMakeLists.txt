@@ -61,6 +61,23 @@ CPMAddPackage(
 # Set dir for find_package(ImGui)
 set(IMGUI_DIR ${imgui_SOURCE_DIR})
 
+# Setup freetype for imgui font rendering
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # For non-Emscripten builds, fetch and build freetype from source
+    CPMAddPackage(
+        NAME freetype
+        GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
+        GIT_TAG VER-2-13-3
+        EXCLUDE_FROM_ALL YES
+        OPTIONS
+            "FT_DISABLE_ZLIB ON"
+            "FT_DISABLE_BZIP2 ON"
+            "FT_DISABLE_PNG ON"
+            "FT_DISABLE_HARFBUZZ ON"
+            "FT_DISABLE_BROTLI ON"
+    )
+endif()
+
 CPMAddPackage(
     NAME magnum-integration
     GITHUB_REPOSITORY mosra/magnum-integration
@@ -78,11 +95,31 @@ set(CMAKE_MODULE_PATH "${magnum-integration_SOURCE_DIR}/modules" ${CMAKE_MODULE_
 find_package(Magnum REQUIRED GL ${NODE_EDITOR_APP_TYPE}Application)
 find_package(MagnumIntegration REQUIRED ImGui)
 find_package(ImGui REQUIRED SourcesMiscCpp)
+
+# Enable freetype for imgui font rendering.
+# IMGUI_ENABLE_FREETYPE must be visible to all targets that compile imgui sources,
+# so we add it as PUBLIC on MagnumImGuiIntegration (the real target behind MagnumIntegration::ImGui).
+target_compile_definitions(MagnumImGuiIntegration PUBLIC IMGUI_ENABLE_FREETYPE)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # For Emscripten, use the freetype port via -sUSE_FREETYPE=1
+    target_compile_options(MagnumImGuiIntegration PUBLIC -sUSE_FREETYPE=1)
+    target_link_options(MagnumImGuiIntegration PUBLIC -sUSE_FREETYPE=1)
+else()
+    # For other platforms, link the freetype library we built
+    cmake_policy(SET CMP0079 NEW)
+    target_link_libraries(MagnumImGuiIntegration PUBLIC freetype)
+endif()
+
+# Setup imgui freetype sources
+set(IMGUI_FREETYPE_SOURCE "${imgui_SOURCE_DIR}/misc/freetype/imgui_freetype.cpp")
+set_property(SOURCE ${IMGUI_FREETYPE_SOURCE} APPEND PROPERTY COMPILE_DEFINITIONS
+    "IMGUI_USER_CONFIG=\"Magnum/ImGuiIntegration/visibility.h\"")
   
 CPMAddPackage(
     NAME imnodes
     GITHUB_REPOSITORY Auburn/imnodes
-    GIT_TAG db2ef1192a4ddff32a838094de7127142a731ef0
+    GIT_TAG db2ef1192a4ddff32a838094de7127142a731ef0 #zoom2
     GIT_SUBMODULES ".github"
     EXCLUDE_FROM_ALL YES
     OPTIONS
@@ -108,6 +145,7 @@ add_executable(NodeEditor
     "FastNoiseNodeEditor.cpp"
     "MeshNoisePreview.cpp"
     "NoiseTexture.cpp"
+    ${IMGUI_FREETYPE_SOURCE}
     ${NodeEditor_RESOURCES}
 ) 
 

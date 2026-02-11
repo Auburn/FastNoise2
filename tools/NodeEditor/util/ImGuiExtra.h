@@ -29,7 +29,7 @@ namespace ImGuiExtra
     {
         if( ImGui::IsItemHovered() )
         {
-            ImGui::SetItemUsingMouseWheel();
+            ImGui::SetItemKeyOwner( ImGuiKey_MouseWheelY );
 
             if( ImGui::GetIO().MouseWheel < 0 && *comboIndex < comboCount - 1 )
             {
