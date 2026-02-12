@@ -681,8 +681,28 @@ void FastNoiseNodeEditor::DoIpcPolling()
             break;
 
         case FASTNOISE_EDITORIPC_MSG_IMPORT_REQUEST:
-            AddNodeFromEncodedString( buffer, mContextStartPos );
+        {
+            // Calculate the center of the node graph window view
+            ImGuiWindow* nodeGraphWindow = ImGui::FindWindowByName( "Node Graph" );
+            ImVec2 centerPos( 0, 0 );
+            
+            if( nodeGraphWindow )
+            {
+                // Get the center of the window's content area in screen space
+                ImVec2 windowContentMin = nodeGraphWindow->ContentRegionRect.Min;
+                ImVec2 windowContentMax = nodeGraphWindow->ContentRegionRect.Max;
+                ImVec2 screenCenterPos = ImVec2(
+                    (windowContentMin.x + windowContentMax.x) * 0.5f,
+                    (windowContentMin.y + windowContentMax.y) * 0.5f - 150
+                );
+                
+                // Convert screen space to editor context space (grid coordinates)
+                centerPos = ImNodes::ConvertToEditorContextSpace( screenCenterPos );
+            }
+            
+            AddNodeFromEncodedString( buffer, centerPos );
             break;
+        }
 
         default:
             break;
