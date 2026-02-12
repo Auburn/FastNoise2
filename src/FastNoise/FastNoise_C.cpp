@@ -4,9 +4,18 @@
 
 namespace FastNoise::Internal
 {
+    // Manually bump the reference count on a raw Generator pointer. Avoids
+    // needing to keep a SmartNode around for nodes created in the C API
     void BumpNodeRefences( const Generator* ptr, bool up )
     {
         ptr->ReferencesFetchAdd( up ? 1 : -1 );
+    }
+
+    // Setting node sources requires a SmartNode argument, this SmartNode friend function
+    // allows the C API to convert raw pointers to temporary SmartNodes for this purpose
+    SmartNode<> ToSmartNode( const void* p )
+    {
+        return SmartNode{ static_cast<Generator*>( const_cast<void*>( p ) ) };
     }
 }
 
@@ -269,7 +278,8 @@ bool fnSetNodeLookup( void* node, int nodeLookupIndex, const void* nodeLookup )
     const FastNoise::Metadata& metadata = ToGen( node )->GetMetadata();
     if( (size_t)nodeLookupIndex < metadata.memberNodeLookups.size() )
     {
-        return metadata.memberNodeLookups[nodeLookupIndex].setFunc( ToGen( node ), *static_cast<const FastNoise::SmartNode<>*>( nodeLookup ) );
+        FastNoise::SmartNode<> smartLookup = FastNoise::Internal::ToSmartNode( nodeLookup );
+        return metadata.memberNodeLookups[nodeLookupIndex].setFunc( ToGen( node ), smartLookup );
     }
     return false;
 }
@@ -314,7 +324,8 @@ bool fnSetHybridNodeLookup( void* node, int hybridIndex, const void* nodeLookup 
     const FastNoise::Metadata& metadata = ToGen( node )->GetMetadata();
     if( (size_t)hybridIndex < metadata.memberHybrids.size() )
     {
-        return metadata.memberHybrids[hybridIndex].setNodeFunc( ToGen( node ), *static_cast<const FastNoise::SmartNode<>*>( nodeLookup ) );
+        FastNoise::SmartNode<> smartLookup = FastNoise::Internal::ToSmartNode( nodeLookup );
+        return metadata.memberHybrids[hybridIndex].setNodeFunc( ToGen( node ), smartLookup );
     }
     return false;
 }

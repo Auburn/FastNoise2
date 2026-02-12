@@ -45,6 +45,11 @@ namespace FastNoise
         static void Free( const void* ptr );
     };
 
+    namespace Internal
+    {
+        SmartNode<> ToSmartNode( const void* );
+    }
+
     /** @brief Intrusive reference-counted smart pointer for FastNoise generator nodes.
      *
      *  SmartNode manages the lifetime of Generator-derived objects. It behaves similarly
@@ -266,6 +271,8 @@ namespace FastNoise
 
         template<typename U>
         friend class SmartNode;
+
+        friend SmartNode<> Internal::ToSmartNode( const void* );
 
         friend T;
 
