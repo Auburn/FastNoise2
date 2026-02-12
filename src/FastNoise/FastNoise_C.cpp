@@ -328,3 +328,89 @@ bool fnSetHybridFloat( void* node, int hybridIndex, float value )
     }
     return false;
 }
+
+const char* fnGetMetadataDescription( int id )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        return m->description;
+    return "";
+}
+
+int fnGetMetadataGroupCount( int id )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        return (int)m->groups.size();
+    return 0;
+}
+
+const char* fnGetMetadataGroupName( int id, int groupIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)groupIndex < m->groups.size() )
+            return m->groups[groupIndex];
+    return "";
+}
+
+const char* fnGetMetadataVariableDescription( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)variableIndex < m->memberVariables.size() )
+            return m->memberVariables[variableIndex].description;
+    return "";
+}
+
+float fnGetMetadataVariableDefaultFloat( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)variableIndex < m->memberVariables.size() )
+            return m->memberVariables[variableIndex].valueDefault.f;
+    return 0;
+}
+
+int fnGetMetadataVariableDefaultInt( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)variableIndex < m->memberVariables.size() )
+            return m->memberVariables[variableIndex].valueDefault.i;
+    return 0;
+}
+
+float fnGetMetadataVariableMinFloat( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)variableIndex < m->memberVariables.size() )
+            return m->memberVariables[variableIndex].valueMin.f;
+    return 0;
+}
+
+float fnGetMetadataVariableMaxFloat( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)variableIndex < m->memberVariables.size() )
+            return m->memberVariables[variableIndex].valueMax.f;
+    return 0;
+}
+
+const char* fnGetMetadataNodeLookupDescription( int id, int nodeLookupIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)nodeLookupIndex < m->memberNodeLookups.size() )
+            return m->memberNodeLookups[nodeLookupIndex].description;
+    return "";
+}
+
+const char* fnGetMetadataHybridDescription( int id, int hybridIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)hybridIndex < m->memberHybrids.size() )
+            return m->memberHybrids[hybridIndex].description;
+    return "";
+}
+
+float fnGetMetadataHybridDefault( int id, int hybridIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+        if( (size_t)hybridIndex < m->memberHybrids.size() )
+            return m->memberHybrids[hybridIndex].valueDefault;
+    return 0;
+}

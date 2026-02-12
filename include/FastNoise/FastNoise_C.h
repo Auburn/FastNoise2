@@ -411,6 +411,22 @@ FASTNOISE_API bool fnSetHybridNodeLookup( void* node, int hybridIndex, const voi
  */
 FASTNOISE_API bool fnSetHybridFloat( void* node, int hybridIndex, float value );
 
+// Rich metadata queries
+FASTNOISE_API const char* fnGetMetadataDescription( int id );
+FASTNOISE_API int         fnGetMetadataGroupCount( int id );
+FASTNOISE_API const char* fnGetMetadataGroupName( int id, int groupIndex );
+
+FASTNOISE_API const char* fnGetMetadataVariableDescription( int id, int variableIndex );
+FASTNOISE_API float       fnGetMetadataVariableDefaultFloat( int id, int variableIndex );
+FASTNOISE_API int         fnGetMetadataVariableDefaultInt( int id, int variableIndex );
+FASTNOISE_API float       fnGetMetadataVariableMinFloat( int id, int variableIndex );
+FASTNOISE_API float       fnGetMetadataVariableMaxFloat( int id, int variableIndex );
+
+FASTNOISE_API const char* fnGetMetadataNodeLookupDescription( int id, int nodeLookupIndex );
+
+FASTNOISE_API const char* fnGetMetadataHybridDescription( int id, int hybridIndex );
+FASTNOISE_API float       fnGetMetadataHybridDefault( int id, int hybridIndex );
+
 #ifdef __cplusplus
 }
 #endif
