@@ -70,6 +70,7 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         GIT_TAG VER-2-13-3
         EXCLUDE_FROM_ALL YES
         OPTIONS
+            "BUILD_SHARED_LIBS OFF"
             "FT_DISABLE_ZLIB ON"
             "FT_DISABLE_BZIP2 ON"
             "FT_DISABLE_PNG ON"
@@ -102,7 +103,7 @@ find_package(ImGui REQUIRED SourcesMiscCpp)
 target_compile_definitions(MagnumImGuiIntegration PUBLIC IMGUI_ENABLE_FREETYPE)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # For Emscripten, use the freetype port via -sUSE_FREETYPE=1
+    # For Emscripten, use the freetype port
     target_compile_options(MagnumImGuiIntegration PUBLIC -sUSE_FREETYPE=1)
     target_link_options(MagnumImGuiIntegration PUBLIC -sUSE_FREETYPE=1)
 else()
