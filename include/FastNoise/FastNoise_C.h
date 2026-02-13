@@ -21,10 +21,10 @@ extern "C" {
  *  The returned handle must be freed with fnDeleteNodeRef() when no longer needed.
  *
  *  @param encodedString  Encoded node tree string (e.g. from the Node Editor).
- *  @param simdLevel      Maximum SIMD feature set. Pass ~0u (uint32_max) for auto-detection.
+ *  @param maxFeatureSet  Maximum auto-detected SIMD feature set. Pass ~0u (uint32_max) for no limit.
  *  @return Opaque node handle, or NULL on failure.
  */
-FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::FeatureSet*/ simdLevel /*~0u = Auto*/ );
+FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::FeatureSet*/ maxFeatureSet );
 
 /** @brief Release a node handle previously obtained from fnNewFromEncodedNodeTree() or fnNewFromMetadata().
  *  @param node  Node handle to release. May be NULL (no-op).
@@ -298,133 +298,356 @@ FASTNOISE_API float fnGenSingle3D( const void* node, float x, float y, float z, 
 FASTNOISE_API float fnGenSingle4D( const void* node, float x, float y, float z, float w, int seed );
 
 /** @brief Get the total number of registered node types.
+ *
+ *  Each node type has a unique metadata ID. Use this to determine the valid
+ *  range of IDs for functions like fnGetMetadataName() and fnNewFromMetadata().
+ *
  *  @return Count of node metadata entries. Valid IDs range from 0 to count-1.
  */
 FASTNOISE_API int fnGetMetadataCount();
 
 /** @brief Get the name of a node type by metadata ID.
+ *
+ *  Returns the class name of the node (e.g. "Simplex", "FractalFBm", "DomainScale").
+ *  This is the internal name, not formatted for display. Use
+ *  Metadata::FormatMetadataNodeName() in C++ for a display-friendly version.
+ *
  *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
- *  @return Node type name string (e.g. "Simplex", "FractalFBm").
+ *  @return Node type name string, or "INVALID NODE ID" if the ID is out of range.
  */
 FASTNOISE_API const char* fnGetMetadataName( int id );
 
 /** @brief Create a new node from a metadata ID.
- *  @param id         Metadata ID identifying the node type.
- *  @param simdLevel  Maximum SIMD feature set. Pass ~0u for auto-detection.
- *  @return Opaque node handle. Must be freed with fnDeleteNodeRef().
+ *
+ *  Allows creating nodes dynamically at runtime without compile-time type knowledge.
+ *  Configure the returned node by calling fnSetVariableFloat(), fnSetVariableIntEnum(),
+ *  fnSetNodeLookup(), fnSetHybridFloat(), and fnSetHybridNodeLookup().
+ *
+ *  The returned handle must be freed with fnDeleteNodeRef() when no longer needed.
+ *
+ *  @param id         Metadata ID identifying the node type (0 to fnGetMetadataCount()-1).
+ *  @param maxFeatureSet  Maximum auto-detected SIMD feature set. Pass ~0u (uint32_max) for no limit.
+ *  @return Opaque node handle, or NULL if the ID is invalid. Must be freed with fnDeleteNodeRef().
  */
-FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::FeatureSet*/ simdLevel /*~0u = Auto*/ );
+FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::FeatureSet*/ maxFeatureSet );
 
 /** @brief Get the number of configurable variables on a node type.
- *  @param id  Metadata ID.
- *  @return Number of member variables.
+ *
+ *  Variables are float, int, or enum parameters that control the node's behaviour
+ *  (e.g. fractal octaves, lacunarity, noise type). Use this to iterate over all
+ *  variables with fnGetMetadataVariableName(), fnGetMetadataVariableType(), etc.
+ *
+ *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @return Number of member variables, or -1 if the ID is invalid.
  */
 FASTNOISE_API int fnGetMetadataVariableCount( int id );
 
 /** @brief Get the name of a variable on a node type.
- *  @param id             Metadata ID.
- *  @param variableIndex  Index into the variables list (0-based).
- *  @return Variable name string.
+ *
+ *  Returns the display name of the variable (e.g. "Octaves", "Lacunarity", "Gain").
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @return Variable name string, or an error string if either index is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataVariableName( int id, int variableIndex );
 
-/** @brief Get the type of a variable (0=float, 1=int, 2=enum).
- *  @param id             Metadata ID.
- *  @param variableIndex  Index into the variables list.
- *  @return Type code corresponding to Metadata::MemberVariable::eType.
+/** @brief Get the type of a variable on a node type.
+ *
+ *  The type determines which setter function to use:
+ *  - 0 (EFloat): Use fnSetVariableFloat(). Has min/max bounds from
+ *    fnGetMetadataVariableMinFloat() / fnGetMetadataVariableMaxFloat().
+ *  - 1 (EInt): Use fnSetVariableIntEnum().
+ *  - 2 (EEnum): Use fnSetVariableIntEnum(). Enum option names can be queried
+ *    with fnGetMetadataEnumCount() and fnGetMetadataEnumName().
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @return Type code (0=float, 1=int, 2=enum), or -1 if either index is invalid.
  */
 FASTNOISE_API int fnGetMetadataVariableType( int id, int variableIndex );
 
-/** @brief Get the dimension index for a per-dimension variable, or -1 if not per-dimension. */
+/** @brief Get the dimension index for a per-dimension variable.
+ *
+ *  Some nodes have variables that are registered once per dimension (e.g. X/Y/Z scale).
+ *  These share the same base name but differ in their dimension index (0=X, 1=Y, 2=Z, 3=W).
+ *  Non-per-dimension variables return -1.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @return Dimension index (0=X, 1=Y, 2=Z, 3=W), or -1 if not a per-dimension variable or if either index is invalid.
+ */
 FASTNOISE_API int fnGetMetadataVariableDimensionIdx( int id, int variableIndex );
 
 /** @brief Get the number of enum values for an enum variable.
- *  @param id             Metadata ID.
- *  @param variableIndex  Index of the enum variable.
- *  @return Number of enum options.
+ *
+ *  Only meaningful for variables of type EEnum (see fnGetMetadataVariableType()).
+ *  Use with fnGetMetadataEnumName() to query option names.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index of the enum variable (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @return Number of enum options, or -1 if either index is invalid.
  */
 FASTNOISE_API int fnGetMetadataEnumCount( int id, int variableIndex );
 
 /** @brief Get the name of an enum option.
- *  @param id             Metadata ID.
- *  @param variableIndex  Index of the enum variable.
- *  @param enumIndex      Index of the enum option (0-based).
- *  @return Enum option name string.
+ *
+ *  Returns the display name for one option of an enum variable. The @p enumIndex
+ *  corresponds to the integer value passed to fnSetVariableIntEnum().
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index of the enum variable (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @param enumIndex      Index of the enum option (0-based, up to fnGetMetadataEnumCount()-1).
+ *  @return Enum option name string, or an error string if any index is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataEnumName( int id, int variableIndex, int enumIndex );
 
 /** @brief Set a float variable on a node instance.
- *  @param node           Node handle.
- *  @param variableIndex  Index of the variable to set.
- *  @param value          Float value.
- *  @return true on success, false if the variable index or type is invalid.
+ *
+ *  Only valid for variables of type EFloat (see fnGetMetadataVariableType()).
+ *
+ *  @param node           Node handle created by fnNewFromMetadata() or fnNewFromEncodedNodeTree().
+ *  @param variableIndex  Index of the variable to set (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @param value          Float value to set.
+ *  @return true on success, false if the variable index is out of range or the node type is incorrect.
  */
 FASTNOISE_API bool fnSetVariableFloat( void* node, int variableIndex, float value );
 
 /** @brief Set an int or enum variable on a node instance.
- *  @param node           Node handle.
- *  @param variableIndex  Index of the variable to set.
- *  @param value          Integer/enum value.
- *  @return true on success, false if the variable index or type is invalid.
+ *
+ *  Valid for variables of type EInt or EEnum (see fnGetMetadataVariableType()).
+ *  For enum variables, the value corresponds to the enum option index
+ *  (0 to fnGetMetadataEnumCount()-1).
+ *
+ *  @param node           Node handle created by fnNewFromMetadata() or fnNewFromEncodedNodeTree().
+ *  @param variableIndex  Index of the variable to set (0-based, up to fnGetMetadataVariableCount()-1).
+ *  @param value          Integer or enum index value to set.
+ *  @return true on success, false if the variable index is out of range or the node type is incorrect.
  */
 FASTNOISE_API bool fnSetVariableIntEnum( void* node, int variableIndex, int value );
 
-/** @brief Get the number of required node lookup (source) inputs on a node type. */
+/** @brief Get the number of required node lookup (source) inputs on a node type.
+ *
+ *  Node lookups are generator source inputs that MUST be connected to another node
+ *  for the owning node to function (e.g. the "Source" input on a Fractal node).
+ *  Use with fnGetMetadataNodeLookupName() and fnSetNodeLookup() to query and wire sources.
+ *
+ *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @return Number of node lookup inputs, or -1 if the ID is invalid.
+ */
 FASTNOISE_API int fnGetMetadataNodeLookupCount( int id );
 
-/** @brief Get the name of a node lookup input. */
+/** @brief Get the name of a node lookup input on a node type.
+ *
+ *  Returns the display name of a required generator source input (e.g. "Source", "Warp").
+ *
+ *  @param id               Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param nodeLookupIndex  Index into the node lookups list (0-based, up to fnGetMetadataNodeLookupCount()-1).
+ *  @return Node lookup name string, or an error string if either index is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataNodeLookupName( int id, int nodeLookupIndex );
 
-/** @brief Get the dimension index for a per-dimension node lookup, or -1 if not per-dimension. */
+/** @brief Get the dimension index for a per-dimension node lookup.
+ *
+ *  Some nodes have source inputs registered once per dimension (e.g. per-axis warp sources).
+ *  These share the same base name but differ in their dimension index (0=X, 1=Y, 2=Z, 3=W).
+ *  Non-per-dimension node lookups return -1.
+ *
+ *  @param id               Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param nodeLookupIndex  Index into the node lookups list (0-based, up to fnGetMetadataNodeLookupCount()-1).
+ *  @return Dimension index (0=X, 1=Y, 2=Z, 3=W), or -1 if not a per-dimension lookup or if either index is invalid.
+ */
 FASTNOISE_API int fnGetMetadataNodeLookupDimensionIdx( int id, int nodeLookupIndex );
 
 /** @brief Connect a source node to a node lookup input.
+ *
+ *  Wires a generator node as the source for a required input on the target node.
+ *  For example, connecting a Simplex node as the "Source" of a FractalFBm node.
+ *
  *  @param node             Target node handle.
- *  @param nodeLookupIndex  Index of the node lookup to set.
+ *  @param nodeLookupIndex  Index of the node lookup to set (0-based, up to fnGetMetadataNodeLookupCount()-1).
  *  @param nodeLookup       Source node handle to connect.
- *  @return true on success, false if the types are incompatible.
+ *  @return true on success, false if the index is out of range or the types are incompatible.
  */
 FASTNOISE_API bool fnSetNodeLookup( void* node, int nodeLookupIndex, const void* nodeLookup );
 
-/** @brief Get the number of hybrid (constant or node) inputs on a node type. */
+/** @brief Get the number of hybrid (constant or node) inputs on a node type.
+ *
+ *  Hybrid inputs accept either a constant float value or a generator node as their source.
+ *  When a generator node is connected it takes priority over the constant value, allowing
+ *  parameters like fractal gain or warp amplitude to be driven by another noise source
+ *  for spatial variation.
+ *
+ *  Use with fnGetMetadataHybridName(), fnSetHybridFloat(), and fnSetHybridNodeLookup().
+ *
+ *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @return Number of hybrid inputs, or -1 if the ID is invalid.
+ */
 FASTNOISE_API int fnGetMetadataHybridCount( int id );
 
-/** @brief Get the name of a hybrid input. */
+/** @brief Get the name of a hybrid input on a node type.
+ *
+ *  Returns the display name of a hybrid (constant or node) input (e.g. "Gain", "Amplitude").
+ *
+ *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param hybridIndex Index into the hybrids list (0-based, up to fnGetMetadataHybridCount()-1).
+ *  @return Hybrid input name string, or an error string if either index is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataHybridName( int id, int hybridIndex );
 
-/** @brief Get the dimension index for a per-dimension hybrid input, or -1 if not per-dimension. */
+/** @brief Get the dimension index for a per-dimension hybrid input.
+ *
+ *  Some nodes have hybrid inputs registered once per dimension (e.g. per-axis scale).
+ *  These share the same base name but differ in their dimension index (0=X, 1=Y, 2=Z, 3=W).
+ *  Non-per-dimension hybrids return -1.
+ *
+ *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param hybridIndex Index into the hybrids list (0-based, up to fnGetMetadataHybridCount()-1).
+ *  @return Dimension index (0=X, 1=Y, 2=Z, 3=W), or -1 if not a per-dimension hybrid or if either index is invalid.
+ */
 FASTNOISE_API int fnGetMetadataHybridDimensionIdx( int id, int hybridIndex );
 
 /** @brief Connect a generator node to a hybrid input (overrides the constant value).
+ *
+ *  When a generator node is connected, it provides spatially varying values instead
+ *  of the constant set by fnSetHybridFloat(). To revert to the constant value
+ *  pass NULL as the nodeLookup parameter.
+ *
  *  @param node         Target node handle.
- *  @param hybridIndex  Index of the hybrid input.
+ *  @param hybridIndex  Index of the hybrid input (0-based, up to fnGetMetadataHybridCount()-1).
  *  @param nodeLookup   Source node handle to connect.
- *  @return true on success, false if the types are incompatible.
+ *  @return true on success, false if the index is out of range or the types are incompatible.
  */
 FASTNOISE_API bool fnSetHybridNodeLookup( void* node, int hybridIndex, const void* nodeLookup );
 
 /** @brief Set the constant float value on a hybrid input.
+ *
+ *  Sets the constant value used when no generator node is connected to this hybrid input.
+ *  If a generator node is connected via fnSetHybridNodeLookup(), it takes priority
+ *  over this constant value.
+ *
  *  @param node         Target node handle.
- *  @param hybridIndex  Index of the hybrid input.
- *  @param value        Constant float value.
- *  @return true on success.
+ *  @param hybridIndex  Index of the hybrid input (0-based, up to fnGetMetadataHybridCount()-1).
+ *  @param value        Constant float value to set.
+ *  @return true on success, false if the index is out of range or the node type is incorrect.
  */
 FASTNOISE_API bool fnSetHybridFloat( void* node, int hybridIndex, float value );
 
-// Rich metadata queries
+/** @brief Get the human-readable description of a node type.
+ *
+ *  Returns the description string from the node's metadata, which explains the
+ *  node's behaviour. These descriptions are the same as those shown in the Node
+ *  Editor UI and used to populate the wiki Node reference pages.
+ *
+ *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @return Description string, or an empty string if the ID is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataDescription( int id );
+
+/** @brief Get the number of category groups a node type belongs to.
+ *
+ *  Nodes are organised into a hierarchy of groups (e.g. "Coherent Noise", "Fractal").
+ *  Use this with fnGetMetadataGroupName() to reconstruct the full group path.
+ *
+ *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @return Number of groups, or 0 if the ID is invalid or the node has no groups.
+ */
 FASTNOISE_API int         fnGetMetadataGroupCount( int id );
+
+/** @brief Get the name of a category group for a node type.
+ *
+ *  Groups form a hierarchical path. For example, a node with two groups
+ *  ["Coherent Noise", "Fractal"] would have groupIndex 0 = "Coherent Noise"
+ *  and groupIndex 1 = "Fractal".
+ *
+ *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param groupIndex  Index of the group (0-based, up to fnGetMetadataGroupCount()-1).
+ *  @return Group name string, or an empty string if either index is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataGroupName( int id, int groupIndex );
 
+/** @brief Get the human-readable description of a variable on a node type.
+ *
+ *  Returns the description string for a member variable, as shown in the Node
+ *  Editor UI tooltips and used to populate the wiki Node reference pages.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Description string, or an empty string if either index is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataVariableDescription( int id, int variableIndex );
+
+/** @brief Get the default float value of a variable on a node type.
+ *
+ *  Only meaningful for variables of type EFloat (see fnGetMetadataVariableType()).
+ *  For int/enum variables, use fnGetMetadataVariableDefaultInt() instead.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Default float value, or 0 if either index is invalid.
+ */
 FASTNOISE_API float       fnGetMetadataVariableDefaultFloat( int id, int variableIndex );
-FASTNOISE_API int         fnGetMetadataVariableDefaultInt( int id, int variableIndex );
+
+/** @brief Get the default int/enum value of a variable on a node type.
+ *
+ *  Only meaningful for variables of type EInt or EEnum (see fnGetMetadataVariableType()).
+ *  For float variables, use fnGetMetadataVariableDefaultFloat() instead.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Default int value, or 0 if either index is invalid.
+ */
+FASTNOISE_API int         fnGetMetadataVariableDefaultIntEnum( int id, int variableIndex );
+
+/** @brief Get the minimum allowed float value of a variable on a node type.
+ *
+ *  Returns the lower bound for float variables, used for UI clamping and validation.
+ *  Only meaningful for variables of type EFloat (see fnGetMetadataVariableType()).
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Minimum float value, or 0 if either index is invalid.
+ */
 FASTNOISE_API float       fnGetMetadataVariableMinFloat( int id, int variableIndex );
+
+/** @brief Get the maximum allowed float value of a variable on a node type.
+ *
+ *  Returns the upper bound for float variables, used for UI clamping and validation.
+ *  Only meaningful for variables of type EFloat (see fnGetMetadataVariableType()).
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Maximum float value, or 0 if either index is invalid.
+ */
 FASTNOISE_API float       fnGetMetadataVariableMaxFloat( int id, int variableIndex );
 
+/** @brief Get the human-readable description of a node lookup input on a node type.
+ *
+ *  Returns the description string for a required generator source input, as shown
+ *  in the Node Editor UI tooltips and used to populate the wiki Node reference pages.
+ *
+ *  @param id               Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param nodeLookupIndex  Index into the node lookups list (0-based).
+ *  @return Description string, or an empty string if either index is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataNodeLookupDescription( int id, int nodeLookupIndex );
 
+/** @brief Get the human-readable description of a hybrid input on a node type.
+ *
+ *  Returns the description string for a hybrid (constant or node) input, as shown
+ *  in the Node Editor UI tooltips and used to populate the wiki Node reference pages.
+ *
+ *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param hybridIndex Index into the hybrids list (0-based).
+ *  @return Description string, or an empty string if either index is invalid.
+ */
 FASTNOISE_API const char* fnGetMetadataHybridDescription( int id, int hybridIndex );
+
+/** @brief Get the default constant float value of a hybrid input on a node type.
+ *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param hybridIndex Index into the hybrids list (0-based).
+ *  @return Default float value, or 0 if either index is invalid.
+ */
 FASTNOISE_API float       fnGetMetadataHybridDefault( int id, int hybridIndex );
 
 #ifdef __cplusplus

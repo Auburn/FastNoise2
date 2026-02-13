@@ -27,7 +27,7 @@ FASTNOISE_API void* fnEditorIpcSetup( bool readPrevious );
 FASTNOISE_API void fnEditorIpcRelease( void* ipc );
 
 /// <summary>
-/// Send currently selected node tree (typically called by editor)
+/// Send currently selected node tree in node graph (typically called by node editor)
 /// </summary>
 /// <param name="ipc">IPC context pointer</param>
 /// <param name="encodedNodeTree">Base64 encoded node tree string</param>
@@ -35,7 +35,7 @@ FASTNOISE_API void fnEditorIpcRelease( void* ipc );
 FASTNOISE_API bool fnEditorIpcSendSelectedNode( void* ipc, const char* encodedNodeTree );
 
 /// <summary>
-/// Send import request to load a node tree into the editor
+/// Send import request to load a node tree into the node editor node graph
 /// </summary>
 /// <param name="ipc">IPC context pointer</param>
 /// <param name="encodedNodeTree">Base64 encoded node tree string to import</param>

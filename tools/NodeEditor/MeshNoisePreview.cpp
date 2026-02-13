@@ -890,7 +890,7 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh(
     static constexpr uint32_t SIZE_GEN = SIZE + 1;
 
     FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid2D( densityValues,
-                                                                                  buildData.pos.x(), buildData.pos.z(),
+                                                                                  (float)buildData.pos.x(), (float)buildData.pos.z(),
                                                                                   SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, buildData.seed );
     constexpr int32_t STEP_X = 1;
     constexpr int32_t STEP_Y = SIZE_GEN;

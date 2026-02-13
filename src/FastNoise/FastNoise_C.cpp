@@ -378,7 +378,7 @@ float fnGetMetadataVariableDefaultFloat( int id, int variableIndex )
     return 0;
 }
 
-int fnGetMetadataVariableDefaultInt( int id, int variableIndex )
+int fnGetMetadataVariableDefaultIntEnum( int id, int variableIndex )
 {
     if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
         if( (size_t)variableIndex < m->memberVariables.size() )
