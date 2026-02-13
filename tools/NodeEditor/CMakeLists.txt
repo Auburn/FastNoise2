@@ -71,11 +71,16 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
         EXCLUDE_FROM_ALL YES
         OPTIONS
             "BUILD_SHARED_LIBS OFF"
-            "FT_DISABLE_ZLIB ON"
-            "FT_DISABLE_BZIP2 ON"
-            "FT_DISABLE_PNG ON"
-            "FT_DISABLE_HARFBUZZ ON"
-            "FT_DISABLE_BROTLI ON"
+            "FT_REQUIRE_ZLIB=OFF"
+            "FT_DISABLE_ZLIB=ON"
+            "FT_REQUIRE_BZIP2=OFF"
+            "FT_DISABLE_BZIP2=ON"
+            "FT_REQUIRE_PNG=OFF"
+            "FT_DISABLE_PNG=ON"
+            "FT_REQUIRE_BROTLI=OFF"
+            "FT_DISABLE_BROTLI=ON"
+            "FT_REQUIRE_HARFBUZZ=OFF"
+            "FT_DISABLE_HARFBUZZ=ON"
     )
 endif()
 
