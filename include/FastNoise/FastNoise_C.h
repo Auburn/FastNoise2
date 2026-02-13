@@ -33,9 +33,9 @@ FASTNOISE_API void fnDeleteNodeRef( void* node );
 
 /** @brief Get the SIMD feature set level active for this node.
  *  @param node  Node handle.
- *  @return SIMD level as a FastSIMD::FeatureSet value.
+ *  @return FastSIMD::FeatureSet value as a uint.
  */
-FASTNOISE_API unsigned fnGetSIMDLevel( const void* node );
+FASTNOISE_API unsigned fnGetActiveFeatureSet( const void* node );
 
 /** @brief Get the metadata ID for this node's type.
  *  @param node  Node handle.
@@ -540,7 +540,7 @@ FASTNOISE_API bool fnSetHybridFloat( void* node, int hybridIndex, float value );
  *  Editor UI and used to populate the wiki Node reference pages.
  *
  *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
- *  @return Description string, or an empty string if the ID is invalid.
+ *  @return Description string, or an error string if the ID is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataDescription( int id );
 
@@ -550,7 +550,7 @@ FASTNOISE_API const char* fnGetMetadataDescription( int id );
  *  Use this with fnGetMetadataGroupName() to reconstruct the full group path.
  *
  *  @param id  Metadata ID (0 to fnGetMetadataCount()-1).
- *  @return Number of groups, or 0 if the ID is invalid or the node has no groups.
+ *  @return Number of groups, or -1 if the ID is invalid or the node has no groups.
  */
 FASTNOISE_API int         fnGetMetadataGroupCount( int id );
 
@@ -562,7 +562,7 @@ FASTNOISE_API int         fnGetMetadataGroupCount( int id );
  *
  *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param groupIndex  Index of the group (0-based, up to fnGetMetadataGroupCount()-1).
- *  @return Group name string, or an empty string if either index is invalid.
+ *  @return Group name string, or an error string if either index is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataGroupName( int id, int groupIndex );
 
@@ -573,7 +573,7 @@ FASTNOISE_API const char* fnGetMetadataGroupName( int id, int groupIndex );
  *
  *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param variableIndex  Index into the variables list (0-based).
- *  @return Description string, or an empty string if either index is invalid.
+ *  @return Description string, or an error string if either index is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataVariableDescription( int id, int variableIndex );
 
@@ -628,7 +628,7 @@ FASTNOISE_API float       fnGetMetadataVariableMaxFloat( int id, int variableInd
  *
  *  @param id               Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param nodeLookupIndex  Index into the node lookups list (0-based).
- *  @return Description string, or an empty string if either index is invalid.
+ *  @return Description string, or an error string if either index is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataNodeLookupDescription( int id, int nodeLookupIndex );
 
@@ -639,7 +639,7 @@ FASTNOISE_API const char* fnGetMetadataNodeLookupDescription( int id, int nodeLo
  *
  *  @param id          Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param hybridIndex Index into the hybrids list (0-based).
- *  @return Description string, or an empty string if either index is invalid.
+ *  @return Description string, or an error string if either index is invalid.
  */
 FASTNOISE_API const char* fnGetMetadataHybridDescription( int id, int hybridIndex );
 
