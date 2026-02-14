@@ -79,8 +79,6 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
             "FT_DISABLE_PNG=ON"
             "FT_REQUIRE_BROTLI=OFF"
             "FT_DISABLE_BROTLI=ON"
-            "FT_REQUIRE_HARFBUZZ=OFF"
-            "FT_DISABLE_HARFBUZZ=ON"
     )
 endif()
 
