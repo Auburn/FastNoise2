@@ -67,7 +67,7 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     CPMAddPackage(
         NAME freetype
         GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
-        GIT_TAG VER-2-13-3
+        GIT_TAG VER-2-14-1
         EXCLUDE_FROM_ALL YES
         OPTIONS
             "BUILD_SHARED_LIBS OFF"
