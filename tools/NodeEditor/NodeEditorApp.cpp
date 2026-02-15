@@ -117,7 +117,12 @@ NodeEditorApp::NodeEditorApp( const Arguments& arguments ) :
        you'll need this exact behavior for the rest of your scene. If not, set
        this only for the drawFrame() call. */
     GL::Renderer::setBlendEquation( GL::Renderer::BlendEquation::Add, GL::Renderer::BlendEquation::Add );
-    GL::Renderer::setBlendFunction( GL::Renderer::BlendFunction::SourceAlpha, GL::Renderer::BlendFunction::OneMinusSourceAlpha );
+    GL::Renderer::setBlendFunction(
+        GL::Renderer::BlendFunction::SourceAlpha,         // sourceRgb
+        GL::Renderer::BlendFunction::OneMinusSourceAlpha, // destinationRgb
+        GL::Renderer::BlendFunction::One,                 // sourceAlpha
+        GL::Renderer::BlendFunction::OneMinusSourceAlpha  // destinationAlpha
+    );
 
     Debug{} << "FastSIMD detected max CPU supported feature set:" << FastSIMD::GetFeatureSetString( FastSIMD::DetectCpuMaxFeatureSet() );
 
