@@ -29,6 +29,52 @@ static constexpr Vector3 NormaliseConstExpr( const Vector3& vec )
     return vec / SqrtNewtonRaphson( lenSqr, lenSqr, 0 );
 }
 
+template<uint32_t SizeGen, int32_t StartOffset>
+struct GridPositions3D
+{
+    static constexpr uint32_t COUNT = SizeGen * SizeGen * SizeGen;
+    std::vector<float> x, y, z;
+
+    GridPositions3D() : x( COUNT ), y( COUNT ), z( COUNT )
+    {
+        int idx = 0;
+        for( uint32_t iz = 0; iz < SizeGen; iz++ )
+        {
+            for( uint32_t iy = 0; iy < SizeGen; iy++ )
+            {
+                for( uint32_t ix = 0; ix < SizeGen; ix++ )
+                {
+                    x[idx] = (float)( (int32_t)ix + StartOffset );
+                    y[idx] = (float)( (int32_t)iy + StartOffset );
+                    z[idx] = (float)( (int32_t)iz + StartOffset );
+                    idx++;
+                }
+            }
+        }
+    }
+};
+
+template<uint32_t SizeGen>
+struct GridPositions2D
+{
+    static constexpr uint32_t COUNT = SizeGen * SizeGen;
+    std::vector<float> x, y;
+
+    GridPositions2D() : x( COUNT ), y( COUNT )
+    {
+        int idx = 0;
+        for( uint32_t iy = 0; iy < SizeGen; iy++ )
+        {        
+            for( uint32_t ix = 0; ix < SizeGen; ix++ )
+            {
+                x[idx] = (float)ix;
+                y[idx] = (float)iy;
+                idx++;
+            }
+        }
+    }
+};
+
 MeshNoisePreview::MeshNoisePreview()
 {
     mBuildData.scale = 1.f;
@@ -37,6 +83,7 @@ MeshNoisePreview::MeshNoisePreview()
     mBuildData.heightmapMultiplier = 100.0f;
     mBuildData.color = Color3( 1.0f );
     mBuildData.meshType = MeshType_DualMarchingCubes3D;
+    mBuildData.upAxis = UpAxis_Y;
 
     uint32_t threadCount = std::max( 2u, std::thread::hardware_concurrency() );
 
@@ -70,6 +117,7 @@ void MeshNoisePreview::ReGenerate( FastNoise::SmartNodeArg<> generator )
     mBuildData.generatorScaled->SetScaling( mBuildData.scale );
     mBuildData.generatorScaled->SetSource( generator );
     mBuildData.pos = Vector3i( 0 );
+    mBuildData.upAxis = mUpAxis;
 
     mMinMax = {};
     mMinAirY = INFINITY;
@@ -144,6 +192,12 @@ void MeshNoisePreview::Draw( const Matrix4& transformation, const Matrix4& proje
     bool edited = false;
     edited |= ImGui::Combo( "Mesh Type", reinterpret_cast<int*>( &mBuildData.meshType ), MeshTypeStrings );
     edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mBuildData.meshType ), MeshType_Count );
+
+    if( mBuildData.meshType != MeshType_Heightmap2D )
+    {
+        edited |= ImGui::Combo( "Up Axis", reinterpret_cast<int*>( &mUpAxis ), UpAxisStrings );
+        edited |= ImGuiExtra::ScrollCombo( reinterpret_cast<int*>( &mUpAxis ), UpAxis_Count );
+    }
 
     if( ImGui::ColorEdit3( "Mesh Colour", mBuildData.color.data() ) )
     {
@@ -390,9 +444,16 @@ MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildMeshData( const 
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildBloxel3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
     static constexpr uint32_t SIZE_GEN = SIZE + 2;
-    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid3D( densityValues,
-                                                                                  buildData.pos.x() - 1.0f, buildData.pos.y() - 1.0f, buildData.pos.z() - 1.0f,
-                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, 1.0f, buildData.seed );
+    static const GridPositions3D<SIZE_GEN, -1> gridPos;
+    bool swapYZ = buildData.upAxis == UpAxis_Z;
+
+    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenPositionArray3D( densityValues, GridPositions3D<SIZE_GEN, -1>::COUNT,
+                                                                                    gridPos.x.data(),
+                                                                                    swapYZ ? gridPos.z.data() : gridPos.y.data(),
+                                                                                    swapYZ ? gridPos.y.data() : gridPos.z.data(),
+                                                                                    (float)buildData.pos.x(),
+                                                                                    (float)( swapYZ ? buildData.pos.z() : buildData.pos.y() ),
+                                                                                    (float)( swapYZ ? buildData.pos.y() : buildData.pos.z() ), buildData.seed );
     float minAir = INFINITY;
     float maxSolid = -INFINITY;
 
@@ -531,10 +592,16 @@ void MeshNoisePreview::Chunk::BloxelAddQuadAO( std::vector<VertexData>& verts, s
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildDmc3DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
     static constexpr uint32_t SIZE_GEN = SIZE + 4;
+    static const GridPositions3D<SIZE_GEN, -2> gridPos;
+    bool swapYZ = buildData.upAxis == UpAxis_Z;
 
-    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid3D( densityValues,
-                                                                                  buildData.pos.x() - 2.0f, buildData.pos.y() - 2.0f, buildData.pos.z() - 2.0f,
-                                                                                  SIZE_GEN, SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, 1.0f, buildData.seed );
+    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenPositionArray3D( densityValues,GridPositions3D<SIZE_GEN, -2>::COUNT,
+                                                                                    gridPos.x.data(),
+                                                                                    swapYZ ? gridPos.z.data() : gridPos.y.data(),
+                                                                                    swapYZ ? gridPos.y.data() : gridPos.z.data(),
+                                                                                    (float)buildData.pos.x(),
+                                                                                    (float)( swapYZ ? buildData.pos.z() : buildData.pos.y() ),
+                                                                                    (float)( swapYZ ? buildData.pos.y() : buildData.pos.z() ), buildData.seed );
     float minAir = INFINITY;
     float maxSolid = -INFINITY;
 
@@ -888,10 +955,11 @@ uint32_t MeshNoisePreview::Chunk::DmcGetVertIndex( uint32_t cellIndex, uint16_t 
 MeshNoisePreview::Chunk::MeshData MeshNoisePreview::Chunk::BuildHeightMap2DMesh( const BuildData& buildData, float* densityValues, std::vector<VertexData>& vertexData, std::vector<uint32_t>& indicies )
 {
     static constexpr uint32_t SIZE_GEN = SIZE + 1;
+    static const GridPositions2D<SIZE_GEN> gridPos;
 
-    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenUniformGrid2D( densityValues,
-                                                                                  (float)buildData.pos.x(), (float)buildData.pos.z(),
-                                                                                  SIZE_GEN, SIZE_GEN, 1.0f, 1.0f, buildData.seed );
+    FastNoise::OutputMinMax minMax = buildData.generatorScaled->GenPositionArray2D( densityValues,
+                                                                                    GridPositions2D<SIZE_GEN>::COUNT, gridPos.x.data(), gridPos.y.data(),
+                                                                                    (float)buildData.pos.x(), (float)buildData.pos.z(), buildData.seed );
     constexpr int32_t STEP_X = 1;
     constexpr int32_t STEP_Y = SIZE_GEN;
 
@@ -1078,6 +1146,7 @@ void MeshNoisePreview::SetupSettingsHandlers()
         outBuf->appendf( "seed=%d\n", meshNoisePreview->mBuildData.seed );
         outBuf->appendf( "color=%d\n", (int)meshNoisePreview->mBuildData.color.toSrgbInt() );
         outBuf->appendf( "mesh_type=%d\n", (int)meshNoisePreview->mBuildData.meshType );
+        outBuf->appendf( "up_axis=%d\n", (int)meshNoisePreview->mUpAxis );
         outBuf->appendf( "enabled=%d\n", (int)meshNoisePreview->mEnabled );
     };
     editorSettings.ReadOpenFn = []( ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name ) -> void* {
@@ -1097,6 +1166,7 @@ void MeshNoisePreview::SetupSettingsHandlers()
         sscanf( line, "heightmap_multiplier=%f", &meshNoisePreview->mBuildData.heightmapMultiplier );
         sscanf( line, "seed=%d", &meshNoisePreview->mBuildData.seed );
         sscanf( line, "mesh_type=%d", (int*)&meshNoisePreview->mBuildData.meshType );
+        sscanf( line, "up_axis=%d", (int*)&meshNoisePreview->mUpAxis );
 
         int i;
         if( sscanf( line, "color=%d", &i ) == 1 )

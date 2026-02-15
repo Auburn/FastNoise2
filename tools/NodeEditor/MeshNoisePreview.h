@@ -44,6 +44,17 @@ namespace Magnum
             "Dual Marching Cubes 3D\0"
             "Heightmap 2D\0";
 
+        enum UpAxis
+        {
+            UpAxis_Y,
+            UpAxis_Z,
+            UpAxis_Count
+        };
+
+        inline static const char* UpAxisStrings =
+            "Y Up\0"
+            "Z Up\0";
+
         class VertexLightShader : public GL::AbstractShaderProgram
         {
         public:
@@ -129,6 +140,7 @@ namespace Magnum
                 float scale, isoSurface, heightmapMultiplier;
                 int32_t seed;
                 MeshType meshType;
+                UpAxis upAxis;
                 uint32_t genVersion;
             };
 
@@ -186,6 +198,7 @@ namespace Magnum
         std::vector<Chunk> mChunks;
 
         bool mEnabled = true;
+        UpAxis mUpAxis = UpAxis_Y;
         Chunk::BuildData mBuildData;
         float mLoadRange = 300.0f;
         float mAvgNewChunks = 1.0f;
