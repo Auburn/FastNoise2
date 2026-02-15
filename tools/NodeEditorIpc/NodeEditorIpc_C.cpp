@@ -1,6 +1,5 @@
 #define FASTNOISE_EXPORT
 #include "FastNoise/NodeEditorIpc_C.h"
-#include "include/FastNoise/NodeEditorIpc_C.h"
 
 #include <atomic>
 #include <cstring>
@@ -235,16 +234,16 @@ bool fnEditorIpcSendImportRequest( void* ipc, const char* encodedNodeTree )
 
 int fnEditorIpcPollMessage( void* ipc, char* outBuffer, int bufferSize )
 {
-    if( !ipc || !outBuffer || bufferSize <= 0 )
+    if( !ipc )
     {
-        return FASTNOISE_EDITORIPC_MSG_BUFFER_TOO_SMALL;
+        return FASTNOISE_EDITORIPC_MSG_IPC_NOT_INITIALISED;
     }
 
     IpcContext* ctx = static_cast<IpcContext*>( ipc );
 
     if( !ctx->sharedMemory )
     {
-        return FASTNOISE_EDITORIPC_MSG_NONE;
+        return FASTNOISE_EDITORIPC_MSG_IPC_NOT_INITIALISED;
     }
 
     const unsigned char* sharedMemory = static_cast<const unsigned char*>( ctx->sharedMemory );
@@ -257,13 +256,19 @@ int fnEditorIpcPollMessage( void* ipc, char* outBuffer, int bufferSize )
         return FASTNOISE_EDITORIPC_MSG_NONE;
     }
 
-    ctx->lastCounter = sharedCounter;
-
     // Validate message type
     if( dataType != FASTNOISE_EDITORIPC_MSG_SELECTED_NODE && dataType != FASTNOISE_EDITORIPC_MSG_IMPORT_REQUEST )
     {
+        ctx->lastCounter = sharedCounter;
         return FASTNOISE_EDITORIPC_MSG_NONE;
     }
+
+    if( !outBuffer || bufferSize <= 0 )
+    {
+        return FASTNOISE_EDITORIPC_MSG_BUFFER_TOO_SMALL;
+    }
+       
+    ctx->lastCounter = sharedCounter;
 
     // Copy data to output buffer
     const char* data = reinterpret_cast<const char*>( sharedMemory + 2 );

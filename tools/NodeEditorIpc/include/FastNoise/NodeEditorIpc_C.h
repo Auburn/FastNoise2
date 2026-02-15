@@ -8,15 +8,16 @@ extern "C" {
 #endif
 
 // Message types / return codes
-#define FASTNOISE_EDITORIPC_MSG_BUFFER_TOO_SMALL (-1)
-#define FASTNOISE_EDITORIPC_MSG_NONE              0
-#define FASTNOISE_EDITORIPC_MSG_SELECTED_NODE     1
-#define FASTNOISE_EDITORIPC_MSG_IMPORT_REQUEST    2
+#define FASTNOISE_EDITORIPC_MSG_IPC_NOT_INITIALISED (-2)
+#define FASTNOISE_EDITORIPC_MSG_BUFFER_TOO_SMALL    (-1)
+#define FASTNOISE_EDITORIPC_MSG_NONE                  0
+#define FASTNOISE_EDITORIPC_MSG_SELECTED_NODE         1 // User selected/modified a node tree in the editor
+#define FASTNOISE_EDITORIPC_MSG_IMPORT_REQUEST        2 // Consumed by the node graph for importing encoded node trees
 
 /// <summary>
 /// Setup shared memory IPC for communication with the FastNoise2 Node Editor
 /// </summary>
-/// <param name="readPrevious">If true, first poll returns existing selected nodes; if false, only new updates</param>
+/// <param name="readPrevious">If true, first poll returns pre-existing selected node message; if false, only new updates</param>
 /// <returns>IPC context pointer, or nullptr on failure</returns>
 FASTNOISE_API void* fnEditorIpcSetup( bool readPrevious );
 
