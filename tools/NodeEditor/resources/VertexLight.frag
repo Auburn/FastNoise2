@@ -74,5 +74,5 @@ void main()
         light = (1.0 - interpolatedLight) * 0.08;
     }
 
-    fragmentColor = colorTint * light;
+    fragmentColor = vec4(colorTint.rgb * light, colorTint.a);
 }
