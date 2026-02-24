@@ -1,7 +1,7 @@
 # CMakeList.txt : CMake project for FastNoise2
 cmake_minimum_required(VERSION 3.10)
 
-project(FastNoise2 VERSION 1.1.0)
+project(FastNoise2 VERSION 1.1.1)
 set(CMAKE_CXX_STANDARD 17)
 
 # determine whether this is a standalone project or included by other projects
