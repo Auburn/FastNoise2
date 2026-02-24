@@ -106,3 +106,36 @@ jobs:
         file: ${{ github.workspace }}/${{ matrix.name }}.zip
         asset_name: FastNoise2-${{ github.event.release.tag_name }}-${{ matrix.name }}.zip
         tag: ${{ github.ref }}
+
+  deploy-wasm-preview:
+    name: Deploy WASM Preview
+    needs: ci-matrix
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: 'Download WASM artifact'
+      uses: actions/download-artifact@v4
+      with:
+        name: Emscripten-WASM
+        path: wasm-artifact
+
+    - name: 'Prepare Pages content'
+      run: |
+        mkdir pages
+        cp wasm-artifact/FastNoise2/bin/* pages/
+        mv pages/NodeEditor.html pages/index.html
+
+    - name: 'Upload Pages artifact'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: pages
+
+    - name: 'Deploy to GitHub Pages'
+      id: deployment
+      uses: actions/deploy-pages@v4
