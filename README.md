@@ -94,7 +94,8 @@ Supports:
 On Windows using ClangCL is recommended as MSVC has SIMD compiler bugs, which cause incorrect generation. ClangCL also complies much faster and has measurable runtime performance increases. Remember ClangCL binaries/libraries are fully compatible with MSVC!
 
 Bindings:
-- [C#](https://github.com/Auburn/FastNoise2Bindings)
+- [DotNet](https://github.com/Auburn/FastNoise2Bindings)
+- [Unity C#](https://github.com/api-haus/com.auburn.fastnoise2)
 - [Unreal Engine CMake](https://github.com/caseymcc/UE4_FastNoise2)
 - [Unreal Engine Blueprint](https://github.com/DoubleDeez/UnrealFastNoise2)
 - [Rust](https://github.com/Lemonzyy/fastnoise2-rs)
