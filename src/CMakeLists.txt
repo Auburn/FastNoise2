@@ -1,9 +1,15 @@
-
-CPMAddPackage(
-    NAME FastSIMD
-    GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG 16450dae9528727e500e7254f635a671f9c7ee2d
-)
+if(DEFINED FASTSIMD_SOURCE_DIR)
+    CPMAddPackage(
+        NAME FastSIMD
+        SOURCE_DIR "${FASTSIMD_SOURCE_DIR}"
+    )
+else()
+    CPMAddPackage(
+        NAME FastSIMD
+        GITHUB_REPOSITORY Auburn/FastSIMD
+        GIT_TAG 16450dae9528727e500e7254f635a671f9c7ee2d
+    )
+endif()
 
 set(install_targets ${install_targets}
     FastNoise
