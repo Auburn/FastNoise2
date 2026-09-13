@@ -40,3 +40,5 @@
 /CMakeUserPresets.json
 
 external/
+
+.DS_Store
