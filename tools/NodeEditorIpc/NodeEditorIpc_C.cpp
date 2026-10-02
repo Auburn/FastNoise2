@@ -2,6 +2,7 @@
 #include "FastNoise/NodeEditorIpc_C.h"
 
 #include <atomic>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
