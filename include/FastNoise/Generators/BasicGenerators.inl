@@ -100,7 +100,20 @@ class FastSIMD::DispatchClass<Gradient, SIMD> final : public virtual Gradient, p
         size_t multiplierIdx = 0;
         float32v r( 0 );
 
-        ((r = FS::FMulAdd( pos + this->GetSourceValue( mOffset[offsetIdx++], seed, pos... ), float32v( mMultiplier[multiplierIdx++]), r )), ...);
+        bool hasZeroMultiplier = false;
+        for( size_t i = 0; i < sizeof...( P ); i++ )
+        {
+            hasZeroMultiplier |= mMultiplier[i] == 0.0f;
+        }
+
+        if( !hasZeroMultiplier )
+        {
+            ((r = FS::FMulAdd( pos + this->GetSourceValue( mOffset[offsetIdx++], seed, pos... ), float32v( mMultiplier[multiplierIdx++]), r )), ...);
+            return r;
+        }
+
+        // ( pos + offset ) * 0 doesn't change r, skip it and avoid evaluating the offset source
+        ((r = mMultiplier[offsetIdx] != 0.0f ? FS::FMulAdd( pos + this->GetSourceValue( mOffset[offsetIdx], seed, pos... ), float32v( mMultiplier[offsetIdx] ), r ) : r, offsetIdx++), ...);
         return r;
     }
 };
