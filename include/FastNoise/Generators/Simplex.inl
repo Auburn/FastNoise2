@@ -290,6 +290,32 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSimplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
+    // Vertex direction is chosen by the sign bit of signValue, blendv only reads the high bit so no compare is needed
+    template<typename T>
+    FS_FORCEINLINE static T SelectSign( float32v signValue, T ifNegative, T ifPositive )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::Select( signValue < float32v( 0 ), ifNegative, ifPositive );
+        }
+        else
+        {
+            return FS::SelectHighBit( signValue, ifNegative, ifPositive );
+        }
+    }
+
+    FS_FORCEINLINE static float32v SignBit( float32v signValue )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::Masked( signValue < float32v( 0 ), float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+        }
+        else
+        {
+            return signValue & FS::Cast<float>( int32v( 1 << 31 ) );
+        }
+    }
+
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
@@ -479,13 +505,13 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1, 1> or <-1, -1, -1>
         {
-            mask32v signMask = xyzNormal < float32v( 0 );
+            float32v signValue = xyzNormal;
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset = float32v( 3 * kReflectUnskew3 + 1 ) ^ sign;
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset );
@@ -495,12 +521,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1, 0> or <-1, -1, 0>
         {
-            mask32v signMask = xyzNormal < zNormal;
+            float32v signValue = xyzNormal - zNormal; // Sign bit set when xyzNormal < zNormal
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0 );
@@ -510,12 +536,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0, 1> or <-1, 0, -1>
         {
-            mask32v signMask = xyzNormal < yNormal;
+            float32v signValue = xyzNormal - yNormal; // Sign bit set when xyzNormal < yNormal
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase );
@@ -525,12 +551,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1, 1> or <0, -1, -1>
         {
-            mask32v signMask = xyzNormal < xNormal;
+            float32v signValue = xyzNormal - xNormal; // Sign bit set when xyzNormal < xNormal
 
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase );
@@ -540,11 +566,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0, 0> or <-1, 0, 0>
         {
-            mask32v signMask = xNormal < float32v( 0 );
+            float32v signValue = xNormal;
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0 );
@@ -554,11 +580,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1, 0> or <0, -1, 0>
         {
-            mask32v signMask = yNormal < float32v( 0 );
+            float32v signValue = yNormal;
 
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0 );
@@ -568,11 +594,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 0, 1> or <0, 0, -1>
         {
-            mask32v signMask = zNormal < float32v( 0 );
+            float32v signValue = zNormal;
 
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0 );
@@ -711,13 +737,13 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1, 1, 1> or <-1, -1, -1, -1>
         {
-            mask32v signMask = xyzwNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xyzwNormal;
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset = float32v( 4 * kUnskew4 + 1 ) ^ sign;
 
@@ -728,12 +754,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1, 1, 0> or <-1, -1, -1, 0>
         {
-            mask32v signMask = xyzwNormal < wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xyzwNormal - wNormal; // Sign bit set when xyzwNormal < wNormal
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
@@ -745,12 +771,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1, 0, 1> or <-1, -1, 0, -1>
         {
-            mask32v signMask = xyzwNormal < zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xyzwNormal - zNormal; // Sign bit set when xyzwNormal < zNormal
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
@@ -762,12 +788,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0, 1, 1> or <-1, 0, -1, -1>
         {
-            mask32v signMask = xyzwNormal < yNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xyzwNormal - yNormal; // Sign bit set when xyzwNormal < yNormal
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
@@ -779,12 +805,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1, 1, 1> or <0, -1, -1, -1>
         {
-            mask32v signMask = xyzwNormal < xNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xyzwNormal - xNormal; // Sign bit set when xyzwNormal < xNormal
+            float32v sign = SignBit( signValue );
 
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
@@ -796,10 +822,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0, 0, 0> or <-1, 0, 0, 0>
         {
-            mask32v signMask = xNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xNormal;
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
@@ -811,11 +837,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1, 0, 0> or <-1, -1, 0, 0>
         {
-            mask32v signMask = xNormal < -yNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xNormal + yNormal; // Sign bit set when xNormal < -yNormal
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
@@ -827,11 +853,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0, 1, 0> or <-1, 0, -1, 0>
         {
-            mask32v signMask = xNormal < -zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xNormal + zNormal; // Sign bit set when xNormal < -zNormal
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
@@ -843,11 +869,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0, 0, 1> or <-1, 0, 0, -1>
         {
-            mask32v signMask = xNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = xNormal + wNormal; // Sign bit set when xNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
-            int32v xDelta = FS::Select( signMask, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
@@ -859,10 +885,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1, 0, 0> or <0, -1, 0, 0>
         {
-            mask32v signMask = yNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = yNormal;
+            float32v sign = SignBit( signValue );
 
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
@@ -874,11 +900,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1, 1, 0> or <0, -1, -1, 0>
         {
-            mask32v signMask = yNormal < -zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = yNormal + zNormal; // Sign bit set when yNormal < -zNormal
+            float32v sign = SignBit( signValue );
 
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
@@ -890,11 +916,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1, 0, 1> or <0, -1, 0, -1>
         {
-            mask32v signMask = yNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = yNormal + wNormal; // Sign bit set when yNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
-            int32v yDelta = FS::Select( signMask, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
@@ -906,10 +932,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 0, 1, 0> or <0, 0, -1, 0>
         {
-            mask32v signMask = zNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = zNormal;
+            float32v sign = SignBit( signValue );
 
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
@@ -921,11 +947,11 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 0, 1, 1> or <0, 0, -1, -1>
         {
-            mask32v signMask = zNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = zNormal + wNormal; // Sign bit set when zNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
-            int32v zDelta = FS::Select( signMask, zPrimedDeltaNeg, zPrimedDeltaPos );
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
@@ -937,10 +963,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 0, 0, 1> or <0, 0, 0, -1>
         {
-            mask32v signMask = wNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v signValue = wNormal;
+            float32v sign = SignBit( signValue );
 
-            int32v wDelta = FS::Select( signMask, wPrimedDeltaNeg, wPrimedDeltaPos );
+            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
