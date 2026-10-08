@@ -283,40 +283,51 @@ class FastSIMD::DispatchClass<GeneratorCache, SIMD> final : public virtual Gener
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        static constexpr size_t kCacheAlign = 64;
+        static constexpr size_t kCacheFloats = ( sizeof...(P) + 2 ) * int32v::ElementCount;
+
         thread_local static const void* CachedGenerator = nullptr;
-        thread_local static std::int32_t CachedSeed[int32v::ElementCount];
-        thread_local static float CachedPos[sizeof...(P)][int32v::ElementCount];
-        thread_local static float CachedValue[int32v::ElementCount];
+        thread_local static float CachedStorage[kCacheFloats + kCacheAlign / sizeof( float )];
         // TLS is not always aligned (compiler bug), need to avoid using SIMD types
-        
+        // Manually align so cached vectors don't split cache lines (breaks store forwarding on the hit path)
+        float* cache = reinterpret_cast<float*>( ( reinterpret_cast<uintptr_t>( CachedStorage ) + ( kCacheAlign - 1 ) ) & ~uintptr_t( kCacheAlign - 1 ) );
+        std::int32_t* cachedSeed = reinterpret_cast<std::int32_t*>( cache + int32v::ElementCount );
+        float* cachedPos = cache + int32v::ElementCount * 2;
+
         const float32v arrayPos[] = { pos... };
 
         bool isSame = (CachedGenerator == mSource.simdGeneratorPtr);
-        isSame &= !FS::AnyMask( seed != FS::Load<int32v>( CachedSeed ) );
+        isSame &= !FS::AnyMask( seed != FS::Load<int32v>( cachedSeed ) );
 
         for( size_t i = 0; i < sizeof...( P ); i++ )
         {
-            isSame &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( CachedPos[i] ) );
+            isSame &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( cachedPos + i * int32v::ElementCount ) );
         }
 
         if( !isSame )
         {
-            CachedGenerator = mSource.simdGeneratorPtr;
-
-            float32v value = this->GetSourceValue( mSource, seed, pos... );
-
-            FS::Store( CachedValue, value );
-            FS::Store( CachedSeed, seed );
+            // Store the key before evaluating the source so seed/pos don't need preserving across the call.
+            // A nested cache overwrites CachedGenerator, in that case leave its (consistent) entry in place
+            CachedGenerator = nullptr;
+            FS::Store( cachedSeed, seed );
 
             for( size_t i = 0; i < sizeof...(P); i++ )
             {
-                FS::Store( CachedPos[i], arrayPos[i] );
+                FS::Store( cachedPos + i * int32v::ElementCount, arrayPos[i] );
+            }
+
+            float32v value = this->GetSourceValue( mSource, seed, pos... );
+
+            if( !CachedGenerator )
+            {
+                CachedGenerator = mSource.simdGeneratorPtr;
+                FS::Store( cache, value );
             }
 
             return value;
         }
 
-        return FS::Load<float32v>( CachedValue );
+        return FS::Load<float32v>( cache );
     }
 };
 
