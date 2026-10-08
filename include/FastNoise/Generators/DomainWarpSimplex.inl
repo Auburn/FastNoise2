@@ -315,8 +315,8 @@ namespace FastNoise
         valueZ = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == int32v( 2 ), valueC, valueBA ), valueZ );
     }
 
-    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    template<FastSIMD::FeatureSet SIMD, typename I, typename F>
+    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductSimplexImpl( I hash31, F fX, F fY, F fZ, F fW, F multiplier, F& valueX, F& valueY, F& valueZ, F& valueW )
     {
         constexpr float kComponentPairwiseIndexedNegativeAB = -0.375999676691291f;
         constexpr float kComponentPairwiseUnindexedFillerAB = 0.222726847849776f;
@@ -355,35 +355,35 @@ namespace FastNoise
         constexpr float eIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleExtraD;
         constexpr float eFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleExtraD;
 
-        int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 2 );
-        int32v indexBasis = hashShifted * int32v( 20 >> 2 ); // [0,20) << 27
-        int32v indexPermutation3 = ( hashShifted * int32v( 0xD5555556 ) ) >> 29; // [0,3] // ( -4LL << 29 ) / 3
-        int32v indexPermutation8 = indexBasis >> 24; // & int32v( 0x07 );
-        float32v finalSign = FS::Cast<float>( hash31 << 31 );
+        I hashShifted = FS::BitShiftRightZeroExtend( hash31, 2 );
+        I indexBasis = hashShifted * I( 20 >> 2 ); // [0,20) << 27
+        I indexPermutation3 = ( hashShifted * I( 0xD5555556 ) ) >> 29; // [0,3] // ( -4LL << 29 ) / 3
+        I indexPermutation8 = indexBasis >> 24; // & I( 0x07 );
+        F finalSign = FS::Cast<float>( hash31 << 31 );
 
-        float32v valueA, valueB, valueC, valueD;
-        float32v valueA_gX, valueB_gX, valueC_gX, valueD_gX;
-        float32v valueA_gY, valueB_gY, valueC_gY, valueD_gY;
-        float32v valueA_gZ, valueB_gZ, valueC_gZ, valueD_gZ;
-        float32v valueA_gW, valueB_gW, valueC_gW, valueD_gW;
+        F valueA, valueB, valueC, valueD;
+        F valueA_gX, valueB_gX, valueC_gX, valueD_gX;
+        F valueA_gY, valueB_gY, valueC_gY, valueD_gY;
+        F valueA_gZ, valueB_gZ, valueC_gZ, valueD_gZ;
+        F valueA_gW, valueB_gW, valueC_gW, valueD_gW;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
             indexBasis >>= 27;
 
-            valueA_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxABC, sDiagABC, sDiagABC, sDiagABC, pIdxPosAB, pIdxNegAB, pDiagAB, pDiagAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pDiagAB, pDiagAB, pIdxNegAB ), indexBasis,
                 FS::Constant<float>( eIdxABC, eDiagABC, eDiagABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxABC, sFillABC, sFillABC, sFillABC, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB ), indexBasis,
                 FS::Constant<float>( eIdxABC, eFillABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxABC, sFillABC, sFillABC, sFillABC, pIdxPosC, pIdxNegC, pFillC, pFillC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pFillC, pFillC, pIdxNegC ), indexBasis,
                 FS::Constant<float>( eIdxABC, eFillABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxD, sFillD, sFillD, sFillD, pIdxPosD, pIdxNegD, pFillD, pFillD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pFillD, pFillD, pIdxNegD ), indexBasis,
                 FS::Constant<float>( eIdxD, eFillD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -393,19 +393,19 @@ namespace FastNoise
             valueC = valueC_gX * fX;
             valueD = valueD_gX * fX;
 
-            valueA_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sDiagABC, sIdxABC, sFillABC, sFillABC, pIdxNegAB, pIdxPosAB, pFillAB, pFillAB, pDiagAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pIdxNegAB, pDiagAB ), indexBasis,
                 FS::Constant<float>( eDiagABC, eIdxABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sIdxABC, sDiagABC, sDiagABC, pIdxNegAB, pIdxPosAB, pDiagAB, pDiagAB, pFillAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eIdxABC, eDiagABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sIdxABC, sFillABC, sFillABC, pIdxNegC, pIdxPosC, pFillC, pFillC, pFillC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pIdxNegC, pFillC ), indexBasis,
                 FS::Constant<float>( eFillABC, eIdxABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillD, sIdxD, sFillD, sFillD, pIdxNegD, pIdxPosD, pFillD, pFillD, pFillD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pIdxNegD, pFillD ), indexBasis,
                 FS::Constant<float>( eFillD, eIdxD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -415,19 +415,19 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gY, fY, valueC );
             valueD = FS::FMulAdd( valueD_gY, fY, valueD );
 
-            valueA_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sFillABC, pDiagAB, pDiagAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eIdxABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sDiagABC, sDiagABC, sIdxABC, sFillABC, pFillAB, pFillAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pDiagAB, pIdxPosAB, pDiagAB, pDiagAB, pIdxNegAB, pIdxPosAB, pDiagAB ), indexBasis,
                 FS::Constant<float>( eDiagABC, eDiagABC, eIdxABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sDiagABC, pFillC, pFillC, pIdxPosC, pIdxNegC, pIdxNegC, pFillC, pIdxPosC, pFillC, pFillC, pIdxNegC, pIdxPosC, pFillC ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eIdxABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillD, sFillD, sIdxD, sFillD, pFillD, pFillD, pIdxPosD, pIdxNegD, pIdxNegD, pFillD, pIdxPosD, pFillD, pFillD, pIdxNegD, pIdxPosD, pFillD ), indexBasis,
                 FS::Constant<float>( eFillD, eFillD, eIdxD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -437,19 +437,19 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gZ, fZ, valueC );
             valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
 
-            valueA_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eFillABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pDiagAB, pDiagAB, pIdxNegAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pIdxNegAB, pDiagAB, pDiagAB, pIdxPosAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eFillABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sDiagABC, sDiagABC, sDiagABC, sIdxABC, pFillC, pFillC, pIdxNegC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pIdxNegC, pFillC, pFillC, pIdxPosC ), indexBasis,
                 FS::Constant<float>( eDiagABC, eDiagABC, eDiagABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillD, sFillD, sFillD, sIdxD, pFillD, pFillD, pIdxNegD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pIdxNegD, pFillD, pFillD, pIdxPosD ), indexBasis,
                 FS::Constant<float>( eFillD, eFillD, eFillD, eIdxD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -465,27 +465,27 @@ namespace FastNoise
             const auto tableC  = FS::Constant<float>( pFillC,  pIdxNegC,  pFillC,  pIdxPosC,  sFillABC, sIdxABC, eFillABC, eIdxABC );
             const auto tableD  = FS::Constant<float>( pFillD,  pIdxNegD,  pFillD,  pIdxPosD,  sFillD,   sIdxD,   eFillD,   eIdxD   );
 
-            int32v indexPositive = indexBasis & int32v( 0x03 << 27 );
-            int32v indexNegative = ( indexBasis >> 2 ) & int32v( 0x03 << 27 );
+            I indexPositive = indexBasis & I( 0x03 << 27 );
+            I indexNegative = ( indexBasis >> 2 ) & I( 0x03 << 27 );
             indexNegative ^= indexPositive;
 
-            auto extraCase = ( indexBasis < int32v( 0 ) ); // [16,20) << 27 sets the sign bit
+            auto extraCase = ( indexBasis < I( 0 ) ); // [16,20) << 27 sets the sign bit
             auto singleCase = ( indexPositive == indexNegative );
             indexPositive |= FS::Cast<int32_t>( singleCase ); // Force indexPositive checks to fail
 
-            int32v indexSelectBase = FS::Masked( singleCase, int32v( 4 ) ) | FS::Masked( extraCase, int32v( 2 ) );
+            I indexSelectBase = FS::Masked( singleCase, I( 4 ) ) | FS::Masked( extraCase, I( 2 ) );
 
-            int32v indexedCounter( -1 );
+            I indexedCounter( -1 );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 0 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 0 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
+                auto indexedPositive = ( indexPositive == I( 0 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 0 << 27 ) );
+                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
 
-                valueA_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, sDiagABC, sIdxABC, eDiagABC, eIdxABC ), indexSelect );
-                valueB_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC,  indexSelect );
-                valueD_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD,  indexSelect );
+                valueA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, sDiagABC, sIdxABC, eDiagABC, eIdxABC ), indexSelect );
+                valueB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
+                valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC,  indexSelect );
+                valueD_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD,  indexSelect );
 
                 indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
             }
@@ -496,17 +496,17 @@ namespace FastNoise
             valueD = valueD_gX * fX;
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 1 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 1 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
+                auto indexedPositive = ( indexPositive == I( 1 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 1 << 27 ) );
+                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
 
-                valueA_gY = valueB_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
+                valueA_gY = valueB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
+                valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
+                valueD_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
 
-                int32v maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueA_gY = FS::MaskedAdd( maskedIndexedCounter == int32v( -2 ), valueA_gY, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueB_gY = FS::MaskedAdd( maskedIndexedCounter == int32v( -1 ), valueB_gY, float32v( kDeltaUnindexedFillerToDiagonal ) );
+                I maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
+                valueA_gY = FS::MaskedAdd( maskedIndexedCounter == I( -2 ), valueA_gY, F( kDeltaUnindexedFillerToDiagonal ) );
+                valueB_gY = FS::MaskedAdd( maskedIndexedCounter == I( -1 ), valueB_gY, F( kDeltaUnindexedFillerToDiagonal ) );
 
                 indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
             }
@@ -517,18 +517,18 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gY, fY, valueD );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 2 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 2 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
+                auto indexedPositive = ( indexPositive == I( 2 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 2 << 27 ) );
+                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
 
-                valueA_gZ = valueB_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
+                valueA_gZ = valueB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
+                valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
+                valueD_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
 
-                int32v maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueA_gZ = FS::MaskedAdd( maskedIndexedCounter == int32v( -3 ), valueA_gZ, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueB_gZ = FS::MaskedAdd( maskedIndexedCounter == int32v( -2 ), valueB_gZ, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueC_gZ = FS::MaskedAdd( maskedIndexedCounter == int32v( -1 ), valueC_gZ, float32v( kDeltaUnindexedFillerToDiagonal ) );
+                I maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
+                valueA_gZ = FS::MaskedAdd( maskedIndexedCounter == I( -3 ), valueA_gZ, F( kDeltaUnindexedFillerToDiagonal ) );
+                valueB_gZ = FS::MaskedAdd( maskedIndexedCounter == I( -2 ), valueB_gZ, F( kDeltaUnindexedFillerToDiagonal ) );
+                valueC_gZ = FS::MaskedAdd( maskedIndexedCounter == I( -1 ), valueC_gZ, F( kDeltaUnindexedFillerToDiagonal ) );
 
                 indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
             }
@@ -539,17 +539,17 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 3 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 3 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
+                auto indexedPositive = ( indexPositive == I( 3 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 3 << 27 ) );
+                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
 
-                valueA_gW = valueB_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
+                valueA_gW = valueB_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
+                valueC_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
+                valueD_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
 
-                int32v maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueB_gW = FS::MaskedAdd( maskedIndexedCounter == int32v( -3 ), valueB_gW, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueC_gW = FS::MaskedAdd( maskedIndexedCounter == int32v( -2 ), valueC_gW, float32v( kDeltaUnindexedFillerToDiagonal ) );
+                I maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
+                valueB_gW = FS::MaskedAdd( maskedIndexedCounter == I( -3 ), valueB_gW, F( kDeltaUnindexedFillerToDiagonal ) );
+                valueC_gW = FS::MaskedAdd( maskedIndexedCounter == I( -2 ), valueC_gW, F( kDeltaUnindexedFillerToDiagonal ) );
             }
 
             valueA = FS::FMulAdd( valueA_gW, fW, valueA );
@@ -559,39 +559,39 @@ namespace FastNoise
         }
         else
         {
-            int32v indexPositive = indexBasis & int32v( 0x03 << 27 );
-            int32v indexNegative = ( indexBasis >> 2 ) & int32v( 0x03 << 27 );
+            I indexPositive = indexBasis & I( 0x03 << 27 );
+            I indexNegative = ( indexBasis >> 2 ) & I( 0x03 << 27 );
             indexNegative ^= indexPositive;
 
-            auto extraCase = ( indexBasis < int32v( 0 ) ); // [16,20) << 27 sets the sign bit
+            auto extraCase = ( indexBasis < I( 0 ) ); // [16,20) << 27 sets the sign bit
             auto singleCase = ( indexPositive == indexNegative );
             auto singleNonExtraCase = FS::BitwiseAndNot( singleCase, extraCase );
             indexPositive |= FS::Cast<int32_t>( singleNonExtraCase ); // Force indexPositive checks to fail
 
-            float32v singleOffsetAB = FS::MaskedAdd( extraCase, float32v( kDeltaPairwiseToSingleAB ), float32v( kDeltaSingleToExtra ) );
-            float32v componentIndexedNegativeAB = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseIndexedNegativeAB ), singleOffsetAB );
-            float32v componentUnindexedFillerAB = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseUnindexedFillerAB ), singleOffsetAB );
+            F singleOffsetAB = FS::MaskedAdd( extraCase, F( kDeltaPairwiseToSingleAB ), F( kDeltaSingleToExtra ) );
+            F componentIndexedNegativeAB = FS::MaskedAdd( singleCase, F( kComponentPairwiseIndexedNegativeAB ), singleOffsetAB );
+            F componentUnindexedFillerAB = FS::MaskedAdd( singleCase, F( kComponentPairwiseUnindexedFillerAB ), singleOffsetAB );
 
-            float32v componentIndexedNegativeC = FS::InvMaskedAdd( singleCase, componentIndexedNegativeAB, float32v( kDeltaPairwiseABToC ) );
-            float32v componentUnindexedFillerC = FS::InvMaskedAdd( singleCase, componentUnindexedFillerAB, float32v( kDeltaPairwiseABToC ) );
+            F componentIndexedNegativeC = FS::InvMaskedAdd( singleCase, componentIndexedNegativeAB, F( kDeltaPairwiseABToC ) );
+            F componentUnindexedFillerC = FS::InvMaskedAdd( singleCase, componentUnindexedFillerAB, F( kDeltaPairwiseABToC ) );
 
-            float32v singleOffsetD = FS::MaskedAdd( extraCase, float32v( kDeltaPairwiseToSingleD ), float32v( kDeltaSingleToExtra ) );
-            float32v componentIndexedPositiveD = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseIndexedPositiveD ), singleOffsetD );
-            float32v componentUnindexedD = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseUnindexedD ), singleOffsetD );
+            F singleOffsetD = FS::MaskedAdd( extraCase, F( kDeltaPairwiseToSingleD ), F( kDeltaSingleToExtra ) );
+            F componentIndexedPositiveD = FS::MaskedAdd( singleCase, F( kComponentPairwiseIndexedPositiveD ), singleOffsetD );
+            F componentUnindexedD = FS::MaskedAdd( singleCase, F( kComponentPairwiseUnindexedD ), singleOffsetD );
 
-            int32v indexedCounter( -1 );
+            I indexedCounter( -1 );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 0 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 0 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 0 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 0 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = componentUnindexedFillerAB + float32v( kDeltaUnindexedFillerToDiagonal );
-                float32v unindexedComponentB = componentUnindexedFillerAB;
-                float32v unindexedComponentC = componentUnindexedFillerC;
+                F unindexedComponentA = componentUnindexedFillerAB + F( kDeltaUnindexedFillerToDiagonal );
+                F unindexedComponentB = componentUnindexedFillerAB;
+                F unindexedComponentC = componentUnindexedFillerC;
 
                 valueA_gX = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gX = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -607,16 +607,16 @@ namespace FastNoise
             valueD = valueD_gX * fX;
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 1 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 1 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 1 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 1 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = FS::MaskedAdd( indexedCounter == int32v( -2 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentB = FS::MaskedAdd( indexedCounter == int32v( -1 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentC = componentUnindexedFillerC;
+                F unindexedComponentA = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -1 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentC = componentUnindexedFillerC;
 
                 valueA_gY = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gY = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -632,16 +632,16 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gY, fY, valueD );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 2 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 2 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 2 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 2 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = FS::MaskedAdd( indexedCounter == int32v( -3 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentB = FS::MaskedAdd( indexedCounter == int32v( -2 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentC = FS::MaskedAdd( indexedCounter == int32v( -1 ), componentUnindexedFillerC,  float32v( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentA = FS::MaskedAdd( indexedCounter == I( -3 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentC = FS::MaskedAdd( indexedCounter == I( -1 ), componentUnindexedFillerC,  F( kDeltaUnindexedFillerToDiagonal ) );
 
                 valueA_gZ = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gZ = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -657,16 +657,16 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 3 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 3 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 3 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 3 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = componentUnindexedFillerAB;
-                float32v unindexedComponentB = FS::MaskedAdd( indexedCounter == int32v( -3 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentC = FS::MaskedAdd( indexedCounter == int32v( -2 ), componentUnindexedFillerC,  float32v( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentA = componentUnindexedFillerAB;
+                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -3 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentC = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerC,  F( kDeltaUnindexedFillerToDiagonal ) );
 
                 valueA_gW = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gW = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -680,17 +680,37 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gW, fW, valueD );
         }
 
-        int32v valueIndexX = ( indexPermutation8 >> 1 ); // & int32v( 0x3 );
-        int32v valueIndexY = ( FS::Increment( valueIndexX ) + indexPermutation3 ); // & int32v( 0x3 );
-        int32v valueIndexZ = indexPermutation8 & int32v( 0x1 );
-        valueIndexZ = ( FS::Increment( valueIndexX ) + FS::MaskedIncrement( valueIndexZ >= indexPermutation3, valueIndexZ ) ); // & int32v( 0x3 );
-        int32v valueIndexSumXYZ = valueIndexX + valueIndexY + valueIndexZ;
+        I valueIndexX = ( indexPermutation8 >> 1 ); // & I( 0x3 );
+        I valueIndexY = ( FS::Increment( valueIndexX ) + indexPermutation3 ); // & I( 0x3 );
+        I valueIndexZ = indexPermutation8 & I( 0x1 );
+        valueIndexZ = ( FS::Increment( valueIndexX ) + FS::MaskedIncrement( valueIndexZ >= indexPermutation3, valueIndexZ ) ); // & I( 0x3 );
+        I valueIndexSumXYZ = valueIndexX + valueIndexY + valueIndexZ;
 
         multiplier ^= finalSign;
         valueX = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexX << 31, FS::SelectHighBit( valueIndexX << 30, valueD, valueB ), FS::SelectHighBit( valueIndexX << 30, valueC, valueA ) ), valueX );
         valueY = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexY << 31, FS::SelectHighBit( valueIndexY << 30, valueD, valueB ), FS::SelectHighBit( valueIndexY << 30, valueC, valueA ) ), valueY );
         valueZ = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexZ << 31, FS::SelectHighBit( valueIndexZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexZ << 30, valueC, valueA ) ), valueZ );
         valueW = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexSumXYZ << 31, FS::SelectHighBit( valueIndexSumXYZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexSumXYZ << 30, valueA, valueC ) ), valueW );
+    }
+
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
+        }
+        else // Process each native register half separately, skipping halves with no contribution
+        {
+            if( FS::AnyMask( multiplier.v0 != decltype( multiplier.v0 )( 0 ) ) )
+            {
+                ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
+            }
+            if( FS::AnyMask( multiplier.v1 != decltype( multiplier.v1 )( 0 ) ) )
+            {
+                ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
+            }
+        }
     }
 
     template<VectorizationScheme Scheme>
