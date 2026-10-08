@@ -1327,8 +1327,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed ), dxBase - offset, dyBase - offset, dzBase - offset,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed ), dxBase - offset, dyBase - offset, dzBase - offset,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 1, 0> or <-1, -1, 0>
@@ -1343,8 +1346,11 @@ protected:
 
             float32v falloffBase = FS::Min( ( sign ^ dzBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase ), dxBase, dyBase, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase ), dxBase, dyBase, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 0, 1> or <-1, 0, -1>
@@ -1359,8 +1365,11 @@ protected:
 
             float32v falloffBase = FS::Min( ( sign ^ dyBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed ), dxBase, dyBase - offset0, dzBase,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed ), dxBase, dyBase - offset0, dzBase,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 1, 1> or <0, -1, -1>
@@ -1375,8 +1384,11 @@ protected:
 
             float32v falloffBase = FS::Min( ( sign ^ dxBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed ), dxBase - offset0, dyBase, dzBase,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed ), dxBase - offset0, dyBase, dzBase,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 0, 0> or <-1, 0, 0>
@@ -1390,8 +1402,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 1, 0> or <0, -1, 0>
@@ -1405,8 +1420,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 0, 1> or <0, 0, -1>
@@ -1420,8 +1438,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         if constexpr( Scheme != VectorizationScheme::OrthogonalGradientMatrix )
@@ -1579,8 +1600,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimed ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimed ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 1, 0> or <-1, -1, -1, 0>
@@ -1597,8 +1621,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 0, 1> or <-1, -1, 0, -1>
@@ -1615,8 +1642,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 1, 1> or <-1, 0, -1, -1>
@@ -1633,8 +1663,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 1, 1> or <0, -1, -1, -1>
@@ -1651,8 +1684,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 0, 0> or <-1, 0, 0, 0>
@@ -1667,8 +1703,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 0, 0> or <-1, -1, 0, 0>
@@ -1684,8 +1723,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 1, 0> or <-1, 0, -1, 0>
@@ -1701,8 +1743,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 0, 1> or <-1, 0, 0, -1>
@@ -1718,8 +1763,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 0, 0> or <0, -1, 0, 0>
@@ -1734,8 +1782,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 1, 0> or <0, -1, -1, 0>
@@ -1751,8 +1802,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 0, 1> or <0, -1, 0, -1>
@@ -1768,8 +1822,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 1, 0> or <0, 0, -1, 0>
@@ -1784,8 +1841,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 1, 1> or <0, 0, -1, -1>
@@ -1801,8 +1861,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 0, 1> or <0, 0, 0, -1>
@@ -1817,8 +1880,11 @@ protected:
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( FS::AnyMask( falloffBase != float32v( 0 ) ) )
+            {
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
