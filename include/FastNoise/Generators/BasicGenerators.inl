@@ -113,6 +113,8 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        float32v minkowskiP = GetMinkowskiP( mDistanceFunction, mMinkowskiP, seed, pos... );
+
         [self = this, seed] ( P&... out, std::remove_reference_t<P>... pos )
         {
             size_t pointIdx = 0;
@@ -120,6 +122,6 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
 
         }( pos..., pos... );
 
-        return CalcDistance( mDistanceFunction, mMinkowskiP, seed, pos... );
+        return CalcDistance( mDistanceFunction, minkowskiP, pos... );
     }
 };

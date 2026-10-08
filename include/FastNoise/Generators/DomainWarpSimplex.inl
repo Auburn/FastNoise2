@@ -469,7 +469,7 @@ namespace FastNoise
             int32v indexNegative = ( indexBasis >> 2 ) & int32v( 0x03 << 27 );
             indexNegative ^= indexPositive;
 
-            auto extraCase = ( indexBasis >= int32v( 0x10 << 27 ) );
+            auto extraCase = ( indexBasis < int32v( 0 ) ); // [16,20) << 27 sets the sign bit
             auto singleCase = ( indexPositive == indexNegative );
             indexPositive |= FS::Cast<int32_t>( singleCase ); // Force indexPositive checks to fail
 
@@ -563,9 +563,9 @@ namespace FastNoise
             int32v indexNegative = ( indexBasis >> 2 ) & int32v( 0x03 << 27 );
             indexNegative ^= indexPositive;
 
-            auto extraCase = ( indexBasis >= int32v( 0x10 << 27 ) );
+            auto extraCase = ( indexBasis < int32v( 0 ) ); // [16,20) << 27 sets the sign bit
             auto singleCase = ( indexPositive == indexNegative );
-            auto singleNonExtraCase = indexBasis < int32v( 0x04 << 27 );
+            auto singleNonExtraCase = FS::BitwiseAndNot( singleCase, extraCase );
             indexPositive |= FS::Cast<int32_t>( singleNonExtraCase ); // Force indexPositive checks to fail
 
             float32v singleOffsetAB = FS::MaskedAdd( extraCase, float32v( kDeltaPairwiseToSingleAB ), float32v( kDeltaSingleToExtra ) );
@@ -1093,6 +1093,7 @@ class FastSIMD::DispatchClass<DomainWarpSuperSimplex, SIMD> final : public virtu
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
+        seed += int32v( mSeedOffset );
         switch( mVectorizationScheme )
         {
         default:
@@ -1105,6 +1106,7 @@ public:
 
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const final
     {
+        seed += int32v( mSeedOffset );
         switch( mVectorizationScheme ) 
         {
         default:
@@ -1117,6 +1119,7 @@ public:
 
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const final
     {
+        seed += int32v( mSeedOffset );
         switch( mVectorizationScheme )
         {
         default:
