@@ -101,21 +101,25 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-            float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, totalValues - (intptr_t)int32v::ElementCount );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos );
-            FS::Store( &noiseOut[index], gen );
+            do
+            {
+                float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+                float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
+                float32v gen = Gen( int32v( seed ), xPos, yPos );
+                FS::Store( &noiseOut[index], gen );
 
-            index += int32v::ElementCount;
-            xIdx += int32v( int32v::ElementCount );
+                index += int32v::ElementCount;
+                xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
@@ -157,23 +161,27 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-            float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
-            float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, totalValues - (intptr_t)int32v::ElementCount );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
-            FS::Store( &noiseOut[index], gen );
+            do
+            {
+                float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+                float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+                float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
+                float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+                FS::Store( &noiseOut[index], gen );
 
-            index += int32v::ElementCount;
-            xIdx += int32v( int32v::ElementCount );
+                index += int32v::ElementCount;
+                xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-            AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+                AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
@@ -222,25 +230,29 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-            float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
-            float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
-            float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, totalValues - (intptr_t)int32v::ElementCount );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
-            FS::Store( &noiseOut[index], gen );
+            do
+            {
+                float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
+                float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+                float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+                float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
+                float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+                FS::Store( &noiseOut[index], gen );
 
-            index += int32v::ElementCount;
-            xIdx += int32v( int32v::ElementCount );
+                index += int32v::ElementCount;
+                xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-            AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
-            AxisReset<false>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
+                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+                AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+                AxisReset<false>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
@@ -262,17 +274,22 @@ public:
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-            float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos );
-            FS::Store( &noiseOut[index], gen );
+            do
+            {
+                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
-            index += int32v::ElementCount;
+                float32v gen = Gen( int32v( seed ), xPos, yPos );
+                FS::Store( &noiseOut[index], gen );
+
+                index += int32v::ElementCount;
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
@@ -292,18 +309,23 @@ public:
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-            float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-            float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
-            FS::Store( &noiseOut[index], gen );
+            do
+            {
+                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+                float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
-            index += int32v::ElementCount;
+                float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+                FS::Store( &noiseOut[index], gen );
+
+                index += int32v::ElementCount;
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
@@ -324,19 +346,24 @@ public:
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
         {
-            float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-            float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-            float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
-            float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
-            FS::Store( &noiseOut[index], gen );
+            do
+            {
+                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
+                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
+                float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
+                float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
-            index += int32v::ElementCount;
+                float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+                FS::Store( &noiseOut[index], gen );
+
+                index += int32v::ElementCount;
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
@@ -397,26 +424,30 @@ public:
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
-            float32v xF = FS::Convert<float>( xIdx ) * xMul;
-            float32v yF = FS::Convert<float>( yIdx ) * yMul;
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, totalValues - (intptr_t)int32v::ElementCount );
 
-            float32v xPos = FS::Cos( xF ) * xFreq;
-            float32v yPos = FS::Cos( yF ) * yFreq;
-            float32v zPos = FS::Sin( xF ) * xFreq;
-            float32v wPos = FS::Sin( yF ) * yFreq;
+            do
+            {
+                float32v xF = FS::Convert<float>( xIdx ) * xMul;
+                float32v yF = FS::Convert<float>( yIdx ) * yMul;
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
-            FS::Store( &noiseOut[index], gen );
+                float32v xPos = FS::Cos( xF ) * xFreq;
+                float32v yPos = FS::Cos( yF ) * yFreq;
+                float32v zPos = FS::Sin( xF ) * xFreq;
+                float32v wPos = FS::Sin( yF ) * yFreq;
 
-#if FASTNOISE_CALC_MIN_MAX
-            min = FS::Min( min, gen );
-            max = FS::Max( max, gen );
-#endif
+                float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+                FS::Store( &noiseOut[index], gen );
 
-            index += int32v::ElementCount;
-            xIdx += int32v( int32v::ElementCount );
+                index += int32v::ElementCount;
+                xIdx += int32v( int32v::ElementCount );
 
-            AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+                AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
         float32v xF = FS::Convert<float>( xIdx ) * xMul;
@@ -453,6 +484,22 @@ private:
             bIdx = FS::MaskedIncrement( aReset, bIdx );
             aIdx = FS::MaskedSub( aReset, aIdx, aSize );
         }
+    }
+
+    // Min/max is accumulated from the stored output once per block of Gen() calls,
+    // this avoids spilling and reloading the min/max registers around every call
+    static constexpr intptr_t kMinMaxBlockSize = int32v::ElementCount * 16;
+
+    static FS_FORCEINLINE void AccumulateMinMax( const float* noiseOut, intptr_t index, intptr_t endIndex, float32v& min, float32v& max )
+    {
+#if FASTNOISE_CALC_MIN_MAX
+        for( ; index < endIndex; index += int32v::ElementCount )
+        {
+            float32v stored = FS::Load<float32v>( &noiseOut[index] );
+            min = FS::Min( min, stored );
+            max = FS::Max( max, stored );
+        }
+#endif
     }
 
     static FS_FORCEINLINE float32v LoadRemaining( const float* loadPtr, intptr_t totalValues, intptr_t index )        
