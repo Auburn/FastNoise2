@@ -165,9 +165,11 @@ public:
         AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
         AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
 
+        intptr_t xNextWrap = xCount;
         intptr_t yNextWrap = xCount * yCount;
 
-        // zPos only changes when a lane wraps onto the next xy plane
+        // yPos/zPos only change when a lane wraps onto the next row/xy plane
+        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
         float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
@@ -178,7 +180,6 @@ public:
             do
             {
                 float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-                float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
                 float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
                 FS::Store( &noiseOut[index], gen );
@@ -186,11 +187,14 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-
-                if( AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap ) )
+                // Every multiple of the y stride is a multiple of the x stride, so a y wrap is always also an x wrap
+                if( AxisResetIfWrapped( xIdx, yIdx, xMax, xCountV, xCount, index, xNextWrap ) )
                 {
-                    zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+                    if( AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap ) )
+                    {
+                        zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+                    }
+                    yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
                 }
             }
             while( index < blockEnd );
@@ -199,7 +203,6 @@ public:
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
@@ -266,7 +269,7 @@ public:
 
                 AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
 
-                // A z wrap is also a y wrap (zNextWrap is a multiple of yNextWrap)
+                // Every multiple of the z stride is a multiple of the y stride, so a z wrap is always also a y wrap
                 if( AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap ) )
                 {
                     if( AxisResetIfWrapped( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount, index, zNextWrap ) )
