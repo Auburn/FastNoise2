@@ -12,8 +12,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
-        int32v x0 = FloorToInt<SIMD>( x, xs ) * int32v( Primes::X );
-        int32v y0 = FloorToInt<SIMD>( y, ys ) * int32v( Primes::Y );
+        int32v x0 = FloorToInt( x, xs ) * int32v( Primes::X );
+        int32v y0 = FloorToInt( y, ys ) * int32v( Primes::Y );
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
 
@@ -43,9 +43,9 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
 
-        int32v x0 = FloorToInt<SIMD>( x, xs ) * int32v( Primes::X );
-        int32v y0 = FloorToInt<SIMD>( y, ys ) * int32v( Primes::Y );
-        int32v z0 = FloorToInt<SIMD>( z, zs ) * int32v( Primes::Z );
+        int32v x0 = FloorToInt( x, xs ) * int32v( Primes::X );
+        int32v y0 = FloorToInt( y, ys ) * int32v( Primes::Y );
+        int32v z0 = FloorToInt( z, zs ) * int32v( Primes::Z );
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
         int32v z1 = z0 + int32v( Primes::Z );
@@ -83,10 +83,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         float32v zs = FS::Floor( z );
         float32v ws = FS::Floor( w );
 
-        int32v x0 = FloorToInt<SIMD>( x, xs ) * int32v( Primes::X );
-        int32v y0 = FloorToInt<SIMD>( y, ys ) * int32v( Primes::Y );
-        int32v z0 = FloorToInt<SIMD>( z, zs ) * int32v( Primes::Z );
-        int32v w0 = FloorToInt<SIMD>( w, ws ) * int32v( Primes::W );
+        int32v x0 = FloorToInt( x, xs ) * int32v( Primes::X );
+        int32v y0 = FloorToInt( y, ys ) * int32v( Primes::Y );
+        int32v z0 = FloorToInt( z, zs ) * int32v( Primes::Z );
+        int32v w0 = FloorToInt( w, ws ) * int32v( Primes::W );
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
         int32v z1 = z0 + int32v( Primes::Z );
