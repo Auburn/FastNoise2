@@ -216,6 +216,23 @@ protected:
         return FS::BitMask( m ) == (FS::BitStorage<mask32v::ElementCount>)( ~0ull >> ( 64 - mask32v::ElementCount ) );
     }
 
+    // Minkowski cells are dominated by Pow, a call costs little there and keeps Pow out of every generic GenT variant
+    template<typename... P>
+    FS_NEVERINLINE static float32v FS_VECTORCALL MinkowskiDistance( float32v minkowskiP, P... pos )
+    {
+        return CalcDistance( DistanceFunction::Minkowski, minkowskiP, pos... );
+    }
+
+    template<bool DO_SQRT, typename... P>
+    FS_FORCEINLINE static float32v CellDistance( DistanceFunction distFunc, float32v minkowskiP, P... pos )
+    {
+        if( distFunc == DistanceFunction::Minkowski )
+        {
+            return MinkowskiDistance( minkowskiP, pos... );
+        }
+        return CalcDistance<DO_SQRT>( distFunc, minkowskiP, pos... );
+    }
+
     // Primed cell coordinates and cell positions ( - origin ) for the 3 neighbour cells on one axis: [-1, 0, +1]
     // The hash seed can be xored into one axis' primed coordinates up front, saving an xor per cell
     FS_FORCEINLINE static void CellAxis( int32v cell, int prime, float32v origin, std::array<int32v, 3>& primed, std::array<float32v, 3>& cellPos, int32v seed = int32v( 0 ) )
@@ -541,7 +558,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 int32v newCellValueHash = hash;
-                float32v newDistance = CalcDistance<true>( distFunc, minkowskiP, xd, yd );
+                float32v newDistance = this->template CellDistance<true>( distFunc, minkowskiP, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -636,7 +653,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
 
             int32v newCellValueHash = hash;
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd, zd );
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -728,7 +745,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             wd = FS::FMulAdd( wd, invMag, cellOffset[3][o[3]] );
 
             int32v newCellValueHash = hash;
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -829,7 +846,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
                 xd = FS::FMulAdd( xd, invMag, xcfOffset );
                 yd = FS::FMulAdd( yd, invMag, ycf - y );
 
-                float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+                float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -916,7 +933,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
             zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
 
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd, zd );
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -1000,7 +1017,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
             wd = FS::FMulAdd( wd, invMag, cellOffset[3][o[3]] );
 
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -1125,7 +1142,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 xd = localCellX - x;
                 yd = localCellY - y;
 
-                float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+                float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -1206,7 +1223,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             yd = localCellY - y;
             zd = localCellZ - z;
 
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd, zd );
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -1286,7 +1303,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             zd = localCellZ - z;
             wd = localCellW - w;
 
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
