@@ -33,8 +33,8 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dxSkewed = xSkewed - xSkewedBase;
         float32v dySkewed = ySkewed - ySkewedBase;
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
 
         mask32v xGreaterEqualY = dxSkewed >= dySkewed;
         
@@ -93,9 +93,9 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dySkewed = ySkewed - ySkewedBase;
         float32v dzSkewed = zSkewed - zSkewedBase;
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
-        int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
+        int32v zPrimedBase = FloorToInt( zSkewed, zSkewedBase ) * int32v( Primes::Z );
 
         mask32v xGreaterEqualY = dxSkewed >= dySkewed;
         mask32v yGreaterEqualZ = dySkewed >= dzSkewed;
@@ -176,10 +176,10 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dzSkewed = zSkewed - zSkewedBase;
         float32v dwSkewed = wSkewed - wSkewedBase;
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
-        int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
-        int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
+        int32v zPrimedBase = FloorToInt( zSkewed, zSkewedBase ) * int32v( Primes::Z );
+        int32v wPrimedBase = FloorToInt( wSkewed, wSkewedBase ) * int32v( Primes::W );
 
         float32v unskewDelta = float32v( kUnskew4 ) * ( dxSkewed + dySkewed + dzSkewed + dwSkewed );
         float32v dx0 = dxSkewed + unskewDelta;
@@ -377,8 +377,8 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         float32v ySkewedBase = FS::Floor( ySkewed );
         float32v dxSkewed = xSkewed - xSkewedBase;
         float32v dySkewed = ySkewed - ySkewedBase;
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
 
         mask32v forwardXY = dxSkewed + dySkewed > float32v( 1.0f );
         float32v boundaryXY = FS::Masked( forwardXY, float32v( -1.0f ) );
@@ -470,6 +470,9 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         float32v dxSkewed = xSkewed - xSkewedBase;
         float32v dySkewed = ySkewed - ySkewedBase;
         float32v dzSkewed = zSkewed - zSkewedBase;
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
+        int32v zPrimedBase = FloorToInt( zSkewed, zSkewedBase ) * int32v( Primes::Z );
 
         // From unit cell base, find closest vertex
         {
@@ -501,18 +504,14 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             mask32v moveY = ( moveMaskBits & int32v( 0b010 ) ) != int32v( 0 );
             mask32v moveZ = ( moveMaskBits & int32v( 0b100 ) ) != int32v( 0 );
 
-            xSkewedBase = FS::MaskedIncrement( moveX, xSkewedBase );
-            ySkewedBase = FS::MaskedIncrement( moveY, ySkewedBase );
-            zSkewedBase = FS::MaskedIncrement( moveZ, zSkewedBase );
+            xPrimedBase = FS::MaskedAdd( moveX, xPrimedBase, int32v( Primes::X ) );
+            yPrimedBase = FS::MaskedAdd( moveY, yPrimedBase, int32v( Primes::Y ) );
+            zPrimedBase = FS::MaskedAdd( moveZ, zPrimedBase, int32v( Primes::Z ) );
 
             dxSkewed = FS::MaskedDecrement( moveX, dxSkewed );
             dySkewed = FS::MaskedDecrement( moveY, dySkewed );
             dzSkewed = FS::MaskedDecrement( moveZ, dzSkewed );
         }
-
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
-        int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
 
         // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
         int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase;
@@ -700,6 +699,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         F dySkewed = ySkewed - ySkewedBase;
         F dzSkewed = zSkewed - zSkewedBase;
         F dwSkewed = wSkewed - wSkewedBase;
+        I xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * I( Primes::X );
+        I yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * I( Primes::Y );
+        I zPrimedBase = FloorToInt( zSkewed, zSkewedBase ) * I( Primes::Z );
+        I wPrimedBase = FloorToInt( wSkewed, wSkewedBase ) * I( Primes::W );
 
         // From unit cell base, find closest vertex
         {
@@ -763,21 +766,16 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             M moveZ = ( moveMaskBits & I( 0b0100 ) ) != I( 0 );
             M moveW = ( moveMaskBits & I( 0b1000 ) ) != I( 0 );
 
-            xSkewedBase = FS::MaskedIncrement( moveX, xSkewedBase );
-            ySkewedBase = FS::MaskedIncrement( moveY, ySkewedBase );
-            zSkewedBase = FS::MaskedIncrement( moveZ, zSkewedBase );
-            wSkewedBase = FS::MaskedIncrement( moveW, wSkewedBase );
+            xPrimedBase = FS::MaskedAdd( moveX, xPrimedBase, I( Primes::X ) );
+            yPrimedBase = FS::MaskedAdd( moveY, yPrimedBase, I( Primes::Y ) );
+            zPrimedBase = FS::MaskedAdd( moveZ, zPrimedBase, I( Primes::Z ) );
+            wPrimedBase = FS::MaskedAdd( moveW, wPrimedBase, I( Primes::W ) );
 
             dxSkewed = FS::MaskedDecrement( moveX, dxSkewed );
             dySkewed = FS::MaskedDecrement( moveY, dySkewed );
             dzSkewed = FS::MaskedDecrement( moveZ, dzSkewed );
             dwSkewed = FS::MaskedDecrement( moveW, dwSkewed );
         }
-
-        I xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * I( Primes::X );
-        I yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * I( Primes::Y );
-        I zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * I( Primes::Z );
-        I wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * I( Primes::W );
 
         // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
         I hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase ^ wPrimedBase;
