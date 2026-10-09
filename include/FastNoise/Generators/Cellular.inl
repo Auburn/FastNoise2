@@ -209,11 +209,11 @@ protected:
         return kPruneNone;
     }
 
-    // Constant indices only, so distance arrays can stay in registers
-    template<size_t N>
-    FS_FORCEINLINE static float32v DistanceAt( const std::array<float32v, N>& distance, int index )
+    // Constant indices only, so distance/hash arrays can stay in registers
+    template<typename T, size_t N>
+    FS_FORCEINLINE static T DistanceAt( const std::array<T, N>& distance, int index )
     {
-        float32v value = distance[0];
+        T value = distance[0];
         for( size_t i = 1; i < N; i++ )
         {
             if( index == (int)i )
@@ -529,12 +529,14 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
-        std::array<int32v, kMaxDistanceCount> valueHash;
-        std::array<float32v, kMaxDistanceCount> distance;
+        std::array<int32v, COUNT> valueHash;
+        std::array<float32v, COUNT> distance;
         
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y );
+
+        int valueIndex = SPECIALISED ? COUNT - 1 : mValueIndex;
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -567,14 +569,14 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                     newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
                 }
 
-                for( int i = 0; ; i++ )
+                for( int i = 0; i < COUNT; i++ )
                 {
                     mask32v closer = newDistance < distance[i];
 
                     int32v localCellValueHash = valueHash[i];
                     valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
 
-                    if( i >= ( SPECIALISED ? COUNT - 1 : mValueIndex ) )
+                    if( i >= valueIndex )
                     {
                         distance[i] = FS::Select( closer, newDistance, distance[i] );
                         break;
@@ -594,7 +596,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             xc += int32v( Primes::X );
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -624,8 +626,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
-        std::array<int32v, kMaxDistanceCount> valueHash;
-        std::array<float32v, kMaxDistanceCount> distance;
+        std::array<int32v, COUNT> valueHash;
+        std::array<float32v, COUNT> distance;
         
         distance.fill( float32v( kInfinity ) );
 
@@ -663,7 +665,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
             }
 
-            for( int i = 0; ; i++ )
+            for( int i = 0; i < COUNT; i++ )
             {
                 mask32v closer = newDistance < distance[i];
 
@@ -684,7 +686,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
@@ -714,8 +716,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
-        std::array<int32v, kMaxDistanceCount> valueHash;
-        std::array<float32v, kMaxDistanceCount> distance;
+        std::array<int32v, COUNT> valueHash;
+        std::array<float32v, COUNT> distance;
         
         distance.fill( float32v( kInfinity ) );
 
@@ -756,7 +758,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
             }
 
-            for( int i = 0; ; i++ )
+            for( int i = 0; i < COUNT; i++ )
             {
                 mask32v closer = newDistance < distance[i];
 
@@ -777,7 +779,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
     }
 };
 
@@ -850,7 +852,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
-        std::array<float32v, kMaxDistanceCount> distance;
+        std::array<float32v, COUNT> distance;
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y );
@@ -940,7 +942,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
-        std::array<float32v, kMaxDistanceCount> distance;
+        std::array<float32v, COUNT> distance;
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y, z );
@@ -1021,7 +1023,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
-        std::array<float32v, kMaxDistanceCount> distance;
+        std::array<float32v, COUNT> distance;
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y, z, w );
@@ -1078,43 +1080,52 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         return GetReturn( distance, 1 + this->kJitter4D );
     }
 
-    FS_FORCEINLINE float32v GetReturn( std::array<float32v, kMaxDistanceCount>& distance, float maxDist ) const
+    template<size_t N>
+    FS_FORCEINLINE float32v GetReturn( const std::array<float32v, N>& distance, float maxDist ) const
     {
-        if( mDistanceFunction == FastNoise::DistanceFunction::Euclidean )
-        {
-            distance[mDistanceIndex0] = FastLengthSqrt( distance[mDistanceIndex0] );
+        float32v distance0 = this->DistanceAt( distance, mDistanceIndex0 );
+        bool euclidean = mDistanceFunction == FastNoise::DistanceFunction::Euclidean;
 
-            // Avoid double sqrt when both indices are the same
-            if( mDistanceIndex1 != mDistanceIndex0 )
-            {
-                distance[mDistanceIndex1] = FastLengthSqrt( distance[mDistanceIndex1] );
-            }
+        if( euclidean )
+        {
+            distance0 = FastLengthSqrt( distance0 );
         }
 
         maxDist *= maxDist;
 
+        if( mReturnType == ReturnType::Index0 )
+        {
+            return this->ScaleOutput( this, distance0, 0, maxDist );
+        }
+
+        // Index1 is only tracked when the return type uses it
+        float32v distance1 = this->DistanceAt( distance, mDistanceIndex1 );
+        if( euclidean )
+        {
+            distance1 = FastLengthSqrt( distance1 );
+        }
+
         switch( mReturnType )
         {
         default:
-        case ReturnType::Index0:
         {
-            return this->ScaleOutput( this, distance[mDistanceIndex0], 0, maxDist );
+            return this->ScaleOutput( this, distance0, 0, maxDist );
         }
         case ReturnType::Index0Add1:
         {
-            return this->ScaleOutput( this, distance[mDistanceIndex0] + distance[mDistanceIndex1], 0, maxDist * 2 );
+            return this->ScaleOutput( this, distance0 + distance1, 0, maxDist * 2 );
         }
         case ReturnType::Index0Sub1:
         {
-            return this->ScaleOutput( this, FS::Abs( distance[mDistanceIndex0] - distance[mDistanceIndex1] ), 0, maxDist );
+            return this->ScaleOutput( this, FS::Abs( distance0 - distance1 ), 0, maxDist );
         }
         case ReturnType::Index0Mul1:
         {
-            return this->ScaleOutput( this, distance[mDistanceIndex0] * distance[mDistanceIndex1], 0, maxDist * maxDist );
+            return this->ScaleOutput( this, distance0 * distance1, 0, maxDist * maxDist );
         }
         case ReturnType::Index0Div1:
         {
-            return this->ScaleOutput( this, distance[mDistanceIndex0] * FS::Reciprocal( distance[mDistanceIndex1] ), 0, maxDist );
+            return this->ScaleOutput( this, distance0 * FS::Reciprocal( distance1 ), 0, maxDist );
         }
         }
     }
