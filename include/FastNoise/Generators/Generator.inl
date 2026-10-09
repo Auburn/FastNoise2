@@ -99,6 +99,11 @@ public:
 
         AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
 
+        intptr_t xNextWrap = xCount;
+
+        // yPos only changes when a lane wraps onto the next row
+        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
@@ -107,7 +112,6 @@ public:
             do
             {
                 float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-                float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
                 float32v gen = Gen( int32v( seed ), xPos, yPos );
                 FS::Store( &noiseOut[index], gen );
@@ -115,7 +119,10 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
+                if( AxisResetIfWrapped( xIdx, yIdx, xMax, xCountV, xCount, index, xNextWrap ) )
+                {
+                    yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
+                }
             }
             while( index < blockEnd );
 
@@ -123,7 +130,6 @@ public:
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
-        float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos );
 
@@ -161,6 +167,9 @@ public:
 
         intptr_t yNextWrap = xCount * yCount;
 
+        // zPos only changes when a lane wraps onto the next xy plane
+        float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
@@ -170,7 +179,6 @@ public:
             {
                 float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
                 float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
-                float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
                 float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
                 FS::Store( &noiseOut[index], gen );
@@ -179,7 +187,11 @@ public:
                 xIdx += int32v( int32v::ElementCount );
 
                 AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-                AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap );
+
+                if( AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap ) )
+                {
+                    zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+                }
             }
             while( index < blockEnd );
 
@@ -188,7 +200,6 @@ public:
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
         float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
-        float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
@@ -233,6 +244,10 @@ public:
         intptr_t yNextWrap = xCount * yCount;
         intptr_t zNextWrap = xCount * yCount * zCount;
 
+        // zPos/wPos only change when a lane wraps onto the next xy plane/xyz volume
+        float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+        float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
+
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
@@ -242,8 +257,6 @@ public:
             {
                 float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
                 float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
-                float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
-                float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
                 float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
                 FS::Store( &noiseOut[index], gen );
@@ -252,8 +265,16 @@ public:
                 xIdx += int32v( int32v::ElementCount );
 
                 AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-                AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap );
-                AxisResetIfWrapped( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount, index, zNextWrap );
+
+                // A z wrap is also a y wrap (zNextWrap is a multiple of yNextWrap)
+                if( AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap ) )
+                {
+                    if( AxisResetIfWrapped( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount, index, zNextWrap ) )
+                    {
+                        wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
+                    }
+                    zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
+                }
             }
             while( index < blockEnd );
 
@@ -262,8 +283,6 @@ public:
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
         float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
-        float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
-        float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
@@ -492,8 +511,8 @@ private:
     }
 
     // The reset is a no-op unless a lane crossed a multiple of aStep this iteration (lanes cover [index, index + ElementCount)),
-    // nextWrap is the first multiple of aStep after the previous iteration's first lane
-    static FS_FORCEINLINE void AxisResetIfWrapped( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep, intptr_t index, intptr_t& nextWrap )
+    // nextWrap is the first multiple of aStep after the previous iteration's first lane. Returns true if the reset ran
+    static FS_FORCEINLINE bool AxisResetIfWrapped( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep, intptr_t index, intptr_t& nextWrap )
     {
         if( index + (intptr_t)int32v::ElementCount > nextWrap )
         {
@@ -503,7 +522,9 @@ private:
             {
                 nextWrap += aStep;
             }
+            return true;
         }
+        return false;
     }
 
     // Min/max is accumulated from the stored output once per block of Gen() calls,
