@@ -32,7 +32,15 @@ class FastSIMD::DispatchClass<Multiply, SIMD> final : public virtual Multiply, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) * this->GetSourceValue( mRHS, seed, pos... );
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
+
+        // 0 * rhs == 0, skip evaluating RHS if LHS is 0 in every lane (e.g. masked regions)
+        if( !FS::AnyMask( lhs != float32v( 0 ) ) )
+        {
+            return lhs;
+        }
+
+        return lhs * this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
