@@ -175,6 +175,24 @@ public:
         return CallGen( simdGen, seed, pos... );
     }
 
+    // Returns op( lhs, rhs ), evaluating LHS before RHS. A constant RHS gets its own path: there the positions are only
+    // used by the LHS call, otherwise they are spilled before that call for an RHS call that doesn't happen.
+    // Reading the constant before the call also keeps the compiler from hoisting the LHS call of both paths above the branch
+    template<typename L, typename T, typename OP, typename... POS>
+    static FS_FORCEINLINE float32v FS_VECTORCALL CombineSourceValues( const L& lhs, const FastNoise::HybridSourceT<T>& rhs, OP op, int32v seed, POS... pos )
+    {
+        if( !rhs.simdGeneratorPtr )
+        {
+            float rhsConstant = rhs.constant;
+
+            return op( GetSourceValue( lhs, seed, pos... ), float32v( rhsConstant ) );
+        }
+
+        float32v lhsValue = GetSourceValue( lhs, seed, pos... );
+
+        return op( lhsValue, GetSourceValue( rhs, seed, pos... ) );
+    }
+
     template<typename T>
     static FS_FORCEINLINE const DispatchClass<T, SIMD>* GetSourceSIMD( const FastNoise::GeneratorSourceT<T>& memberVariable )
     {

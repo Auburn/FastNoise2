@@ -8,11 +8,7 @@ class FastSIMD::DispatchClass<Add, SIMD> final : public virtual Add, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        // Sequence LHS first: clang evaluates the RHS operand first, which for a constant RHS made the positions
-        // be spilled and reloaded around the LHS call (measured up to 30% slower with a cheap constant RHS)
-        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
-
-        return lhs + this->GetSourceValue( mRHS, seed, pos... );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return a + b; }, seed, pos... );
     }
 };
 
@@ -24,9 +20,7 @@ class FastSIMD::DispatchClass<Subtract, SIMD> final : public virtual Subtract, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
-
-        return lhs - this->GetSourceValue( mRHS, seed, pos... );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return a - b; }, seed, pos... );
     }
 };
 
@@ -38,6 +32,13 @@ class FastSIMD::DispatchClass<Multiply, SIMD> final : public virtual Multiply, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        if( !mRHS.simdGeneratorPtr ) // Constant RHS path, see CombineSourceValues
+        {
+            float rhsConstant = mRHS.constant;
+
+            return this->GetSourceValue( mLHS, seed, pos... ) * float32v( rhsConstant );
+        }
+
         float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
 
         // 0 * rhs == 0, skip evaluating RHS if LHS is 0 in every lane (e.g. masked regions)
@@ -58,7 +59,8 @@ class FastSIMD::DispatchClass<Divide, SIMD> final : public virtual Divide, publi
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
+        // Not CombineSourceValues: its constant RHS path compiles to lhs * ( 1 / constant ), which changes the output
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
 
         return lhs / this->GetSourceValue( mRHS, seed, pos... );
     }
@@ -121,9 +123,7 @@ class FastSIMD::DispatchClass<Min, SIMD> final : public virtual Min, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
-
-        return FS::Min( lhs, this->GetSourceValue( mRHS, seed, pos... ) );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return FS::Min( a, b ); }, seed, pos... );
     }
 };
 
@@ -135,9 +135,7 @@ class FastSIMD::DispatchClass<Max, SIMD> final : public virtual Max, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
-
-        return FS::Max( lhs, this->GetSourceValue( mRHS, seed, pos... ) );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return FS::Max( a, b ); }, seed, pos... );
     }
 };
 
