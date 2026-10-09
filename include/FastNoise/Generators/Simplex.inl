@@ -235,29 +235,48 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         int32v rankZ( 0 );
         int32v rankW( 0 );
 
-        mask32v xGreaterEqualY = dx0 >= dy0;
-        rankX = FS::MaskedIncrement(  xGreaterEqualY, rankX );
-        rankY = FS::MaskedIncrement( ~xGreaterEqualY, rankY );
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            // Masked increments need a mask to vector conversion each and the inverted comparisons on AVX512. Use the
+            // comparisons as -1/0 integers instead, each one adds to one rank and subtracts from the other
+            int32v xGreaterEqualY = FS::Masked( dx0 >= dy0, int32v( -1 ) );
+            int32v xGreaterEqualZ = FS::Masked( dx0 >= dz0, int32v( -1 ) );
+            int32v xGreaterEqualW = FS::Masked( dx0 >= dw0, int32v( -1 ) );
+            int32v yGreaterEqualZ = FS::Masked( dy0 >= dz0, int32v( -1 ) );
+            int32v yGreaterEqualW = FS::Masked( dy0 >= dw0, int32v( -1 ) );
+            int32v zGreaterEqualW = FS::Masked( dz0 >= dw0, int32v( -1 ) );
 
-        mask32v xGreaterEqualZ = dx0 >= dz0;
-        rankX = FS::MaskedIncrement(  xGreaterEqualZ, rankX );
-        rankZ = FS::MaskedIncrement( ~xGreaterEqualZ, rankZ );
+            rankX = rankX - xGreaterEqualY - xGreaterEqualZ - xGreaterEqualW;
+            rankY = int32v( 1 ) + xGreaterEqualY - yGreaterEqualZ - yGreaterEqualW;
+            rankZ = int32v( 2 ) + xGreaterEqualZ + yGreaterEqualZ - zGreaterEqualW;
+            rankW = int32v( 3 ) + xGreaterEqualW + yGreaterEqualW + zGreaterEqualW;
+        }
+        else
+        {
+            mask32v xGreaterEqualY = dx0 >= dy0;
+            rankX = FS::MaskedIncrement(  xGreaterEqualY, rankX );
+            rankY = FS::MaskedIncrement( ~xGreaterEqualY, rankY );
 
-        mask32v xGreaterEqualW = dx0 >= dw0;
-        rankX = FS::MaskedIncrement(  xGreaterEqualW, rankX );
-        rankW = FS::MaskedIncrement( ~xGreaterEqualW, rankW );
+            mask32v xGreaterEqualZ = dx0 >= dz0;
+            rankX = FS::MaskedIncrement(  xGreaterEqualZ, rankX );
+            rankZ = FS::MaskedIncrement( ~xGreaterEqualZ, rankZ );
 
-        mask32v yGreaterEqualZ = dy0 >= dz0;
-        rankY = FS::MaskedIncrement(  yGreaterEqualZ, rankY );
-        rankZ = FS::MaskedIncrement( ~yGreaterEqualZ, rankZ );
+            mask32v xGreaterEqualW = dx0 >= dw0;
+            rankX = FS::MaskedIncrement(  xGreaterEqualW, rankX );
+            rankW = FS::MaskedIncrement( ~xGreaterEqualW, rankW );
 
-        mask32v yGreaterEqualW = dy0 >= dw0;
-        rankY = FS::MaskedIncrement(  yGreaterEqualW, rankY );
-        rankW = FS::MaskedIncrement( ~yGreaterEqualW, rankW );
+            mask32v yGreaterEqualZ = dy0 >= dz0;
+            rankY = FS::MaskedIncrement(  yGreaterEqualZ, rankY );
+            rankZ = FS::MaskedIncrement( ~yGreaterEqualZ, rankZ );
 
-        mask32v zGreaterEqualW = dz0 >= dw0;
-        rankZ = FS::MaskedIncrement(  zGreaterEqualW, rankZ );
-        rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
+            mask32v yGreaterEqualW = dy0 >= dw0;
+            rankY = FS::MaskedIncrement(  yGreaterEqualW, rankY );
+            rankW = FS::MaskedIncrement( ~yGreaterEqualW, rankW );
+
+            mask32v zGreaterEqualW = dz0 >= dw0;
+            rankZ = FS::MaskedIncrement(  zGreaterEqualW, rankZ );
+            rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
+        }
 
         mask32v maskX1 = rankX > int32v( 2 );
         mask32v maskY1 = rankY > int32v( 2 );
