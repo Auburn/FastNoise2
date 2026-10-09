@@ -820,27 +820,46 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 moveMaskBits = FS::Select( score > maxScore, bits, moveMaskBits );
                 maxScore = FS::Max( maxScore, score );
             };
+            // Candidates sharing a score offset are first reduced in independent pairs to shorten the dependency chain,
+            // max and "first strictly greater candidate wins" are associative so the result is unchanged
             F maxScore = F( 0.6f ) - xyzwNormal;
             I moveMaskBits = FS::Masked( F( 0.2f ) > maxScore, I( -1 ) );
             maxScore = FS::Max( maxScore, F( 0.2f ) );
-            considerVertex( maxScore, moveMaskBits, -wNormal, 0b0111 );
-            considerVertex( maxScore, moveMaskBits, -zNormal, 0b1011 );
-            considerVertex( maxScore, moveMaskBits, -yNormal, 0b1101 );
-            considerVertex( maxScore, moveMaskBits, -xNormal, 0b1110 );
+
+            F maxScore3A = -wNormal;
+            I moveMaskBits3A = I( 0b0111 );
+            considerVertex( maxScore3A, moveMaskBits3A, -zNormal, 0b1011 );
+            F maxScore3B = -yNormal;
+            I moveMaskBits3B = I( 0b1101 );
+            considerVertex( maxScore3B, moveMaskBits3B, -xNormal, 0b1110 );
+            considerVertex( maxScore, moveMaskBits, maxScore3A, moveMaskBits3A );
+            considerVertex( maxScore, moveMaskBits, maxScore3B, moveMaskBits3B );
+
+            F maxScore1A = xNormal;
+            I moveMaskBits1A = I( 0b0001 );
+            considerVertex( maxScore1A, moveMaskBits1A, yNormal, 0b0010 );
+            F maxScore1B = zNormal;
+            I moveMaskBits1B = I( 0b0100 );
+            considerVertex( maxScore1B, moveMaskBits1B, wNormal, 0b1000 );
+            considerVertex( maxScore1A, moveMaskBits1A, maxScore1B, moveMaskBits1B );
+
+            F maxScore2X = yNormal;
+            I moveMaskBits2X = I( 0b0011 );
+            considerVertex( maxScore2X, moveMaskBits2X, zNormal, 0b0101 );
+            considerVertex( maxScore2X, moveMaskBits2X, wNormal, 0b1001 );
+
+            F maxScore2W = yNormal;
+            I moveMaskBits2W = I( 0b1010 );
+            considerVertex( maxScore2W, moveMaskBits2W, zNormal, 0b1100 );
+
             maxScore += xyzwNormal - F( 0.2f );
-            considerVertex( maxScore, moveMaskBits, xNormal, 0b0001 );
-            considerVertex( maxScore, moveMaskBits, yNormal, 0b0010 );
-            considerVertex( maxScore, moveMaskBits, zNormal, 0b0100 );
-            considerVertex( maxScore, moveMaskBits, wNormal, 0b1000 );
+            considerVertex( maxScore, moveMaskBits, maxScore1A, moveMaskBits1A );
             maxScore += F( 0.2f ) - xNormal;
-            considerVertex( maxScore, moveMaskBits, yNormal, 0b0011 );
-            considerVertex( maxScore, moveMaskBits, zNormal, 0b0101 );
-            considerVertex( maxScore, moveMaskBits, wNormal, 0b1001 );
+            considerVertex( maxScore, moveMaskBits, maxScore2X, moveMaskBits2X );
             maxScore += xNormal;
             considerVertex( maxScore, moveMaskBits, yNormal + zNormal, 0b0110 );
             maxScore -= wNormal;
-            considerVertex( maxScore, moveMaskBits, yNormal, 0b1010 );
-            considerVertex( maxScore, moveMaskBits, zNormal, 0b1100 );
+            considerVertex( maxScore, moveMaskBits, maxScore2W, moveMaskBits2W );
 
             M moveX = ( moveMaskBits & I( 0b0001 ) ) != I( 0 );
             M moveY = ( moveMaskBits & I( 0b0010 ) ) != I( 0 );
