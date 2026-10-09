@@ -295,7 +295,8 @@ protected:
             // Current shell done, test the next one. Separate loop so the threshold maths only runs here
             while( !mVisit )
             {
-                if( mShell == D )
+                // Every cell of the next shell neighbours a skipped cell if this shell visited none, see ShellVisitMask
+                if( mShell == D || !mShellVisit )
                 {
                     return nullptr;
                 }
