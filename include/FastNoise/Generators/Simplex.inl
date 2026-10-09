@@ -384,8 +384,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     }
 
     // Skipping vertices that are out of range for every point pays off when SIMD lanes are spatially coherent.
-    // 3D on AVX512 (32 points per register) rarely skips enough to cover the extra branching, 4D on AVX512 is
-    // evaluated per 16 point half and always skips
+    // 3D on AVX512 (32 points per register) rarely skips enough to cover the extra branching, 4D always skips
     static constexpr bool kSkipOutOfRangeVertices3D = !( SIMD & FastSIMD::FeatureFlag::AVX512_F );
 
     // True if any lane of the clamped falloff is in range. Out of range lanes are exactly +0, so on SSE4.1/AVX2 OR the
@@ -732,9 +731,8 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    // The 4D vertex loop has more live values than there are registers, on AVX512 evaluating each native half of the 2x
-    // wide float32v separately avoids most spilling. SSE/AVX2 still spill when split and lose more from the vertex
-    // skipping branches being per half, so they evaluate the full width
+    // The 4D vertex loop has more live values than there are registers, but evaluating each native half of float32v
+    // separately measured slower on every feature set: the two independent halves overlap better than the spills cost
     template<typename F, typename I>
     FS_FORCEINLINE static F GenSuperSimplex4D( I seed, F x, F y, F z, F w )
     {
@@ -1177,15 +1175,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z, w );
 
-        float32v value;
-        if constexpr( FS::IsNativeV<float32v> || !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
-        {
-            value = GenSuperSimplex4D( seed, x, y, z, w );
-        }
-        else
-        {
-            value = float32v{ GenSuperSimplex4D( seed.v0, x.v0, y.v0, z.v0, w.v0 ), GenSuperSimplex4D( seed.v1, x.v1, y.v1, z.v1, w.v1 ) };
-        }
+        float32v value = GenSuperSimplex4D( seed, x, y, z, w );
 
         constexpr float kBounding = 0.011310013942420482635498046875;
 
