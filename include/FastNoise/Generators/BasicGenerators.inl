@@ -130,6 +130,21 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        // With constant point (and Minkowski P) values no source is called, so the positions don't need preserving across calls
+        bool hasSource = mMinkowskiP.simdGeneratorPtr && mDistanceFunction == DistanceFunction::Minkowski;
+        for( size_t i = 0; i < sizeof...( P ); i++ )
+        {
+            hasSource |= mPoint[i].simdGeneratorPtr != nullptr;
+        }
+
+        if( !hasSource )
+        {
+            size_t pointIdx = 0;
+            ((pos -= float32v( mPoint[pointIdx++].constant )), ...);
+
+            return CalcDistance( mDistanceFunction, float32v( mMinkowskiP.constant ), pos... );
+        }
+
         float32v minkowskiP = GetMinkowskiP( mDistanceFunction, mMinkowskiP, seed, pos... );
 
         [self = this, seed] ( P&... out, std::remove_reference_t<P>... pos )
