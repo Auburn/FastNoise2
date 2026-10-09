@@ -23,8 +23,8 @@ protected:
     // Picks the GenT variant by calling func( specialised, distanceFunction, count ) with compile time constants
     // Common settings get a cell loop specialised on distance function and number of tracked cells (count: 1, 2 or MAX_COUNT)
     // Everything else (size jitter, Minkowski, other counts) uses the generic variant: specialised = false
-    // SQRT_EUCLIDEAN: Euclidean compares sqrt distances, otherwise it is equivalent to EuclideanSquared
-    template<int MAX_COUNT, bool SQRT_EUCLIDEAN, typename FUNC>
+    // Without size jitter Euclidean finds the same closest cells as EuclideanSquared, so it uses that variant
+    template<int MAX_COUNT, typename FUNC>
     FS_FORCEINLINE auto SelectGenT( int count, FUNC&& func ) const
     {
         if( !this->mSizeJitter.simdGeneratorPtr && this->mSizeJitter.constant == 0.0f &&
@@ -33,10 +33,6 @@ protected:
             switch( this->mDistanceFunction )
             {
             case DistanceFunction::Euclidean:
-                if constexpr( SQRT_EUCLIDEAN )
-                {
-                    return SelectCount<DistanceFunction::Euclidean, MAX_COUNT>( count, func );
-                }
             case DistanceFunction::EuclideanSquared:
                 return SelectCount<DistanceFunction::EuclideanSquared, MAX_COUNT>( count, func );
             case DistanceFunction::Manhattan:
@@ -81,7 +77,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount, true>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -175,7 +171,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount, false>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -281,7 +277,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount, false>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -413,7 +409,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount, false>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -493,7 +489,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount, false>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -586,7 +582,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount, false>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -740,7 +736,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<1, false>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -820,7 +816,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        auto genT = this->template SelectGenT<1, false>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
@@ -914,7 +910,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        auto genT = this->template SelectGenT<1, false>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
         } );
