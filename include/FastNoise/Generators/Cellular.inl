@@ -717,11 +717,20 @@ protected:
     // Closest2D() pays off when the jitter is small enough that the 2x2 cells usually hold the closest point and the lanes are close together.
     // Incoherent lanes are each an independent chance of needing the cells beyond (~6% per lane), still a win with SSE4.1's 8 lanes per vector
     // (not SSE2: no native floor)
-    FS_FORCEINLINE static bool Closest2DActive( float32v x, float32v y, float32v jitter )
+    // A constant grid jitter is tested as a scalar, coherence one axis at a time: most incoherent batches already fail on x
+    FS_FORCEINLINE bool Closest2DActive( float32v x, float32v y, float32v jitter ) const
     {
         constexpr bool kIncoherent = float32v::ElementCount <= 8 && ( SIMD & FastSIMD::FeatureFlag::SSE41 );
-        float32v pos[] = { x, y };
-        return AllLanes( FS::Abs( jitter ) <= float32v( kJitter2D * 1.001f ) ) && ( kIncoherent || IsCoherent<2>( pos ) );
+        constexpr float kMaxJitter = kJitter2D * 1.001f;
+        if( this->mGridJitter.simdGeneratorPtr ? !AllLanes( FS::Abs( jitter ) <= float32v( kMaxJitter ) ) : !( std::abs( kJitter2D * this->mGridJitter.constant ) <= kMaxJitter ) )
+        {
+            return false;
+        }
+        if constexpr( kIncoherent )
+        {
+            return true;
+        }
+        return IsCoherent<1>( &x ) && IsCoherent<1>( &y );
     }
 
     // 3D: worth checking the 2^D cells first: coherent lanes rarely need more, incoherent lanes are each an independent chance of needing the
