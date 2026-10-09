@@ -62,10 +62,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr double kBounding = 1.0363423824310302734375;
 
-        // Corner-major path for lane-coherent vectors (uniform grids, AVX2): all lanes share y and z, hash the lattice block and decode
+        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512): all lanes share y and z, hash the lattice block and decode
         // its gradients once, fold the y/z terms of the dot products into the block and permute them per lane. Gradients have two +-1
         // components so the dot product rounds the same as GetGradientDotCommon
-        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
         {
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ) ) )
@@ -74,16 +74,27 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
                 auto hashZ0 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
-                auto hashZ1 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
 
                 using NF = decltype( FS::Cast<float>( hashZ0 ) );
                 NF one( 1 ), zero( 0 );
 
-                // y offset per block lane: yf0 or yf1 = yf0 - 1, same ops as the per lane path
+                // y/z offsets per block lane: f0 or f1 = f0 - 1, same ops as the per lane path
                 auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockBroadcast( yi );
+                auto blockZ0 = LatticeBlockPrimed<2, 0>( zi, 1 ) - LatticeBlockBroadcast( zi );
                 NF fY = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) ) - FS::Convert<float>( blockY );
-                NF fZ0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( zf0 ) ) );
-                NF fZ1 = fZ0 - NF( 1 );
+                NF fZ = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( zf0 ) ) );
+                NF fZ0 = fZ - FS::Convert<float>( blockZ0 );
+
+                // AVX512: the whole 4 x 2 x 2 block fits one register, z1 corners are at index + 8
+                auto hashZ1 = hashZ0;
+                NF fZ1 = fZ0;
+                int32v xOffsetZ1 = xOffset + int32v( 8 );
+                if constexpr( NF::ElementCount < 16 )
+                {
+                    hashZ1 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+                    fZ1 = fZ - FS::Convert<float>( LatticeBlockPrimed<2, 1>( zi, 1 ) - LatticeBlockBroadcast( zi ) );
+                    xOffsetZ1 = xOffset;
+                }
 
                 // x gradient and y/z part of the dot product: FMulAdd( gX, fX, FMulAdd( fY, gY, fZ * gZ ) )
                 NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
@@ -96,16 +107,12 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                     return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotYZ, idx ) );
                 };
 
-                int32v xOffset1 = xOffset + int32v( 1 );
-                int32v xOffset4 = xOffset + int32v( 4 );
-                int32v xOffset5 = xOffset + int32v( 5 );
-
                 float32v value = Lerp( Lerp(
-                    Lerp( dot( gXZ0, dotYZZ0, xOffset, xf0 ), dot( gXZ0, dotYZZ0, xOffset1, xf1 ), xs ),
-                    Lerp( dot( gXZ0, dotYZZ0, xOffset4, xf0 ), dot( gXZ0, dotYZZ0, xOffset5, xf1 ), xs ), ys ),
+                    Lerp( dot( gXZ0, dotYZZ0, xOffset, xf0 ), dot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
+                    Lerp( dot( gXZ0, dotYZZ0, xOffset + int32v( 4 ), xf0 ), dot( gXZ0, dotYZZ0, xOffset + int32v( 5 ), xf1 ), xs ), ys ),
                     Lerp(
-                    Lerp( dot( gXZ1, dotYZZ1, xOffset, xf0 ), dot( gXZ1, dotYZZ1, xOffset1, xf1 ), xs ),
-                    Lerp( dot( gXZ1, dotYZZ1, xOffset4, xf0 ), dot( gXZ1, dotYZZ1, xOffset5, xf1 ), xs ), ys ), zs );
+                    Lerp( dot( gXZ1, dotYZZ1, xOffsetZ1, xf0 ), dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 1 ), xf1 ), xs ),
+                    Lerp( dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 4 ), xf0 ), dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 5 ), xf1 ), xs ), ys ), zs );
 
                 return this->ScaleOutput( this, value, -kBounding, kBounding );
             }
