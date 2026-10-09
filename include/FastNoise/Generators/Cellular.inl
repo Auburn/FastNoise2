@@ -751,22 +751,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     template<typename... P>
     using GenTPtr = float32v( FS_VECTORCALL DispatchClass::* )( int32v, P... ) const;
 
-    // Number of closest distances to track, 3 is rounded up to use the specialised 4 variant
+    // Number of closest distances to track: up to the largest distance index the output depends on
     int GetDistanceCount() const
     {
-        int count = std::max( mDistanceIndex0, mReturnType == ReturnType::Index0 ? 0 : mDistanceIndex1 ) + 1;
-        return count == 3 ? kMaxDistanceCount : count;
-    }
-
-    // Largest distance index the output depends on, cells that can't beat it are skipped
-    template<int COUNT>
-    FS_FORCEINLINE int PruneDistanceIndex() const
-    {
-        if constexpr( COUNT <= 2 ) // Not rounded up, compile time constant
-        {
-            return COUNT - 1;
-        }
-        return mReturnType == ReturnType::Index0 ? mDistanceIndex0 : std::max( mDistanceIndex0, mDistanceIndex1 );
+        return std::max( mDistanceIndex0, mReturnType == ReturnType::Index0 ? 0 : mDistanceIndex1 ) + 1;
     }
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
@@ -896,7 +884,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             }
         }
 
-        int pruneIndex = PruneDistanceIndex<COUNT>();
+        int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
         typename DispatchClass::template CellBounds<3> bounds;
         typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
@@ -978,7 +966,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             }
         }
 
-        int pruneIndex = PruneDistanceIndex<COUNT>();
+        int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
         typename DispatchClass::template CellBounds<4> bounds;
         typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
