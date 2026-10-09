@@ -1033,82 +1033,60 @@ protected:
         rankZ = FS::MaskedIncrement( zGreaterEqualW, rankZ );
         rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
 
-        mask32v maskX1 = rankX > int32v( 2 );
-        mask32v maskY1 = rankY > int32v( 2 );
-        mask32v maskZ1 = rankZ > int32v( 2 );
-        mask32v maskW1 = rankW > int32v( 2 );
-
-        mask32v maskX2 = rankX > int32v( 1 );
-        mask32v maskY2 = rankY > int32v( 1 );
-        mask32v maskZ2 = rankZ > int32v( 1 );
-        mask32v maskW2 = rankW > int32v( 1 );
-
-        mask32v maskX3 = rankX > int32v( 0 );
-        mask32v maskY3 = rankY > int32v( 0 );
-        mask32v maskZ3 = rankZ > int32v( 0 );
-        mask32v maskW3 = rankW > int32v( 0 );
-
-        float32v dx1 = FS::MaskedSub( maskX1, dx0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dy1 = FS::MaskedSub( maskY1, dy0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dw1 = FS::MaskedSub( maskW1, dw0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dx2 = FS::MaskedSub( maskX2, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dy2 = FS::MaskedSub( maskY2, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dz2 = FS::MaskedSub( maskZ2, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dw2 = FS::MaskedSub( maskW2, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dx3 = FS::MaskedSub( maskX3, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dy3 = FS::MaskedSub( maskY3, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dz3 = FS::MaskedSub( maskZ3, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dw3 = FS::MaskedSub( maskW3, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dx4 = dx0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dy4 = dy0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dz4 = dz0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dw4 = dw0 - float32v( kUnskew4 * 4 + 1 );
-
-        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff1 = FS::FNMulAdd( dw1, dw1, FS::FNMulAdd( dz1, dz1, FS::FNMulAdd( dy1, dy1, FS::FNMulAdd( dx1, dx1, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff2 = FS::FNMulAdd( dw2, dw2, FS::FNMulAdd( dz2, dz2, FS::FNMulAdd( dy2, dy2, FS::FNMulAdd( dx2, dx2, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff3 = FS::FNMulAdd( dw3, dw3, FS::FNMulAdd( dz3, dz3, FS::FNMulAdd( dy3, dy3, FS::FNMulAdd( dx3, dx3, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
-            float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
-            float32v( -4.0 / 5.0 ) );
-
-        falloff0 = FS::Max( falloff0, float32v( 0 ) );
-        falloff1 = FS::Max( falloff1, float32v( 0 ) );
-        falloff2 = FS::Max( falloff2, float32v( 0 ) );
-        falloff3 = FS::Max( falloff3, float32v( 0 ) );
-        falloff4 = FS::Max( falloff4, float32v( 0 ) );
-
-        falloff0 *= falloff0; falloff0 *= falloff0;
-        falloff1 *= falloff1; falloff1 *= falloff1;
-        falloff2 *= falloff2; falloff2 *= falloff2;
-        falloff3 *= falloff3; falloff3 *= falloff3;
-        falloff4 *= falloff4; falloff4 *= falloff4;
-
         float32v valueX( 0 );
         float32v valueY( 0 );
         float32v valueZ( 0 );
         float32v valueW( 0 );
 
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff0, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW1, wPrimedBase, int32v( Primes::W ) ) ), dx1, dy1, dz1, dw1, falloff1, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX2, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY2, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ2, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW2, wPrimedBase, int32v( Primes::W ) ) ), dx2, dy2, dz2, dw2, falloff2, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX3, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY3, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ3, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW3, wPrimedBase, int32v( Primes::W ) ) ), dx3, dy3, dz3, dw3, falloff3, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
-            dx4, dy4, dz4, dw4, falloff4, valueX, valueY, valueZ, valueW );
+        // Each vertex is computed right before its contribution so fewer values stay live across the contribution calls
+        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
+        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
+            float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
+            float32v( -4.0 / 5.0 ) );
+        {
+            float32v falloff = FS::Max( falloff0, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff, valueX, valueY, valueZ, valueW );
+        }
+
+        // Vertex i (1 to 3) steps along the axes ranked above 3 - i
+        auto applyRankedVertex = [&]( int rankThreshold, float unskewOffset )
+        {
+            mask32v maskX = rankX > int32v( rankThreshold );
+            mask32v maskY = rankY > int32v( rankThreshold );
+            mask32v maskZ = rankZ > int32v( rankThreshold );
+            mask32v maskW = rankW > int32v( rankThreshold );
+
+            float32v dx = FS::MaskedSub( maskX, dx0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dy = FS::MaskedSub( maskY, dy0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dz = FS::MaskedSub( maskZ, dz0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dw = FS::MaskedSub( maskW, dw0, float32v( 1 ) ) - float32v( unskewOffset );
+
+            float32v falloff = FS::FNMulAdd( dw, dw, FS::FNMulAdd( dz, dz, FS::FNMulAdd( dy, dy, FS::FNMulAdd( dx, dx, float32v( kFalloffRadiusSquared ) ) ) ) );
+            falloff = FS::Max( falloff, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+                FS::MaskedAdd( maskX, xPrimedBase, int32v( Primes::X ) ),
+                FS::MaskedAdd( maskY, yPrimedBase, int32v( Primes::Y ) ),
+                FS::MaskedAdd( maskZ, zPrimedBase, int32v( Primes::Z ) ),
+                FS::MaskedAdd( maskW, wPrimedBase, int32v( Primes::W ) ) ), dx, dy, dz, dw, falloff, valueX, valueY, valueZ, valueW );
+        };
+
+        applyRankedVertex( 2, float( kUnskew4 ) );
+        applyRankedVertex( 1, float( kUnskew4 * 2 ) );
+        applyRankedVertex( 0, float( kUnskew4 * 3 ) );
+
+        {
+            float32v falloff = FS::Max( falloff4, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+                xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
+                dx0 - float32v( kUnskew4 * 4 + 1 ), dy0 - float32v( kUnskew4 * 4 + 1 ), dz0 - float32v( kUnskew4 * 4 + 1 ), dw0 - float32v( kUnskew4 * 4 + 1 ),
+                falloff, valueX, valueY, valueZ, valueW );
+        }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(33.653125584827855 / 1.4142135623730951) :
