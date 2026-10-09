@@ -58,18 +58,21 @@ public:
 
     static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y )
     {
+        assert( gen->mGenFn2D );
         GenResult result = gen->mGenFn2D( gen, seed, x, y );
         return float32v( result.v0, result.v1 );
     }
 
     static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z )
     {
+        assert( gen->mGenFn3D );
         GenResult result = gen->mGenFn3D( gen, seed, x, y, z );
         return float32v( result.v0, result.v1 );
     }
 
     static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )
     {
+        assert( gen->mGenFn4D );
         GenResult result = gen->mGenFn4D( gen, seed, x, y, z, w );
         return float32v( result.v0, result.v1 );
     }
@@ -102,6 +105,7 @@ private:
 #define FASTNOISE_IMPL_GEN_T FASTNOISE_IMPL_GEN_FN( GenT )
 
 protected:
+    // Set by the constructor FASTNOISE_IMPL_GEN_T/FASTNOISE_IMPL_GEN_FN adds to each generator
     GenFn2D mGenFn2D = nullptr;
     GenFn3D mGenFn3D = nullptr;
     GenFn4D mGenFn4D = nullptr;
