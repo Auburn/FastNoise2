@@ -351,21 +351,7 @@ namespace FastNoise
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
-        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
-        {
-            ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
-        }
-        else // AVX2: process each native register half separately, skipping halves with no contribution
-        {
-            if( FS::AnyMask( multiplier.v0 != float32v::DoubledType( 0 ) ) )
-            {
-                ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31.v0, fX.v0, fY.v0, fZ.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0 );
-            }
-            if( FS::AnyMask( multiplier.v1 != float32v::DoubledType( 0 ) ) )
-            {
-                ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31.v1, fX.v1, fY.v1, fZ.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1 );
-            }
-        }
+        ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
     }
 
     template<FastSIMD::FeatureSet SIMD, typename I, typename F>
