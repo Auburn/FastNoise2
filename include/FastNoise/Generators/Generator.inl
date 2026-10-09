@@ -29,19 +29,32 @@ public:
     // Gen() is dispatched through function pointers to static functions instead of virtual member functions:
     // clang-cl returns float32v through a hidden pointer (always from member functions, and from any function since float32v
     // has user-provided constructors), a plain aggregate returned from a static function stays in registers
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    // MSVC copies FastSIMD registers returned in zmm registers through the stack in 256 bit halves, use the native types
+    struct GenResult
+    {
+        typename float32v::DoubledType::NativeType v0, v1;
+    };
+
+    static FS_FORCEINLINE GenResult ToGenResult( const float32v& v )
+    {
+        return { v.v0.GetNative(), v.v1.GetNative() };
+    }
+#else
     struct GenResult
     {
         typename float32v::DoubledType v0, v1;
     };
 
-    using GenFn2D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v );
-    using GenFn3D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v );
-    using GenFn4D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v );
-
     static FS_FORCEINLINE GenResult ToGenResult( const float32v& v )
     {
         return { v.v0, v.v1 };
     }
+#endif
+
+    using GenFn2D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v );
+    using GenFn3D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v );
+    using GenFn4D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v );
 
     static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y )
     {
