@@ -62,7 +62,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr double kBounding = 1.0363423824310302734375;
 
-        // Corner-major path for lane-coherent vectors (uniform grids): hash the lattice block once, permute the hashes per lane
+        // Corner-major path for lane-coherent vectors (uniform grids, AVX2): hash the lattice block and decode its gradients once,
+        // permute the gradients per lane. Gradients have two +-1 components so the dot product rounds the same as GetGradientDotCommon
         if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
         {
             int32v xOffset;
