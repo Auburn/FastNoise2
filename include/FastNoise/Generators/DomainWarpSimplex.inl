@@ -512,16 +512,25 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gW, fW, valueC );
             valueD = FS::FMulAdd( valueD_gW, fW, valueD );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        else if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
         {
             // Every basis gives the axes four roles: the ( positive ) indexed axis, the first and second unindexed axes and
             // either the negative indexed axis ( pairwise ) or the third unindexed axis ( single/extra ). With f gathered in
             // role order the gradients only depend on that case, A and B add the diagonal delta on the first/second unindexed axis.
-            // The role axes are packed from the top of a table entry, two bits per role
-            I permuteIndex = FS::BitShiftRightZeroExtend( indexBasis, 27 );
-            I roleAxes = FS::Select( indexBasis > I( 0x3FFFFFFF ), // [8,16) << 27, [16,20) use the same axes as [0,4)
-                FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1E000000, 0x4B000000, 0x9C000000, 0xC9000000, 0x1B000000, 0x4E000000, 0x8D000000, 0xD8000000 ), permuteIndex ),
-                FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1B000000, 0x4B000000, 0x87000000, 0xC6000000, 0x2D000000, 0x6C000000, 0x87000000, 0xC6000000 ), permuteIndex ) );
+            // The role axes are a 16 entry table ( [16,20) use the same axes as [0,4) ) packed in the top byte, two bits per role
+            I roleAxes;
+            if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+            {
+                I permuteIndex = FS::BitShiftRightZeroExtend( indexBasis, 27 );
+                roleAxes = FS::Select( indexBasis > I( 0x3FFFFFFF ), // [8,16) << 27
+                    FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1E000000, 0x4B000000, 0x9C000000, 0xC9000000, 0x1B000000, 0x4E000000, 0x8D000000, 0xD8000000 ), permuteIndex ),
+                    FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1B000000, 0x4B000000, 0x87000000, 0xC6000000, 0x2D000000, 0x6C000000, 0x87000000, 0xC6000000 ), permuteIndex ) );
+            }
+            else // Byte shuffle the table into the top byte, the other bytes of the shuffle index have the high bit set and become 0
+            {
+                I shuffleIndex = ( FS::BitShiftRightZeroExtend( indexBasis, 3 ) & I( 0x0F000000 ) ) | I( 0x00808080 );
+                roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B ), shuffleIndex );
+            }
 
             auto gatherRole = [&]( I axisBits )
             {
@@ -535,12 +544,21 @@ namespace FastNoise
             F f3 = gatherRole( roleAxes << 6 );
             F f12 = f1 + f2;
 
-            // Low 3 bits: 0 pairwise, 7 single ( [0,4) << 27 ), 6 extra ( [16,20) << 27, negative )
-            I caseIndex = FS::Cast<std::int32_t>( indexBasis < I( 4 << 27 ) ) + FS::Cast<std::int32_t>( indexBasis < I( 0 ) );
+            // Single or extra ( [0,4) << 27, or [16,20) << 27 which is negative )
+            auto singleLayout = indexBasis < I( 4 << 27 );
 
             auto caseConstant = [&]( float pairwise, float single, float extra )
             {
-                return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pairwise, 0, 0, 0, 0, 0, extra, single ), caseIndex );
+                if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+                {
+                    // Low 3 bits: 0 pairwise, 7 single, 6 extra
+                    I caseIndex = FS::Cast<std::int32_t>( singleLayout ) + FS::Cast<std::int32_t>( indexBasis < I( 0 ) );
+                    return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pairwise, 0, 0, 0, 0, 0, extra, single ), caseIndex );
+                }
+                else
+                {
+                    return FS::Select( singleLayout, FS::SelectHighBit( indexBasis, F( extra ), F( single ) ), F( pairwise ) );
+                }
             };
 
             F valueAB = FS::FMulAdd( caseConstant( pIdxNegAB, sFillABC, eFillABC ), f3, FS::FMulAdd( caseConstant( pFillAB, sFillABC, eFillABC ), f12, caseConstant( pIdxPosAB, sIdxABC, eIdxABC ) * f0 ) );
