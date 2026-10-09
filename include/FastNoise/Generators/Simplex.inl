@@ -362,6 +362,27 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     // AVX512 registers (32 points) rarely skip enough to cover the extra branching
     static constexpr bool kSkipOutOfRangeVertices = !( SIMD & FastSIMD::FeatureFlag::AVX512_F );
 
+    // True if any lane of the clamped falloff is in range. Out of range lanes are exactly +0, so on SSE4.1/AVX2 OR the
+    // halves and test for any set bit instead of compare + movemask per half
+    template<typename F>
+    FS_FORCEINLINE static bool AnyInRange( F falloffBase, typename F::MaskType inRangeMask )
+    {
+        if constexpr( !FS::IsNativeV<F> && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            __m256i bits = _mm256_castps_si256( _mm256_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            return !_mm256_testz_si256( bits, bits );
+        }
+        else if constexpr( !FS::IsNativeV<F> && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) && !( SIMD & FastSIMD::FeatureFlag::AVX ) )
+        {
+            __m128i bits = _mm_castps_si128( _mm_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            return !_mm_testz_si128( bits, bits );
+        }
+        else
+        {
+            return FS::AnyMask( inRangeMask );
+        }
+    }
+
     template<typename F>
     FS_FORCEINLINE static F SignBit( F signValue )
     {
@@ -590,7 +611,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v falloffBase = FS::Min( ( sign ^ dzBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase < float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase < float32v( 0 ) ) )
             {
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
@@ -610,7 +631,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v falloffBase = FS::Min( ( sign ^ dyBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase < float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase < float32v( 0 ) ) )
             {
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
@@ -630,7 +651,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v falloffBase = FS::Min( ( sign ^ dxBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase < float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase < float32v( 0 ) ) )
             {
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
@@ -842,7 +863,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
@@ -864,7 +885,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
@@ -886,7 +907,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
@@ -908,7 +929,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
@@ -945,7 +966,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
@@ -966,7 +987,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
@@ -987,7 +1008,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
@@ -1023,7 +1044,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
@@ -1044,7 +1065,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
@@ -1080,7 +1101,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || AnyInRange( falloffBase, falloffBase > F( 0 ) ) )
             {
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
