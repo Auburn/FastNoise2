@@ -440,12 +440,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     {
         if constexpr( !FS::IsNativeV<F> && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
         {
-            __m256i bits = _mm256_castps_si256( _mm256_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            auto bits = _mm256_castps_si256( _mm256_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
             return !_mm256_testz_si256( bits, bits );
         }
         else if constexpr( !FS::IsNativeV<F> && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) && !( SIMD & FastSIMD::FeatureFlag::AVX ) )
         {
-            __m128i bits = _mm_castps_si128( _mm_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            auto bits = _mm_castps_si128( _mm_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
             return !_mm_testz_si128( bits, bits );
         }
         else
