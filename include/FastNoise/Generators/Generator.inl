@@ -439,27 +439,23 @@ public:
         float32v max( -kInfinity );
 
         intptr_t index = 0;
-        alignas( 64 ) float posBuffer[kMinMaxBlockSize * 2];
-
         while( index < count - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
             intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
-
-            float* blockPos = posBuffer;
 
             do
             {
                 float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
                 float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
 
-                StoreBlockPositions( blockPos, xPos, yPos );
+                float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
+                FS::Store( &noiseOut[index], gen );
 
                 index += int32v::ElementCount;
             }
             while( index < blockEnd );
 
-            CallGenBlock<2>( this, int32v( seed ), posBuffer, &noiseOut[blockIndex], index - blockIndex );
             AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
@@ -478,14 +474,10 @@ public:
         float32v max( -kInfinity );
 
         intptr_t index = 0;
-        alignas( 64 ) float posBuffer[kMinMaxBlockSize * 3];
-
         while( index < count - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
             intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
-
-            float* blockPos = posBuffer;
 
             do
             {
@@ -493,13 +485,13 @@ public:
                 float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
                 float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
 
-                StoreBlockPositions( blockPos, xPos, yPos, zPos );
+                float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
+                FS::Store( &noiseOut[index], gen );
 
                 index += int32v::ElementCount;
             }
             while( index < blockEnd );
 
-            CallGenBlock<3>( this, int32v( seed ), posBuffer, &noiseOut[blockIndex], index - blockIndex );
             AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
@@ -519,14 +511,10 @@ public:
         float32v max( -kInfinity );
 
         intptr_t index = 0;
-        alignas( 64 ) float posBuffer[kMinMaxBlockSize * 4];
-
         while( index < count - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
             intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
-
-            float* blockPos = posBuffer;
 
             do
             {
@@ -535,13 +523,13 @@ public:
                 float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
                 float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
 
-                StoreBlockPositions( blockPos, xPos, yPos, zPos, wPos );
+                float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
+                FS::Store( &noiseOut[index], gen );
 
                 index += int32v::ElementCount;
             }
             while( index < blockEnd );
 
-            CallGenBlock<4>( this, int32v( seed ), posBuffer, &noiseOut[blockIndex], index - blockIndex );
             AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
@@ -718,7 +706,8 @@ private:
     static constexpr intptr_t kMinMaxBlockSize = int32v::ElementCount * 16;
 
     // Positions are buffered per block and evaluated with one CallGenBlock(): the loops computing them keep their
-    // state in registers instead of spilling it around every Gen call, and small generators inline into the block loop
+    // state in registers instead of spilling it around every Gen call, and small generators inline into the block loop.
+    // Not used for position arrays, they have no such state and copying their positions measured slower (AVX512)
     template<typename... P>
     static FS_FORCEINLINE void StoreBlockPositions( float*& blockPos, P... pos )
     {
