@@ -260,22 +260,24 @@ protected:
         {
             PruneMode pruneMode = GetPruneMode<D>( distFunc, pos, jitter, D == 3 ? kJitter3D : kJitter4D, distanceIndex );
             mPrune = pruneMode != kPruneNone;
+            mCombineMax = distFunc == DistanceFunction::MaxAxis;
 
-            if( pruneMode == kPruneNearFirst )
-            {
-                NearFirst<D>( cellPrimed, cellPos, pos );
-            }
+            // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
+            mBall = !sizeJitterActive && ( distFunc == DistanceFunction::Euclidean || distFunc == DistanceFunction::EuclideanSquared );
+
             if( mPrune )
             {
-                std::array<float32v, 3> centreOffset[D];
-                for( int d = 0; d < D; d++ )
+                bool nearFirst = pruneMode == kPruneNearFirst;
+
+                // 4D setup is large and amortised over 81 cells: kept out of line so it isn't duplicated into every GenT variant
+                if constexpr( D == 4 )
                 {
-                    for( int i = 0; i < 3; i++ )
-                    {
-                        centreOffset[d][i] = relative ? cellPos[d][i] : cellPos[d][i] - pos[d];
-                    }
+                    mBallRadius = InitPruningNoInline( bounds, cellPrimed, cellPos, relative, pos, nearFirst, distFunc, mBall, mCombineMax, jitter, sizeJitterActive, sizeJitter );
                 }
-                InitBounds( centreOffset, pos, distFunc, jitter, sizeJitterActive, sizeJitter );
+                else
+                {
+                    mBallRadius = InitPruning( bounds, cellPrimed, cellPos, relative, pos, nearFirst, distFunc, mBall, mCombineMax, jitter, sizeJitterActive, sizeJitter );
+                }
             }
         }
 
@@ -308,11 +310,22 @@ protected:
         }
 
     private:
-        // A feature point is within |jitter| of its cell centre, so per axis |delta| >= max( 0, |centre - pos| - |jitter| )
-        // centreOffset[d][i]: cell centre - position for cell slot i on axis d, see CellOrder
-        FS_FORCEINLINE void InitBounds( const std::array<float32v, 3>* centreOffset, const float32v* pos, DistanceFunction distFunc,
-                                        float32v jitter, bool sizeJitterActive, const float32v& sizeJitter )
+        FS_NEVERINLINE static float32v FS_VECTORCALL InitPruningNoInline( CellBounds<D>& bounds, std::array<int32v, 3>* cellPrimed, std::array<float32v, 3>* cellPos, bool relative, const float32v* pos,
+                                                            bool nearFirst, DistanceFunction distFunc, bool ball, bool combineMax, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter )
         {
+            return InitPruning( bounds, cellPrimed, cellPos, relative, pos, nearFirst, distFunc, ball, combineMax, jitter, sizeJitterActive, sizeJitter );
+        }
+
+        // Reorders cell slots near side first if requested and fills the bounds, returns the ball bound radius
+        // A feature point is within |jitter| of its cell centre, so per axis |delta| >= max( 0, |centre - pos| - |jitter| )
+        FS_FORCEINLINE static float32v FS_VECTORCALL InitPruning( CellBounds<D>& bounds, std::array<int32v, 3>* cellPrimed, std::array<float32v, 3>* cellPos, bool relative, const float32v* pos,
+                                                    bool nearFirst, DistanceFunction distFunc, bool ball, bool combineMax, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter )
+        {
+            if( nearFirst )
+            {
+                NearFirst<D>( cellPrimed, cellPos, pos );
+            }
+
             // Slack for approximate InvSqrt in the jitter offset and float rounding of positions/distances
             float32v radius = FS::FMulAdd( FS::Abs( jitter ), float32v( 1 + 1.f / 512 ), float32v( 1.f / ( 1 << 20 ) ) );
             float32v scale( 1 - 1.f / 4096 );
@@ -324,19 +337,15 @@ protected:
                 scale *= minFactor;
             }
 
-            mCombineMax = distFunc == DistanceFunction::MaxAxis;
-
-            // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
-            mBall = !sizeJitterActive && ( distFunc == DistanceFunction::Euclidean || distFunc == DistanceFunction::EuclideanSquared );
-
-            if( mBall )
+            float32v ballRadius;
+            if( ball )
             {
                 float32v posSlack = FS::Abs( pos[0] );
                 for( int d = 1; d < D; d++ )
                 {
                     posSlack += FS::Abs( pos[d] );
                 }
-                mBallRadius = FS::FMulAdd( posSlack, float32v( 1.f / ( 1 << 21 ) ), radius );
+                ballRadius = FS::FMulAdd( posSlack, float32v( 1.f / ( 1 << 21 ) ), radius );
             }
 
             for( int d = 0; d < D; d++ )
@@ -345,13 +354,16 @@ protected:
 
                 for( int i = 0; i < 3; i++ )
                 {
-                    if( mBall )
+                    // Cell centre - position
+                    float32v centreOffset = relative ? cellPos[d][i] : cellPos[d][i] - pos[d];
+
+                    if( ball )
                     {
-                        mBounds.axis[d][i] = centreOffset[d][i] * centreOffset[d][i];
+                        bounds.axis[d][i] = centreOffset * centreOffset;
                         continue;
                     }
 
-                    float32v b = FS::Max( FS::Abs( centreOffset[d][i] ) - axisRadius, float32v( 0 ) );
+                    float32v b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
 
                     switch( distFunc )
                     {
@@ -366,7 +378,7 @@ protected:
                         break;
                     }
 
-                    mBounds.axis[d][i] = b * scale;
+                    bounds.axis[d][i] = b * scale;
                 }
             }
 
@@ -378,7 +390,7 @@ protected:
                 {
                     for( int i = 0; i < 3; i++ )
                     {
-                        mBounds.axis[d][i] = FS::Select( valid, mBounds.axis[d][i], float32v( -kInfinity ) );
+                        bounds.axis[d][i] = FS::Select( valid, bounds.axis[d][i], float32v( -kInfinity ) );
                     }
                 }
             }
@@ -388,15 +400,16 @@ protected:
                 // Precombine axis pairs so each cell's bound is a single add/max
                 for( int i = 0; i < 9; i++ )
                 {
-                    mBounds.pairA[i] = Combine( mBounds.axis[0][i / 3], mBounds.axis[1][i % 3] );
-                    mBounds.pairB[i] = Combine( mBounds.axis[2][i / 3], mBounds.axis[3][i % 3] );
+                    bounds.pairA[i] = Combine( combineMax, bounds.axis[0][i / 3], bounds.axis[1][i % 3] );
+                    bounds.pairB[i] = Combine( combineMax, bounds.axis[2][i / 3], bounds.axis[3][i % 3] );
                 }
             }
+            return ballRadius;
         }
 
-        FS_FORCEINLINE float32v Combine( float32v a, float32v b ) const
+        FS_FORCEINLINE static float32v Combine( bool combineMax, float32v a, float32v b )
         {
-            return mCombineMax ? FS::Max( a, b ) : a + b;
+            return combineMax ? FS::Max( a, b ) : a + b;
         }
 
         FS_FORCEINLINE float32v Bound( int cell ) const
@@ -404,12 +417,12 @@ protected:
             if constexpr( D == 4 )
             {
                 const int8_t* index = kOrder.pairIndex[cell];
-                return Combine( mBounds.pairA[index[0]], mBounds.pairB[index[1]] );
+                return Combine( mCombineMax, mBounds.pairA[index[0]], mBounds.pairB[index[1]] );
             }
             else
             {
                 const int8_t* index = kOrder.nearest[cell];
-                return Combine( Combine( mBounds.axis[0][index[0]], mBounds.axis[1][index[1]] ), mBounds.axis[2][index[2]] );
+                return Combine( mCombineMax, Combine( mCombineMax, mBounds.axis[0][index[0]], mBounds.axis[1][index[1]] ), mBounds.axis[2][index[2]] );
             }
         }
 
