@@ -261,7 +261,6 @@ protected:
         {
             PruneMode pruneMode = GetPruneMode<D>( distFunc, pos, jitter, D == 3 ? kJitter3D : kJitter4D, distanceIndex );
             mPrune = pruneMode != kPruneNone;
-            mOrder = mPrune ? kOrder.nearest : kOrder.linear;
 
             if( pruneMode == kPruneNearFirst )
             {
@@ -284,22 +283,29 @@ protected:
         // Next cell's per axis slots, nullptr when done
         FS_FORCEINLINE const int8_t* Next( float32v distToBeat )
         {
-            while( ++mCell < kOrder.kCount )
+            if( !mPrune )
             {
-                if( mPrune && mCell == kOrder.shellStart[mShell + 1] )
-                {
-                    mShell++;
-                    mVisit = mShellVisit = ShellVisitMask( distToBeat, ~mShellVisit );
-                }
-
-                bool visit = !mPrune || ( mVisit & 1 );
-                mVisit >>= 1;
-                if( visit )
-                {
-                    return mOrder[mCell];
-                }
+                return mCell < kOrder.kCount ? kOrder.linear[mCell++] : nullptr;
             }
-            return nullptr;
+
+            // Current shell done, test the next one. Separate loop so the threshold maths only runs here
+            while( !mVisit )
+            {
+                if( mShell == D )
+                {
+                    return nullptr;
+                }
+                mCell = kOrder.shellStart[++mShell];
+                mVisit = mShellVisit = ShellVisitMask( distToBeat, ~mShellVisit );
+            }
+
+            while( !( mVisit & 1 ) )
+            {
+                mVisit >>= 1;
+                mCell++;
+            }
+            mVisit >>= 1;
+            return kOrder.nearest[mCell++];
         }
 
     private:
@@ -435,14 +441,13 @@ protected:
 
         CellBounds<D>& mBounds;
         float32v mBallRadius;
-        const int8_t ( *mOrder )[D];
         bool mPrune;
         bool mBall = false;
         bool mCombineMax = false;
-        int mCell = -1;
-        int mShell = 0;
-        uint32_t mVisit = ~0u;
-        uint32_t mShellVisit = ~0u;
+        int mCell = 0;
+        int mShell = 0; // Shell 0 is the centre cell, always visited
+        uint32_t mVisit = 1;
+        uint32_t mShellVisit = 1;
     };
 };
 
