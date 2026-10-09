@@ -14,6 +14,20 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
+    // d - ( moved ? unskew + 1 : unskew ). Selecting between the two constants is a single blend, SSE2 has no blendv so
+    // it masks the 1 instead
+    FS_FORCEINLINE static float32v OffsetFromVertex( mask32v moved, float32v d, double unskew )
+    {
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::x86 ) && !( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
+        {
+            return FS::MaskedSub( moved, d, float32v( 1 ) ) - float32v( unskew );
+        }
+        else
+        {
+            return d - FS::Select( moved, float32v( unskew + 1 ), float32v( unskew ) );
+        }
+    }
+
     FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
@@ -268,18 +282,18 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         mask32v maskZ3 = rankZ > int32v( 0 );
         mask32v maskW3 = rankW > int32v( 0 );
 
-        float32v dx1 = FS::MaskedSub( maskX1, dx0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dy1 = FS::MaskedSub( maskY1, dy0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dw1 = FS::MaskedSub( maskW1, dw0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dx2 = FS::MaskedSub( maskX2, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dy2 = FS::MaskedSub( maskY2, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dz2 = FS::MaskedSub( maskZ2, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dw2 = FS::MaskedSub( maskW2, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dx3 = FS::MaskedSub( maskX3, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dy3 = FS::MaskedSub( maskY3, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dz3 = FS::MaskedSub( maskZ3, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dw3 = FS::MaskedSub( maskW3, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
+        float32v dx1 = OffsetFromVertex( maskX1, dx0, kUnskew4 );
+        float32v dy1 = OffsetFromVertex( maskY1, dy0, kUnskew4 );
+        float32v dz1 = OffsetFromVertex( maskZ1, dz0, kUnskew4 );
+        float32v dw1 = OffsetFromVertex( maskW1, dw0, kUnskew4 );
+        float32v dx2 = OffsetFromVertex( maskX2, dx0, kUnskew4 * 2 );
+        float32v dy2 = OffsetFromVertex( maskY2, dy0, kUnskew4 * 2 );
+        float32v dz2 = OffsetFromVertex( maskZ2, dz0, kUnskew4 * 2 );
+        float32v dw2 = OffsetFromVertex( maskW2, dw0, kUnskew4 * 2 );
+        float32v dx3 = OffsetFromVertex( maskX3, dx0, kUnskew4 * 3 );
+        float32v dy3 = OffsetFromVertex( maskY3, dy0, kUnskew4 * 3 );
+        float32v dz3 = OffsetFromVertex( maskZ3, dz0, kUnskew4 * 3 );
+        float32v dw3 = OffsetFromVertex( maskW3, dw0, kUnskew4 * 3 );
         float32v dx4 = dx0 - float32v( kUnskew4 * 4 + 1 );
         float32v dy4 = dy0 - float32v( kUnskew4 * 4 + 1 );
         float32v dz4 = dz0 - float32v( kUnskew4 * 4 + 1 );
