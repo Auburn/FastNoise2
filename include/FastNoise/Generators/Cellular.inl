@@ -54,6 +54,16 @@ protected:
                 return SelectCount<DistanceFunction::Manhattan, MAX_COUNT>( count, func );
             }
             break;
+        case DistanceFunction::Hybrid:
+        case DistanceFunction::MaxAxis:
+            // Only the common closest cell case is specialised, to limit code size
+            if( !sizeJitterActive && count == 1 )
+            {
+                return this->mDistanceFunction == DistanceFunction::Hybrid ?
+                    func( std::true_type{}, DistanceFunctionConstant<DistanceFunction::Hybrid>{}, CountConstant<1>{}, std::false_type{} ) :
+                    func( std::true_type{}, DistanceFunctionConstant<DistanceFunction::MaxAxis>{}, CountConstant<1>{}, std::false_type{} );
+            }
+            break;
         default: // Less common distance functions use the generic variant to limit code size, Minkowski is dominated by Pow()
             break;
         }
