@@ -159,7 +159,6 @@ public:
         AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
         AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
 
-        intptr_t xNextWrap = xCount;
         intptr_t yNextWrap = xCount * yCount;
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
@@ -179,7 +178,7 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisResetIfWrapped( xIdx, yIdx, xMax, xCountV, xCount, index, xNextWrap );
+                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
                 AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap );
             }
             while( index < blockEnd );
@@ -231,7 +230,6 @@ public:
         AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
         AxisReset<true>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
 
-        intptr_t xNextWrap = xCount;
         intptr_t yNextWrap = xCount * yCount;
         intptr_t zNextWrap = xCount * yCount * zCount;
 
@@ -253,7 +251,7 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisResetIfWrapped( xIdx, yIdx, xMax, xCountV, xCount, index, xNextWrap );
+                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
                 AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap );
                 AxisResetIfWrapped( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount, index, zNextWrap );
             }
