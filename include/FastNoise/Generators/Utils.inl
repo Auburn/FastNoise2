@@ -218,6 +218,20 @@ namespace FastNoise
         }
     }
 
+    // Equivalent to FS::Convert<int32_t>( floored ), on AVX512 the conversion rounds down directly so it doesn't have to wait on the floor
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FS_FORCEINLINE static int32v FloorToInt( float32v value, float32v floored )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::NativeExec<int32v>( []( auto a ) { return _mm512_cvt_roundps_epi32( a, 0x09 ); }, value ); // _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC
+        }
+        else
+        {
+            return FS::Convert<int32_t>( floored );
+        }
+    }
+
     template<typename... P>
     FS_FORCEINLINE static int32v HashPrimes( int32v seed, P... primedPos )
     {
