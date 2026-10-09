@@ -709,11 +709,14 @@ protected:
         return distance;
     }
 
-    // Closest2D() pays off when the lanes are close together and the jitter is small enough that the 2x2 cells usually hold the closest point
+    // Closest2D() pays off when the jitter is small enough that the 2x2 cells usually hold the closest point and the lanes are close together.
+    // Incoherent lanes are each an independent chance of needing the cells beyond (~6% per lane), still a win with SSE4.1's 8 lanes per vector
+    // (not SSE2: no native floor)
     FS_FORCEINLINE static bool Closest2DActive( float32v x, float32v y, float32v jitter )
     {
+        constexpr bool kIncoherent = float32v::ElementCount <= 8 && ( SIMD & FastSIMD::FeatureFlag::SSE41 );
         float32v pos[] = { x, y };
-        return AllLanes( FS::Abs( jitter ) <= float32v( kJitter2D * 1.001f ) ) && IsCoherent<2>( pos );
+        return AllLanes( FS::Abs( jitter ) <= float32v( kJitter2D * 1.001f ) ) && ( kIncoherent || IsCoherent<2>( pos ) );
     }
 
     // 2D closest point for EuclideanSquared/Manhattan, same result as the 3x3 cell search when the jitter radius is at most kJitter2D
