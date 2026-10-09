@@ -264,7 +264,7 @@ protected:
             mCombineMax = distFunc == DistanceFunction::MaxAxis;
 
             // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
-            mBall = !sizeJitterActive && ( distFunc == DistanceFunction::Euclidean || distFunc == DistanceFunction::EuclideanSquared );
+            mBall = distFunc == DistanceFunction::Euclidean || distFunc == DistanceFunction::EuclideanSquared;
 
             if( mPrune )
             {
@@ -347,6 +347,12 @@ protected:
                     posSlack += FS::Abs( pos[d] );
                 }
                 ballRadius = FS::FMulAdd( posSlack, float32v( 1.f / ( 1 << 21 ) ), radius );
+
+                if( sizeJitterActive )
+                {
+                    // Distances are scaled by at least minFactor: scale the squared centre distances by it, the radius by its square root
+                    ballRadius *= FS::Sqrt( FS::Max( minFactor, float32v( 0 ) ) );
+                }
             }
 
             for( int d = 0; d < D; d++ )
@@ -360,7 +366,7 @@ protected:
 
                     if( ball )
                     {
-                        bounds.axis[d][i] = centreOffset * centreOffset;
+                        bounds.axis[d][i] = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
                         continue;
                     }
 
@@ -434,7 +440,7 @@ protected:
         {
             if( mBall )
             {
-                // Ball bounds hold squared centre distances: distance >= ( |centre - pos| - ballRadius )^2
+                // Ball bounds hold squared centre distances (times the smallest size jitter factor): distance >= ( |centre - pos| - ballRadius )^2
                 float32v t = FS::Sqrt( distToBeat ) + mBallRadius;
                 distToBeat = t * t * float32v( 1 + 1.f / 1024 );
             }
