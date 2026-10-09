@@ -21,14 +21,13 @@ protected:
     using CountConstant = std::integral_constant<int, COUNT>;
 
     // Picks the GenT variant by calling func( specialised, distanceFunction, count ) with compile time constants
-    // Common settings get a cell loop specialised on distance function and number of tracked cells (count: 1, 2 or MAX_COUNT)
-    // Everything else (size jitter, Minkowski, other counts) uses the generic variant: specialised = false
+    // Common settings get a cell loop specialised on distance function and number of tracked cells (count)
+    // Everything else (size jitter, Minkowski) uses the generic variant: specialised = false
     // Without size jitter Euclidean finds the same closest cells as EuclideanSquared, so it uses that variant
     template<int MAX_COUNT, typename FUNC>
     FS_FORCEINLINE auto SelectGenT( int count, FUNC&& func ) const
     {
-        if( !this->mSizeJitter.simdGeneratorPtr && this->mSizeJitter.constant == 0.0f &&
-            ( count == 1 || count == 2 || count == MAX_COUNT ) )
+        if( !this->mSizeJitter.simdGeneratorPtr && this->mSizeJitter.constant == 0.0f )
         {
             switch( this->mDistanceFunction )
             {
@@ -54,15 +53,16 @@ protected:
     {
         constexpr DistanceFunctionConstant<DIST_FUNC> distFunc;
 
-        if constexpr( MAX_COUNT > 2 )
+        if constexpr( MAX_COUNT > 1 )
         {
-            if( count == 1 )
+            switch( count )
             {
+            case 1:
                 return func( std::true_type{}, distFunc, CountConstant<1>{} );
-            }
-            if( count == 2 )
-            {
+            case 2:
                 return func( std::true_type{}, distFunc, CountConstant<2>{} );
+            case 3:
+                return func( std::true_type{}, distFunc, CountConstant<3>{} );
             }
         }
         return func( std::true_type{}, distFunc, CountConstant<MAX_COUNT>{} );
