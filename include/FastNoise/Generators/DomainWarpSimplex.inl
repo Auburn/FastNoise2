@@ -147,14 +147,16 @@ namespace FastNoise
         }
         else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
         {
-            // Same table as AVX512 split into two 8 entry halves, entries [16,20) are entries [0,4) negated
+            // Same table as AVX512 split into two 8 entry halves, entries [16,20) are entries [0,4) negated.
+            // The hash has a clear sign bit so the index is [0,20) << 27, which makes the high half ( [8,16) << 27 ) a signed
+            // compare. Testing bit 30 with index << 1 instead gets folded into an extra vpmulld by clang
             auto lookup = []( int32v index, const auto& tableLow, const auto& tableHigh )
             {
                 int32v permuteIndex = FS::BitShiftRightZeroExtend( index, 27 );
                 float32v low = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableLow, permuteIndex );
                 float32v high = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableHigh, permuteIndex );
 
-                return FS::SelectHighBit( index << 1, high, low ) ^ FS::Cast<float>( index & int32v( 1 << 31 ) );
+                return FS::Select( index > int32v( 0x3FFFFFFF ), high, low ) ^ FS::Cast<float>( index & int32v( 1 << 31 ) );
             };
 
             const auto tableLowX = FS::Constant<float>( kSkew4f + 1, kSkew4f, kSkew4f, kSkew4f, -1, 1, 0, 0 );
