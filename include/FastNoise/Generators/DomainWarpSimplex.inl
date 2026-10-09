@@ -327,20 +327,16 @@ namespace FastNoise
             auto notYZ = indexFacetBasisWithPermute2;
             auto notXY = indexFacetBasisWithPermute2 << 1;
 
-            F valueA_gX = FS::SelectHighBit( notYZ, F( kComponentC ), F( kComponentA ) ^ sign0 );
-            F valueA_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, F( kComponentB ) ^ sign1, F( kComponentA ) ^ sign0 ), F( kComponentC ) );
-            F valueA_gZ = FS::SelectHighBit( notXY, F( kComponentC ), F( kComponentB ) ^ sign1 );
-            F valueA = FS::FMulAdd( valueA_gZ, fZ, FS::FMulAdd( fY, valueA_gY, fX * valueA_gX ) );
+            // The facet permutes which axis gets which gradient component: ( A, C, B ), ( A, B, C ) with notXY, ( C, A, B ) with notYZ.
+            // Apply that permutation to f once instead of selecting every component of the three gradients
+            F fA = FS::SelectHighBit( notYZ, fY, fX );
+            F fB = FS::SelectHighBit( notXY, fY, fZ );
+            F fC = FS::SelectHighBit( notYZ, fX, FS::SelectHighBit( notXY, fZ, fY ) );
+            F productC = fC * F( kComponentC );
 
-            F valueB_gX = FS::SelectHighBit( notYZ, F( kComponentC ), F( kComponentB ) ^ sign0 );
-            F valueB_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, F( kComponentA ) ^ sign1, F( kComponentB ) ^ sign0 ), F( kComponentC ) );
-            F valueB_gZ = FS::SelectHighBit( notXY, F( kComponentC ), F( kComponentA ) ^ sign1 );
-            F valueB = FS::FMulAdd( valueB_gZ, fZ, FS::FMulAdd( fY, valueB_gY, fX * valueB_gX ) );
-
-            F valueC_gX = FS::SelectHighBit( notYZ, F( kComponentF ), F( kComponentsDE ) ^ sign0 );
-            F valueC_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, F( kComponentsDE ) ^ sign1, F( kComponentsDE ) ^ sign0 ), F( kComponentF ) );
-            F valueC_gZ = FS::SelectHighBit( notXY, F( kComponentF ), F( kComponentsDE ) ^ sign1 );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, FS::FMulAdd( fY, valueC_gY, fX * valueC_gX ) );
+            F valueA = FS::FMulAdd( F( kComponentA ) ^ sign0, fA, FS::FMulAdd( F( kComponentB ) ^ sign1, fB, productC ) );
+            F valueB = FS::FMulAdd( F( kComponentB ) ^ sign0, fA, FS::FMulAdd( F( kComponentA ) ^ sign1, fB, productC ) );
+            valueC = FS::FMulAdd( F( kComponentsDE ) ^ sign0, fA, FS::FMulAdd( F( kComponentsDE ) ^ sign1, fB, fC * F( kComponentF ) ) );
 
             valueAB = FS::SelectHighBit( indexPermutation2HighBit, valueB, valueA );
             valueBA = FS::SelectHighBit( indexPermutation2HighBit, valueA, valueB );
