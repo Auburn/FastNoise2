@@ -169,13 +169,14 @@ protected:
         kPruneNearFirst // Incoherent lanes, cells are ordered per lane relative to the near side (see NearFirst)
     };
 
-    // Minkowski isn't pruned: approximate Pow and odd P values make bounds unreliable
+    // Minkowski is only pruned with P in [0.25, 8] in every lane: other P values make Pow's error/range unreliable
+    // and exact distance ties common, which the pruned cell order would resolve differently.
     // Incoherent lanes always prune in 4D, in 3D only when they need the nearest 3 points with grid jitter <= 1,
     // the far side cells then rarely matter in any lane
     template<int D>
-    FS_FORCEINLINE static PruneMode GetPruneMode( DistanceFunction distFunc, const float32v* pos, float32v jitter, float maxJitter, int distanceIndex )
+    FS_FORCEINLINE static PruneMode GetPruneMode( DistanceFunction distFunc, float32v minkowskiP, const float32v* pos, float32v jitter, float maxJitter, int distanceIndex )
     {
-        if( distFunc == DistanceFunction::Minkowski )
+        if( distFunc == DistanceFunction::Minkowski && !AllLanes( FS::Abs( minkowskiP - float32v( 4.125f ) ) <= float32v( 3.875f ) ) )
         {
             return kPruneNone;
         }
@@ -257,12 +258,12 @@ protected:
     {
     public:
         FS_FORCEINLINE CellIterator( CellBounds<D>& bounds, std::array<int32v, 3>* cellPrimed, std::array<float32v, 3>* cellPos, bool relative, const float32v* pos,
-                                     DistanceFunction distFunc, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter ) :
+                                     DistanceFunction distFunc, float32v minkowskiP, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter ) :
             mBounds( bounds )
         {
-            PruneMode pruneMode = GetPruneMode<D>( distFunc, pos, jitter, D == 3 ? kJitter3D : kJitter4D, distanceIndex );
+            PruneMode pruneMode = GetPruneMode<D>( distFunc, minkowskiP, pos, jitter, D == 3 ? kJitter3D : kJitter4D, distanceIndex );
             mPrune = pruneMode != kPruneNone;
-            mCombineMax = distFunc == DistanceFunction::MaxAxis;
+            mCombineMax = distFunc == DistanceFunction::MaxAxis || distFunc == DistanceFunction::Minkowski;
 
             // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
             mBall = distFunc == DistanceFunction::Euclidean || distFunc == DistanceFunction::EuclideanSquared;
@@ -329,8 +330,9 @@ protected:
             }
 
             // Slack for approximate InvSqrt in the jitter offset and float rounding of positions/distances
+            // Minkowski takes the 1 / P root with an approximate reciprocal of P, up to ~1e-3 relative error for P in [0.25, 8]
             float32v radius = FS::FMulAdd( FS::Abs( jitter ), float32v( 1 + 1.f / 512 ), float32v( 1.f / ( 1 << 20 ) ) );
-            float32v scale( 1 - 1.f / 4096 );
+            float32v scale( distFunc == DistanceFunction::Minkowski ? 1 - 1.f / 64 : 1 - 1.f / 4096 );
             float32v minFactor;
 
             if( sizeJitterActive )
@@ -380,6 +382,7 @@ protected:
                         break;
                     case DistanceFunction::Manhattan:
                     case DistanceFunction::MaxAxis:
+                    case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
                         break;
                     case DistanceFunction::Hybrid:
                         b = FS::FMulAdd( b, b, b );
@@ -617,7 +620,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
 
         typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, valueIndex, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
@@ -707,7 +710,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, w, cellPrimed[3], cellOffset[3] );
 
         typename DispatchClass::template CellBounds<4> bounds;
-        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, valueIndex, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
@@ -898,7 +901,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
         typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
@@ -980,7 +983,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
         typename DispatchClass::template CellBounds<4> bounds;
-        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
@@ -1185,7 +1188,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
 
         typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, 0, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( distance ) )
         {
@@ -1262,7 +1265,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, float32v( 0 ), cellPrimed[3], cellPos[3] );
 
         typename DispatchClass::template CellBounds<4> bounds;
-        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, 0, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( distance ) )
         {
