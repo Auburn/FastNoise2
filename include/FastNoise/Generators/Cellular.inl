@@ -216,14 +216,15 @@ protected:
     }
 
     // Primed cell coordinates and cell positions ( - origin ) for the 3 neighbour cells on one axis: [-1, 0, +1]
-    FS_FORCEINLINE static void CellAxis( int32v cell, int prime, float32v origin, std::array<int32v, 3>& primed, std::array<float32v, 3>& cellPos )
+    // The hash seed can be xored into one axis' primed coordinates up front, saving an xor per cell
+    FS_FORCEINLINE static void CellAxis( int32v cell, int prime, float32v origin, std::array<int32v, 3>& primed, std::array<float32v, 3>& cellPos, int32v seed = int32v( 0 ) )
     {
         float32v cellf = FS::Convert<float>( cell ) - origin;
         cell *= int32v( prime );
 
         for( int i = 0; i < 3; i++ )
         {
-            primed[i] = cell;
+            primed[i] = cell ^ seed;
             cellPos[i] = cellf;
             cellf += float32v( 1 );
             cell += int32v( prime );
@@ -611,7 +612,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         std::array<int32v, 3> cellPrimed[3];
         std::array<float32v, 3> cellOffset[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0] );
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
 
@@ -620,7 +621,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
-            int32v hash = HashPrimesHB( seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -700,7 +701,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         std::array<int32v, 3> cellPrimed[4];
         std::array<float32v, 3> cellOffset[4];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0] );
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, w, cellPrimed[3], cellOffset[3] );
@@ -710,7 +711,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
-            int32v hash = HashPrimesHB( seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -884,7 +885,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         std::array<int32v, 3> cellPrimed[3];
         std::array<float32v, 3> cellOffset[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0] );
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0], seed );
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellOffset[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellOffset[2] );
         for( int d = 0; d < 3; d++ )
@@ -901,7 +902,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
-            int32v hash = HashPrimesHB( seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -965,7 +966,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         std::array<int32v, 3> cellPrimed[4];
         std::array<float32v, 3> cellOffset[4];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0] );
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0], seed );
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellOffset[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellOffset[2] );
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, float32v( 0 ), cellPrimed[3], cellOffset[3] );
@@ -983,7 +984,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
-            int32v hash = HashPrimesHB( seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
@@ -1179,7 +1180,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         std::array<int32v, 3> cellPrimed[3];
         std::array<float32v, 3> cellPos[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0] );
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0], seed );
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
 
@@ -1188,7 +1189,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         while( const int8_t* o = cells.Next( distance ) )
         {
-            int32v hash = HashPrimesHB( seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -1255,7 +1256,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         std::array<int32v, 3> cellPrimed[4];
         std::array<float32v, 3> cellPos[4];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0] );
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0], seed );
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, float32v( 0 ), cellPrimed[3], cellPos[3] );
@@ -1265,7 +1266,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         while( const int8_t* o = cells.Next( distance ) )
         {
-            int32v hash = HashPrimesHB( seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
