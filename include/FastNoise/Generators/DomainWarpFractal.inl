@@ -21,13 +21,22 @@ class FastSIMD::DispatchClass<DomainWarpFractalProgressive, SIMD> final : public
 
         float32v strength = warp->Warp( seedInc, amp, (pos * freq)..., pos... );
 
+        // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
+        bool isWeighted = mWeightedStrength.simdGeneratorPtr || mWeightedStrength.constant != 0.0f;
+
         for (int i = 1; i < mOctaves; i++)
         {
-            strength = FastLengthSqrt( strength );
             seedInc -= int32v( -1 );
             freq *= lacunarity;
-            amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
-            amp *= gain;
+            if( isWeighted )
+            {
+                amp *= Lerp( float32v( 1 ), float32v( 1 ) - FastLengthSqrt( strength ), weightedStrength );
+                amp *= gain;
+            }
+            else
+            {
+                amp *= gain;
+            }
             strength = warp->Warp( seedInc, amp, (pos * freq)..., pos... );
         }
 
@@ -57,13 +66,22 @@ class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public
         
             float32v strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
     
+            // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
+            bool isWeighted = mWeightedStrength.simdGeneratorPtr || mWeightedStrength.constant != 0.0f;
+
             for( int i = 1; i < mOctaves; i++ )
             {
-                strength = FastLengthSqrt( strength );
                 seedInc -= int32v( -1 );
                 freq *= lacunarity;
-                amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
-                amp *= gain;
+                if( isWeighted )
+                {
+                    amp *= Lerp( float32v( 1 ), float32v( 1 ) - FastLengthSqrt( strength ), weightedStrength );
+                    amp *= gain;
+                }
+                else
+                {
+                    amp *= gain;
+                }
                 strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
             }
     
