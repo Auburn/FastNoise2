@@ -9,11 +9,10 @@ class FastSIMD::DispatchClass<DomainWarp, SIMD> : public virtual DomainWarp, pub
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        int32v sourceSeed = seed;
-        seed += int32v( mSeedOffset );
-        Warp( seed, this->GetSourceValue( mWarpAmplitude, sourceSeed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
+        // Seed offset is applied inside Warp() so it also applies when called from DomainWarpFractal
+        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
 
-        return this->GetSourceValue( mSource, sourceSeed, pos...);
+        return this->GetSourceValue( mSource, seed, pos...);
     }
 
 public:
