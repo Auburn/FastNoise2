@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstring>
+#include <vector>
 
 #include "Generator.h"
 
@@ -578,11 +579,34 @@ public:
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 
+        // xPos/zPos are the same in every row, compute them once per column. The tables continue past the
+        // end of the row with its first columns, so the vector starting at any column is a contiguous load
+        intptr_t xTableSize = xSize + (intptr_t)int32v::ElementCount;
+        std::vector<float> xTables( ( xTableSize + int32v::ElementCount ) * 2 );
+        float* xPosTable = xTables.data();
+        float* zPosTable = xPosTable + xTableSize + int32v::ElementCount;
+
+        for( intptr_t column = 0; column < xTableSize; column += int32v::ElementCount )
+        {
+            int32v columnIdx = int32v( (int32_t)column ) + FS::LoadIncremented<int32v>();
+
+            for( mask32v wrap; FS::AnyMask( wrap = columnIdx > xMax ); )
+            {
+                columnIdx = FS::MaskedSub( wrap, columnIdx, xSizeV );
+            }
+
+            float32v xF = FS::Convert<float>( columnIdx ) * xMul;
+
+            FS::Store( &xPosTable[column], FS::Cos( xF ) * xFreq );
+            FS::Store( &zPosTable[column], FS::Sin( xF ) * xFreq );
+        }
+
         xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
         intptr_t xNextWrap = xSize;
+        intptr_t xColumn = 0;
 
         // yPos/wPos only change when a lane wraps onto the next row
         float32v yF = FS::Convert<float>( yIdx ) * yMul;
@@ -600,15 +624,15 @@ public:
 
             do
             {
-                float32v xF = FS::Convert<float>( xIdx ) * xMul;
-
-                float32v xPos = FS::Cos( xF ) * xFreq;
-                float32v zPos = FS::Sin( xF ) * xFreq;
+                float32v xPos = FS::Load<float32v>( &xPosTable[xColumn] );
+                float32v zPos = FS::Load<float32v>( &zPosTable[xColumn] );
 
                 StoreBlockPositions( blockPos, xPos, yPos, zPos, wPos );
 
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
+
+                for( xColumn += int32v::ElementCount; xColumn >= xSize; xColumn -= xSize ) {}
 
                 if( AxisResetIfWrapped( xIdx, yIdx, xMax, xSizeV, xSize, index, xNextWrap ) )
                 {
@@ -623,10 +647,8 @@ public:
             AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
 
-        float32v xF = FS::Convert<float>( xIdx ) * xMul;
-
-        float32v xPos = FS::Cos( xF ) * xFreq;
-        float32v zPos = FS::Sin( xF ) * xFreq;
+        float32v xPos = FS::Load<float32v>( &xPosTable[xColumn] );
+        float32v zPos = FS::Load<float32v>( &zPosTable[xColumn] );
 
         float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
 
