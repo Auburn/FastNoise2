@@ -1,6 +1,17 @@
 #pragma once
 #include <climits>
 
+// Realign the stack on entry: clang otherwise spills AVX registers to slots that are only 16 byte aligned (x86-64 ABI),
+// so depending on the caller's stack alignment most 32/64 byte spills and reloads split cache lines. Only used on the
+// kernels that spill: on Windows realigning every function costs more than it gains
+#ifndef FN_ALIGN_STACK
+#if defined( __AVX__ ) && defined( __clang__ )
+#define FN_ALIGN_STACK __attribute__(( force_align_arg_pointer ))
+#else
+#define FN_ALIGN_STACK
+#endif
+#endif
+
 namespace FastNoise
 {
     namespace Primes

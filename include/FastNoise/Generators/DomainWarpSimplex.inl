@@ -191,7 +191,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FN_ALIGN_STACK static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         int32v index = FS::BitShiftRightZeroExtend( hash31, 1 ) * int32v( 12 >> 2 ); // [0,12) in the upper four bits
 
@@ -714,7 +714,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    FN_ALIGN_STACK static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
@@ -809,7 +809,7 @@ public:
 
 protected:
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -873,7 +873,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -971,7 +971,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -1172,7 +1172,7 @@ public:
 
 protected:
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -1261,7 +1261,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -1510,7 +1510,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
