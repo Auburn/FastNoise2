@@ -8,7 +8,11 @@ class FastSIMD::DispatchClass<Add, SIMD> final : public virtual Add, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) + this->GetSourceValue( mRHS, seed, pos... );
+        // Sequence LHS first: clang evaluates the RHS operand first, which for a constant RHS made the positions
+        // be spilled and reloaded around the LHS call (measured up to 30% slower with a cheap constant RHS)
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
+
+        return lhs + this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
@@ -20,7 +24,9 @@ class FastSIMD::DispatchClass<Subtract, SIMD> final : public virtual Subtract, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) - this->GetSourceValue( mRHS, seed, pos... );
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
+
+        return lhs - this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
@@ -52,7 +58,9 @@ class FastSIMD::DispatchClass<Divide, SIMD> final : public virtual Divide, publi
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) / this->GetSourceValue( mRHS, seed, pos... );
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
+
+        return lhs / this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
@@ -113,7 +121,9 @@ class FastSIMD::DispatchClass<Min, SIMD> final : public virtual Min, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return FS::Min( this->GetSourceValue( mLHS, seed, pos... ), this->GetSourceValue( mRHS, seed, pos... ) );
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
+
+        return FS::Min( lhs, this->GetSourceValue( mRHS, seed, pos... ) );
     }
 };
 
@@ -125,7 +135,9 @@ class FastSIMD::DispatchClass<Max, SIMD> final : public virtual Max, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return FS::Max( this->GetSourceValue( mLHS, seed, pos... ), this->GetSourceValue( mRHS, seed, pos... ) );
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... ); // LHS first, see Add
+
+        return FS::Max( lhs, this->GetSourceValue( mRHS, seed, pos... ) );
     }
 };
 
