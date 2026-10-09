@@ -809,6 +809,34 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         return std::max( mDistanceIndex0, mReturnType == ReturnType::Index0 ? 0 : mDistanceIndex1 ) + 1;
     }
 
+    // One 2D cell, shared by the plain 3x3 loop and the pruned loop (a lambda isn't reliably inlined)
+    template<int COUNT>
+    FS_FORCEINLINE void VisitCell2D( std::array<float32v, kMaxDistanceCount>& distance, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
+                                     const float32v& sizeJitter, int32v seed, int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset ) const
+    {
+        int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+        float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+        float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+
+        float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+        xd = FS::FMulAdd( xd, invMag, xOffset );
+        yd = FS::FMulAdd( yd, invMag, yOffset );
+
+        float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
+        if( sizeJitterActive )
+        {
+            float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+            newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+        }
+
+        for( int i = COUNT - 1; i > 0; i-- )
+        {
+            distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
+        }
+
+        distance[0] = FS::Min( distance[0], newDistance );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
@@ -841,31 +869,6 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         this->ScalePositions( this, x, y );
 
-        auto visitCell = [&]( int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset )
-        {
-            int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
-            xd = FS::FMulAdd( xd, invMag, xOffset );
-            yd = FS::FMulAdd( yd, invMag, yOffset );
-
-            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
-            if( sizeJitterActive )
-            {
-                float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-            }
-
-            for( int i = COUNT - 1; i > 0; i-- )
-            {
-                distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
-            }
-
-            distance[0] = FS::Min( distance[0], newDistance );
-        };
-
         if constexpr( SPECIALISED )
         {
             int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
@@ -884,7 +887,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
                 int32v yc = ycBase;
                 for ( int yi = 0; yi < 3; yi++ )
                 {
-                    visitCell( xc, yc, xcfOffset, ycf - y );
+                    VisitCell2D<COUNT>( distance, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, xc, yc, xcfOffset, ycf - y );
 
                     ycf += float32v( 1 );
                     yc += int32v( Primes::Y );
@@ -915,7 +918,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
             while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
             {
-                visitCell( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellOffset[0][o[0]], cellOffset[1][o[1]] );
+                VisitCell2D<COUNT>( distance, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellOffset[0][o[0]], cellOffset[1][o[1]] );
             }
         }
 
@@ -1137,6 +1140,34 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
     template<typename... P>
     using GenTPtr = float32v( FS_VECTORCALL DispatchClass::* )( int32v, P... ) const;
 
+    // One 2D cell, shared by the plain 3x3 loop and the pruned loop (a lambda isn't reliably inlined)
+    FS_FORCEINLINE void VisitCell2D( float32v& distance, float32v& cellX, float32v& cellY, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
+                                     const float32v& sizeJitter, int32v seed, float32v x, float32v y, int32v xPrimed, int32v yPrimed, float32v xCell, float32v yCell ) const
+    {
+        int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+        float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+        float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+
+        float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+        float32v localCellX = FS::FMulAdd( xd, invMag, xCell );
+        float32v localCellY = FS::FMulAdd( yd, invMag, yCell );
+        xd = localCellX - x;
+        yd = localCellY - y;
+
+        float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
+        if( sizeJitterActive )
+        {
+            float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+            newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+        }
+
+        mask32v closer = newDistance < distance;
+        distance = FS::Min( newDistance, distance );
+
+        cellX = FS::Select( closer, localCellX, cellX );
+        cellY = FS::Select( closer, localCellY, cellY );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
@@ -1169,32 +1200,6 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         this->ScalePositions( this, x, y );
 
-        auto visitCell = [&]( int32v xPrimed, int32v yPrimed, float32v xCell, float32v yCell )
-        {
-            int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
-            float32v localCellX = FS::FMulAdd( xd, invMag, xCell );
-            float32v localCellY = FS::FMulAdd( yd, invMag, yCell );
-            xd = localCellX - x;
-            yd = localCellY - y;
-
-            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
-            if( sizeJitterActive )
-            {
-                float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-            }
-
-            mask32v closer = newDistance < distance;
-            distance = FS::Min( newDistance, distance );
-
-            cellX = FS::Select( closer, localCellX, cellX );
-            cellY = FS::Select( closer, localCellY, cellY );
-        };
-
         if constexpr( SPECIALISED )
         {
             int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
@@ -1212,7 +1217,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 int32v yc = ycBase;
                 for( int yi = 0; yi < 3; yi++ )
                 {
-                    visitCell( xc, yc, xcf, ycf );
+                    VisitCell2D( distance, cellX, cellY, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, xc, yc, xcf, ycf );
 
                     ycf += float32v( 1 );
                     yc += int32v( Primes::Y );
@@ -1235,7 +1240,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
             while( const int8_t* o = cells.Next( distance ) )
             {
-                visitCell( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPos[0][o[0]], cellPos[1][o[1]] );
+                VisitCell2D( distance, cellX, cellY, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPos[0][o[0]], cellPos[1][o[1]] );
             }
         }
 
