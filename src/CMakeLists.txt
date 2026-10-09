@@ -90,6 +90,14 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
         target_compile_options(FastSIMD_FastNoise PRIVATE -mno-vzeroupper)
     else()
         target_compile_options(FastSIMD_FastNoise PRIVATE -mllvm -x86-use-vzeroupper=0)        
+
+        # Clang only aligns ymm/zmm spill slots in functions that realign the stack (see FN_ALIGN_STACK). Outside Windows
+        # most generator functions spill, so realign the stack in all of the AVX sources. GCC realigns when it needs to
+        if(NOT WIN32)
+            get_target_property(FastNoise_avx_sources FastSIMD_FastNoise SOURCES)
+            list(FILTER FastNoise_avx_sources INCLUDE REGEX "_AVX(2|512)\\.cpp$")
+            set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS -mstackrealign)
+        endif()
     endif()
 endif()
 
