@@ -159,6 +159,9 @@ public:
         AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
         AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
 
+        intptr_t xNextWrap = xCount;
+        intptr_t yNextWrap = xCount * yCount;
+
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
@@ -176,8 +179,8 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-                AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+                AxisResetIfWrapped( xIdx, yIdx, xMax, xCountV, xCount, index, xNextWrap );
+                AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap );
             }
             while( index < blockEnd );
 
@@ -228,6 +231,10 @@ public:
         AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
         AxisReset<true>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
 
+        intptr_t xNextWrap = xCount;
+        intptr_t yNextWrap = xCount * yCount;
+        intptr_t zNextWrap = xCount * yCount * zCount;
+
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
@@ -246,9 +253,9 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-                AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
-                AxisReset<false>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
+                AxisResetIfWrapped( xIdx, yIdx, xMax, xCountV, xCount, index, xNextWrap );
+                AxisResetIfWrapped( yIdx, zIdx, yMax, yCountV, xCount * yCount, index, yNextWrap );
+                AxisResetIfWrapped( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount, index, zNextWrap );
             }
             while( index < blockEnd );
 
@@ -483,6 +490,21 @@ private:
             mask32v aReset = aIdx > aMax;
             bIdx = FS::MaskedIncrement( aReset, bIdx );
             aIdx = FS::MaskedSub( aReset, aIdx, aSize );
+        }
+    }
+
+    // The reset is a no-op unless a lane crossed a multiple of aStep this iteration (lanes cover [index, index + ElementCount)),
+    // nextWrap is the first multiple of aStep after the previous iteration's first lane
+    static FS_FORCEINLINE void AxisResetIfWrapped( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep, intptr_t index, intptr_t& nextWrap )
+    {
+        if( index + (intptr_t)int32v::ElementCount > nextWrap )
+        {
+            AxisReset<false>( aIdx, bIdx, aMax, aSize, aStep );
+
+            while( nextWrap <= index )
+            {
+                nextWrap += aStep;
+            }
         }
     }
 
