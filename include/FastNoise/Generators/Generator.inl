@@ -267,6 +267,7 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
+                // Unconditional as x wraps in (nearly) every iteration for typical 4D sizes, so yPos isn't kept either
                 AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
 
                 // Every multiple of the z stride is a multiple of the y stride, so a z wrap is always also a y wrap
