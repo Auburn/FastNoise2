@@ -156,7 +156,7 @@ namespace FastNoise
                 float32v low = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableLow, permuteIndex );
                 float32v high = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableHigh, permuteIndex );
 
-                return FS::Select( index > int32v( 0x3FFFFFFF ), high, low ) ^ FS::Cast<float>( index & int32v( 1 << 31 ) );
+                return FS::Select( index > int32v( 0x3FFFFFFF ), high, low );
             };
 
             const auto tableLowX = FS::Constant<float>( kSkew4f + 1, kSkew4f, kSkew4f, kSkew4f, -1, 1, 0, 0 );
@@ -173,7 +173,9 @@ namespace FastNoise
             float32v gZ = lookup( indexGradient, tableLowZ, tableHighZ );
             float32v gW = lookup( indexGradient, tableLowW, tableHighW );
 
-            multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) );
+            // The negated entries flip every component, so apply their sign to the dot product and the multiplier instead
+            multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) ) ^ FS::Cast<float>( indexGradient & int32v( 1 << 31 ) );
+            multiplier ^= FS::Cast<float>( indexOuterVector & int32v( 1 << 31 ) );
 
             valueX = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowX, tableHighX ), valueX );
             valueY = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowY, tableHighY ), valueY );
