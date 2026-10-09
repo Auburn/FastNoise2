@@ -12,11 +12,11 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
     {
         if constexpr( ( SIMD & FastSIMD::FeatureFlag::x86 ) && !( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
         {
-            return FS::MaskedSub( moved, d, float32v( 1 ) ) - float32v( unskew );
+            return FS::MaskedSub( moved, d, float32v( 1 ) ) - float32v( (float)unskew );
         }
         else
         {
-            return d - FS::Select( moved, float32v( unskew + 1 ), float32v( unskew ) );
+            return d - FS::Select( moved, float32v( (float)( unskew + 1 ) ), float32v( (float)unskew ) );
         }
     }
 
