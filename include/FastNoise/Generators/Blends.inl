@@ -172,6 +172,7 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
         float32v fade = this->GetSourceValue( mFade, seed, pos... );
         float32v fadeMin = this->GetSourceValue( mFadeMin, seed, pos... );
         float32v fadeMax = this->GetSourceValue( mFadeMax, seed, pos... );
+        float32v a = this->GetSourceValue( mA, seed, pos... );
 
         float32v fadeRange = fadeMax - fadeMin;
 
@@ -193,8 +194,14 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
 
         // Protect against nan from 0 range div
         fade = FS::Select( fadeRange == float32v( 0 ), float32v( 0.5f ), fade );
-        
-        return Lerp( this->GetSourceValue( mA, seed, pos... ), this->GetSourceValue( mB, seed, pos... ), fade );
+
+        // Lerp( a, b, 0 ) == a, skip evaluating B if no lane needs it
+        if( !FS::AnyMask( fade != float32v( 0 ) ) )
+        {
+            return a;
+        }
+
+        return Lerp( a, this->GetSourceValue( mB, seed, pos... ), fade );
     }
 };
 
