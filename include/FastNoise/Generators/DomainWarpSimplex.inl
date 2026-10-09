@@ -324,11 +324,11 @@ namespace FastNoise
         }
         else // AVX2: process each native register half separately, skipping halves with no contribution
         {
-            if( FS::AnyMask( multiplier.v0 != decltype( multiplier.v0 )( 0 ) ) )
+            if( FS::AnyMask( multiplier.v0 != float32v::DoubledType( 0 ) ) )
             {
                 ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31.v0, fX.v0, fY.v0, fZ.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0 );
             }
-            if( FS::AnyMask( multiplier.v1 != decltype( multiplier.v1 )( 0 ) ) )
+            if( FS::AnyMask( multiplier.v1 != float32v::DoubledType( 0 ) ) )
             {
                 ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31.v1, fX.v1, fY.v1, fZ.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1 );
             }
@@ -722,11 +722,11 @@ namespace FastNoise
         }
         else // Process each native register half separately, skipping halves with no contribution
         {
-            if( FS::AnyMask( multiplier.v0 != decltype( multiplier.v0 )( 0 ) ) )
+            if( FS::AnyMask( multiplier.v0 != float32v::DoubledType( 0 ) ) )
             {
                 ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
             }
-            if( FS::AnyMask( multiplier.v1 != decltype( multiplier.v1 )( 0 ) ) )
+            if( FS::AnyMask( multiplier.v1 != float32v::DoubledType( 0 ) ) )
             {
                 ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
             }
