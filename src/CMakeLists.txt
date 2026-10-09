@@ -101,6 +101,12 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
         else()
             set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS -fno-omit-frame-pointer)
         endif()
+
+        # LLVM bug: a __regcall (FS_VECTORCALL) sibling call can pass arguments in ymm/zmm8+ and still restore the callee
+        # saved xmm8-15 before the jump, corrupting them. Tail calls don't gain anything measurable here
+        if(NOT MSVC)
+            target_compile_options(FastSIMD_FastNoise PRIVATE -fno-optimize-sibling-calls)
+        endif()
     endif()
 endif()
 
