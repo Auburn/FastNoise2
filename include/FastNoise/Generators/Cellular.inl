@@ -571,18 +571,19 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 {
                     mask32v closer = newDistance < distance[i];
 
-                    float32v localDistance = distance[i];
                     int32v localCellValueHash = valueHash[i];
-
-                    distance[i] = FS::Select( closer, newDistance, distance[i] );
                     valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
 
                     if( i >= ( SPECIALISED ? COUNT - 1 : mValueIndex ) )
                     {
+                        distance[i] = FS::Select( closer, newDistance, distance[i] );
                         break;
                     }
 
-                    newDistance = FS::Select( closer, localDistance, newDistance );
+                    // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                    float32v localDistance = distance[i];
+                    distance[i] = FS::Min( newDistance, distance[i] );
+                    newDistance = FS::Max( localDistance, newDistance );
                     newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
                 }
 
@@ -666,18 +667,19 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             {
                 mask32v closer = newDistance < distance[i];
 
-                float32v localDistance = distance[i];
                 int32v localCellValueHash = valueHash[i];
-
-                distance[i] = FS::Select( closer, newDistance, distance[i] );
                 valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
 
                 if( i >= valueIndex )
                 {
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
                     break;
                 }
 
-                newDistance = FS::Select( closer, localDistance, newDistance );
+                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                float32v localDistance = distance[i];
+                distance[i] = FS::Min( newDistance, distance[i] );
+                newDistance = FS::Max( localDistance, newDistance );
                 newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
             }
         }
@@ -758,18 +760,19 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             {
                 mask32v closer = newDistance < distance[i];
 
-                float32v localDistance = distance[i];
                 int32v localCellValueHash = valueHash[i];
-
-                distance[i] = FS::Select( closer, newDistance, distance[i] );
                 valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
 
                 if( i >= valueIndex )
                 {
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
                     break;
                 }
 
-                newDistance = FS::Select( closer, localDistance, newDistance );
+                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                float32v localDistance = distance[i];
+                distance[i] = FS::Min( newDistance, distance[i] );
+                newDistance = FS::Max( localDistance, newDistance );
                 newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
             }
         }
