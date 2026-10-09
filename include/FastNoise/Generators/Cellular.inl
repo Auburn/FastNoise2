@@ -538,13 +538,20 @@ protected:
     template<int D>
     FS_FORCEINLINE bool FloorCellsActive( int count, float jitterScale ) const
     {
-        bool sizeJitterActive = this->mSizeJitter.simdGeneratorPtr || this->mSizeJitter.constant != 0.0f;
-
-        if( D == 4 || count > 1 || sizeJitterActive || this->mGridJitter.simdGeneratorPtr || this->mGridJitter.constant == 0.0f )
+        // Largest bound first: rejects the default grid jitter without the distance function switch
+        float scaledJitter = std::abs( this->mGridJitter.constant * jitterScale );
+        if( D == 4 || !( scaledJitter <= FloorCellsJitterBound<D>( DistanceFunction::Euclidean ) * ( 1 - 1.f / 1024 ) ) )
         {
             return false;
         }
-        return std::abs( this->mGridJitter.constant * jitterScale ) <= FloorCellsJitterBound<D>( this->mDistanceFunction ) * ( 1 - 1.f / 1024 );
+
+        bool sizeJitterActive = this->mSizeJitter.simdGeneratorPtr || this->mSizeJitter.constant != 0.0f;
+
+        if( count > 1 || sizeJitterActive || this->mGridJitter.simdGeneratorPtr || this->mGridJitter.constant == 0.0f )
+        {
+            return false;
+        }
+        return scaledJitter <= FloorCellsJitterBound<D>( this->mDistanceFunction ) * ( 1 - 1.f / 1024 );
     }
 
     // Calls func( specialised, distanceFunction ) with compile time constants for common distance functions
