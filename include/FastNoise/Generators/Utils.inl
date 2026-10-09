@@ -395,9 +395,13 @@ namespace FastNoise
         {
             return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, table );
         }
-        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
+        else if constexpr( ( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) && std::is_same_v<typename F::ElementType, float> )
         {
             return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), table, index );
+        }
+        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
+        {
+            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), table, index );
         }
         else
         {

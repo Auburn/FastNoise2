@@ -45,12 +45,9 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
 
-        int32v x0 = FloorToInt( x, xs ) * int32v( Primes::X );
-        int32v y0 = FloorToInt( y, ys ) * int32v( Primes::Y );
-        int32v z0 = FloorToInt( z, zs ) * int32v( Primes::Z );
-        int32v x1 = x0 + int32v( Primes::X );
-        int32v y1 = y0 + int32v( Primes::Y );
-        int32v z1 = z0 + int32v( Primes::Z );
+        int32v xi = FloorToInt( x, xs );
+        int32v yi = FloorToInt( y, ys );
+        int32v zi = FloorToInt( z, zs );
 
         float32v xf0 = xs = x - xs;
         float32v yf0 = ys = y - ys;
@@ -63,14 +60,61 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         ys = InterpQuintic( ys );
         zs = InterpQuintic( zs );
 
+        constexpr double kBounding = 1.0363423824310302734375;
+
+        // Corner-major path for lane-coherent vectors (uniform grids): hash the lattice block once, permute the hashes per lane
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            int32v xOffset;
+            if( IsLatticeBlock( xOffset, seed, xi, yi, zi ) )
+            {
+                auto seedB = LatticeBlockBroadcast( seed );
+                auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
+                auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
+                auto hashZ0 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
+                auto hashZ1 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+                int32v xOffset1 = xOffset + int32v( 1 );
+                int32v xOffset4 = xOffset + int32v( 4 );
+                int32v xOffset5 = xOffset + int32v( 5 );
+
+                using NF = decltype( FS::Cast<float>( hashZ0 ) );
+                NF one( 1 ), zero( 0 );
+                NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
+                NF gYZ0 = GetGradientDotCommon( hashZ0, zero, one, zero );
+                NF gZZ0 = GetGradientDotCommon( hashZ0, zero, zero, one );
+                NF gXZ1 = GetGradientDotCommon( hashZ1, one, zero, zero );
+                NF gYZ1 = GetGradientDotCommon( hashZ1, zero, one, zero );
+                NF gZZ1 = GetGradientDotCommon( hashZ1, zero, zero, one );
+
+                auto dot = [&]( const NF& gX, const NF& gY, const NF& gZ, const int32v& idx, const float32v& fX, const float32v& fY, const float32v& fZ )
+                {
+                    return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, FS::FMulAdd( fY, LatticeBlockPermute<float32v>( gY, idx ), fZ * LatticeBlockPermute<float32v>( gZ, idx ) ) );
+                };
+
+                float32v value = Lerp( Lerp(
+                    Lerp( dot( gXZ0, gYZ0, gZZ0, xOffset, xf0, yf0, zf0 ), dot( gXZ0, gYZ0, gZZ0, xOffset1, xf1, yf0, zf0 ), xs ),
+                    Lerp( dot( gXZ0, gYZ0, gZZ0, xOffset4, xf0, yf1, zf0 ), dot( gXZ0, gYZ0, gZZ0, xOffset5, xf1, yf1, zf0 ), xs ), ys ),
+                    Lerp(
+                    Lerp( dot( gXZ1, gYZ1, gZZ1, xOffset, xf0, yf0, zf1 ), dot( gXZ1, gYZ1, gZZ1, xOffset1, xf1, yf0, zf1 ), xs ),
+                    Lerp( dot( gXZ1, gYZ1, gZZ1, xOffset4, xf0, yf1, zf1 ), dot( gXZ1, gYZ1, gZZ1, xOffset5, xf1, yf1, zf1 ), xs ), ys ), zs );
+
+                return this->ScaleOutput( this, value, -kBounding, kBounding );
+            }
+        }
+
+        int32v x0 = xi * int32v( Primes::X );
+        int32v y0 = yi * int32v( Primes::Y );
+        int32v z0 = zi * int32v( Primes::Z );
+        int32v x1 = x0 + int32v( Primes::X );
+        int32v y1 = y0 + int32v( Primes::Y );
+        int32v z1 = z0 + int32v( Primes::Z );
+
         float32v value = Lerp( Lerp(
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
             Lerp(
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),
             Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
-
-        constexpr double kBounding = 1.0363423824310302734375;
 
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
