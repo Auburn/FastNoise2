@@ -1,6 +1,16 @@
 #include "Simplex.h"
 #include "Utils.inl"
 
+// Realign the stack on entry: clang otherwise spills AVX registers to slots that are only 16 byte aligned (Win64 ABI),
+// so depending on the caller's stack alignment most 32/64 byte spills and reloads split cache lines
+#ifndef FN_SIMPLEX_ALIGN_STACK
+#if defined( __AVX__ ) && ( defined( __clang__ ) || defined( __GNUC__ ) )
+#define FN_SIMPLEX_ALIGN_STACK __attribute__(( force_align_arg_pointer ))
+#else
+#define FN_SIMPLEX_ALIGN_STACK
+#endif
+#endif
+
 namespace FastNoise
 {
     // Variants of the Utils.inl hash/gradient helpers that accept any register width, used to evaluate each native half of
@@ -48,7 +58,7 @@ namespace FastNoise
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( x, y );
@@ -106,7 +116,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z );
@@ -185,7 +195,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z, w );
@@ -367,7 +377,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         }
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( x, y );
@@ -453,7 +463,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z );
@@ -1098,7 +1108,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         return value;
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FN_SIMPLEX_ALIGN_STACK float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( x, y, z, w );
