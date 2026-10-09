@@ -327,8 +327,9 @@ namespace FastNoise
             auto notYZ = indexFacetBasisWithPermute2;
             auto notXY = indexFacetBasisWithPermute2 << 1;
 
-            // The facet permutes which axis gets which gradient component: ( A, C, B ), ( A, B, C ) with notXY, ( C, A, B ) with notYZ.
-            // Apply that permutation to f once instead of selecting every component of the three gradients
+            // The facet permutes which axis gets which gradient component: ( A, C, B ), ( A, B, C ) with notXY, ( C, A, B ) with notYZ
+            // ( never both, hash31 has a clear sign bit so the top two bits are [0,3) ). Apply that permutation to f once instead of
+            // selecting every component of the three gradients
             F fA = FS::SelectHighBit( notYZ, fY, fX );
             F fB = FS::SelectHighBit( notXY, fY, fZ );
             F fC = FS::SelectHighBit( notYZ, fX, FS::SelectHighBit( notXY, fZ, fY ) );
