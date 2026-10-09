@@ -1874,7 +1874,8 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
-        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        // Manhattan only: with EuclideanSquared the pruned 3^D search alone measured faster for CellularLookup
+        if constexpr( SPECIALISED && !SIZE_JITTER && DIST_FUNC == DistanceFunction::Manhattan )
         {
             float32v floorPos[] = { x, y, z };
             if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
