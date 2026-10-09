@@ -12,10 +12,11 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<ScalableGenerator, SIMD> : public virtual ScalableGenerator, public DispatchClass<Generator, SIMD>
 {
 protected:
-    template<typename... P>
-    FS_FORCEINLINE void ScalePositions( P&... pos ) const
+    // Takes the final generator so mFrequency is read at a static offset instead of through the virtual base table
+    template<typename SELF, typename... P>
+    static FS_FORCEINLINE void ScalePositions( const SELF* self, P&... pos )
     {
-        float32v vFrequency( mFrequency );
+        float32v vFrequency( self->mFrequency );
         ( (pos *= vFrequency), ... );
     }
 };
@@ -24,9 +25,12 @@ template<FastSIMD::FeatureSet SIMD, typename PARENT>
 class FastSIMD::DispatchClass<VariableRange<PARENT>, SIMD> : public virtual VariableRange<PARENT>, public DispatchClass<PARENT, SIMD>
 {
 protected:
-    FS_FORCEINLINE float32v ScaleOutput( float32v value, float nativeMin, float nativeMax ) const
+    // Takes the final generator so the range is read at static offsets instead of through the virtual base table
+    template<typename SELF>
+    static FS_FORCEINLINE float32v ScaleOutput( const SELF* self, float32v value, float nativeMin, float nativeMax )
     {
-        return FS::FMulAdd( float32v( 1.0f / ( nativeMax - nativeMin ) ) * float32v( this->mRangeScale ), value - float32v( nativeMin ), float32v( this->mRangeMin ) );
+        // Scalar multiply: as a vector multiply clang folds the field into a wide load of the object, which measured much slower
+        return FS::FMulAdd( float32v( self->mRangeScale * ( 1.0f / ( nativeMax - nativeMin ) ) ), value - float32v( nativeMin ), float32v( self->mRangeMin ) );
     }
 };
 
@@ -54,7 +58,7 @@ class FastSIMD::DispatchClass<White, SIMD> final : public virtual White, public 
         size_t idx = 0;
         ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 
-        return this->ScaleOutput( GetValueCoord( seed, FS::Cast<int32_t>( pos )... ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, GetValueCoord( seed, FS::Cast<int32_t>( pos )... ), -kValueBounds, kValueBounds );
     }
 };
 
@@ -66,11 +70,11 @@ class FastSIMD::DispatchClass<Checkerboard, SIMD> final : public virtual Checker
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        this->ScalePositions( pos... );
+        this->ScalePositions( this, pos... );
 
         int32v value = (FS::Convert<int32_t>( pos ) ^ ...);
 
-        return this->ScaleOutput( FS::Cast<float>( (value & int32v( 1 )) << 30 ), 0, 2 );
+        return this->ScaleOutput( this, FS::Cast<float>( (value & int32v( 1 )) << 30 ), 0, 2 );
     }
 };
 
@@ -82,9 +86,9 @@ class FastSIMD::DispatchClass<SineWave, SIMD> final : public virtual SineWave, p
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        this->ScalePositions( pos... );
+        this->ScalePositions( this, pos... );
 
-        return this->ScaleOutput( (FS::Sin( pos ) * ...), -1, 1 );
+        return this->ScaleOutput( this, (FS::Sin( pos ) * ...), -1, 1 );
     }
 };
 
