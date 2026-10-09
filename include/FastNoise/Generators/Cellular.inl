@@ -719,11 +719,16 @@ protected:
         return AllLanes( FS::Abs( jitter ) <= float32v( kJitter2D * 1.001f ) ) && ( kIncoherent || IsCoherent<2>( pos ) );
     }
 
-    // 3D: worth checking the 2^D cells first when the lanes are close together, then the pruned 3^D search rarely runs
+    // 3D: worth checking the 2^D cells first: coherent lanes rarely need more, incoherent lanes are each an independent chance of needing the
+    // 3^D search too, worth it up to 16 lanes and not with Manhattan's looser bound
     // Not without jitter: every point is on the lattice, exact distance ties must keep the 3^D search's cell order
-    FS_FORCEINLINE static bool FloorFirst3DActive( float32v jitter, const float32v* pos )
+    FS_FORCEINLINE static bool FloorFirst3DActive( DistanceFunction distFunc, float32v jitter, const float32v* pos )
     {
-        return AllLanes( ( FS::Abs( jitter ) <= float32v( kJitter3D * 1.001f ) ) & ( jitter != float32v( 0 ) ) ) && IsCoherent<3>( pos );
+        if( !AllLanes( ( FS::Abs( jitter ) <= float32v( kJitter3D * 1.001f ) ) & ( jitter != float32v( 0 ) ) ) )
+        {
+            return false;
+        }
+        return ( float32v::ElementCount <= 16 && distFunc != DistanceFunction::Manhattan ) || IsCoherent<3>( pos );
     }
 
     // True if no lane can have a closer point than distance in the other cells of the 3^D search, after the 2^D cells around the position
@@ -1051,7 +1056,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
         {
             float32v floorPos[] = { x, y, z };
-            if( this->FloorFirst3DActive( jitter, floorPos ) )
+            if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
             {
                 int32v hash;
                 float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
@@ -1059,6 +1064,9 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 {
                     return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
                 }
+                // The 3^D search starts from the closest point so far, its pruning then skips most cells
+                distance[0] = closest;
+                valueHash[0] = hash;
             }
         }
 
@@ -1445,14 +1453,15 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
         {
             float32v floorPos[] = { x, y, z };
-            if( this->FloorFirst3DActive( jitter, floorPos ) )
+            if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
             {
                 float32v closest = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, floorPos, nullptr, nullptr );
+                distance[0] = closest;
                 if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos ) )
                 {
-                    distance[0] = closest;
                     return GetReturn( distance, 1 + this->kJitter3D );
                 }
+                // The 3^D search starts from the closest point so far, its pruning then skips most cells
             }
         }
 
@@ -1859,7 +1868,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
         {
             float32v floorPos[] = { x, y, z };
-            if( this->FloorFirst3DActive( jitter, floorPos ) )
+            if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
             {
                 float32v delta[3];
                 float32v closest = this->template FloorCellsClosest<3, false, true>( distFunc, seed, jitter, floorPos, nullptr, delta );
@@ -1867,6 +1876,11 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 {
                     return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), ( x + delta[0] ) * float32v( mScale ), ( y + delta[1] ) * float32v( mScale ), ( z + delta[2] ) * float32v( mScale ) );
                 }
+                // The 3^D search starts from the closest point so far, its pruning then skips most cells
+                distance = closest;
+                cellX = x + delta[0];
+                cellY = y + delta[1];
+                cellZ = z + delta[2];
             }
         }
 
