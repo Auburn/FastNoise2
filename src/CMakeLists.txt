@@ -91,15 +91,12 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
     else()
         target_compile_options(FastSIMD_FastNoise PRIVATE -mllvm -x86-use-vzeroupper=0)        
 
-        # Clang only aligns ymm/zmm spill slots in functions that realign the stack (see FN_ALIGN_STACK). Outside Windows
-        # most generator functions spill, so realign the stack in all of the AVX sources. GCC realigns when it needs to
+        # Clang only aligns ymm/zmm spill slots in functions that realign the stack (see FN_ALIGN_STACK), unless the frame
+        # pointer is reserved: keep frame pointers in the AVX sources, so functions with spills realign the stack and
+        # cheap generators without spills don't pay for a realignment. GCC realigns when it needs to
         get_target_property(FastNoise_avx_sources FastSIMD_FastNoise SOURCES)
         list(FILTER FastNoise_avx_sources INCLUDE REGEX "_AVX(2|512)\\.cpp$")
-        if(NOT WIN32)
-            set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS -mstackrealign)
-        elseif(MSVC)
-            # On Windows keep frame pointers instead: with the frame pointer reserved clang aligns spill slots and
-            # realigns the stack only in functions that spill, so cheap generators don't pay for a realignment
+        if(MSVC)
             set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS /clang:-fno-omit-frame-pointer)
         else()
             set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS -fno-omit-frame-pointer)
