@@ -302,7 +302,7 @@ namespace FastNoise
         MetadataT()
         {
             groups.push_back( "Basic Generators" );
-            this->AddVariableEnum( "Distance Function", DistanceFunction::Euclidean, &DistanceToPoint::SetDistanceFunction, kDistanceFunction_Strings );
+            this->AddVariableEnum( "Distance Function", DistanceFunction::EuclideanSquared, &DistanceToPoint::SetDistanceFunction, kDistanceFunction_Strings );
             this->AddPerDimensionHybridSource( { "Point", "Point in current domain space" }, 0.0f, []( DistanceToPoint* p ) { return std::ref( p->mPoint ); } );
 
             this->AddHybridSource( { "Minkowski P", "Only affects Minkowski distance function\n1 = Manhattan\n2 = Euclidean" }, 1.5f, &DistanceToPoint::SetMinkowskiP, &DistanceToPoint::SetMinkowskiP );
