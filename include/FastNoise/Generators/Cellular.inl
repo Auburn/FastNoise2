@@ -483,7 +483,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -577,7 +577,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -666,7 +666,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -773,7 +773,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -853,7 +853,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -934,7 +934,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -1068,7 +1068,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -1148,7 +1148,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
@@ -1224,7 +1224,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
-    float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         // Compile time constants unless this is the generic variant
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
