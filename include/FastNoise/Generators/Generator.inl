@@ -12,11 +12,10 @@ using float32v = FS::Register<float, kRegisterSize>;
 using int32v = FS::Register<std::int32_t, kRegisterSize>;
 using mask32v = typename float32v::MaskType;
 
-// Attributes for the static Gen functions: realign the stack so AVX spills don't split cache lines (Win64 only guarantees 16 bytes)
-// and disable tail calls, clang restores the callee saved xmm8-15 before a FS_VECTORCALL tail call even when they hold 4D arguments
-#if defined( __clang__ ) && defined( __AVX__ )
-#define FASTNOISE_GEN_FN_ATTRIBUTES __attribute__(( force_align_arg_pointer, disable_tail_calls ))
-#elif defined( __clang__ )
+// Attributes for the static Gen functions: disable tail calls, clang restores the callee saved xmm8-15 before a FS_VECTORCALL
+// tail call even when they hold 4D arguments. Stack alignment for AVX spills comes from the build (src/CMakeLists.txt: frame
+// pointers on Windows, -mstackrealign elsewhere), so functions without spills don't realign the stack
+#if defined( __clang__ )
 #define FASTNOISE_GEN_FN_ATTRIBUTES __attribute__(( disable_tail_calls ))
 #else
 #define FASTNOISE_GEN_FN_ATTRIBUTES
