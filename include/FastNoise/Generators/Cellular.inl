@@ -22,7 +22,7 @@ protected:
 
     // Picks the GenT variant by calling func( specialised, distanceFunction, count ) with compile time constants
     // Common settings get a cell loop specialised on distance function and number of tracked cells (count)
-    // Everything else (size jitter, Minkowski) uses the generic variant: specialised = false
+    // Everything else (size jitter, other distance functions) uses the generic variant: specialised = false
     // Without size jitter Euclidean finds the same closest cells as EuclideanSquared, so it uses that variant
     template<int MAX_COUNT, typename FUNC>
     FS_FORCEINLINE auto SelectGenT( int count, FUNC&& func ) const
@@ -36,11 +36,7 @@ protected:
                 return SelectCount<DistanceFunction::EuclideanSquared, MAX_COUNT>( count, func );
             case DistanceFunction::Manhattan:
                 return SelectCount<DistanceFunction::Manhattan, MAX_COUNT>( count, func );
-            case DistanceFunction::Hybrid:
-                return SelectCount<DistanceFunction::Hybrid, MAX_COUNT>( count, func );
-            case DistanceFunction::MaxAxis:
-                return SelectCount<DistanceFunction::MaxAxis, MAX_COUNT>( count, func );
-            default: // Minkowski, Pow() dominates
+            default: // Less common distance functions use the generic variant to limit code size, Minkowski is dominated by Pow()
                 break;
             }
         }
