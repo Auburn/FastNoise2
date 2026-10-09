@@ -169,13 +169,12 @@ protected:
     };
 
     // Minkowski isn't pruned: approximate Pow and odd P values make bounds unreliable
-    // 3D needing the 4th closest point skips too few cells to pay for the bound tests
-    // Incoherent lanes always prune in 4D, in 3D only when they need the nearest 2 points with grid jitter <= 1,
+    // Incoherent lanes always prune in 4D, in 3D only when they need the nearest 3 points with grid jitter <= 1,
     // the far side cells then rarely matter in any lane
     template<int D>
     FS_FORCEINLINE static PruneMode GetPruneMode( DistanceFunction distFunc, const float32v* pos, float32v jitter, float maxJitter, int distanceIndex )
     {
-        if( distFunc == DistanceFunction::Minkowski || ( D == 3 && distanceIndex >= 3 ) )
+        if( distFunc == DistanceFunction::Minkowski )
         {
             return kPruneNone;
         }
@@ -188,7 +187,7 @@ protected:
         {
             return kPruneCoherent;
         }
-        if( D == 4 || ( distanceIndex <= 1 && AllLanes( FS::Abs( jitter ) <= float32v( maxJitter * 1.001f ) ) ) )
+        if( D == 4 || ( distanceIndex <= 2 && AllLanes( FS::Abs( jitter ) <= float32v( maxJitter * 1.001f ) ) ) )
         {
             return kPruneNearFirst;
         }
