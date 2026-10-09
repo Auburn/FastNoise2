@@ -82,12 +82,18 @@ protected:
 
     // Neighbour cell visit orders
     // Nearest: centre first, then by number of off-centre axes (faces, edges, corners) so the distance to beat shrinks early.
+    // Shells group the cells that are tested together, see CellIterator::ShellVisitMask
     // Per axis index 1 is the centre cell, 0 and 2 the sides: [-1, +1], or [near, far] per lane after NearFirst()
     // Linear: x-major over [-1, 0, +1], the original order, used when not pruning
     template<int D>
     struct CellOrder
     {
         static constexpr int kCount = D == 2 ? 9 : ( D == 3 ? 27 : 81 );
+
+        // 3D: shell 0 also holds the near side faces (per lane, see NearFirst), visited untested: they can rarely be skipped and
+        // testing them would wait on the centre cell's distance. In 4D they are skipped often enough to be worth testing
+        static constexpr bool kNearFacesFirst = D == 3;
+        static constexpr uint32_t kFirstShellMask = kNearFacesFirst ? ( 1u << ( D + 1 ) ) - 1 : 1;
         int8_t nearest[kCount][D];
         int8_t linear[kCount][D];
         int8_t pairIndex[kCount][2]; // CellBounds pair indices for nearest order
@@ -100,23 +106,28 @@ protected:
             for( int shell = 0; shell <= D; shell++ )
             {
                 shellStart[shell] = n;
-                for( int i = 0; i < kCount; i++ )
+                for( int offCentreOrder = 0; offCentreOrder <= D; offCentreOrder++ )
                 {
-                    int offCentre = 0;
-                    for( int d = D - 1, c = i; d >= 0; d--, c /= 3 )
+                    for( int i = 0; i < kCount; i++ )
                     {
-                        offCentre += c % 3 != 1;
-                        linear[i][d] = (int8_t)( c % 3 );
-                    }
-                    if( offCentre == shell )
-                    {
+                        int offCentre = 0, nearSide = 0;
                         for( int d = D - 1, c = i; d >= 0; d--, c /= 3 )
                         {
-                            nearest[n][d] = (int8_t)( c % 3 );
+                            offCentre += c % 3 != 1;
+                            nearSide += c % 3 == 0;
+                            linear[i][d] = (int8_t)( c % 3 );
                         }
-                        pairIndex[n][0] = (int8_t)( nearest[n][0] * 3 + nearest[n][1] );
-                        pairIndex[n][1] = (int8_t)( D == 3 ? nearest[n][2] : nearest[n][2] * 3 + nearest[n][3] );
-                        n++;
+                        int cellShell = kNearFacesFirst && offCentre == 1 && nearSide == 1 ? 0 : offCentre;
+                        if( cellShell == shell && offCentre == offCentreOrder )
+                        {
+                            for( int d = D - 1, c = i; d >= 0; d--, c /= 3 )
+                            {
+                                nearest[n][d] = (int8_t)( c % 3 );
+                            }
+                            pairIndex[n][0] = (int8_t)( nearest[n][0] * 3 + nearest[n][1] );
+                            pairIndex[n][1] = (int8_t)( D == 3 ? nearest[n][2] : nearest[n][2] * 3 + nearest[n][3] );
+                            n++;
+                        }
                     }
                 }
             }
@@ -165,10 +176,11 @@ protected:
     enum PruneMode
     {
         kPruneNone,
-        kPruneCoherent, // Lanes close together, the same cells are skippable in every lane
-        kPruneNearFirst // Incoherent lanes, cells are ordered per lane relative to the near side (see NearFirst)
+        kPruneCoherent, // 4D lanes close together, the same cells are skippable in every lane
+        kPruneNearFirst // Incoherent lanes (and all 3D), cells are ordered per lane relative to the near side (see NearFirst)
     };
 
+    // 3D always orders cells near side first, see CellOrder::kNearFacesFirst
     // Minkowski is only pruned with P in [0.25, 8] in every lane: other P values make Pow's error/range unreliable
     // and exact distance ties common, which the pruned cell order would resolve differently.
     // Incoherent lanes always prune in 4D, in 3D only when they need the nearest 3 points with grid jitter <= 1,
@@ -187,7 +199,7 @@ protected:
         }
         if( AllLanes( coherent ) )
         {
-            return kPruneCoherent;
+            return CellOrder<D>::kNearFacesFirst ? kPruneNearFirst : kPruneCoherent;
         }
         if( D == 4 || ( distanceIndex <= 2 && AllLanes( FS::Abs( jitter ) <= float32v( maxJitter * 1.001f ) ) ) )
         {
@@ -313,7 +325,8 @@ protected:
             while( !mVisit )
             {
                 // Every cell of the next shell neighbours a skipped cell if this shell visited none, see ShellVisitMask
-                if( mShell == D || !mShellVisit )
+                // (not after the far faces with kNearFacesFirst: edges between two near faces have no parent there)
+                if( mShell == D || ( !mShellVisit && ( mShell >= 2 || !kOrder.kNearFacesFirst ) ) )
                 {
                     return nullptr;
                 }
@@ -486,9 +499,9 @@ protected:
         bool mBall = false;
         bool mCombineMax = false;
         int mCell = 0;
-        int mShell = 0; // Shell 0 is the centre cell, always visited
-        uint32_t mVisit = 1;
-        uint32_t mShellVisit = 1;
+        int mShell = 0; // Shell 0 is always visited
+        uint32_t mVisit = kOrder.kFirstShellMask;
+        uint32_t mShellVisit = kOrder.kFirstShellMask;
     };
 };
 
