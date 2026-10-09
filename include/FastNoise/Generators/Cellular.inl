@@ -852,7 +852,9 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         this->ScalePositions( this, x, y );
 
-        if constexpr( SPECIALISED )
+        // 2D cells are cheap: only Minkowski's are expensive enough for pruning to pay off in 2D,
+        // other distance functions measured slower with it on incoherent positions
+        if( SPECIALISED || distFunc != DistanceFunction::Minkowski )
         {
             int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
             int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -879,7 +881,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
                 xc += int32v( Primes::X );
             }
         }
-        else // 2D cells are cheap: only the generic variant's are expensive enough for pruning to pay off
+        else
         {
             float32v pos[] = { x, y };
 
@@ -1183,7 +1185,9 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         this->ScalePositions( this, x, y );
 
-        if constexpr( SPECIALISED )
+        // 2D cells are cheap: only Minkowski's are expensive enough for pruning to pay off in 2D,
+        // other distance functions measured slower with it on incoherent positions
+        if( SPECIALISED || distFunc != DistanceFunction::Minkowski )
         {
             int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
             int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -1209,7 +1213,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 xc += int32v( Primes::X );
             }
         }
-        else // 2D cells are cheap: only the generic variant's are expensive enough for pruning to pay off
+        else
         {
             float32v pos[] = { x, y };
 
