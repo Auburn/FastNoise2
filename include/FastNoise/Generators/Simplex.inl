@@ -1,6 +1,50 @@
 #include "Simplex.h"
 #include "Utils.inl"
 
+namespace FastNoise
+{
+    // Variants of the Utils.inl hash/gradient helpers that accept any register width, used to evaluate each native half of
+    // float32v separately where the live values don't fit in registers
+    template<typename I, typename... P>
+    FS_FORCEINLINE static I HashPrimesAnyWidth( I seed, P... primedPos )
+    {
+        I hash = seed;
+        hash ^= ( primedPos ^ ... );
+
+        hash *= I( HashMultiplier::A );
+
+        return ( hash >> 15 ) ^ hash;
+    }
+
+    template<typename F, typename I>
+    FS_FORCEINLINE static F GetGradientDotPerlinAnyWidth( I hash, F fX, F fY, F fZ, F fW )
+    {
+        if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            F gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+            F gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
+            F gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ), hash, FS::Constant<float>( 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1 ) );
+            F gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1 ), hash, FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) );
+
+            return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) ));
+        }
+        else
+        {
+            I p = hash & I( 3 << 3 );
+
+            F a = FS::Select( p > I( 0 ), fX, fY );
+            F b = FS::SelectHighBit( hash << 27, fY, fZ );
+            F c = FS::Select( p > I( 2 << 3 ), fZ, fW );
+
+            F aSign = FS::Cast<float>( hash << 31 );
+            F bSign = FS::Cast<float>( ( hash >> 1 ) << 31 );
+            F cSign = FS::Cast<float>( ( hash >> 2 ) << 31 );
+
+            return ( a ^ aSign ) + ( b ^ bSign ) + ( c ^ cSign );
+        }
+    }
+}
+
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
@@ -291,12 +335,12 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSimplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
     // Vertex direction is chosen by the sign bit of signValue, blendv only reads the high bit so no compare is needed
-    template<typename T>
-    FS_FORCEINLINE static T SelectSign( float32v signValue, T ifNegative, T ifPositive )
+    template<typename F, typename T>
+    FS_FORCEINLINE static T SelectSign( F signValue, T ifNegative, T ifPositive )
     {
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            return FS::Select( signValue < float32v( 0 ), ifNegative, ifPositive );
+            return FS::Select( signValue < F( 0 ), ifNegative, ifPositive );
         }
         else
         {
@@ -308,15 +352,18 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     // AVX512 registers (32 points) rarely skip enough to cover the extra branching
     static constexpr bool kSkipOutOfRangeVertices = !( SIMD & FastSIMD::FeatureFlag::AVX512_F );
 
-    FS_FORCEINLINE static float32v SignBit( float32v signValue )
+    template<typename F>
+    FS_FORCEINLINE static F SignBit( F signValue )
     {
+        auto signBit = FS::Cast<float>( decltype( FS::Cast<std::int32_t>( signValue ) )( 1 << 31 ) );
+
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            return FS::Masked( signValue < float32v( 0 ), float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            return FS::Masked( signValue < F( 0 ), signBit );
         }
         else
         {
-            return signValue & FS::Cast<float>( int32v( 1 << 31 ) );
+            return signValue & signBit;
         }
     }
 
@@ -629,10 +676,13 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         return this->ScaleOutput( value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    // The 4D vertex loop has more live values than there are registers, on AVX512 evaluating each native half of the 2x
+    // wide float32v separately avoids most spilling. SSE/AVX2 still spill when split and lose more from the vertex
+    // skipping branches being per half, so they evaluate the full width
+    template<typename F, typename I>
+    FS_FORCEINLINE static F GenSuperSimplex4D( I seed, F x, F y, F z, F w )
     {
-        seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z, w );
+        using M = typename F::MaskType;
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -643,50 +693,50 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         constexpr double kDistanceSquaredB = 6.0 / 5.0;
         constexpr double kFalloffRadiusSquared = kDistanceSquaredA;
 
-        float32v skewDelta = float32v( kSkew4 ) * ( x + y + z + w );
+        F skewDelta = F( kSkew4 ) * ( x + y + z + w );
 
-        float32v xSkewed = x + skewDelta;
-        float32v ySkewed = y + skewDelta;
-        float32v zSkewed = z + skewDelta;
-        float32v wSkewed = w + skewDelta;
-        float32v xSkewedBase = FS::Floor( xSkewed );
-        float32v ySkewedBase = FS::Floor( ySkewed );
-        float32v zSkewedBase = FS::Floor( zSkewed );
-        float32v wSkewedBase = FS::Floor( wSkewed );
-        float32v dxSkewed = xSkewed - xSkewedBase;
-        float32v dySkewed = ySkewed - ySkewedBase;
-        float32v dzSkewed = zSkewed - zSkewedBase;
-        float32v dwSkewed = wSkewed - wSkewedBase;
+        F xSkewed = x + skewDelta;
+        F ySkewed = y + skewDelta;
+        F zSkewed = z + skewDelta;
+        F wSkewed = w + skewDelta;
+        F xSkewedBase = FS::Floor( xSkewed );
+        F ySkewedBase = FS::Floor( ySkewed );
+        F zSkewedBase = FS::Floor( zSkewed );
+        F wSkewedBase = FS::Floor( wSkewed );
+        F dxSkewed = xSkewed - xSkewedBase;
+        F dySkewed = ySkewed - ySkewedBase;
+        F dzSkewed = zSkewed - zSkewedBase;
+        F dwSkewed = wSkewed - wSkewedBase;
 
         // From unit cell base, find closest vertex
         {
             // Perform a double unskew to get the vector whose dot product with skewed vectors produces the unskewed result.
-            float32v twiceUnskewDelta = float32v( kTwiceUnskew4 ) * ( dxSkewed + dySkewed + dzSkewed + dwSkewed );
-            float32v xNormal = dxSkewed + twiceUnskewDelta;
-            float32v yNormal = dySkewed + twiceUnskewDelta;
-            float32v zNormal = dzSkewed + twiceUnskewDelta;
-            float32v wNormal = dwSkewed + twiceUnskewDelta;
-            float32v xyzwNormal = -twiceUnskewDelta; // xNormal + yNormal + zNormal + wNormal
+            F twiceUnskewDelta = F( kTwiceUnskew4 ) * ( dxSkewed + dySkewed + dzSkewed + dwSkewed );
+            F xNormal = dxSkewed + twiceUnskewDelta;
+            F yNormal = dySkewed + twiceUnskewDelta;
+            F zNormal = dzSkewed + twiceUnskewDelta;
+            F wNormal = dwSkewed + twiceUnskewDelta;
+            F xyzwNormal = -twiceUnskewDelta; // xNormal + yNormal + zNormal + wNormal
 
             // Using those, compare scores to determine which vertex is closest.
-            constexpr auto considerVertex = [] ( float32v& maxScore, int32v& moveMaskBits, float32v score, int32v bits ) constexpr
+            constexpr auto considerVertex = [] ( F& maxScore, I& moveMaskBits, F score, I bits ) constexpr
             {
                 moveMaskBits = FS::Select( score > maxScore, bits, moveMaskBits );
                 maxScore = FS::Max( maxScore, score );
             };
-            float32v maxScore = float32v( 0.6f ) - xyzwNormal;
-            int32v moveMaskBits = FS::Masked( float32v( 0.2f ) > maxScore, int32v( -1 ) );
-            maxScore = FS::Max( maxScore, float32v( 0.2f ) );
+            F maxScore = F( 0.6f ) - xyzwNormal;
+            I moveMaskBits = FS::Masked( F( 0.2f ) > maxScore, I( -1 ) );
+            maxScore = FS::Max( maxScore, F( 0.2f ) );
             considerVertex( maxScore, moveMaskBits, -wNormal, 0b0111 );
             considerVertex( maxScore, moveMaskBits, -zNormal, 0b1011 );
             considerVertex( maxScore, moveMaskBits, -yNormal, 0b1101 );
             considerVertex( maxScore, moveMaskBits, -xNormal, 0b1110 );
-            maxScore += xyzwNormal - float32v( 0.2f );
+            maxScore += xyzwNormal - F( 0.2f );
             considerVertex( maxScore, moveMaskBits, xNormal, 0b0001 );
             considerVertex( maxScore, moveMaskBits, yNormal, 0b0010 );
             considerVertex( maxScore, moveMaskBits, zNormal, 0b0100 );
             considerVertex( maxScore, moveMaskBits, wNormal, 0b1000 );
-            maxScore += float32v( 0.2f ) - xNormal;
+            maxScore += F( 0.2f ) - xNormal;
             considerVertex( maxScore, moveMaskBits, yNormal, 0b0011 );
             considerVertex( maxScore, moveMaskBits, zNormal, 0b0101 );
             considerVertex( maxScore, moveMaskBits, wNormal, 0b1001 );
@@ -696,10 +746,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             considerVertex( maxScore, moveMaskBits, yNormal, 0b1010 );
             considerVertex( maxScore, moveMaskBits, zNormal, 0b1100 );
 
-            mask32v moveX = ( moveMaskBits & int32v( 0b0001 ) ) != int32v( 0 );
-            mask32v moveY = ( moveMaskBits & int32v( 0b0010 ) ) != int32v( 0 );
-            mask32v moveZ = ( moveMaskBits & int32v( 0b0100 ) ) != int32v( 0 );
-            mask32v moveW = ( moveMaskBits & int32v( 0b1000 ) ) != int32v( 0 );
+            M moveX = ( moveMaskBits & I( 0b0001 ) ) != I( 0 );
+            M moveY = ( moveMaskBits & I( 0b0010 ) ) != I( 0 );
+            M moveZ = ( moveMaskBits & I( 0b0100 ) ) != I( 0 );
+            M moveW = ( moveMaskBits & I( 0b1000 ) ) != I( 0 );
 
             xSkewedBase = FS::MaskedIncrement( moveX, xSkewedBase );
             ySkewedBase = FS::MaskedIncrement( moveY, ySkewedBase );
@@ -712,341 +762,360 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             dwSkewed = FS::MaskedDecrement( moveW, dwSkewed );
         }
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
-        int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
-        int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
+        I xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * I( Primes::X );
+        I yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * I( Primes::Y );
+        I zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * I( Primes::Z );
+        I wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * I( Primes::W );
 
         // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
-        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase ^ wPrimedBase;
-        int32v xPrimedDeltaPos = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
-        int32v xPrimedDeltaNeg = xPrimedBase ^ ( xPrimedBase - int32v( Primes::X ) );
-        int32v yPrimedDeltaPos = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
-        int32v yPrimedDeltaNeg = yPrimedBase ^ ( yPrimedBase - int32v( Primes::Y ) );
-        int32v zPrimedDeltaPos = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
-        int32v zPrimedDeltaNeg = zPrimedBase ^ ( zPrimedBase - int32v( Primes::Z ) );
-        int32v wPrimedDeltaPos = wPrimedBase ^ ( wPrimedBase + int32v( Primes::W ) );
-        int32v wPrimedDeltaNeg = wPrimedBase ^ ( wPrimedBase - int32v( Primes::W ) );
+        I hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase ^ wPrimedBase;
+        I xPrimedDeltaPos = xPrimedBase ^ ( xPrimedBase + I( Primes::X ) );
+        I xPrimedDeltaNeg = xPrimedBase ^ ( xPrimedBase - I( Primes::X ) );
+        I yPrimedDeltaPos = yPrimedBase ^ ( yPrimedBase + I( Primes::Y ) );
+        I yPrimedDeltaNeg = yPrimedBase ^ ( yPrimedBase - I( Primes::Y ) );
+        I zPrimedDeltaPos = zPrimedBase ^ ( zPrimedBase + I( Primes::Z ) );
+        I zPrimedDeltaNeg = zPrimedBase ^ ( zPrimedBase - I( Primes::Z ) );
+        I wPrimedDeltaPos = wPrimedBase ^ ( wPrimedBase + I( Primes::W ) );
+        I wPrimedDeltaNeg = wPrimedBase ^ ( wPrimedBase - I( Primes::W ) );
 
-        float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed + dwSkewed;
-        float32v twiceUnskewDelta = float32v( kTwiceUnskew4 ) * skewedCoordinateSum;
-        float32v xNormal = dxSkewed + twiceUnskewDelta;
-        float32v yNormal = dySkewed + twiceUnskewDelta;
-        float32v zNormal = dzSkewed + twiceUnskewDelta;
-        float32v wNormal = dwSkewed + twiceUnskewDelta;
-        float32v xyzwNormal = -twiceUnskewDelta; // xNormal + yNormal + zNormal + wNormal
+        F skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed + dwSkewed;
+        F twiceUnskewDelta = F( kTwiceUnskew4 ) * skewedCoordinateSum;
+        F xNormal = dxSkewed + twiceUnskewDelta;
+        F yNormal = dySkewed + twiceUnskewDelta;
+        F zNormal = dzSkewed + twiceUnskewDelta;
+        F wNormal = dwSkewed + twiceUnskewDelta;
+        F xyzwNormal = -twiceUnskewDelta; // xNormal + yNormal + zNormal + wNormal
 
-        float32v unskewDelta = float32v( kUnskew4 ) * skewedCoordinateSum;
-        float32v dxBase = dxSkewed + unskewDelta;
-        float32v dyBase = dySkewed + unskewDelta;
-        float32v dzBase = dzSkewed + unskewDelta;
-        float32v dwBase = dwSkewed + unskewDelta;
+        F unskewDelta = F( kUnskew4 ) * skewedCoordinateSum;
+        F dxBase = dxSkewed + unskewDelta;
+        F dyBase = dySkewed + unskewDelta;
+        F dzBase = dzSkewed + unskewDelta;
+        F dwBase = dwSkewed + unskewDelta;
 
-        float32v coordinateSum = float32v( 1 + 4 * kUnskew4 ) * skewedCoordinateSum; // dxBase + dyBase + dzBase + dwBase
+        F coordinateSum = F( 1 + 4 * kUnskew4 ) * skewedCoordinateSum; // dxBase + dyBase + dzBase + dwBase
 
         // Vertex <0, 0, 0, 0>
-        float32v value, falloffBaseStemA, falloffBaseStemB;
+        F value, falloffBaseStemA, falloffBaseStemB;
         {
-            float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase );
-            float32v falloffBase = FS::FNMulAdd( dwBase, dwBase, FS::FNMulAdd( dzBase, dzBase, FS::FNMulAdd( dyBase, dyBase, FS::FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) ) * float32v( 0.5f );
-            falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
-            falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
+            F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase );
+            F falloffBase = FS::FNMulAdd( dwBase, dwBase, FS::FNMulAdd( dzBase, dzBase, FS::FNMulAdd( dyBase, dyBase, FS::FNMulAdd( dxBase, dxBase, F( kFalloffRadiusSquared ) ) ) ) ) * F( 0.5f );
+            falloffBaseStemA = falloffBase - F( kDistanceSquaredA * 0.5 );
+            falloffBaseStemB = falloffBase - F( kDistanceSquaredB * 0.5 );
             value = ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ) * gradientRampValue;
         }
 
         // Vertex <1, 1, 1, 1> or <-1, -1, -1, -1>
         {
-            float32v signValue = xyzwNormal;
-            float32v sign = SignBit( signValue );
+            F signValue = xyzwNormal;
+            F sign = SignBit( signValue );
 
-            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
-            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
-            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+            I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+            I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-            float32v offset = float32v( 4 * kUnskew4 + 1 ) ^ sign;
+            F offset = F( 4 * kUnskew4 + 1 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset );
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
+            F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset );
+            F falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), F( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
         // Vertex <1, 1, 1, 0> or <-1, -1, -1, 0>
         {
-            float32v signValue = xyzwNormal - wNormal; // Sign bit set when xyzwNormal < wNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xyzwNormal - wNormal; // Sign bit set when xyzwNormal < wNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
+            F offset1 = F( 3 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
-                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <1, 1, 0, 1> or <-1, -1, 0, -1>
         {
-            float32v signValue = xyzwNormal - zNormal; // Sign bit set when xyzwNormal < zNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xyzwNormal - zNormal; // Sign bit set when xyzwNormal < zNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
+            F offset1 = F( 3 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
-                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+                I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <1, 0, 1, 1> or <-1, 0, -1, -1>
         {
-            float32v signValue = xyzwNormal - yNormal; // Sign bit set when xyzwNormal < yNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xyzwNormal - yNormal; // Sign bit set when xyzwNormal < yNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
+            F offset1 = F( 3 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
-                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+                I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <0, 1, 1, 1> or <0, -1, -1, -1>
         {
-            float32v signValue = xyzwNormal - xNormal; // Sign bit set when xyzwNormal < xNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xyzwNormal - xNormal; // Sign bit set when xyzwNormal < xNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
+            F offset1 = F( 3 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
-                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
-                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+                I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <1, 0, 0, 0> or <-1, 0, 0, 0>
         {
-            float32v signValue = xNormal;
-            float32v sign = SignBit( signValue );
+            F signValue = xNormal;
+            F sign = SignBit( signValue );
 
-            int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+            I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
 
-            float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( kUnskew4 ) ^ sign;
+            F offset1 = F( kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( kUnskew4 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0 );
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
+            F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0 );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), F( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
         // Vertex <1, 1, 0, 0> or <-1, -1, 0, 0>
         {
-            float32v signValue = xNormal + yNormal; // Sign bit set when xNormal < -yNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xNormal + yNormal; // Sign bit set when xNormal < -yNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
+            F offset1 = F( 2 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <1, 0, 1, 0> or <-1, 0, -1, 0>
         {
-            float32v signValue = xNormal + zNormal; // Sign bit set when xNormal < -zNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xNormal + zNormal; // Sign bit set when xNormal < -zNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
+            F offset1 = F( 2 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <1, 0, 0, 1> or <-1, 0, 0, -1>
         {
-            float32v signValue = xNormal + wNormal; // Sign bit set when xNormal < -wNormal
-            float32v sign = SignBit( signValue );
+            F signValue = xNormal + wNormal; // Sign bit set when xNormal < -wNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
+            F offset1 = F( 2 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
-                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+                I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <0, 1, 0, 0> or <0, -1, 0, 0>
         {
-            float32v signValue = yNormal;
-            float32v sign = SignBit( signValue );
+            F signValue = yNormal;
+            F sign = SignBit( signValue );
 
-            int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+            I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-            float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( kUnskew4 ) ^ sign;
+            F offset1 = F( kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( kUnskew4 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
+            F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), F( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
         // Vertex <0, 1, 1, 0> or <0, -1, -1, 0>
         {
-            float32v signValue = yNormal + zNormal; // Sign bit set when yNormal < -zNormal
-            float32v sign = SignBit( signValue );
+            F signValue = yNormal + zNormal; // Sign bit set when yNormal < -zNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
+            F offset1 = F( 2 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
-                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <0, 1, 0, 1> or <0, -1, 0, -1>
         {
-            float32v signValue = yNormal + wNormal; // Sign bit set when yNormal < -wNormal
-            float32v sign = SignBit( signValue );
+            F signValue = yNormal + wNormal; // Sign bit set when yNormal < -wNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
+            F offset1 = F( 2 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
-                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+                I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <0, 0, 1, 0> or <0, 0, -1, 0>
         {
-            float32v signValue = zNormal;
-            float32v sign = SignBit( signValue );
+            F signValue = zNormal;
+            F sign = SignBit( signValue );
 
-            int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+            I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-            float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( kUnskew4 ) ^ sign;
+            F offset1 = F( kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( kUnskew4 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
+            F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), F( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
         // Vertex <0, 0, 1, 1> or <0, 0, -1, -1>
         {
-            float32v signValue = zNormal + wNormal; // Sign bit set when zNormal < -wNormal
-            float32v sign = SignBit( signValue );
+            F signValue = zNormal + wNormal; // Sign bit set when zNormal < -wNormal
+            F sign = SignBit( signValue );
 
-            float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
+            F offset1 = F( 2 * kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), float32v( 0.0f ) );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), F( 0.0f ) );
 
             // Skip the vertex when it is out of range for every point
-            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > float32v( 0 ) ) )
+            if( !kSkipOutOfRangeVertices || FS::AnyMask( falloffBase > F( 0 ) ) )
             {
-                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
-                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+                I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
                 value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
 
         // Vertex <0, 0, 0, 1> or <0, 0, 0, -1>
         {
-            float32v signValue = wNormal;
-            float32v sign = SignBit( signValue );
+            F signValue = wNormal;
+            F sign = SignBit( signValue );
 
-            int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+            I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-            float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
-            float32v offset0 = float32v( kUnskew4 ) ^ sign;
+            F offset1 = F( kUnskew4 + 1 ) ^ sign;
+            F offset0 = F( kUnskew4 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), float32v( 0.0f ) );
+            F gradientRampValue = GetGradientDotPerlinAnyWidth( HashPrimesAnyWidth( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
+            F falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), F( 0.0f ) );
             value = FS::FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
+        }
+
+        return value;
+    }
+
+    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    {
+        seed += int32v( mSeedOffset );
+        this->ScalePositions( x, y, z, w );
+
+        float32v value;
+        if constexpr( FS::IsNativeV<float32v> || !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            value = GenSuperSimplex4D( seed, x, y, z, w );
+        }
+        else
+        {
+            value = float32v{ GenSuperSimplex4D( seed.v0, x.v0, y.v0, z.v0, w.v0 ), GenSuperSimplex4D( seed.v1, x.v1, y.v1, z.v1, w.v1 ) };
         }
 
         constexpr float kBounding = 0.011310013942420482635498046875;
 
         return this->ScaleOutput( value, -kBounding, kBounding );
     }
+
 };
