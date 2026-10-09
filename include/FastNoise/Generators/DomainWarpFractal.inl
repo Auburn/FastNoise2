@@ -12,6 +12,13 @@ class FastSIMD::DispatchClass<DomainWarpFractalProgressive, SIMD> final : public
         auto* warp = this->GetSourceSIMD( mSource );
 
         float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, pos... );
+
+        // amp stays 0 through the octaves, skip warping if a generator sourced amplitude is 0 in every lane
+        if( warp->GetWarpAmplitude().simdGeneratorPtr && !FS::AnyMask( amp != float32v( 0 ) ) )
+        {
+            return this->GetSourceValue( warp->GetWarpSource(), seed, pos... );
+        }
+
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, pos... );
         float32v freq = float32v( warp->GetWarpFrequency() );
         int32v seedInc = seed;
@@ -62,6 +69,13 @@ class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public
         auto* warp = this->GetSourceSIMD( mSource );
 
         float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
+
+        // amp stays 0 through the octaves, skip warping if a generator sourced amplitude is 0 in every lane
+        if( warp->GetWarpAmplitude().simdGeneratorPtr && !FS::AnyMask( amp != float32v( 0 ) ) )
+        {
+            return this->GetSourceValue( warp->GetWarpSource(), seed, warpPos... );
+        }
+
         float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, noisePos... );
         float32v freq = float32v( warp->GetWarpFrequency() );
         int32v seedInc = seed;

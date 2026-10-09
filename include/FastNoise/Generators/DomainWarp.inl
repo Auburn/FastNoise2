@@ -9,8 +9,21 @@ protected:
     template<typename WarpT, typename... P>
     FS_FORCEINLINE float32v WarpGenT( int32v seed, P... pos ) const
     {
+        float32v warpAmp = float32v( mWarpAmplitude.constant );
+
+        if( mWarpAmplitude.simdGeneratorPtr )
+        {
+            warpAmp = this->GetSourceValue( mWarpAmplitude, seed, pos... );
+
+            // Warping by 0 doesn't move the position, skip it if the amplitude is 0 in every lane (e.g. masked regions)
+            if( !FS::AnyMask( warpAmp != float32v( 0 ) ) )
+            {
+                return this->GetSourceValue( mSource, seed, pos... );
+            }
+        }
+
         // Seed offset is applied inside Warp() so it also applies when called from DomainWarpFractal
-        static_cast<const WarpT*>( this )->Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
+        static_cast<const WarpT*>( this )->Warp( seed, warpAmp, ( pos * float32v( this->mFrequency ) )..., pos... );
 
         return this->GetSourceValue( mSource, seed, pos...);
     }
