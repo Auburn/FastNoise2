@@ -6,6 +6,9 @@
 #include <limits>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
+#include <new>
+#include <algorithm>
 
 #include "FastNoise/Metadata.h"
 #include "FastNoise/FastNoise.h"
@@ -700,6 +703,116 @@ static std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* c
     return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 
+#ifndef NDEBUG
+// Node created in zeroed memory, so padding bytes match and whole nodes can be compared
+template<typename T>
+class DebugZeroedNode
+{
+public:
+    DebugZeroedNode()
+    {
+        tAlloc = nullptr;
+        mGenerator = FastSIMD::NewDispatchClass<T>( FastSIMD::FeatureSet::Max, &Allocate );
+        mAlloc = tAlloc;
+        mSize = tSize;
+        mAlign = tAlign;
+    }
+
+    ~DebugZeroedNode()
+    {
+        if( mGenerator )
+        {
+            mGenerator->~T();
+            ::operator delete( mAlloc, std::align_val_t( mAlign ) );
+        }
+    }
+
+    DebugZeroedNode( const DebugZeroedNode& ) = delete;
+    DebugZeroedNode& operator=( const DebugZeroedNode& ) = delete;
+
+    Generator* Get() const { return mGenerator; }
+
+    // Compare as 32bit words, treating -0.0f and 0.0f as equal since setters can calculate either
+    bool MemoryEqual( const DebugZeroedNode& rhs ) const
+    {
+        if( !mGenerator || !rhs.mGenerator || mSize != rhs.mSize )
+        {
+            return false;
+        }
+
+        for( size_t i = 0; i < mSize; i += sizeof( uint32_t ) )
+        {
+            uint32_t word = 0, rhsWord = 0;
+            std::memcpy( &word, (const uint8_t*)mAlloc + i, std::min( sizeof( uint32_t ), mSize - i ) );
+            std::memcpy( &rhsWord, (const uint8_t*)rhs.mAlloc + i, std::min( sizeof( uint32_t ), mSize - i ) );
+
+            if( word != rhsWord && ( ( word | rhsWord ) & 0x7FFFFFFF ) )
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+private:
+    static void* Allocate( size_t size, size_t align )
+    {
+        tSize = size;
+        tAlign = align;
+        tAlloc = ::operator new( size, std::align_val_t( align ) );
+        return std::memset( tAlloc, 0, size );
+    }
+
+    static inline thread_local void* tAlloc = nullptr;
+    static inline thread_local size_t tSize = 0;
+    static inline thread_local size_t tAlign = 0;
+
+    T* mGenerator;
+    void* mAlloc;
+    size_t mSize;
+    size_t mAlign;
+};
+
+// Applies each metadata default value to a new node and checks the node is unchanged
+// Returns the first member where the metadata default doesn't match the node's member default
+template<typename T>
+static const Metadata::Member* DebugFindMetadataDefaultMismatch( const Metadata& metadata )
+{
+    DebugZeroedNode<T> defaultNode;
+    DebugZeroedNode<T> metadataNode;
+
+    for( const Metadata::MemberVariable& variable : metadata.memberVariables )
+    {
+        if( !variable.setFunc( metadataNode.Get(), variable.valueDefault ) || !defaultNode.MemoryEqual( metadataNode ) )
+        {
+            return &variable;
+        }
+    }
+
+    for( const Metadata::MemberHybrid& hybrid : metadata.memberHybrids )
+    {
+        if( !hybrid.setValueFunc( metadataNode.Get(), hybrid.valueDefault ) || !defaultNode.MemoryEqual( metadataNode ) )
+        {
+            return &hybrid;
+        }
+    }
+
+    return nullptr;
+}
+#endif
+
+template<typename T>
+static void DebugCheckMetadataDefaults( [[maybe_unused]] const Metadata& metadata )
+{
+#ifndef NDEBUG
+    static const Metadata::Member* sMismatch = DebugFindMetadataDefaultMismatch<T>( metadata );
+
+    // Metadata default value doesn't match the node's member default, see sMismatch->name
+    // Default values are not serialised, so encoded node trees would decode differently to what the Node Editor shows
+    assert( !sMismatch );
+#endif
+}
+
 #define FASTNOISE_REGISTER_NODE( CLASS ) \
 static const std::unique_ptr<const FastNoise::MetadataT<CLASS>> g ## CLASS ## Metadata = CreateMetadataInstance<CLASS>( #CLASS );\
 template<> FASTNOISE_API const FastNoise::Metadata& FastNoise::Impl::GetMetadata<CLASS>()\
@@ -712,6 +825,7 @@ const FastNoise::Metadata& CLASS::GetMetadata() const\
 }\
 SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::FeatureSet l ) const\
 {\
+    DebugCheckMetadataDefaults<CLASS>( *this );\
     return SmartNode<>( FastSIMD::NewDispatchClass<CLASS>( l, &SmartNodeManager::Allocate ) );\
 }
 
