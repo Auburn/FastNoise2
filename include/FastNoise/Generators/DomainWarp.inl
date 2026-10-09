@@ -4,13 +4,13 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarp, SIMD> : public virtual DomainWarp, public DispatchClass<Seeded<ScalableGenerator>, SIMD>
 {
-    FASTNOISE_IMPL_GEN_T;
-
-    template<typename... P>
-    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
+protected:
+    // Gen of the final warp classes: FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> ), so Warp() is not a virtual call
+    template<typename WarpT, typename... P>
+    FS_FORCEINLINE float32v WarpGenT( int32v seed, P... pos ) const
     {
         // Seed offset is applied inside Warp() so it also applies when called from DomainWarpFractal
-        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
+        static_cast<const WarpT*>( this )->Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
 
         return this->GetSourceValue( mSource, seed, pos...);
     }
@@ -28,6 +28,8 @@ public:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpGradient, SIMD> final : public virtual DomainWarpGradient, public DispatchClass<DomainWarp, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
 public:
     FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
