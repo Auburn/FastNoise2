@@ -719,6 +719,52 @@ protected:
         return AllLanes( FS::Abs( jitter ) <= float32v( kJitter2D * 1.001f ) ) && ( kIncoherent || IsCoherent<2>( pos ) );
     }
 
+    // 3D: worth checking the 2^D cells first when the lanes are close together, then the pruned 3^D search rarely runs
+    // Not without jitter: every point is on the lattice, exact distance ties must keep the 3^D search's cell order
+    FS_FORCEINLINE static bool FloorFirst3DActive( float32v jitter, const float32v* pos )
+    {
+        return AllLanes( ( FS::Abs( jitter ) <= float32v( kJitter3D * 1.001f ) ) & ( jitter != float32v( 0 ) ) ) && IsCoherent<3>( pos );
+    }
+
+    // True if no lane can have a closer point than distance in the other cells of the 3^D search, after the 2^D cells around the position
+    // (FloorCellsClosest()): the closest centre of those cells is ( 1 + edge, edge, ... ) away with the 1 on the axis with the smallest edge
+    // distance, and their points are within the jitter radius of the centre. EuclideanSquared/Manhattan distance only
+    template<int D>
+    FS_FORCEINLINE static bool FloorCellsComplete( DistanceFunction distFunc, float32v distance, float32v jitter, const float32v* pos )
+    {
+        float32v edge[D];
+        for( int d = 0; d < D; d++ )
+        {
+            float32v t = pos[d] - FS::Floor( pos[d] );
+            edge[d] = FS::Min( t, float32v( 1 ) - t );
+        }
+
+        float32v radius = FS::FMulAdd( FS::Abs( jitter ), float32v( 1 + 1.f / 512 ), float32v( 1.f / ( 1 << 20 ) ) );
+        mask32v closer;
+        if( distFunc == DistanceFunction::Manhattan )
+        {
+            float32v centreDist = float32v( 1 ) + edge[0];
+            for( int d = 1; d < D; d++ )
+            {
+                centreDist += edge[d];
+            }
+            closer = FS::FMulAdd( radius, float32v( D == 2 ? kRoot2f : ( D == 3 ? kRoot3f : 2.0f ) ), distance ) > centreDist * float32v( 1 - 1.f / 4096 );
+        }
+        else
+        {
+            float32v edgeSqr = edge[0] * edge[0];
+            float32v minEdge = edge[0];
+            for( int d = 1; d < D; d++ )
+            {
+                edgeSqr = FS::FMulAdd( edge[d], edge[d], edgeSqr );
+                minEdge = FS::Min( minEdge, edge[d] );
+            }
+            float32v reach = FS::Sqrt( distance ) + radius;
+            closer = reach * reach > FS::FMulAdd( minEdge, float32v( 2 ), edgeSqr + float32v( 1 ) ) * float32v( 1 - 1.f / 4096 );
+        }
+        return !FS::AnyMask( closer );
+    }
+
     // 2D closest point for EuclideanSquared/Manhattan, same result as the 3x3 cell search when the jitter radius is at most kJitter2D
     // (see Closest2DActive()): the 2x2 cells around the position first, the 4 cells beyond them only if a lane could have a closer point
     // there (~6% of 16 lane batches on a uniform grid at grid jitter 1). The 3x3's far corner never can.
@@ -1000,6 +1046,21 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y, z );
+
+        // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        {
+            float32v floorPos[] = { x, y, z };
+            if( this->FloorFirst3DActive( jitter, floorPos ) )
+            {
+                int32v hash;
+                float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
+                if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
+            }
+        }
 
         int valueIndex = SPECIALISED ? COUNT - 1 : mValueIndex;
         float32v pos[] = { x, y, z };
@@ -1379,6 +1440,21 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y, z );
+
+        // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        {
+            float32v floorPos[] = { x, y, z };
+            if( this->FloorFirst3DActive( jitter, floorPos ) )
+            {
+                float32v closest = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, floorPos, nullptr, nullptr );
+                if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos ) )
+                {
+                    distance[0] = closest;
+                    return GetReturn( distance, 1 + this->kJitter3D );
+                }
+            }
+        }
 
         float32v pos[] = { x, y, z };
 
@@ -1778,6 +1854,21 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v cellX, cellY, cellZ;
 
         this->ScalePositions( this, x, y, z );
+
+        // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
+        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        {
+            float32v floorPos[] = { x, y, z };
+            if( this->FloorFirst3DActive( jitter, floorPos ) )
+            {
+                float32v delta[3];
+                float32v closest = this->template FloorCellsClosest<3, false, true>( distFunc, seed, jitter, floorPos, nullptr, delta );
+                if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos ) )
+                {
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), ( x + delta[0] ) * float32v( mScale ), ( y + delta[1] ) * float32v( mScale ), ( z + delta[2] ) * float32v( mScale ) );
+                }
+            }
+        }
 
         float32v pos[] = { x, y, z };
 
