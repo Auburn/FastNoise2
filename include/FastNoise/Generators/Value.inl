@@ -11,9 +11,14 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
     template<typename T>
     FS_FORCEINLINE static float32v LatticeBlockLerpXY( const T& table, int32v xOffset, float32v xs, float32v ys )
     {
+        // Lerp( a, b, t ) = FMulAdd( t, b - a, a ): b - a is taken once per block, x neighbours are adjacent lanes
+        using TI = decltype( FS::Cast<std::int32_t>( table ) );
+        T delta = LatticeBlockPermute<T>( table, FS::LoadIncremented<TI>() + TI( 1 ) ) - table;
+        int32v xOffsetY1 = xOffset + int32v( 4 );
+
         return Lerp(
-            Lerp( LatticeBlockPermute<float32v>( table, xOffset ), LatticeBlockPermute<float32v>( table, xOffset + int32v( 1 ) ), xs ),
-            Lerp( LatticeBlockPermute<float32v>( table, xOffset + int32v( 4 ) ), LatticeBlockPermute<float32v>( table, xOffset + int32v( 5 ) ), xs ), ys );
+            FS::FMulAdd( xs, LatticeBlockPermute<float32v>( delta, xOffset ), LatticeBlockPermute<float32v>( table, xOffset ) ),
+            FS::FMulAdd( xs, LatticeBlockPermute<float32v>( delta, xOffsetY1 ), LatticeBlockPermute<float32v>( table, xOffsetY1 ) ), ys );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
