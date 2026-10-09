@@ -52,41 +52,44 @@ class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return [this, seed] ( std::remove_reference_t<P>... noisePos, std::remove_reference_t<P>... warpPos )
+        return GenIndependent<P...>( seed, pos..., pos... );
+    }
+
+    // Every octave warps the original noise position, the warp offsets accumulate in a separate copy
+    template<typename... P>
+    FS_FORCEINLINE float32v GenIndependent( int32v seed, P... noisePos, P... warpPos ) const
+    {
+        auto* warp = this->GetSourceSIMD( mSource );
+
+        float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
+        float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, noisePos... );
+        float32v freq = float32v( warp->GetWarpFrequency() );
+        int32v seedInc = seed;
+
+        float32v gain = this->GetSourceValue( mGain, seed, noisePos... );
+        float32v lacunarity( mLacunarity );
+
+        float32v strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
+
+        // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
+        bool isWeighted = mWeightedStrength.simdGeneratorPtr || mWeightedStrength.constant != 0.0f;
+
+        for( int i = 1; i < mOctaves; i++ )
         {
-            auto* warp = this->GetSourceSIMD( mSource );
-
-            float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
-            float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, noisePos... );
-            float32v freq = float32v( warp->GetWarpFrequency() );
-            int32v seedInc = seed;
-
-            float32v gain = this->GetSourceValue( mGain, seed, noisePos... );
-            float32v lacunarity( mLacunarity );
-        
-            float32v strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
-    
-            // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
-            bool isWeighted = mWeightedStrength.simdGeneratorPtr || mWeightedStrength.constant != 0.0f;
-
-            for( int i = 1; i < mOctaves; i++ )
+            seedInc -= int32v( -1 );
+            freq *= lacunarity;
+            if( isWeighted )
             {
-                seedInc -= int32v( -1 );
-                freq *= lacunarity;
-                if( isWeighted )
-                {
-                    amp *= Lerp( float32v( 1 ), float32v( 1 ) - FastLengthSqrt( strength ), weightedStrength );
-                    amp *= gain;
-                }
-                else
-                {
-                    amp *= gain;
-                }
-                strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
+                amp *= Lerp( float32v( 1 ), float32v( 1 ) - FastLengthSqrt( strength ), weightedStrength );
+                amp *= gain;
             }
-    
-            return this->GetSourceValue( warp->GetWarpSource(), seed, warpPos... );
+            else
+            {
+                amp *= gain;
+            }
+            strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
+        }
 
-        } ( pos..., pos... );
+        return this->GetSourceValue( warp->GetWarpSource(), seed, warpPos... );
     }
 };
