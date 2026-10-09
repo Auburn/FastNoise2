@@ -145,6 +145,39 @@ namespace FastNoise
             valueZ = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexOuterVector, -tableZ ), valueZ );
             valueW = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexOuterVector, -tableW ), valueW );
         }
+        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        {
+            // Same table as AVX512 split into two 8 entry halves, entries [16,20) are entries [0,4) negated
+            auto lookup = []( int32v index, const auto& tableLow, const auto& tableHigh )
+            {
+                int32v permuteIndex = FS::BitShiftRightZeroExtend( index, 27 );
+                float32v low = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableLow, permuteIndex );
+                float32v high = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableHigh, permuteIndex );
+
+                return FS::SelectHighBit( index << 1, high, low ) ^ FS::Cast<float>( index & int32v( 1 << 31 ) );
+            };
+
+            const auto tableLowX = FS::Constant<float>( kSkew4f + 1, kSkew4f, kSkew4f, kSkew4f, -1, 1, 0, 0 );
+            const auto tableLowY = FS::Constant<float>( kSkew4f, kSkew4f + 1, kSkew4f, kSkew4f, 1, -1, 0, 0 );
+            const auto tableLowZ = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f + 1, kSkew4f, 0, 0, -1, 1 );
+            const auto tableLowW = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f, kSkew4f + 1, 0, 0, 1, -1 );
+            const auto tableHighX = FS::Constant<float>( -1, 0, 1, 0, -1, 0, 0, 1 );
+            const auto tableHighY = FS::Constant<float>( 0, -1, 0, 1, 0, -1, 1, 0 );
+            const auto tableHighZ = FS::Constant<float>( 1, 0, -1, 0, 0, 1, -1, 0 );
+            const auto tableHighW = FS::Constant<float>( 0, 1, 0, -1, 1, 0, 0, -1 );
+
+            float32v gX = lookup( indexGradient, tableLowX, tableHighX );
+            float32v gY = lookup( indexGradient, tableLowY, tableHighY );
+            float32v gZ = lookup( indexGradient, tableLowZ, tableHighZ );
+            float32v gW = lookup( indexGradient, tableLowW, tableHighW );
+
+            multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) );
+
+            valueX = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowX, tableHighX ), valueX );
+            valueY = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowY, tableHighY ), valueY );
+            valueZ = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowZ, tableHighZ ), valueZ );
+            valueW = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowW, tableHighW ), valueW );
+        }
         else
         {
             {
