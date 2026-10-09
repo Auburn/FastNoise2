@@ -90,13 +90,13 @@ protected:
     {
         static constexpr int kCount = D == 2 ? 9 : ( D == 3 ? 27 : 81 );
 
-        // 3D: shell 0 also holds the near side faces (per lane, see NearFirst), visited untested: they can rarely be skipped and
+        // 2D/3D: shell 0 also holds the near side faces (per lane, see NearFirst), visited untested: they can rarely be skipped and
         // testing them would wait on the centre cell's distance. In 4D they are skipped often enough to be worth testing
-        static constexpr bool kNearFacesFirst = D == 3;
+        static constexpr bool kNearFacesFirst = D <= 3;
         static constexpr uint32_t kFirstShellMask = kNearFacesFirst ? ( 1u << ( D + 1 ) ) - 1 : 1;
         int8_t nearest[kCount][D];
         int8_t linear[kCount][D];
-        int8_t pairIndex[kCount][2]; // CellBounds pair indices for nearest order
+        int8_t pairIndex[kCount][2]; // 4D only: CellBounds pair indices for nearest order
         uint32_t parentMask[kCount]; // Nearest order: bits of the previous shell cells one step closer to the centre
         int shellStart[D + 2];
 
@@ -124,8 +124,11 @@ protected:
                             {
                                 nearest[n][d] = (int8_t)( c % 3 );
                             }
-                            pairIndex[n][0] = (int8_t)( nearest[n][0] * 3 + nearest[n][1] );
-                            pairIndex[n][1] = (int8_t)( D == 3 ? nearest[n][2] : nearest[n][2] * 3 + nearest[n][3] );
+                            if constexpr( D == 4 )
+                            {
+                                pairIndex[n][0] = (int8_t)( nearest[n][0] * 3 + nearest[n][1] );
+                                pairIndex[n][1] = (int8_t)( nearest[n][2] * 3 + nearest[n][3] );
+                            }
                             n++;
                         }
                     }
@@ -166,8 +169,6 @@ protected:
     template<int D>
     struct CellBounds
     {
-        static_assert( D == 3 || D == 4 );
-
         std::array<float32v, 3> axis[D];
         float32v pairA[D == 4 ? 9 : 1]; // 4D only: axes 0, 1 precombined
         float32v pairB[D == 4 ? 9 : 1]; // 4D only: axes 2, 3 precombined
@@ -177,13 +178,13 @@ protected:
     {
         kPruneNone,
         kPruneCoherent, // 4D lanes close together, the same cells are skippable in every lane
-        kPruneNearFirst // Incoherent lanes (and all 3D), cells are ordered per lane relative to the near side (see NearFirst)
+        kPruneNearFirst // Incoherent lanes (and all 2D/3D), cells are ordered per lane relative to the near side (see NearFirst)
     };
 
-    // 3D always orders cells near side first, see CellOrder::kNearFacesFirst
+    // 2D/3D always order cells near side first, see CellOrder::kNearFacesFirst
     // Minkowski is only pruned with P in [0.25, 8] in every lane: other P values make Pow's error/range unreliable
     // and exact distance ties common, which the pruned cell order would resolve differently.
-    // Incoherent lanes always prune in 4D, in 3D only when they need the nearest 3 points with grid jitter <= 1,
+    // Incoherent lanes always prune in 4D, in 2D/3D only when they need the nearest 3 points with grid jitter <= 1,
     // the far side cells then rarely matter in any lane
     template<int D>
     FS_FORCEINLINE static PruneMode GetPruneMode( DistanceFunction distFunc, float32v minkowskiP, const float32v* pos, float32v jitter, float maxJitter, int distanceIndex )
@@ -290,7 +291,7 @@ protected:
                                      DistanceFunction distFunc, float32v minkowskiP, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter ) :
             mBounds( bounds )
         {
-            PruneMode pruneMode = GetPruneMode<D>( distFunc, minkowskiP, pos, jitter, D == 3 ? kJitter3D : kJitter4D, distanceIndex );
+            PruneMode pruneMode = GetPruneMode<D>( distFunc, minkowskiP, pos, jitter, D == 2 ? kJitter2D : ( D == 3 ? kJitter3D : kJitter4D ), distanceIndex );
             mPrune = pruneMode != kPruneNone;
             mCombineMax = distFunc == DistanceFunction::MaxAxis || distFunc == DistanceFunction::Minkowski;
 
@@ -368,7 +369,7 @@ protected:
 
             if( sizeJitterActive )
             {
-                minFactor = FS::Min( FS::FNMulAdd( sizeJitter, float32v( D == 3 ? 0xffff : 0xfffff ), float32v( 1 ) ), float32v( 1 ) );
+                minFactor = FS::Min( FS::FNMulAdd( sizeJitter, float32v( D == 2 ? 0x3ff : ( D == 3 ? 0xffff : 0xfffff ) ), float32v( 1 ) ), float32v( 1 ) );
                 scale *= minFactor;
             }
 
@@ -461,10 +462,15 @@ protected:
                 const int8_t* index = kOrder.pairIndex[cell];
                 return Combine( mCombineMax, mBounds.pairA[index[0]], mBounds.pairB[index[1]] );
             }
-            else
+            else if constexpr( D == 3 )
             {
                 const int8_t* index = kOrder.nearest[cell];
                 return Combine( mCombineMax, Combine( mCombineMax, mBounds.axis[0][index[0]], mBounds.axis[1][index[1]] ), mBounds.axis[2][index[2]] );
+            }
+            else
+            {
+                const int8_t* index = kOrder.nearest[cell];
+                return Combine( mCombineMax, mBounds.axis[0][index[0]], mBounds.axis[1][index[1]] );
             }
         }
 
@@ -835,49 +841,82 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         this->ScalePositions( this, x, y );
 
-        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
-        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
-
-        float32v xcf = FS::Convert<float>( xc );
-        float32v ycfBase = FS::Convert<float>( ycBase );
-
-        xc *= int32v( Primes::X );
-        ycBase *= int32v( Primes::Y );
-
-        for( int xi = 0; xi < 3; xi++ )
+        auto visitCell = [&]( int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset )
         {
-            float32v xcfOffset = xcf - x;
-            float32v ycf = ycfBase;
-            int32v yc = ycBase;
-            for ( int yi = 0; yi < 3; yi++ )
+            int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+            xd = FS::FMulAdd( xd, invMag, xOffset );
+            yd = FS::FMulAdd( yd, invMag, yOffset );
+
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
+            if( sizeJitterActive )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
-                float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-                float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
-
-                float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
-                xd = FS::FMulAdd( xd, invMag, xcfOffset );
-                yd = FS::FMulAdd( yd, invMag, ycf - y );
-
-                float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
-                if( sizeJitterActive )
-                {
-                    float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
-                    newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-                }
-
-                for( int i = COUNT - 1; i > 0; i-- )
-                {
-                    distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
-                }
-
-                distance[0] = FS::Min( distance[0], newDistance );
-
-                ycf += float32v( 1 );
-                yc += int32v( Primes::Y );
+                float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
             }
-            xcf += float32v( 1 );
-            xc += int32v( Primes::X );
+
+            for( int i = COUNT - 1; i > 0; i-- )
+            {
+                distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
+            }
+
+            distance[0] = FS::Min( distance[0], newDistance );
+        };
+
+        if constexpr( SPECIALISED )
+        {
+            int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+            int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+
+            float32v xcf = FS::Convert<float>( xc );
+            float32v ycfBase = FS::Convert<float>( ycBase );
+
+            xc *= int32v( Primes::X );
+            ycBase *= int32v( Primes::Y );
+
+            for( int xi = 0; xi < 3; xi++ )
+            {
+                float32v xcfOffset = xcf - x;
+                float32v ycf = ycfBase;
+                int32v yc = ycBase;
+                for ( int yi = 0; yi < 3; yi++ )
+                {
+                    visitCell( xc, yc, xcfOffset, ycf - y );
+
+                    ycf += float32v( 1 );
+                    yc += int32v( Primes::Y );
+                }
+                xcf += float32v( 1 );
+                xc += int32v( Primes::X );
+            }
+        }
+        else // 2D cells are cheap: only the generic variant's are expensive enough for pruning to pay off
+        {
+            float32v pos[] = { x, y };
+
+            std::array<int32v, 3> cellPrimed[2];
+            std::array<float32v, 3> cellOffset[2];
+            this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0] );
+            this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellOffset[1] );
+            for( int d = 0; d < 2; d++ )
+            {
+                for( int i = 0; i < 3; i++ )
+                {
+                    cellOffset[d][i] -= pos[d];
+                }
+            }
+
+            int pruneIndex = GetDistanceCount() - 1;
+            typename DispatchClass::template CellBounds<2> bounds;
+            typename DispatchClass::template CellIterator<2> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+
+            while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
+            {
+                visitCell( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellOffset[0][o[0]], cellOffset[1][o[1]] );
+            }
         }
 
         return GetReturn( distance, 1 + this->kJitter2D );
@@ -1130,49 +1169,74 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         this->ScalePositions( this, x, y );
 
-        int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
-        int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
-
-        float32v xcf = FS::Convert<float>( xc );
-        float32v ycfBase = FS::Convert<float>( ycBase );
-
-        xc *= int32v( Primes::X );
-        ycBase *= int32v( Primes::Y );
-
-        for( int xi = 0; xi < 3; xi++ )
+        auto visitCell = [&]( int32v xPrimed, int32v yPrimed, float32v xCell, float32v yCell )
         {
-            float32v ycf = ycfBase;
-            int32v yc = ycBase;
-            for( int yi = 0; yi < 3; yi++ )
+            int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+            float32v localCellX = FS::FMulAdd( xd, invMag, xCell );
+            float32v localCellY = FS::FMulAdd( yd, invMag, yCell );
+            xd = localCellX - x;
+            yd = localCellY - y;
+
+            float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
+            if( sizeJitterActive )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
-                float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-                float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
-
-                float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
-                float32v localCellX = FS::FMulAdd( xd, invMag, xcf );
-                float32v localCellY = FS::FMulAdd( yd, invMag, ycf );
-                xd = localCellX - x;
-                yd = localCellY - y;
-
-                float32v newDistance = this->template CellDistance<false>( distFunc, minkowskiP, xd, yd );
-                if( sizeJitterActive )
-                {
-                    float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
-                    newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-                }
-
-                mask32v closer = newDistance < distance;
-                distance = FS::Min( newDistance, distance );
-
-                cellX = FS::Select( closer, localCellX, cellX );
-                cellY = FS::Select( closer, localCellY, cellY );
-
-                ycf += float32v( 1 );
-                yc += int32v( Primes::Y );
+                float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
             }
-            xcf += float32v( 1 );
-            xc += int32v( Primes::X );
+
+            mask32v closer = newDistance < distance;
+            distance = FS::Min( newDistance, distance );
+
+            cellX = FS::Select( closer, localCellX, cellX );
+            cellY = FS::Select( closer, localCellY, cellY );
+        };
+
+        if constexpr( SPECIALISED )
+        {
+            int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
+            int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
+
+            float32v xcf = FS::Convert<float>( xc );
+            float32v ycfBase = FS::Convert<float>( ycBase );
+
+            xc *= int32v( Primes::X );
+            ycBase *= int32v( Primes::Y );
+
+            for( int xi = 0; xi < 3; xi++ )
+            {
+                float32v ycf = ycfBase;
+                int32v yc = ycBase;
+                for( int yi = 0; yi < 3; yi++ )
+                {
+                    visitCell( xc, yc, xcf, ycf );
+
+                    ycf += float32v( 1 );
+                    yc += int32v( Primes::Y );
+                }
+                xcf += float32v( 1 );
+                xc += int32v( Primes::X );
+            }
+        }
+        else // 2D cells are cheap: only the generic variant's are expensive enough for pruning to pay off
+        {
+            float32v pos[] = { x, y };
+
+            std::array<int32v, 3> cellPrimed[2];
+            std::array<float32v, 3> cellPos[2];
+            this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0] );
+            this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
+
+            typename DispatchClass::template CellBounds<2> bounds;
+            typename DispatchClass::template CellIterator<2> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
+
+            while( const int8_t* o = cells.Next( distance ) )
+            {
+                visitCell( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPos[0][o[0]], cellPos[1][o[1]] );
+            }
         }
 
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
