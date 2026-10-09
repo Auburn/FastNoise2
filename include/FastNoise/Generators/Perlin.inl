@@ -14,10 +14,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
-        int32v x0 = FloorToInt( x, xs ) * int32v( Primes::X );
-        int32v y0 = FloorToInt( y, ys ) * int32v( Primes::Y );
-        int32v x1 = x0 + int32v( Primes::X );
-        int32v y1 = y0 + int32v( Primes::Y );
+        int32v xi = FloorToInt( x, xs );
+        int32v yi = FloorToInt( y, ys );
 
         float32v xf0 = xs = x - xs;
         float32v yf0 = ys = y - ys;
@@ -27,11 +25,49 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         xs = InterpQuintic( xs );
         ys = InterpQuintic( ys );
 
+        constexpr float kBounding = 1.726796627044677734375f;
+
+        // Corner-major path for lane-coherent vectors, see 3D. AVX512 measured slower on fractals: its 32 lanes span more than
+        // a cell from the second octave on, so the gate mostly falls through
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            int32v xOffset;
+            if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ) ) )
+            {
+                auto hash = HashPrimes( LatticeBlockBroadcast( seed ), LatticeBlockPrimed<0>( xi, Primes::X ), LatticeBlockPrimed<1>( yi, Primes::Y ) );
+
+                using NF = decltype( FS::Cast<float>( hash ) );
+                NF one( 1 ), zero( 0 );
+
+                // y offset per block lane: yf0 or yf1 = yf0 - 1, same ops as the per lane path
+                auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockBroadcast( yi );
+                NF fY = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) ) - FS::Convert<float>( blockY );
+
+                // FMulAdd( gX, fX, fY * gY )
+                NF gX = GetGradientDotPerlin( hash, one, zero );
+                NF dotY = fY * GetGradientDotPerlin( hash, zero, one );
+
+                auto dot = [&]( const int32v& idx, const float32v& fX )
+                {
+                    return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotY, idx ) );
+                };
+
+                float32v value = Lerp(
+                    Lerp( dot( xOffset, xf0 ), dot( xOffset + int32v( 1 ), xf1 ), xs ),
+                    Lerp( dot( xOffset + int32v( 4 ), xf0 ), dot( xOffset + int32v( 5 ), xf1 ), xs ), ys );
+
+                return this->ScaleOutput( this, value, -kBounding, kBounding );
+            }
+        }
+
+        int32v x0 = xi * int32v( Primes::X );
+        int32v y0 = yi * int32v( Primes::Y );
+        int32v x1 = x0 + int32v( Primes::X );
+        int32v y1 = y0 + int32v( Primes::Y );
+
         float32v value = Lerp(
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0 ), xf0, yf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs ),
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs ), ys );
-
-        constexpr float kBounding = 1.726796627044677734375f;
 
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
