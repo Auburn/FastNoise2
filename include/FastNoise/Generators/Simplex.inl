@@ -326,23 +326,23 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff3 *= falloff3; falloff3 *= falloff3;
         falloff4 *= falloff4; falloff4 *= falloff4;
 
-        float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0 );
-        float32v gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed,
+        float32v gradientRampValue0 = GetGradientDotPerlinAnyWidth( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0 );
+        float32v gradientRampValue1 = GetGradientDotPerlinAnyWidth( HashPrimes( seed,
             FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ),
             FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ),
             FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ),
             FS::MaskedAdd( maskW1, wPrimedBase, int32v( Primes::W ) ) ), dx1, dy1, dz1, dw1 );
-        float32v gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed,
+        float32v gradientRampValue2 = GetGradientDotPerlinAnyWidth( HashPrimes( seed,
             FS::MaskedAdd( maskX2, xPrimedBase, int32v( Primes::X ) ),
             FS::MaskedAdd( maskY2, yPrimedBase, int32v( Primes::Y ) ),
             FS::MaskedAdd( maskZ2, zPrimedBase, int32v( Primes::Z ) ),
             FS::MaskedAdd( maskW2, wPrimedBase, int32v( Primes::W ) ) ), dx2, dy2, dz2, dw2 );
-        float32v gradientRampValue3 = GetGradientDotPerlin( HashPrimes( seed,
+        float32v gradientRampValue3 = GetGradientDotPerlinAnyWidth( HashPrimes( seed,
             FS::MaskedAdd( maskX3, xPrimedBase, int32v( Primes::X ) ),
             FS::MaskedAdd( maskY3, yPrimedBase, int32v( Primes::Y ) ),
             FS::MaskedAdd( maskZ3, zPrimedBase, int32v( Primes::Z ) ),
             FS::MaskedAdd( maskW3, wPrimedBase, int32v( Primes::W ) ) ), dx3, dy3, dz3, dw3 );
-        float32v gradientRampValue4 = GetGradientDotPerlin( HashPrimes( seed,
+        float32v gradientRampValue4 = GetGradientDotPerlinAnyWidth( HashPrimes( seed,
             xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
             dx4, dy4, dz4, dw4 );
 
