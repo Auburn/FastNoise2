@@ -799,7 +799,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     // One 2D cell, shared by the plain 3x3 loop and the pruned loop (a lambda isn't reliably inlined)
     template<int COUNT>
-    FS_FORCEINLINE void VisitCell2D( std::array<float32v, kMaxDistanceCount>& distance, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
+    FS_FORCEINLINE void VisitCell2D( std::array<float32v, COUNT>& distance, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
                                      const float32v& sizeJitter, int32v seed, int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset ) const
     {
         int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
