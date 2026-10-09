@@ -20,28 +20,43 @@ protected:
     template<int COUNT>
     using CountConstant = std::integral_constant<int, COUNT>;
 
-    // Picks the GenT variant by calling func( specialised, distanceFunction, count ) with compile time constants
-    // Common settings get a cell loop specialised on distance function and number of tracked cells (count)
-    // Everything else (size jitter, other distance functions) uses the generic variant: specialised = false
-    // Without size jitter Euclidean finds the same closest cells as EuclideanSquared, so it uses that variant
+    // Picks the GenT variant by calling func( specialised, distanceFunction, count, sizeJitter ) with compile time constants
+    // Common settings get a cell loop specialised on distance function, number of tracked cells (count) and size jitter
+    // Everything else uses the generic variant: specialised = false
+    // Without size jitter Euclidean finds the same closest cells as EuclideanSquared, so it shares those variants
     template<int MAX_COUNT, typename FUNC>
     FS_FORCEINLINE auto SelectGenT( int count, FUNC&& func ) const
     {
-        if( !this->mSizeJitter.simdGeneratorPtr && this->mSizeJitter.constant == 0.0f )
+        bool sizeJitterActive = this->mSizeJitter.simdGeneratorPtr || this->mSizeJitter.constant != 0.0f;
+
+        switch( this->mDistanceFunction )
         {
-            switch( this->mDistanceFunction )
+        case DistanceFunction::Euclidean:
+            if( sizeJitterActive ) // 2D CellularValue compares sqrt distances with size jitter
             {
-            case DistanceFunction::Euclidean:
-            case DistanceFunction::EuclideanSquared:
-                return SelectCount<DistanceFunction::EuclideanSquared, MAX_COUNT>( count, func );
-            case DistanceFunction::Manhattan:
-                return SelectCount<DistanceFunction::Manhattan, MAX_COUNT>( count, func );
-            default: // Less common distance functions use the generic variant to limit code size, Minkowski is dominated by Pow()
                 break;
             }
+        case DistanceFunction::EuclideanSquared:
+            if( !sizeJitterActive )
+            {
+                return SelectCount<DistanceFunction::EuclideanSquared, MAX_COUNT>( count, func );
+            }
+            if( count == 1 ) // Size jitter is less common, only specialise the single closest cell case
+            {
+                return func( std::true_type{}, DistanceFunctionConstant<DistanceFunction::EuclideanSquared>{}, CountConstant<1>{}, std::true_type{} );
+            }
+            break;
+        case DistanceFunction::Manhattan:
+            if( !sizeJitterActive )
+            {
+                return SelectCount<DistanceFunction::Manhattan, MAX_COUNT>( count, func );
+            }
+            break;
+        default: // Less common distance functions use the generic variant to limit code size, Minkowski is dominated by Pow()
+            break;
         }
 
-        return func( std::false_type{}, DistanceFunctionConstant<DistanceFunction::EuclideanSquared>{}, CountConstant<MAX_COUNT>{} );
+        return func( std::false_type{}, DistanceFunctionConstant<DistanceFunction::EuclideanSquared>{}, CountConstant<MAX_COUNT>{}, std::false_type{} );
     }
 
     template<DistanceFunction DIST_FUNC, int MAX_COUNT, typename FUNC>
@@ -54,14 +69,14 @@ protected:
             switch( count )
             {
             case 1:
-                return func( std::true_type{}, distFunc, CountConstant<1>{} );
+                return func( std::true_type{}, distFunc, CountConstant<1>{}, std::false_type{} );
             case 2:
-                return func( std::true_type{}, distFunc, CountConstant<2>{} );
+                return func( std::true_type{}, distFunc, CountConstant<2>{}, std::false_type{} );
             case 3:
-                return func( std::true_type{}, distFunc, CountConstant<3>{} );
+                return func( std::true_type{}, distFunc, CountConstant<3>{}, std::false_type{} );
             }
         }
-        return func( std::true_type{}, distFunc, CountConstant<MAX_COUNT>{} );
+        return func( std::true_type{}, distFunc, CountConstant<MAX_COUNT>{}, std::false_type{} );
     }
 };
 
@@ -73,15 +88,15 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         // Compile time constants unless this is the generic variant
@@ -92,7 +107,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
@@ -167,15 +182,15 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y, z );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         // Compile time constants unless this is the generic variant
@@ -186,7 +201,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
@@ -273,15 +288,15 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y, z, w );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
         // Compile time constants unless this is the generic variant
@@ -292,7 +307,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
@@ -405,15 +420,15 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         // Compile time constants unless this is the generic variant
@@ -424,7 +439,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
@@ -485,15 +500,15 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y, z );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         // Compile time constants unless this is the generic variant
@@ -504,7 +519,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
@@ -578,15 +593,15 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y, z, w );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         // Compile time constants unless this is the generic variant
@@ -597,7 +612,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
@@ -732,15 +747,15 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         // Compile time constants unless this is the generic variant
@@ -751,7 +766,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
@@ -812,15 +827,15 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y, z );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         // Compile time constants unless this is the generic variant
@@ -831,7 +846,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
@@ -906,15 +921,15 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count ) -> GenTPtr<float32v, float32v, float32v, float32v>
+        auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v, float32v>
         {
-            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value>;
+            return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y, z, w );
     }
 
-    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT>
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
     float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         // Compile time constants unless this is the generic variant
@@ -925,7 +940,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
-        bool sizeJitterActive = !SPECIALISED && ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
+        bool sizeJitterActive = SPECIALISED ? SIZE_JITTER : ( mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f );
         if( sizeJitterActive )
         {
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
