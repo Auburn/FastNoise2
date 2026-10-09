@@ -446,6 +446,13 @@ public:
 
         AxisReset<true>( xIdx, yIdx, xMax, xSizeV, xSize );
 
+        intptr_t xNextWrap = xSize;
+
+        // yPos/wPos only change when a lane wraps onto the next row
+        float32v yF = FS::Convert<float>( yIdx ) * yMul;
+        float32v yPos = FS::Cos( yF ) * yFreq;
+        float32v wPos = FS::Sin( yF ) * yFreq;
+
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
@@ -454,12 +461,9 @@ public:
             do
             {
                 float32v xF = FS::Convert<float>( xIdx ) * xMul;
-                float32v yF = FS::Convert<float>( yIdx ) * yMul;
 
                 float32v xPos = FS::Cos( xF ) * xFreq;
-                float32v yPos = FS::Cos( yF ) * yFreq;
                 float32v zPos = FS::Sin( xF ) * xFreq;
-                float32v wPos = FS::Sin( yF ) * yFreq;
 
                 float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
                 FS::Store( &noiseOut[index], gen );
@@ -467,7 +471,12 @@ public:
                 index += int32v::ElementCount;
                 xIdx += int32v( int32v::ElementCount );
 
-                AxisReset<false>( xIdx, yIdx, xMax, xSizeV, xSize );
+                if( AxisResetIfWrapped( xIdx, yIdx, xMax, xSizeV, xSize, index, xNextWrap ) )
+                {
+                    yF = FS::Convert<float>( yIdx ) * yMul;
+                    yPos = FS::Cos( yF ) * yFreq;
+                    wPos = FS::Sin( yF ) * yFreq;
+                }
             }
             while( index < blockEnd );
 
@@ -475,12 +484,9 @@ public:
         }
 
         float32v xF = FS::Convert<float>( xIdx ) * xMul;
-        float32v yF = FS::Convert<float>( yIdx ) * yMul;
 
         float32v xPos = FS::Cos( xF ) * xFreq;
-        float32v yPos = FS::Cos( yF ) * yFreq;
         float32v zPos = FS::Sin( xF ) * xFreq;
-        float32v wPos = FS::Sin( yF ) * yFreq;
 
         float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
