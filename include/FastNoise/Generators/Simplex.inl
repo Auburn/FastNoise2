@@ -38,6 +38,20 @@ namespace FastNoise
 
             return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) ));
         }
+        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
+        {
+            I p = hash & I( 3 << 3 );
+
+            F a = FS::Select( p > I( 0 ), fX, fY );
+            F b = FS::SelectHighBit( hash << 27, fY, fZ );
+            F c = FS::Select( p > I( 2 << 3 ), fZ, fW );
+
+            F aSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1 ), hash );
+            F bSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1 ), hash );
+            F cSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1 ), hash );
+
+            return FS::FMulAdd( c, cSign, FS::FMulAdd( b, bSign, a * aSign ) );
+        }
         else
         {
             I p = hash & I( 3 << 3 );
