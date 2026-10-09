@@ -1,6 +1,7 @@
 #include <cfloat>
 #include <array>
 #include <type_traits>
+#include <utility>
 
 #include "Cellular.h"
 #include "Utils.inl"
@@ -492,6 +493,197 @@ protected:
         uint32_t mVisit = kOrder.kFirstShellMask;
         uint32_t mShellVisit = kOrder.kFirstShellMask;
     };
+
+    // The 2^D cells around a position (floor and floor + 1 per axis) always hold the closest point when the jitter radius is at most:
+    // Euclidean: ( sqrt( 1 + ( D - 1 ) / 4 ) - sqrt( ( D - 1 ) / 4 ) ) / 2, worst case at a cell edge midpoint
+    // Manhattan: 1 / ( 2 * sqrt( D ) ), larger in 2D/3D so Hybrid (EuclideanSquared + Manhattan) can use the Euclidean bound
+    // MaxAxis: 0.25. Returns 0 for distance functions without a bound
+    template<int D>
+    static constexpr float FloorCellsJitterBound( DistanceFunction distFunc )
+    {
+        switch( distFunc )
+        {
+        case DistanceFunction::Euclidean:
+        case DistanceFunction::EuclideanSquared:
+        case DistanceFunction::Manhattan:
+        case DistanceFunction::Hybrid:
+            return D == 2 ? 0.309017f : ( D == 3 ? 0.258819f : 0.228425f );
+        case DistanceFunction::MaxAxis:
+            return 0.25f;
+        default:
+            return 0;
+        }
+    }
+
+    // Only the closest point and a constant grid jitter within the bound (with slack for approximate InvSqrt in the jitter offset)
+    // Not used in 4D: with spatially coherent lanes the pruned 3^D search visits fewer cells
+    // Not used without jitter: every point is on the lattice, exact distance ties must keep the 3^D search's cell order
+    template<int D>
+    FS_FORCEINLINE bool FloorCellsActive( int count, float jitterScale ) const
+    {
+        bool sizeJitterActive = this->mSizeJitter.simdGeneratorPtr || this->mSizeJitter.constant != 0.0f;
+
+        if( D == 4 || count > 1 || sizeJitterActive || this->mGridJitter.simdGeneratorPtr || this->mGridJitter.constant == 0.0f )
+        {
+            return false;
+        }
+        return std::abs( this->mGridJitter.constant * jitterScale ) <= FloorCellsJitterBound<D>( this->mDistanceFunction ) * ( 1 - 1.f / 1024 );
+    }
+
+    // Calls func( specialised, distanceFunction ) with compile time constants for common distance functions
+    template<typename FUNC>
+    FS_FORCEINLINE auto SelectFloorGenT( FUNC&& func ) const
+    {
+        switch( this->mDistanceFunction )
+        {
+        case DistanceFunction::Euclidean:
+        case DistanceFunction::EuclideanSquared:
+            return func( std::true_type{}, DistanceFunctionConstant<DistanceFunction::EuclideanSquared>{} );
+        case DistanceFunction::Manhattan:
+            return func( std::true_type{}, DistanceFunctionConstant<DistanceFunction::Manhattan>{} );
+        default:
+            return func( std::false_type{}, DistanceFunctionConstant<DistanceFunction::EuclideanSquared>{} );
+        }
+    }
+
+    // Jittered feature point offset from its cell centre (on a sphere of radius |jitter|) + base
+    template<int D>
+    FS_FORCEINLINE static void FeaturePointOffset( int32v hash, float32v jitter, const float32v* base, float32v* offset )
+    {
+        if constexpr( D == 2 )
+        {
+            offset[0] = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+            offset[1] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+        }
+        else if constexpr( D == 3 )
+        {
+            offset[0] = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            offset[1] = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            offset[2] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+        }
+        else
+        {
+            offset[0] = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            offset[1] = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            offset[2] = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            offset[3] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
+        }
+
+        float32v magSqr = offset[0] * offset[0];
+        for( int d = 1; d < D; d++ )
+        {
+            magSqr = FS::FMulAdd( offset[d], offset[d], magSqr );
+        }
+        float32v invMag = jitter * FS::InvSqrt( magSqr );
+        for( int d = 0; d < D; d++ )
+        {
+            offset[d] = FS::FMulAdd( offset[d], invMag, base[d] );
+        }
+    }
+
+    template<size_t... I>
+    FS_FORCEINLINE static float32v CalcDistanceArray( DistanceFunction distFunc, const float32v* delta, std::index_sequence<I...> )
+    {
+        return CalcDistance<false>( distFunc, float32v( 0 ), delta[I]... );
+    }
+
+    // Feature point of the cell with hash input ( seed ^ primed... ) and centre offset base, keeps it if closer
+    template<int D, bool HASH, bool DELTA>
+    FS_FORCEINLINE static void VisitFloorCell( DistanceFunction distFunc, int32v hash, float32v jitter, const float32v* base, float32v& distance, int32v* closestHash, float32v* closestDelta )
+    {
+        hash *= int32v( HashMultiplier::A );
+
+        float32v delta[D];
+        FeaturePointOffset<D>( hash, jitter, base, delta );
+        float32v newDistance = CalcDistanceArray( distFunc, delta, std::make_index_sequence<D>{} );
+
+        mask32v closer = newDistance < distance;
+        distance = FS::Min( newDistance, distance );
+
+        if constexpr( HASH )
+        {
+            *closestHash = FS::Select( closer, hash, *closestHash );
+        }
+        if constexpr( DELTA )
+        {
+            for( int d = 0; d < D; d++ )
+            {
+                closestDelta[d] = FS::Select( closer, delta[d], closestDelta[d] );
+            }
+        }
+    }
+
+    // Closest feature point among the 2^D cells around the position, see FloorCellsJitterBound(). Returns its distance (no sqrt),
+    // optionally its cell hash and its offset from the position. Cells in the 3^D loops' order (axis 0 slowest) so ties pick the same cell
+    template<int D, bool HASH, bool DELTA>
+    FS_FORCEINLINE static float32v FloorCellsClosest( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, int32v* closestHash, float32v* closestDelta )
+    {
+        int32v primed[D][2];
+        float32v cellOffset[D][2];
+
+        for( int d = 0; d < D; d++ )
+        {
+            float32v floored = FS::Floor( pos[d] );
+            primed[d][0] = FloorToInt( pos[d], floored ) * int32v( Primes::Lookup[d] );
+            primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            cellOffset[d][0] = floored - pos[d];
+            cellOffset[d][1] = cellOffset[d][0] + float32v( 1 );
+        }
+
+        float32v distance( kInfinity );
+        if constexpr( HASH )
+        {
+            *closestHash = int32v( 0 );
+        }
+        if constexpr( DELTA )
+        {
+            for( int d = 0; d < D; d++ )
+            {
+                closestDelta[d] = float32v( 0 );
+            }
+        }
+
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC miscompiled the computed cell indexing below for AVX512, explicit loops instead (~5% slower with clang)
+        for( int xi = 0; xi < 2; xi++ )
+        {
+            int32v seedX = seed ^ primed[0][xi];
+            for( int yi = 0; yi < 2; yi++ )
+            {
+                int32v seedXY = seedX ^ primed[1][yi];
+                for( int zi = 0; zi < ( D == 3 ? 2 : 1 ); zi++ )
+                {
+                    float32v base[D];
+                    base[0] = cellOffset[0][xi];
+                    base[1] = cellOffset[1][yi];
+                    if constexpr( D == 3 )
+                    {
+                        base[2] = cellOffset[2][zi];
+                        VisitFloorCell<D, HASH, DELTA>( distFunc, seedXY ^ primed[2][zi], jitter, base, distance, closestHash, closestDelta );
+                    }
+                    else
+                    {
+                        VisitFloorCell<D, HASH, DELTA>( distFunc, seedXY, jitter, base, distance, closestHash, closestDelta );
+                    }
+                }
+            }
+        }
+#else
+        // The last axis varies fastest so the partial hashes of the lower axes are shared
+        for( int c = 0; c < ( 1 << D ); c++ )
+        {
+            int32v hash = seed;
+            float32v base[D];
+            for( int d = 0; d < D; d++ )
+            {
+                hash ^= primed[d][( c >> ( D - 1 - d ) ) & 1];
+                base[d] = cellOffset[d][( c >> ( D - 1 - d ) ) & 1];
+            }
+            VisitFloorCell<D, HASH, DELTA>( distFunc, hash, jitter, base, distance, closestHash, closestDelta );
+        }
+#endif
+        return distance;
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -502,8 +694,35 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     template<typename... P>
     using GenTPtr = float32v( FS_VECTORCALL DispatchClass::* )( int32v, P... ) const;
 
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC>
+    float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y ) const
+    {
+        DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
+
+        seed += int32v( this->mSeedOffset );
+        float32v jitter( this->kJitter2D * mGridJitter.constant );
+
+        this->ScalePositions( this, x, y );
+
+        float32v pos[] = { x, y };
+        int32v hash;
+        this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, pos, &hash, nullptr );
+
+        return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        if( this->template FloorCellsActive<2>( mValueIndex + 1, this->kJitter2D ) )
+        {
+            auto genFloor = this->SelectFloorGenT( []( auto specialised, auto distFunc ) -> GenTPtr<float32v, float32v>
+            {
+                return &DispatchClass::GenFloorT<decltype( specialised )::value, decltype( distFunc )::value>;
+            } );
+
+            return ( this->*genFloor )( seed, x, y );
+        }
+
         auto genT = this->template SelectGenT<kMaxDistanceCount, true>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -599,8 +818,35 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
     }
 
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC>
+    float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
+    {
+        DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
+
+        seed += int32v( this->mSeedOffset );
+        float32v jitter( this->kJitter3D * mGridJitter.constant );
+
+        this->ScalePositions( this, x, y, z );
+
+        float32v pos[] = { x, y, z };
+        int32v hash;
+        this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, pos, &hash, nullptr );
+
+        return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        if( this->template FloorCellsActive<3>( mValueIndex + 1, this->kJitter3D ) )
+        {
+            auto genFloor = this->SelectFloorGenT( []( auto specialised, auto distFunc ) -> GenTPtr<float32v, float32v, float32v>
+            {
+                return &DispatchClass::GenFloorT<decltype( specialised )::value, decltype( distFunc )::value>;
+            } );
+
+            return ( this->*genFloor )( seed, x, y, z );
+        }
+
         auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -825,8 +1071,36 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         distance[0] = FS::Min( distance[0], newDistance );
     }
 
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC>
+    float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y ) const
+    {
+        DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
+
+        seed += int32v( this->mSeedOffset );
+        float32v jitter( this->kJitter2D * mGridJitter.constant );
+
+        this->ScalePositions( this, x, y );
+
+        float32v pos[] = { x, y };
+        std::array<float32v, kMaxDistanceCount> distance;
+        distance.fill( float32v( kInfinity ) );
+        distance[0] = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
+
+        return GetReturn( distance, 1 + this->kJitter2D );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        if( this->template FloorCellsActive<2>( GetDistanceCount(), this->kJitter2D ) )
+        {
+            auto genFloor = this->SelectFloorGenT( []( auto specialised, auto distFunc ) -> GenTPtr<float32v, float32v>
+            {
+                return &DispatchClass::GenFloorT<decltype( specialised )::value, decltype( distFunc )::value>;
+            } );
+
+            return ( this->*genFloor )( seed, x, y );
+        }
+
         auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -915,8 +1189,36 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         return GetReturn( distance, 1 + this->kJitter2D );
     }
 
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC>
+    float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
+    {
+        DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
+
+        seed += int32v( this->mSeedOffset );
+        float32v jitter( this->kJitter3D * mGridJitter.constant );
+
+        this->ScalePositions( this, x, y, z );
+
+        float32v pos[] = { x, y, z };
+        std::array<float32v, kMaxDistanceCount> distance;
+        distance.fill( float32v( kInfinity ) );
+        distance[0] = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
+
+        return GetReturn( distance, 1 + this->kJitter3D );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        if( this->template FloorCellsActive<3>( GetDistanceCount(), this->kJitter3D ) )
+        {
+            auto genFloor = this->SelectFloorGenT( []( auto specialised, auto distFunc ) -> GenTPtr<float32v, float32v, float32v>
+            {
+                return &DispatchClass::GenFloorT<decltype( specialised )::value, decltype( distFunc )::value>;
+            } );
+
+            return ( this->*genFloor )( seed, x, y, z );
+        }
+
         auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -1167,8 +1469,36 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         cellY = FS::Select( closer, localCellY, cellY );
     }
 
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC>
+    float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y ) const
+    {
+        DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
+
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter( this->kJitter2D * mGridJitter.constant );
+
+        this->ScalePositions( this, x, y );
+
+        float32v pos[] = { x, y };
+        float32v delta[2];
+        this->template FloorCellsClosest<2, false, true>( distFunc, seed, jitter, pos, nullptr, delta );
+
+        return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), ( pos[0] + delta[0] ) * float32v( mScale ), ( pos[1] + delta[1] ) * float32v( mScale ) );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
+        if( this->template FloorCellsActive<2>( 1, this->kJitter2D ) )
+        {
+            auto genFloor = this->SelectFloorGenT( []( auto specialised, auto distFunc ) -> GenTPtr<float32v, float32v>
+            {
+                return &DispatchClass::GenFloorT<decltype( specialised )::value, decltype( distFunc )::value>;
+            } );
+
+            return ( this->*genFloor )( seed, x, y );
+        }
+
         auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -1248,8 +1578,36 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
     }
 
+    template<bool SPECIALISED, DistanceFunction DIST_FUNC>
+    float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
+    {
+        DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
+
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter( this->kJitter3D * mGridJitter.constant );
+
+        this->ScalePositions( this, x, y, z );
+
+        float32v pos[] = { x, y, z };
+        float32v delta[3];
+        this->template FloorCellsClosest<3, false, true>( distFunc, seed, jitter, pos, nullptr, delta );
+
+        return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), ( pos[0] + delta[0] ) * float32v( mScale ), ( pos[1] + delta[1] ) * float32v( mScale ), ( pos[2] + delta[2] ) * float32v( mScale ) );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
+        if( this->template FloorCellsActive<3>( 1, this->kJitter3D ) )
+        {
+            auto genFloor = this->SelectFloorGenT( []( auto specialised, auto distFunc ) -> GenTPtr<float32v, float32v, float32v>
+            {
+                return &DispatchClass::GenFloorT<decltype( specialised )::value, decltype( distFunc )::value>;
+            } );
+
+            return ( this->*genFloor )( seed, x, y, z );
+        }
+
         auto genT = this->template SelectGenT<1>( 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
