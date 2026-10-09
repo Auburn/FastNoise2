@@ -23,8 +23,9 @@ protected:
     // Picks the GenT variant by calling func( specialised, distanceFunction, count, sizeJitter ) with compile time constants
     // Common settings get a cell loop specialised on distance function, number of tracked cells (count) and size jitter
     // Everything else uses the generic variant: specialised = false
-    // Without size jitter Euclidean finds the same closest cells as EuclideanSquared, so it shares those variants
-    template<int MAX_COUNT, typename FUNC>
+    // Euclidean finds the same closest cells as EuclideanSquared, so it shares those variants,
+    // except with size jitter when the cell loop compares sqrt distances (SQRT_DISTANCE, 2D CellularValue)
+    template<int MAX_COUNT, bool SQRT_DISTANCE = false, typename FUNC>
     FS_FORCEINLINE auto SelectGenT( int count, FUNC&& func ) const
     {
         bool sizeJitterActive = this->mSizeJitter.simdGeneratorPtr || this->mSizeJitter.constant != 0.0f;
@@ -32,7 +33,7 @@ protected:
         switch( this->mDistanceFunction )
         {
         case DistanceFunction::Euclidean:
-            if( sizeJitterActive ) // 2D CellularValue compares sqrt distances with size jitter
+            if( SQRT_DISTANCE && sizeJitterActive )
             {
                 break;
             }
@@ -471,7 +472,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
     float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount, true>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
