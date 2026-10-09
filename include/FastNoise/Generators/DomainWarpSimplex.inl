@@ -514,101 +514,40 @@ namespace FastNoise
         }
         else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
         {
-            const auto tableAB = FS::Constant<float>( pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, sFillABC, sIdxABC, eFillABC, eIdxABC );
-            const auto tableC  = FS::Constant<float>( pFillC,  pIdxNegC,  pFillC,  pIdxPosC,  sFillABC, sIdxABC, eFillABC, eIdxABC );
-            const auto tableD  = FS::Constant<float>( pFillD,  pIdxNegD,  pFillD,  pIdxPosD,  sFillD,   sIdxD,   eFillD,   eIdxD   );
+            // Every basis gives the axes four roles: the ( positive ) indexed axis, the first and second unindexed axes and
+            // either the negative indexed axis ( pairwise ) or the third unindexed axis ( single/extra ). With f gathered in
+            // role order the gradients only depend on that case, A and B add the diagonal delta on the first/second unindexed axis.
+            // The role axes are packed from the top of a table entry, two bits per role
+            I permuteIndex = FS::BitShiftRightZeroExtend( indexBasis, 27 );
+            I roleAxes = FS::Select( indexBasis > I( 0x3FFFFFFF ), // [8,16) << 27, [16,20) use the same axes as [0,4)
+                FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1E000000, 0x4B000000, 0x9C000000, 0xC9000000, 0x1B000000, 0x4E000000, 0x8D000000, 0xD8000000 ), permuteIndex ),
+                FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1B000000, 0x4B000000, 0x87000000, 0xC6000000, 0x2D000000, 0x6C000000, 0x87000000, 0xC6000000 ), permuteIndex ) );
 
-            I indexPositive = indexBasis & I( 0x03 << 27 );
-            I indexNegative = ( indexBasis >> 2 ) & I( 0x03 << 27 );
-            indexNegative ^= indexPositive;
-
-            auto extraCase = ( indexBasis < I( 0 ) ); // [16,20) << 27 sets the sign bit
-            auto singleCase = ( indexPositive == indexNegative );
-            indexPositive |= FS::Cast<int32_t>( singleCase ); // Force indexPositive checks to fail
-
-            I indexSelectBase = FS::Masked( singleCase, I( 4 ) ) | FS::Masked( extraCase, I( 2 ) );
-
-            I indexedCounter( -1 );
-
+            auto gatherRole = [&]( I axisBits )
             {
-                auto indexedPositive = ( indexPositive == I( 0 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 0 << 27 ) );
-                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
+                I lowBit = axisBits << 1;
+                return FS::SelectHighBit( axisBits, FS::SelectHighBit( lowBit, fW, fZ ), FS::SelectHighBit( lowBit, fY, fX ) );
+            };
 
-                valueA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, sDiagABC, sIdxABC, eDiagABC, eIdxABC ), indexSelect );
-                valueB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC,  indexSelect );
-                valueD_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD,  indexSelect );
+            F f0 = gatherRole( roleAxes );
+            F f1 = gatherRole( roleAxes << 2 );
+            F f2 = gatherRole( roleAxes << 4 );
+            F f3 = gatherRole( roleAxes << 6 );
+            F f12 = f1 + f2;
 
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
+            // Low 3 bits: 0 pairwise, 7 single ( [0,4) << 27 ), 6 extra ( [16,20) << 27, negative )
+            I caseIndex = FS::Cast<std::int32_t>( indexBasis < I( 4 << 27 ) ) + FS::Cast<std::int32_t>( indexBasis < I( 0 ) );
 
-            valueA = valueA_gX * fX;
-            valueB = valueB_gX * fX;
-            valueC = valueC_gX * fX;
-            valueD = valueD_gX * fX;
-
+            auto caseConstant = [&]( float pairwise, float single, float extra )
             {
-                auto indexedPositive = ( indexPositive == I( 1 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 1 << 27 ) );
-                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
+                return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pairwise, 0, 0, 0, 0, 0, extra, single ), caseIndex );
+            };
 
-                valueA_gY = valueB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
-
-                I maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueA_gY = FS::MaskedAdd( maskedIndexedCounter == I( -2 ), valueA_gY, F( kDeltaUnindexedFillerToDiagonal ) );
-                valueB_gY = FS::MaskedAdd( maskedIndexedCounter == I( -1 ), valueB_gY, F( kDeltaUnindexedFillerToDiagonal ) );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = FS::FMulAdd( valueA_gY, fY, valueA );
-            valueB = FS::FMulAdd( valueB_gY, fY, valueB );
-            valueC = FS::FMulAdd( valueC_gY, fY, valueC );
-            valueD = FS::FMulAdd( valueD_gY, fY, valueD );
-
-            {
-                auto indexedPositive = ( indexPositive == I( 2 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 2 << 27 ) );
-                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
-
-                valueA_gZ = valueB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
-
-                I maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueA_gZ = FS::MaskedAdd( maskedIndexedCounter == I( -3 ), valueA_gZ, F( kDeltaUnindexedFillerToDiagonal ) );
-                valueB_gZ = FS::MaskedAdd( maskedIndexedCounter == I( -2 ), valueB_gZ, F( kDeltaUnindexedFillerToDiagonal ) );
-                valueC_gZ = FS::MaskedAdd( maskedIndexedCounter == I( -1 ), valueC_gZ, F( kDeltaUnindexedFillerToDiagonal ) );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = FS::FMulAdd( valueA_gZ, fZ, valueA );
-            valueB = FS::FMulAdd( valueB_gZ, fZ, valueB );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, valueC );
-            valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
-
-            {
-                auto indexedPositive = ( indexPositive == I( 3 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 3 << 27 ) );
-                I indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, I( 2 ) ) );
-
-                valueA_gW = valueB_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
-
-                I maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueB_gW = FS::MaskedAdd( maskedIndexedCounter == I( -3 ), valueB_gW, F( kDeltaUnindexedFillerToDiagonal ) );
-                valueC_gW = FS::MaskedAdd( maskedIndexedCounter == I( -2 ), valueC_gW, F( kDeltaUnindexedFillerToDiagonal ) );
-            }
-
-            valueA = FS::FMulAdd( valueA_gW, fW, valueA );
-            valueB = FS::FMulAdd( valueB_gW, fW, valueB );
-            valueC = FS::FMulAdd( valueC_gW, fW, valueC );
-            valueD = FS::FMulAdd( valueD_gW, fW, valueD );
+            F valueAB = FS::FMulAdd( caseConstant( pIdxNegAB, sFillABC, eFillABC ), f3, FS::FMulAdd( caseConstant( pFillAB, sFillABC, eFillABC ), f12, caseConstant( pIdxPosAB, sIdxABC, eIdxABC ) * f0 ) );
+            valueA = FS::FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f1, valueAB );
+            valueB = FS::FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f2, valueAB );
+            valueC = FS::FMulAdd( caseConstant( pIdxNegC, sDiagABC, eDiagABC ), f3, FS::FMulAdd( caseConstant( pFillC, sFillABC, eFillABC ), f12, caseConstant( pIdxPosC, sIdxABC, eIdxABC ) * f0 ) );
+            valueD = FS::FMulAdd( caseConstant( pIdxNegD, sFillD, eFillD ), f3, FS::FMulAdd( caseConstant( pFillD, sFillD, eFillD ), f12, caseConstant( pIdxPosD, sIdxD, eIdxD ) * f0 ) );
         }
         else
         {
