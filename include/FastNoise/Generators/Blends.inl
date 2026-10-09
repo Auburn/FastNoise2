@@ -89,9 +89,7 @@ class FastSIMD::DispatchClass<PowFloat, SIMD> final : public virtual PowFloat, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v value = FS::Max( FS::Abs( this->GetSourceValue( mValue, seed, pos... ) ), float32v( FLT_MIN ) );
-
-        return Pow( value, this->GetSourceValue( mPow, seed, pos... ) );
+        return this->CombineSourceValues( mValue, mPow, []( float32v value, float32v pow ) { return Pow( FS::Max( FS::Abs( value ), float32v( FLT_MIN ) ), pow ); }, seed, pos... );
     }
 };
 
