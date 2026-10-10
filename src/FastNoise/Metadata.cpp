@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
-#include <algorithm>
 
 #include "FastNoise/Metadata.h"
 #include "FastNoise/FastNoise.h"
@@ -721,26 +720,9 @@ public:
 
     Generator* Get() const { return mGenerator; }
 
-    // Compare as 32bit words, treating -0.0f and 0.0f as equal since setters can calculate either
     bool MemoryEqual( const DebugZeroedNode& rhs ) const
     {
-        if( !mGenerator || !rhs.mGenerator || mSize != rhs.mSize )
-        {
-            return false;
-        }
-
-        for( size_t i = 0; i < mSize; i += sizeof( uint32_t ) )
-        {
-            uint32_t word = 0, rhsWord = 0;
-            std::memcpy( &word, (const uint8_t*)mAlloc + i, std::min( sizeof( uint32_t ), mSize - i ) );
-            std::memcpy( &rhsWord, (const uint8_t*)rhs.mAlloc + i, std::min( sizeof( uint32_t ), mSize - i ) );
-
-            if( word != rhsWord && ( ( word | rhsWord ) & 0x7FFFFFFF ) )
-            {
-                return false;
-            }
-        }
-        return true;
+        return std::memcmp( mAlloc, rhs.mAlloc, mSize ) == 0;
     }
 
 private:
