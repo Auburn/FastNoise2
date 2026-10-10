@@ -48,23 +48,46 @@ if(typeof window === 'undefined') {
   
 } else {
   (async function() {
+    // Reload at most once per attempt. The marker rides in the URL fragment: Chrome switches browsing
+    // context group when COOP starts or stops applying, and across that switch a sessionStorage flag can
+    // come back stale and history.state is dropped. The URL survives the reload in both directions.
+    const marker = "#coi-reloaded";
+    const reloadedBySelf = window.location.hash === marker;
+    if(reloadedBySelf) {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+    }
+
     if(window.crossOriginIsolated !== false) return;
 
-    let registration = await navigator.serviceWorker.register(window.document.currentScript.src).catch(e => console.error("COOP/COEP Service Worker failed to register:", e));
-    if(registration) {
-      console.log("COOP/COEP Service Worker registered", registration.scope);
-
-      registration.addEventListener("updatefound", () => {
-        console.log("Reloading page to make use of updated COOP/COEP Service Worker.");
-        window.location.reload();
-      });
-
-      // If the registration is active, but it's not controlling the page
-      if(registration.active && !navigator.serviceWorker.controller) {
-        console.log("Reloading page to make use of COOP/COEP Service Worker.");
-        window.location.reload();
-      }
+    if(!window.isSecureContext || !navigator.serviceWorker) {
+      console.warn("COOP/COEP Service Worker unavailable: a secure context with service worker support is required.");
+      return;
     }
+
+    const scriptURL = window.document.currentScript.src;
+    const registration = await navigator.serviceWorker.register(scriptURL).catch(e => console.error("COOP/COEP Service Worker failed to register:", e));
+    if(!registration) return;
+    console.log("COOP/COEP Service Worker registered", registration.scope);
+
+    if(reloadedBySelf) {
+      console.warn("Still not cross-origin isolated after reloading through the COOP/COEP Service Worker; the browser or embedding page is blocking isolation.");
+      return;
+    }
+
+    // Wait until this worker (not merely any worker in the registration) is active, so the
+    // reloaded navigation is served with COOP/COEP.
+    await new Promise(resolve => {
+      const check = () => { if(registration.active && registration.active.scriptURL === scriptURL) resolve(); };
+      const track = worker => worker && worker.addEventListener("statechange", check);
+      registration.addEventListener("updatefound", () => track(registration.installing));
+      track(registration.installing);
+      track(registration.waiting);
+      check();
+    });
+
+    window.history.replaceState(window.history.state, "", marker);
+    console.log("Reloading page to make use of COOP/COEP Service Worker.");
+    window.location.reload();
   })();
 }
 
