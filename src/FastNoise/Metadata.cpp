@@ -692,17 +692,6 @@ namespace FastNoise
     struct MetadataT;
 }
 
-template<typename T>
-static std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
-{
-    auto* newMetadata = new MetadataT<T>;
-    newMetadata->name = className;
-
-    // Node must be in a group or it is not selectable in the UI
-    assert( newMetadata->groups.size() );
-    return std::unique_ptr<const MetadataT<T>>( newMetadata );
-}
-
 #ifndef NDEBUG
 // Node created in zeroed memory, so padding bytes match and whole nodes can be compared
 template<typename T>
@@ -802,15 +791,18 @@ static const Metadata::Member* DebugFindMetadataDefaultMismatch( const Metadata&
 #endif
 
 template<typename T>
-static void DebugCheckMetadataDefaults( [[maybe_unused]] const Metadata& metadata )
+static std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
 {
-#ifndef NDEBUG
-    static const Metadata::Member* sMismatch = DebugFindMetadataDefaultMismatch<T>( metadata );
+    auto* newMetadata = new MetadataT<T>;
+    newMetadata->name = className;
 
-    // Metadata default value doesn't match the node's member default, see sMismatch->name
+    // Node must be in a group or it is not selectable in the UI
+    assert( newMetadata->groups.size() );
+
+    // Metadata default value doesn't match the node's member default
     // Default values are not serialised, so encoded node trees would decode differently to what the Node Editor shows
-    assert( !sMismatch );
-#endif
+    assert( !DebugFindMetadataDefaultMismatch<T>( *newMetadata ) );
+    return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 
 #define FASTNOISE_REGISTER_NODE( CLASS ) \
@@ -825,7 +817,6 @@ const FastNoise::Metadata& CLASS::GetMetadata() const\
 }\
 SmartNode<> FastNoise::MetadataT<CLASS>::CreateNode( FastSIMD::FeatureSet l ) const\
 {\
-    DebugCheckMetadataDefaults<CLASS>( *this );\
     return SmartNode<>( FastSIMD::NewDispatchClass<CLASS>( l, &SmartNodeManager::Allocate ) );\
 }
 
