@@ -538,8 +538,13 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     {
         if( mDistanceFunction == FastNoise::DistanceFunction::Euclidean )
         {
-            distance[mDistanceIndex0] *= FS::InvSqrt( distance[mDistanceIndex0] );
-            distance[mDistanceIndex1] *= FS::InvSqrt( distance[mDistanceIndex1] );
+            distance[mDistanceIndex0] = FastLengthSqrt( distance[mDistanceIndex0] );
+
+            // Avoid double sqrt when both indices are the same
+            if( mDistanceIndex1 != mDistanceIndex0 )
+            {
+                distance[mDistanceIndex1] = FastLengthSqrt( distance[mDistanceIndex1] );
+            }
         }
 
         maxDist *= maxDist;
