@@ -699,11 +699,11 @@ class DebugZeroedNode
 public:
     DebugZeroedNode()
     {
-        tAlloc = nullptr;
+        sAlloc = nullptr;
         mGenerator = FastSIMD::NewDispatchClass<T>( FastSIMD::FeatureSet::Max, &Allocate );
-        mAlloc = tAlloc;
-        mSize = tSize;
-        mAlign = tAlign;
+        mAlloc = sAlloc;
+        mSize = sSize;
+        mAlign = sAlign;
     }
 
     ~DebugZeroedNode()
@@ -728,15 +728,16 @@ public:
 private:
     static void* Allocate( size_t size, size_t align )
     {
-        tSize = size;
-        tAlign = align;
-        tAlloc = ::operator new( size, std::align_val_t( align ) );
-        return std::memset( tAlloc, 0, size );
+        sSize = size;
+        sAlign = align;
+        sAlloc = ::operator new( size, std::align_val_t( align ) );
+        return std::memset( sAlloc, 0, size );
     }
 
-    static inline thread_local void* tAlloc = nullptr;
-    static inline thread_local size_t tSize = 0;
-    static inline thread_local size_t tAlign = 0;
+    // Only used during static init, which is single threaded
+    static inline void* sAlloc = nullptr;
+    static inline size_t sSize = 0;
+    static inline size_t sAlign = 0;
 
     T* mGenerator;
     void* mAlloc;
