@@ -119,6 +119,7 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
     template<size_t... I, typename... P>
     FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
     {
+        // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output
         float32v offsetPos[] = { ( pos - this->GetSourceValue( mPoint[I], seed, pos... ) )... };
 
         return CalcDistance( mDistanceFunction, mMinkowskiP, seed, offsetPos[I]... );

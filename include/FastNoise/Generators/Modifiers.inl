@@ -26,6 +26,7 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
     template<size_t... I, typename... P>
     FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
     {
+        // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output
         float32v offsetPos[] = { ( pos + this->GetSourceValue( mOffset[I], seed, pos... ) )... };
 
         return this->GetSourceValue( mSource, seed, offsetPos[I]... );
