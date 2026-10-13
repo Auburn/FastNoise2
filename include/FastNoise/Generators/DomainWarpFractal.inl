@@ -43,32 +43,35 @@ class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return [this, seed] ( std::remove_reference_t<P>... noisePos, std::remove_reference_t<P>... warpPos )
+        return GenT( std::index_sequence_for<P...>(), seed, pos... );
+    }
+
+    template<size_t... I, typename... P>
+    FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... noisePos ) const
+    {
+        float32v warpPos[] = { noisePos... };
+        auto* warp = this->GetSourceSIMD( mSource );
+
+        float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
+        float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, noisePos... );
+        float32v freq = float32v( warp->GetWarpFrequency() );
+        int32v seedInc = seed;
+
+        float32v gain = this->GetSourceValue( mGain, seed, noisePos... );
+        float32v lacunarity( mLacunarity );
+
+        float32v strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos[I]... );
+
+        for( int i = 1; i < mOctaves; i++ )
         {
-            auto* warp = this->GetSourceSIMD( mSource );
+            strength = FastLengthSqrt( strength );
+            seedInc -= int32v( -1 );
+            freq *= lacunarity;
+            amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
+            amp *= gain;
+            strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos[I]... );
+        }
 
-            float32v amp = this->GetSourceValue( warp->GetWarpAmplitude(), seed, noisePos... );
-            float32v weightedStrength = this->GetSourceValue( mWeightedStrength, seed, noisePos... );
-            float32v freq = float32v( warp->GetWarpFrequency() );
-            int32v seedInc = seed;
-
-            float32v gain = this->GetSourceValue( mGain, seed, noisePos... );
-            float32v lacunarity( mLacunarity );
-        
-            float32v strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
-    
-            for( int i = 1; i < mOctaves; i++ )
-            {
-                strength = FastLengthSqrt( strength );
-                seedInc -= int32v( -1 );
-                freq *= lacunarity;
-                amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
-                amp *= gain;
-                strength = warp->Warp( seedInc, amp, (noisePos * freq)..., warpPos... );
-            }
-    
-            return this->GetSourceValue( warp->GetWarpSource(), seed, warpPos... );
-
-        } ( pos..., pos... );
+        return this->GetSourceValue( warp->GetWarpSource(), seed, warpPos[I]... );
     }
 };
