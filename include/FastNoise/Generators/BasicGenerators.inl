@@ -130,30 +130,29 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        return GenT( std::index_sequence_for<P...>(), seed, pos... );
+    }
+
+    template<size_t... I, typename... P>
+    FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
+    {
         // With constant point (and Minkowski P) values no source is called, so the positions don't need preserving across calls
         bool hasSource = mMinkowskiP.simdGeneratorPtr && mDistanceFunction == DistanceFunction::Minkowski;
-        for( size_t i = 0; i < sizeof...( P ); i++ )
-        {
-            hasSource |= mPoint[i].simdGeneratorPtr != nullptr;
-        }
+        ((hasSource |= mPoint[I].simdGeneratorPtr != nullptr), ...);
 
         if( !hasSource )
         {
-            size_t pointIdx = 0;
-            ((pos -= float32v( mPoint[pointIdx++].constant )), ...);
+            // Subtract in order before the call, see the braced init below
+            ((pos -= float32v( mPoint[I].constant )), ...);
 
             return CalcDistance( mDistanceFunction, float32v( mMinkowskiP.constant ), pos... );
         }
 
         float32v minkowskiP = GetMinkowskiP( mDistanceFunction, mMinkowskiP, seed, pos... );
 
-        [self = this, seed] ( P&... out, std::remove_reference_t<P>... pos )
-        {
-            size_t pointIdx = 0;
-            ((out -= self->GetSourceValue( self->mPoint[pointIdx++], seed, pos... )), ...);
+        // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output
+        float32v offsetPos[] = { ( pos - this->GetSourceValue( mPoint[I], seed, pos... ) )... };
 
-        }( pos..., pos... );
-
-        return CalcDistance( mDistanceFunction, minkowskiP, pos... );
+        return CalcDistance( mDistanceFunction, minkowskiP, offsetPos[I]... );
     }
 };

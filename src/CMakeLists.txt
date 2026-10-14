@@ -2,7 +2,7 @@
 CPMAddPackage(
     NAME FastSIMD
     GITHUB_REPOSITORY Auburn/FastSIMD
-    GIT_TAG 16450dae9528727e500e7254f635a671f9c7ee2d
+    GIT_TAG f7e9ce6fca475731c0a3c115ec29dcfd36886b2a
 )
 
 set(install_targets ${install_targets}
@@ -77,7 +77,7 @@ endif()
 target_link_libraries(FastNoise PUBLIC FastSIMD FastSIMD_FastNoise)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /wd4251 /permissive- /d2vzeroupper-)
+    target_compile_options(FastSIMD_FastNoise PRIVATE /GL- /GS- /wd4251 /permissive-)
     
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
     if(MSVC)
@@ -86,11 +86,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
         target_compile_options(FastSIMD_FastNoise PRIVATE -fno-stack-protector -Wno-nan-infinity-disabled)
     endif()
 
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        target_compile_options(FastSIMD_FastNoise PRIVATE -mno-vzeroupper)
-    else()
-        target_compile_options(FastSIMD_FastNoise PRIVATE -mllvm -x86-use-vzeroupper=0)        
-
+    if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
         # Clang only aligns ymm/zmm spill slots in functions that realign the stack (see FN_ALIGN_STACK), unless the frame
         # pointer is reserved: keep frame pointers in the AVX sources, so functions with spills realign the stack and
         # cheap generators without spills don't pay for a realignment. GCC realigns when it needs to

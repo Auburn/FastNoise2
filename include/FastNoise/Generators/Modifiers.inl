@@ -20,28 +20,24 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        // With constant offsets the positions are only used by the source call, see CombineSourceValues
-        bool hasOffsetSource = false;
-        for( size_t i = 0; i < sizeof...( P ); i++ )
-        {
-            hasOffsetSource |= mOffset[i].simdGeneratorPtr != nullptr;
-        }
+        return GenT( std::index_sequence_for<P...>(), seed, pos... );
+    }
 
-        if( !hasOffsetSource )
+    template<size_t... I, typename... P>
+    FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
+    {
+        // With constant offsets the positions are only used by the source call, see CombineSourceValues
+        if( ( !mOffset[I].simdGeneratorPtr && ... ) )
         {
-            size_t idx = 0;
-            ((pos += float32v( mOffset[idx++].constant )), ...);
+            ((pos += float32v( mOffset[I].constant )), ...);
 
             return this->GetSourceValue( mSource, seed, pos... );
         }
 
-        return [self = this, seed]( std::remove_reference_t<P>... sourcePos, std::remove_reference_t<P>... offset )
-        {
-            size_t idx = 0;
-            ((offset += self->GetSourceValue( self->mOffset[idx++], seed, sourcePos... )), ...);
+        // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output
+        float32v offsetPos[] = { ( pos + this->GetSourceValue( mOffset[I], seed, pos... ) )... };
 
-            return self->GetSourceValue( self->mSource, seed, offset... );
-        } (pos..., pos...);
+        return this->GetSourceValue( mSource, seed, offsetPos[I]... );
     }
 };
 

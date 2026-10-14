@@ -24,9 +24,8 @@ protected:
     // Picks the GenT variant by calling func( specialised, distanceFunction, count, sizeJitter ) with compile time constants
     // Common settings get a cell loop specialised on distance function, number of tracked cells (count) and size jitter
     // Everything else uses the generic variant: specialised = false
-    // Euclidean finds the same closest cells as EuclideanSquared, so it shares those variants,
-    // except with size jitter when the cell loop compares sqrt distances (SQRT_DISTANCE, 2D CellularValue)
-    template<int MAX_COUNT, bool SQRT_DISTANCE = false, typename FUNC>
+    // Euclidean finds the same closest cells as EuclideanSquared, so it shares those variants
+    template<int MAX_COUNT, typename FUNC>
     FS_FORCEINLINE auto SelectGenT( int count, FUNC&& func ) const
     {
         bool sizeJitterActive = this->mSizeJitter.simdGeneratorPtr || this->mSizeJitter.constant != 0.0f;
@@ -34,10 +33,6 @@ protected:
         switch( this->mDistanceFunction )
         {
         case DistanceFunction::Euclidean:
-            if( SQRT_DISTANCE && sizeJitterActive )
-            {
-                break;
-            }
         case DistanceFunction::EuclideanSquared:
             if( !sizeJitterActive )
             {
@@ -910,7 +905,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             return ( this->*genFloor )( seed, x, y );
         }
 
-        auto genT = this->template SelectGenT<kMaxDistanceCount, true>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
+        auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
@@ -978,7 +973,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 int32v newCellValueHash = hash;
-                float32v newDistance = CalcDistance<true>( distFunc, minkowskiP, xd, yd );
+                float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );

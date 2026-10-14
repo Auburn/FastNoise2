@@ -5,6 +5,7 @@
 #include <atomic>
 #include <vector>
 #include <list>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <algorithm>

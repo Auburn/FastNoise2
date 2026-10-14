@@ -53,7 +53,7 @@ The traditional approach of generating noise types separately and combining them
 
 The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D texture/heightmap and 3D mesh previews for the node graph output, generation is infinite in all dimensions. See screenshots below for examples.
 
-[Web Node Editor](https://auburn.github.io/fastnoise2nodeeditor/) (WASM)
+[Web Node Editor](https://auburn.github.io/FastNoise2/) (WASM)
 
 Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for compiled Node Editor binaries for desktop platforms
 

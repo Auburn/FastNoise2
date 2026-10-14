@@ -1,10 +1,11 @@
 CPMAddPackage(
     NAME benchmark
     GITHUB_REPOSITORY google/benchmark
-    VERSION 1.5.5
+    VERSION 1.9.5
     EXCLUDE_FROM_ALL YES
     OPTIONS
         "BENCHMARK_ENABLE_TESTING OFF"
+        "BENCHMARK_ENABLE_WERROR OFF"
 )
 
 add_executable(FastNoiseBenchmark 
