@@ -283,8 +283,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         {
             // One register per z/w layer, lane dx + 4 dy. The lane dot is FMulAdd( c, cSign, FMulAdd( b, bSign, a * aSign ) ) with
             // a = x if the gradient has an x component (p > 0), else y. Per lane FMulAdd( fX, sA, tB ) + tC rounds the same:
-            // sA = aSign or a zero signed so that fX * sA = -0 (xf0 >= +0, xf1 < 0), tB = b * bSign or the whole inner term
-            // when x is absent, tC = c * cSign (products with +/-1 are exact)
+            // sA = aSign or 0, tB = b * bSign or the whole inner term when x is absent, tC = c * cSign (products with +/-1 are
+            // exact). Only the sign of zero results can differ, ScaleOutput's + kBounding removes it
             I z0 = zi * I( Primes::Z );
             I z1 = z0 + I( Primes::Z );
 
@@ -299,20 +299,19 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 F aSign, bSign, cSign;
                 GetGradientSignsPerlin4DAVX2( hash, aSign, bSign, cSign );
 
-                F sA0 = FS::Select( hasX, aSign, F( -0.0f ) );
-                F sA1 = FS::Select( hasX, aSign, F( 0.0f ) );
-                F tB = FS::Select( hasX, b * bSign, FS::FMulAdd( b, bSign, fY * aSign ) );
+                F sA = FS::Masked( hasX, aSign );
+                F tB = FS::FMulAdd( b, bSign, FS::InvMasked( hasX, fY * aSign ) );
                 F tC = c * cSign;
 
-                auto dot = [&]( int corner, const F& fX, const F& sA )
+                auto dot = [&]( int corner, const F& fX )
                 {
                     I idx = xOffset + I( corner );
                     return FS::FMulAdd( fX, LatticeBlockPermute<F>( sA, idx ), LatticeBlockPermute<F>( tB, idx ) ) + LatticeBlockPermute<F>( tC, idx );
                 };
 
                 return Lerp(
-                    Lerp( dot( 0, xf0, sA0 ), dot( 1, xf1, sA1 ), xs ),
-                    Lerp( dot( 4, xf0, sA0 ), dot( 5, xf1, sA1 ), xs ), ys );
+                    Lerp( dot( 0, xf0 ), dot( 1, xf1 ), xs ),
+                    Lerp( dot( 4, xf0 ), dot( 5, xf1 ), xs ), ys );
             };
 
             return Lerp(
