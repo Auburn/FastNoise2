@@ -815,6 +815,13 @@ namespace FastNoise
         return hash;
     }
 
+    // Gradient index for GetGradientDot*: the top bits of the multiplied hash, these are the best mixed and depend on every seed bit
+    template<int Bits, typename I, typename... P>
+    FS_FORCEINLINE static I HashPrimesGradient( I seed, P... primedPos )
+    {
+        return HashPrimesHB( seed, primedPos... ) >> ( 32 - Bits );
+    }
+
     template<typename I, typename... P>
     FS_FORCEINLINE static auto GetValueCoord( I seed, P... primedPos )
     {

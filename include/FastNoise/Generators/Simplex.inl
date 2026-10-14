@@ -36,7 +36,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff = FS::Max( falloff, float32v( 0 ) );
         falloff *= falloff; falloff *= falloff;
 
-        return GetGradientDotPerlin( HashPrimes( hashBase,
+        return GetGradientDotPerlin( HashPrimesGradient<5>( hashBase,
             FS::Masked( maskX, xPrimedDelta ),
             FS::Masked( maskY, yPrimedDelta ),
             FS::Masked( maskZ, zPrimedDelta ),
@@ -90,13 +90,13 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff1 *= falloff1; falloff1 *= falloff1;
         falloff2 *= falloff2; falloff2 *= falloff2;
 
-        float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase ), dx0, dy0 );
+        float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimesGradient<3>( seed, xPrimedBase, yPrimedBase ), dx0, dy0 );
         float32v gradientRampValue1, gradientRampValue2;
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
             // Masked adds are single instructions and the xors fuse into vpternlogd
-            gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1 );
-            gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2 );
+            gradientRampValue1 = GetGradientDotPerlin( HashPrimesGradient<3>( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1 );
+            gradientRampValue2 = GetGradientDotPerlin( HashPrimesGradient<3>( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2 );
         }
         else
         {
@@ -106,8 +106,8 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
             int32v xPrimedDelta = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
             int32v yPrimedDelta = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
 
-            gradientRampValue1 = GetGradientDotPerlin( HashPrimes( hashBase, FS::Select( xGreaterEqualY, xPrimedDelta, yPrimedDelta ) ), dx1, dy1 );
-            gradientRampValue2 = GetGradientDotPerlin( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta ), dx2, dy2 );
+            gradientRampValue1 = GetGradientDotPerlin( HashPrimesGradient<3>( hashBase, FS::Select( xGreaterEqualY, xPrimedDelta, yPrimedDelta ) ), dx1, dy1 );
+            gradientRampValue2 = GetGradientDotPerlin( HashPrimesGradient<3>( hashBase, xPrimedDelta, yPrimedDelta ), dx2, dy2 );
         }
 
         float32v value = FN_FMulAdd( gradientRampValue0, falloff0, FN_FMulAdd( gradientRampValue1, falloff1, gradientRampValue2 * falloff2 ) );
@@ -194,7 +194,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff2 *= falloff2; falloff2 *= falloff2;
         falloff3 *= falloff3; falloff3 *= falloff3;
 
-        float32v gradientRampValue0 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
+        float32v gradientRampValue0 = GetGradientDotCommon( HashPrimesGradient<4>( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
 
         // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis.
         // Vertex 1 moves only the largest axis, vertex 2 all but the smallest. On AVX512 this also measured faster than
@@ -207,9 +207,9 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         int32v largestPrimedDelta = FS::Select( maskX1, xPrimedDelta, FS::Select( maskY1, yPrimedDelta, zPrimedDelta ) );
         int32v smallestPrimedDelta = FS::Select( nMaskY2, yPrimedDelta, FS::Select( nMaskZ2, zPrimedDelta, xPrimedDelta ) );
 
-        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( hashBase, largestPrimedDelta ), dx1, dy1, dz1 );
-        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, smallestPrimedDelta ), dx2, dy2, dz2 );
-        float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta ), dx3, dy3, dz3 );
+        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, largestPrimedDelta ), dx1, dy1, dz1 );
+        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, smallestPrimedDelta ), dx2, dy2, dz2 );
+        float32v gradientRampValue3 = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta ), dx3, dy3, dz3 );
 
         float32v value = FN_FMulAdd( gradientRampValue3, falloff3, FN_FMulAdd( gradientRampValue2, falloff2, FN_FMulAdd( gradientRampValue1, falloff1, gradientRampValue0 * falloff0 ) ) );
 
@@ -321,8 +321,8 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff0 *= falloff0; falloff0 *= falloff0;
         falloff4 *= falloff4; falloff4 *= falloff4;
 
-        float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0 );
-        float32v gradientRampValue4 = GetGradientDotPerlin( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, wPrimedDelta ),
+        float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimesGradient<5>( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0 );
+        float32v gradientRampValue4 = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, wPrimedDelta ),
             dx0 - float32v( kUnskew4 * 4 + 1 ), dy0 - float32v( kUnskew4 * 4 + 1 ), dz0 - float32v( kUnskew4 * 4 + 1 ), dw0 - float32v( kUnskew4 * 4 + 1 ) );
 
         float32v falloff1, falloff2, falloff3;
@@ -436,7 +436,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 0>
         {
-            int32v hash = HashPrimes( seed, xPrimedBase, yPrimedBase );
+            int32v hash = HashPrimesGradient<3>( seed, xPrimedBase, yPrimedBase );
             float32v gradientRampValue = GetGradientDotPerlin( hash, dxBase, dyBase );
             falloffBase0 = FN_FNMulAdd( dxBase, dxBase, FN_FNMulAdd( dyBase, dyBase, float32v( kFalloffRadiusSquared ) ) );
             float32v falloff = falloffBase0; falloff *= falloff; falloff *= falloff;
@@ -445,7 +445,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 1>
         {
-            int32v hash = HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) );
+            int32v hash = HashPrimesGradient<3>( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) );
             float32v gradientRampValue = GetGradientDotPerlin( hash, dxBase - float32v( 2 * kUnskew2 + 1 ), dyBase - float32v( 2 * kUnskew2 + 1 ) );
             float32v falloff = FN_FMulAdd( unskewDelta,
                 float32v( -4.0 * ( kRoot3 + 2.0 ) / ( kRoot3 + 3.0 ) ),
@@ -460,7 +460,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <1, 0> or <-1, 0> or <1, 2>
         {
-            int32v hash = HashPrimes( seed,
+            int32v hash = HashPrimesGradient<3>( seed,
                 FS::InvMaskedSub( forwardXY, FS::MaskedAdd( forwardX, xPrimedBase, int32v( Primes::X * 2 ) ), int32v( Primes::X ) ),
                 FS::MaskedAdd( forwardXY, yPrimedBase, int32v( Primes::Y ) ) );
             float32v dx = dxBase - FS::Select( forwardX, float32v( 1 + 2 * kUnskew2 ), float32v( -1 ) );
@@ -473,7 +473,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         // Vertex <0, 1> or <0, -1> or <2, 1>
         {
-            int32v hash = HashPrimes( seed,
+            int32v hash = HashPrimesGradient<3>( seed,
                 FS::MaskedAdd( forwardXY, xPrimedBase, int32v( Primes::X ) ),
                 FS::InvMaskedSub( forwardXY, FS::MaskedAdd( forwardY, yPrimedBase, int32v( (int32_t)( Primes::Y * 2LL ) ) ), int32v( Primes::Y ) ) );
             float32v dx = FS::MaskedSub( forwardY, dxBase, float32v( 2 * kUnskew2 ) );
@@ -582,7 +582,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         // Vertex <0, 0, 0>
         float32v value, falloffBaseStemA, falloffBaseStemB;
         {
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase );
+            float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase );
             float32v falloffBase = FN_FNMulAdd( dzBase, dzBase, FN_FNMulAdd( dyBase, dyBase, FN_FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) * float32v( 0.5f );
             falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
@@ -600,7 +600,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset = float32v( 3 * kReflectUnskew3 + 1 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset );
+            float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -620,7 +620,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0 );
+                float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -640,7 +640,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase );
+                float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -660,7 +660,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase );
+                float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -674,7 +674,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0 );
+            float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0 );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -688,7 +688,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0 );
+            float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0 );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -702,7 +702,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0 );
+            float32v gradientRampValue = GetGradientDotCommon( HashPrimesGradient<4>( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0 );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -849,7 +849,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         // Vertex <0, 0, 0, 0>
         F value, falloffBaseStemA, falloffBaseStemB;
         {
-            F gradientRampValue = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase );
+            F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase );
             F falloffBase = FN_FNMulAdd( dwBase, dwBase, FN_FNMulAdd( dzBase, dzBase, FN_FNMulAdd( dyBase, dyBase, FN_FNMulAdd( dxBase, dxBase, F( kFalloffRadiusSquared ) ) ) ) ) * F( 0.5f );
             falloffBaseStemA = falloffBase - F( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - F( kDistanceSquaredB * 0.5 );
@@ -868,7 +868,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
             F offset = F( 4 * kUnskew4 + 1 ) ^ sign;
 
-            F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset );
+            F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset );
             F falloffBase = FS::Max( FN_FMulAdd( offset, coordinateSum, falloffBaseStemA ), F( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -890,7 +890,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -912,7 +912,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -934,7 +934,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -956,7 +956,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -971,7 +971,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F offset1 = F( kUnskew4 + 1 ) ^ sign;
             F offset0 = F( kUnskew4 ) ^ sign;
 
-            F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0 );
+            F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0 );
             F falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), F( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -992,7 +992,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -1013,7 +1013,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -1034,7 +1034,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -1049,7 +1049,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F offset1 = F( kUnskew4 + 1 ) ^ sign;
             F offset0 = F( kUnskew4 ) ^ sign;
 
-            F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
+            F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0 );
             F falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), F( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -1070,7 +1070,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -1091,7 +1091,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -1106,7 +1106,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F offset1 = F( kUnskew4 + 1 ) ^ sign;
             F offset0 = F( kUnskew4 ) ^ sign;
 
-            F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
+            F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0 );
             F falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), F( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -1127,7 +1127,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 I zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 I wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
+                F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -1142,7 +1142,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             F offset1 = F( kUnskew4 + 1 ) ^ sign;
             F offset0 = F( kUnskew4 ) ^ sign;
 
-            F gradientRampValue = GetGradientDotPerlin( HashPrimes( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
+            F gradientRampValue = GetGradientDotPerlin( HashPrimesGradient<5>( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1 );
             F falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), F( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }

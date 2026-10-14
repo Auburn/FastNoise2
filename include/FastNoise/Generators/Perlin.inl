@@ -49,7 +49,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ) ) )
             {
-                auto hash = HashPrimes( LatticeBlockSplat( seed ), LatticeBlockPrimed<0>( xi, Primes::X ), LatticeBlockPrimed<1>( yi, Primes::Y ) );
+                auto hash = HashPrimesGradient<3>( LatticeBlockSplat( seed ), LatticeBlockPrimed<0>( xi, Primes::X ), LatticeBlockPrimed<1>( yi, Primes::Y ) );
 
                 using NF = decltype( FS::Cast<float>( hash ) );
                 NF one( 1 ), zero( 0 );
@@ -76,8 +76,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         int32v y1 = y0 + int32v( Primes::Y );
 
         float32v value = Lerp(
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0 ), xf0, yf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0 ), xf1, yf0 ), xs ),
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1 ), xf0, yf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1 ), xf1, yf1 ), xs ), ys );
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<3>( seed, x0, y0 ), xf0, yf0 ), GetGradientDotPerlin( HashPrimesGradient<3>( seed, x1, y0 ), xf1, yf0 ), xs ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<3>( seed, x0, y1 ), xf0, yf1 ), GetGradientDotPerlin( HashPrimesGradient<3>( seed, x1, y1 ), xf1, yf1 ), xs ), ys );
 
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
@@ -119,7 +119,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 auto seedB = LatticeBlockSplat( seed );
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
-                auto hashZ0 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
+                auto hashZ0 = HashPrimesGradient<4>( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
 
                 using NF = decltype( FS::Cast<float>( hashZ0 ) );
                 NF one( 1 ), zero( 0 );
@@ -137,7 +137,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 int32v xOffsetZ1 = xOffset + int32v( 8 );
                 if constexpr( NF::ElementCount < 16 )
                 {
-                    hashZ1 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+                    hashZ1 = HashPrimesGradient<4>( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
                     fZ1 = fZ - FS::Convert<float>( LatticeBlockPrimed<2, 1>( zi, 1 ) - LatticeBlockSplat( zi ) );
                     xOffsetZ1 = xOffset;
                 }
@@ -181,10 +181,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 NF fY1 = fY0 - NF( 1 );
                 NF fZ1 = fZ0 - NF( 1 );
 
-                auto hash00 = HashPrimes( seedB, xp, yp0, zp0 );
-                auto hash10 = HashPrimes( seedB, xp, yp1, zp0 );
-                auto hash01 = HashPrimes( seedB, xp, yp0, zp1 );
-                auto hash11 = HashPrimes( seedB, xp, yp1, zp1 );
+                auto hash00 = HashPrimesGradient<4>( seedB, xp, yp0, zp0 );
+                auto hash10 = HashPrimesGradient<4>( seedB, xp, yp1, zp0 );
+                auto hash01 = HashPrimesGradient<4>( seedB, xp, yp0, zp1 );
+                auto hash11 = HashPrimesGradient<4>( seedB, xp, yp1, zp1 );
 
                 NF gX00 = GetGradientDotCommon( hash00, one, zero, zero );
                 NF gX10 = GetGradientDotCommon( hash10, one, zero, zero );
@@ -217,11 +217,11 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         int32v z1 = z0 + int32v( Primes::Z );
 
         float32v value = Lerp( Lerp(
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
+            Lerp( GetGradientDotCommon( HashPrimesGradient<4>( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDotCommon( HashPrimesGradient<4>( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
+            Lerp( GetGradientDotCommon( HashPrimesGradient<4>( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDotCommon( HashPrimesGradient<4>( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
             Lerp(
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
+            Lerp( GetGradientDotCommon( HashPrimesGradient<4>( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDotCommon( HashPrimesGradient<4>( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),
+            Lerp( GetGradientDotCommon( HashPrimesGradient<4>( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDotCommon( HashPrimesGradient<4>( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
 
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
@@ -279,17 +279,17 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         ws = InterpQuintic( ws );
 
         return Lerp( Lerp( Lerp(
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z0, w0 ), xf0, yf0, zf0, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z0, w0 ), xf1, yf0, zf0, wf0 ), xs ),
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z0, w0 ), xf0, yf1, zf0, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z0, w0 ), xf1, yf1, zf0, wf0 ), xs ), ys ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y0, z0, w0 ), xf0, yf0, zf0, wf0 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y0, z0, w0 ), xf1, yf0, zf0, wf0 ), xs ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y1, z0, w0 ), xf0, yf1, zf0, wf0 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y1, z0, w0 ), xf1, yf1, zf0, wf0 ), xs ), ys ),
             Lerp(
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w0 ), xf0, yf0, zf1, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w0 ), xf1, yf0, zf1, wf0 ), xs ),
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z1, w0 ), xf0, yf1, zf1, wf0 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z1, w0 ), xf1, yf1, zf1, wf0 ), xs ), ys ), zs ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y0, z1, w0 ), xf0, yf0, zf1, wf0 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y0, z1, w0 ), xf1, yf0, zf1, wf0 ), xs ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y1, z1, w0 ), xf0, yf1, zf1, wf0 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y1, z1, w0 ), xf1, yf1, zf1, wf0 ), xs ), ys ), zs ),
             Lerp( Lerp(
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z0, w1 ), xf0, yf0, zf0, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z0, w1 ), xf1, yf0, zf0, wf1 ), xs ),
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z0, w1 ), xf0, yf1, zf0, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z0, w1 ), xf1, yf1, zf0, wf1 ), xs ), ys ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y0, z0, w1 ), xf0, yf0, zf0, wf1 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y0, z0, w1 ), xf1, yf0, zf0, wf1 ), xs ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y1, z0, w1 ), xf0, yf1, zf0, wf1 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y1, z0, w1 ), xf1, yf1, zf0, wf1 ), xs ), ys ),
             Lerp(
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w1 ), xf0, yf0, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w1 ), xf1, yf0, zf1, wf1 ), xs ),
-            Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z1, w1 ), xf0, yf1, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z1, w1 ), xf1, yf1, zf1, wf1 ), xs ), ys ) , zs ), ws );
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y0, z1, w1 ), xf0, yf0, zf1, wf1 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y0, z1, w1 ), xf1, yf0, zf1, wf1 ), xs ),
+            Lerp( GetGradientDotPerlin( HashPrimesGradient<5>( seed, x0, y1, z1, w1 ), xf0, yf1, zf1, wf1 ), GetGradientDotPerlin( HashPrimesGradient<5>( seed, x1, y1, z1, w1 ), xf1, yf1, zf1, wf1 ), xs ), ys ) , zs ), ws );
     }
 
     // Corner-major Perlin 4D for a native register whose lanes share seed and y/z/w and span at most 3 x cells (uniform grids):
@@ -322,8 +322,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
             F fZ = zf0 - FS::Convert<float>( LatticeBlockPrimed<2>( zi, 1 ) - zi );
 
             return Lerp(
-                Perlin4DBlockLayerAVX512( HashPrimes( seed, xp, yp, zp, w0 ), xOffset, fY, fZ, wf0, xf0, xf1, xs, ys, zs ),
-                Perlin4DBlockLayerAVX512( HashPrimes( seed, xp, yp, zp, w1 ), xOffset, fY, fZ, wf1, xf0, xf1, xs, ys, zs ), ws );
+                Perlin4DBlockLayerAVX512( HashPrimesGradient<5>( seed, xp, yp, zp, w0 ), xOffset, fY, fZ, wf0, xf0, xf1, xs, ys, zs ),
+                Perlin4DBlockLayerAVX512( HashPrimesGradient<5>( seed, xp, yp, zp, w1 ), xOffset, fY, fZ, wf1, xf0, xf1, xs, ys, zs ), ws );
         }
         else
         {
@@ -332,10 +332,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
             I z1 = z0 + I( Primes::Z );
 
             return Lerp(
-                Lerp( Perlin4DBlockLayerAVX2( HashPrimes( seed, xp, yp, z0, w0 ), xOffset, fY, zf0, wf0, xf0, xf1, xs, ys ),
-                      Perlin4DBlockLayerAVX2( HashPrimes( seed, xp, yp, z1, w0 ), xOffset, fY, zf1, wf0, xf0, xf1, xs, ys ), zs ),
-                Lerp( Perlin4DBlockLayerAVX2( HashPrimes( seed, xp, yp, z0, w1 ), xOffset, fY, zf0, wf1, xf0, xf1, xs, ys ),
-                      Perlin4DBlockLayerAVX2( HashPrimes( seed, xp, yp, z1, w1 ), xOffset, fY, zf1, wf1, xf0, xf1, xs, ys ), zs ), ws );
+                Lerp( Perlin4DBlockLayerAVX2( HashPrimesGradient<5>( seed, xp, yp, z0, w0 ), xOffset, fY, zf0, wf0, xf0, xf1, xs, ys ),
+                      Perlin4DBlockLayerAVX2( HashPrimesGradient<5>( seed, xp, yp, z1, w0 ), xOffset, fY, zf1, wf0, xf0, xf1, xs, ys ), zs ),
+                Lerp( Perlin4DBlockLayerAVX2( HashPrimesGradient<5>( seed, xp, yp, z0, w1 ), xOffset, fY, zf0, wf1, xf0, xf1, xs, ys ),
+                      Perlin4DBlockLayerAVX2( HashPrimesGradient<5>( seed, xp, yp, z1, w1 ), xOffset, fY, zf1, wf1, xf0, xf1, xs, ys ), zs ), ws );
         }
     }
 
@@ -428,17 +428,17 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         I idx1 = idx0 + I( 0x04040404 );
 
         return Lerp( Lerp( Lerp(
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp0, wp0 ), fY0, fZ0, fW0, idx0, idx1, xf0, xf1, xs ),
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp0, wp0 ), fY1, fZ0, fW0, idx0, idx1, xf0, xf1, xs ), ys ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp0, zp0, wp0 ), fY0, fZ0, fW0, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp1, zp0, wp0 ), fY1, fZ0, fW0, idx0, idx1, xf0, xf1, xs ), ys ),
             Lerp(
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp1, wp0 ), fY0, fZ1, fW0, idx0, idx1, xf0, xf1, xs ),
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp1, wp0 ), fY1, fZ1, fW0, idx0, idx1, xf0, xf1, xs ), ys ), zs ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp0, zp1, wp0 ), fY0, fZ1, fW0, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp1, zp1, wp0 ), fY1, fZ1, fW0, idx0, idx1, xf0, xf1, xs ), ys ), zs ),
             Lerp( Lerp(
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp0, wp1 ), fY0, fZ0, fW1, idx0, idx1, xf0, xf1, xs ),
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp0, wp1 ), fY1, fZ0, fW1, idx0, idx1, xf0, xf1, xs ), ys ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp0, zp0, wp1 ), fY0, fZ0, fW1, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp1, zp0, wp1 ), fY1, fZ0, fW1, idx0, idx1, xf0, xf1, xs ), ys ),
             Lerp(
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp1, wp1 ), fY0, fZ1, fW1, idx0, idx1, xf0, xf1, xs ),
-            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp1, wp1 ), fY1, fZ1, fW1, idx0, idx1, xf0, xf1, xs ), ys ), zs ), ws );
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp0, zp1, wp1 ), fY0, fZ1, fW1, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimesGradient<5>( seedB, xp, yp1, zp1, wp1 ), fY1, fZ1, fW1, idx0, idx1, xf0, xf1, xs ), ys ), zs ), ws );
     }
 
     // One row of the SSE4.1 block: tables sA (x sign or zero), tB (b' or a' + b' when x is absent), tC (c'), signs applied by xor
