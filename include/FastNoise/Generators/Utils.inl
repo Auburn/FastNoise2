@@ -215,18 +215,35 @@ namespace FastNoise
         }
     }
 
+    // AVX512 Perlin 4D gradient components, see GetGradientDotPerlin
+    template<typename F, typename I>
+    FS_FORCEINLINE static void GetGradientPerlin4DAVX512( I hash, F& gX, F& gY, F& gZ, F& gW )
+    {
+        gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
+        gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
+
+        // gZ and gW don't depend on hash bit 0, so they only need single table permutes
+        I hashShifted = hash >> 1;
+        gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hashShifted, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1 ) );
+        gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hashShifted, FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0 ) );
+    }
+
+    // AVX2 Perlin 4D gradient signs (+/-1) of the a/b/c components, see GetGradientDotPerlin
+    template<typename F, typename I>
+    FS_FORCEINLINE static void GetGradientSignsPerlin4DAVX2( I hash, F& aSign, F& bSign, F& cSign )
+    {
+        aSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1 ), hash );
+        bSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1 ), hash );
+        cSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1 ), hash );
+    }
+
     template<typename F, typename I>
     FS_FORCEINLINE static F GetGradientDotPerlin( I hash, F fX, F fY, F fZ, F fW )
     {
         if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
         {
-            F gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ) );
-            F gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ), hash, FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ) );
-
-            // gZ and gW don't depend on hash bit 0, so they only need single table permutes
-            I hashShifted = hash >> 1;
-            F gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hashShifted, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 1, -1, -1 ) );
-            F gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hashShifted, FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0 ) );
+            F gX, gY, gZ, gW;
+            GetGradientPerlin4DAVX512( hash, gX, gY, gZ, gW );
 
             return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) ));
         }
@@ -241,9 +258,8 @@ namespace FastNoise
             if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
             {
                 // Look up the sign bits as +/-1 and apply them with mul/FMA
-                F aSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1 ), hash );
-                F bSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1 ), hash );
-                F cSign = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, 1, 1, 1, -1, -1, -1, -1 ), hash );
+                F aSign, bSign, cSign;
+                GetGradientSignsPerlin4DAVX2( hash, aSign, bSign, cSign );
 
                 return FS::FMulAdd( c, cSign, FS::FMulAdd( b, bSign, a * aSign ) );
             }
@@ -309,17 +325,33 @@ namespace FastNoise
     // are a subset of a 4 x 2 (x 2 x 2) block of lattice points. The block is hashed once per vector with lane = corner index
     // dx + 4 * dy + 8 * dz + 16 * dw (split over several native registers when needed) and each lane permutes its corners out of it
 
+    // First native register of a (a itself if it is a native register)
+    template<typename I>
+    FS_FORCEINLINE static const auto& LatticeBlockNative( const I& a )
+    {
+        if constexpr( FS::IsNativeV<I> )
+        {
+            return a;
+        }
+        else
+        {
+            return a.v0;
+        }
+    }
+
     // Lane 0 of the first native register broadcast to a native register
     template<typename I>
     FS_FORCEINLINE static auto LatticeBlockBroadcast( const I& a )
     {
+        using N = std::decay_t<decltype( LatticeBlockNative( a ) )>;
+
         if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
         {
-            return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm512_permutexvar_epi32 ), decltype( a.v0 )( 0 ), a.v0 );
+            return FS::NativeExec<N>( FS_BIND_INTRINSIC( _mm512_permutexvar_epi32 ), N( 0 ), LatticeBlockNative( a ) );
         }
         else if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
         {
-            return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), a.v0, decltype( a.v0 )( 0 ) );
+            return FS::NativeExec<N>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), LatticeBlockNative( a ), N( 0 ) );
         }
         else
         {
@@ -332,7 +364,17 @@ namespace FastNoise
     template<int XW = 4, typename I, typename... P>
     FS_FORCEINLINE static bool IsLatticeBlock( I& xOffset, const I& seed, const I& x, const P&... pos )
     {
-        if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
+        if constexpr( FS::IsNativeV<I> && ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) )
+        {
+            auto diff = []( const I& a ) { return a ^ LatticeBlockBroadcast( a ); };
+
+            xOffset = x - LatticeBlockBroadcast( x );
+
+            I outside = ( ( xOffset | ( xOffset + I( 1 ) ) ) & I( ~( XW - 1 ) ) ) | diff( seed ) | ( diff( pos ) | ... );
+
+            return !FS::AnyMask( outside != I( 0 ) );
+        }
+        else if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
         {
             auto diff = []( const I& a )
             {
@@ -375,7 +417,7 @@ namespace FastNoise
     {
         if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
         {
-            using N = decltype( pos.v0 );
+            using N = std::decay_t<decltype( LatticeBlockNative( pos ) )>;
 
             auto offset = [prime]( int lane )
             {

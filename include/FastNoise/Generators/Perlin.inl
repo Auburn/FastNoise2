@@ -181,6 +181,16 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         F zs = FS::Floor( z );
         F ws = FS::Floor( w );
 
+        if constexpr( FS::IsNativeV<F> && ( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) )
+        {
+            I xi = FloorToInt( x, xs );
+            I xOffset;
+            if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ), FS::Cast<std::int32_t>( w ) ) )
+            {
+                return GenPerlin4DBlock( seed, xOffset, xi, FloorToInt( y, ys ), FloorToInt( z, zs ), FloorToInt( w, ws ), x - xs, y - ys, z - zs, w - ws );
+            }
+        }
+
         I x0 = FloorToInt( x, xs ) * I( Primes::X );
         I y0 = FloorToInt( y, ys ) * I( Primes::Y );
         I z0 = FloorToInt( z, zs ) * I( Primes::Z );
@@ -216,6 +226,99 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
             Lerp(
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y0, z1, w1 ), xf0, yf0, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y0, z1, w1 ), xf1, yf0, zf1, wf1 ), xs ),
             Lerp( GetGradientDotPerlin( HashPrimes( seed, x0, y1, z1, w1 ), xf0, yf1, zf1, wf1 ), GetGradientDotPerlin( HashPrimes( seed, x1, y1, z1, w1 ), xf1, yf1, zf1, wf1 ), xs ), ys ) , zs ), ws );
+    }
+
+    // Corner-major Perlin 4D for a native register whose lanes share seed and y/z/w and span at most 3 x cells (uniform grids):
+    // hash the 4 x 2 x 2 x 2 lattice block once and fold the y/z/w part of each corner's dot product into tables, so that each
+    // lane does the same roundings as GetGradientDotPerlin
+    template<typename F, typename I>
+    FS_FORCEINLINE static F GenPerlin4DBlock( I seed, I xOffset, I xi, I yi, I zi, I wi, F xf0, F yf0, F zf0, F wf0 )
+    {
+        F xf1 = xf0 - F( 1 );
+        F zf1 = zf0 - F( 1 );
+        F wf1 = wf0 - F( 1 );
+
+        F xs = InterpQuintic( xf0 );
+        F ys = InterpQuintic( yf0 );
+        F zs = InterpQuintic( zf0 );
+        F ws = InterpQuintic( wf0 );
+
+        I xp = LatticeBlockPrimed<0>( xi, Primes::X );
+        I yp = LatticeBlockPrimed<1>( yi, Primes::Y );
+        I w0 = wi * I( Primes::W );
+        I w1 = w0 + I( Primes::W );
+
+        // y offset per block lane: yf0 or yf1 = yf0 - 1, same op as the per lane path
+        F fY = yf0 - FS::Convert<float>( LatticeBlockPrimed<1>( yi, 1 ) - yi );
+
+        if constexpr( F::ElementCount == 16 )
+        {
+            // One register per w layer, lane dx + 4 dy + 8 dz: dot = FMulAdd( gX, fX, FMulAdd( fY, gY, FMulAdd( fZ, gZ, fW * gW ) ) )
+            I zp = LatticeBlockPrimed<2>( zi, Primes::Z );
+            F fZ = zf0 - FS::Convert<float>( LatticeBlockPrimed<2>( zi, 1 ) - zi );
+
+            auto layer = [&]( const I& wp, const F& fW )
+            {
+                F gX, gY, gZ, gW;
+                GetGradientPerlin4DAVX512( HashPrimes( seed, xp, yp, zp, wp ), gX, gY, gZ, gW );
+                F dotYZW = FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) );
+
+                auto dot = [&]( int corner, const F& fX )
+                {
+                    I idx = xOffset + I( corner );
+                    return FS::FMulAdd( LatticeBlockPermute<F>( gX, idx ), fX, LatticeBlockPermute<F>( dotYZW, idx ) );
+                };
+
+                return Lerp( Lerp(
+                    Lerp( dot( 0, xf0 ), dot( 1, xf1 ), xs ),
+                    Lerp( dot( 4, xf0 ), dot( 5, xf1 ), xs ), ys ),
+                    Lerp(
+                    Lerp( dot( 8, xf0 ), dot( 9, xf1 ), xs ),
+                    Lerp( dot( 12, xf0 ), dot( 13, xf1 ), xs ), ys ), zs );
+            };
+
+            return Lerp( layer( w0, wf0 ), layer( w1, wf1 ), ws );
+        }
+        else
+        {
+            // One register per z/w layer, lane dx + 4 dy. The lane dot is FMulAdd( c, cSign, FMulAdd( b, bSign, a * aSign ) ) with
+            // a = x if the gradient has an x component (p > 0), else y. Per lane FMulAdd( fX, sA, tB ) + tC rounds the same:
+            // sA = aSign or a zero signed so that fX * sA = -0 (xf0 >= +0, xf1 < 0), tB = b * bSign or the whole inner term
+            // when x is absent, tC = c * cSign (products with +/-1 are exact)
+            I z0 = zi * I( Primes::Z );
+            I z1 = z0 + I( Primes::Z );
+
+            auto layer = [&]( const I& zp, const I& wp, const F& fZ, const F& fW )
+            {
+                I hash = HashPrimes( seed, xp, yp, zp, wp );
+                I p = hash & I( 3 << 3 );
+                auto hasX = p > I( 0 );
+
+                F b = FS::SelectHighBit( hash << 27, fY, fZ );
+                F c = FS::Select( p > I( 2 << 3 ), fZ, fW );
+                F aSign, bSign, cSign;
+                GetGradientSignsPerlin4DAVX2( hash, aSign, bSign, cSign );
+
+                F sA0 = FS::Select( hasX, aSign, F( -0.0f ) );
+                F sA1 = FS::Select( hasX, aSign, F( 0.0f ) );
+                F tB = FS::Select( hasX, b * bSign, FS::FMulAdd( b, bSign, fY * aSign ) );
+                F tC = c * cSign;
+
+                auto dot = [&]( int corner, const F& fX, const F& sA )
+                {
+                    I idx = xOffset + I( corner );
+                    return FS::FMulAdd( fX, LatticeBlockPermute<F>( sA, idx ), LatticeBlockPermute<F>( tB, idx ) ) + LatticeBlockPermute<F>( tC, idx );
+                };
+
+                return Lerp(
+                    Lerp( dot( 0, xf0, sA0 ), dot( 1, xf1, sA1 ), xs ),
+                    Lerp( dot( 4, xf0, sA0 ), dot( 5, xf1, sA1 ), xs ), ys );
+            };
+
+            return Lerp(
+                Lerp( layer( z0, w0, zf0, wf0 ), layer( z1, w0, zf1, wf0 ), zs ),
+                Lerp( layer( z0, w1, zf0, wf1 ), layer( z1, w1, zf1, wf1 ), zs ), ws );
+        }
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
