@@ -167,6 +167,7 @@ public:\
         this->mGenBlockPlanarFn[0] = &GenBlockPlanarFn<0, 1>;\
         this->mGenBlockPlanarFn[1] = &GenBlockPlanarFn<0, 1, 2>;\
         this->mGenBlockPlanarFn[2] = &GenBlockPlanarFn<0, 1, 2, 3>;\
+        this->template InitDispatchFns<DispatchClass>();\
     }\
 private:
 
@@ -179,6 +180,11 @@ protected:
     GenFn4D mGenFn4D = nullptr;
     GenBlockFn mGenBlockFn[3] = {};
     GenBlockPlanarFn mGenBlockPlanarFn[3] = {};
+
+    // Called by the constructor of the final class with its type, intermediate dispatch classes hide it to set up their own
+    // function pointers
+    template<typename FINAL>
+    void InitDispatchFns() {}
 
 public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
