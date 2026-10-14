@@ -5,27 +5,29 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarp, SIMD> : public virtual DomainWarp, public DispatchClass<Seeded<ScalableGenerator>, SIMD>
 {
 protected:
-    // Gen of the final warp classes: FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> ), so Warp() is not a virtual call
+    // Gen of the final warp classes: FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> ), so Warp() is not a virtual call.
+    // Members are read through the final class, at fixed offsets instead of through the virtual base table
     template<typename WarpT, typename... P>
     FS_FORCEINLINE float32v WarpGenT( int32v seed, P... pos ) const
     {
-        float32v warpAmp = float32v( mWarpAmplitude.constant );
+        const WarpT& self = static_cast<const WarpT&>( *this );
+        float32v warpAmp = float32v( self.mWarpAmplitude.constant );
 
-        if( mWarpAmplitude.simdGeneratorPtr )
+        if( self.mWarpAmplitude.simdGeneratorPtr )
         {
-            warpAmp = this->GetSourceValue( mWarpAmplitude, seed, pos... );
+            warpAmp = self.GetSourceValue( self.mWarpAmplitude, seed, pos... );
 
             // Warping by 0 doesn't move the position, skip it if the amplitude is 0 in every lane (e.g. masked regions)
             if( !FS::AnyMask( warpAmp != float32v( 0 ) ) )
             {
-                return this->GetSourceValue( mSource, seed, pos... );
+                return self.GetSourceValue( self.mSource, seed, pos... );
             }
         }
 
         // Seed offset is applied inside Warp() so it also applies when called from DomainWarpFractal
-        static_cast<const WarpT*>( this )->Warp( seed, warpAmp, ( pos * float32v( this->mFrequency ) )..., pos... );
+        self.Warp( seed, warpAmp, ( pos * float32v( self.mFrequency ) )..., pos... );
 
-        return this->GetSourceValue( mSource, seed, pos...);
+        return self.GetSourceValue( self.mSource, seed, pos...);
     }
 
 public:
