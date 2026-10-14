@@ -20,6 +20,14 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         }
     }
 
+    // AVX512 only: mask & ( a >= b ) or mask & ( a > b ) as one masked compare
+    template<bool OR_EQUAL>
+    FS_FORCEINLINE static mask32v MaskedGreater( mask32v mask, float32v a, float32v b )
+    {
+        constexpr int kPredicate = OR_EQUAL ? 0x1D : 0x1E; // _CMP_GE_OQ : _CMP_GT_OQ, not defined in the SSE TUs
+        return FS::NativeExec<mask32v>( []( auto m, auto fa, auto fb ) { return _mm512_mask_cmp_ps_mask( m, fa, fb, kPredicate ); }, mask, a, b );
+    }
+
     // Offsets, falloff and gradient of one 4D vertex. Evaluating each vertex in one go keeps fewer offsets and masks live
     // at once, mostly helps SSE where float32v only has 8 registers. (As a lambda MSVC miscompiled it for AVX512)
     FS_FORCEINLINE static float32v VertexGradientRampValue( float32v& falloff, double unskew, mask32v maskX, mask32v maskY, mask32v maskZ, mask32v maskW,
@@ -151,13 +159,28 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dy0 = dySkewed + unskewDelta;
         float32v dz0 = dzSkewed + unskewDelta;
 
-        mask32v maskX1 = xGreaterEqualY & xGreaterEqualZ;
-        mask32v maskY1 = FS::BitwiseAndNot( yGreaterEqualZ, xGreaterEqualY );
+        mask32v maskX1, maskY1, nMaskY2, nMaskZ2;
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            // Masked compares build each vertex mask in one instruction, a and( not ) of two compares is a compare under the other mask
+            maskX1 = MaskedGreater<true>( xGreaterEqualY, dxSkewed, dzSkewed );
+            maskY1 = MaskedGreater<false>( yGreaterEqualZ, dySkewed, dxSkewed );
+            nMaskY2 = MaskedGreater<false>( xGreaterEqualY, dzSkewed, dySkewed );
+            nMaskZ2 = MaskedGreater<true>( xGreaterEqualZ, dySkewed, dzSkewed );
+        }
+        else
+        {
+            maskX1 = xGreaterEqualY & xGreaterEqualZ;
+            maskY1 = FS::BitwiseAndNot( yGreaterEqualZ, xGreaterEqualY );
+        }
         mask32v maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
 
         mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
-        mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
-        mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
+        if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
+            nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
+        }
 
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dy3 = dy0 - float32v( kReflectUnskew3 * 3 + 1 );
