@@ -41,6 +41,160 @@ namespace FastNoise
     static constexpr float kSkew2f = kSkew2;
     static constexpr float kSkew4f = kSkew4;
 
+    // Lattice blocks (AVX2/AVX512, AArch64): on uniform grids all lanes of a vector usually share one lattice row, so their corners
+    // are a subset of a 4 x 2 (x 2 x 2) block of lattice points. The block is hashed once per vector with lane = corner index
+    // dx + 4 * dy + 8 * dz + 16 * dw (split over several native registers when needed) and each lane permutes its corners out of it.
+    // AArch64 has 4 lane native registers: a table there is a whole int32v/float32v (the 8 corners of one z/w layer), looked up with
+    // TBL over both halves
+#if defined( __aarch64__ ) || defined( _M_ARM64 )
+#define FN_AARCH64_TBL 1
+#else
+#define FN_AARCH64_TBL 0
+#endif
+
+    template<FastSIMD::FeatureSet SIMD>
+    static constexpr bool kLatticeBlockTbl = FN_AARCH64_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
+
+    // Lane 0 of the first native register broadcast to a native register
+    template<typename I>
+    FS_FORCEINLINE static auto LatticeBlockBroadcast( const I& a )
+    {
+        if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm512_permutexvar_epi32 ), decltype( a.v0 )( 0 ), a.v0 );
+        }
+        else if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
+        {
+            return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), a.v0, decltype( a.v0 )( 0 ) );
+        }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            return FS::NativeExec<decltype( a.v0 )>( []( auto v ) { return vdupq_laneq_s32( v, 0 ); }, a.v0 );
+        }
+#endif
+        else
+        {
+            return a;
+        }
+    }
+
+    // Lane 0 broadcast to a block table register (a native register, the whole int32v on AArch64)
+    template<typename I>
+    FS_FORCEINLINE static auto LatticeBlockSplat( const I& a )
+    {
+        if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            auto b = LatticeBlockBroadcast( a );
+            return I( b, b );
+        }
+        else
+        {
+            return LatticeBlockBroadcast( a );
+        }
+    }
+
+    // True if all lanes share lane 0's seed and floored y/z/w and their floored x is lane 0's or one more, xOffset = x - lane 0's x
+    template<typename I, typename... P>
+    FS_FORCEINLINE static bool IsLatticeBlock( I& xOffset, const I& seed, const I& x, const P&... pos )
+    {
+        if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            auto diff = []( const I& a )
+            {
+                auto b = LatticeBlockBroadcast( a );
+                return a ^ I( b, b );
+            };
+
+            auto x0 = LatticeBlockBroadcast( x );
+            xOffset = x - I( x0, x0 );
+
+            I outside = ( xOffset & I( ~1 ) ) | diff( seed ) | ( diff( pos ) | ... );
+            auto outsideN = outside.v0 | outside.v1;
+
+            return !FS::AnyMask( outsideN != decltype( outsideN )( 0 ) );
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    // Primed coordinates of AXIS for the lattice block corners in table register TABLE
+    template<int AXIS, int TABLE = 0, typename I>
+    FS_FORCEINLINE static auto LatticeBlockPrimed( const I& pos, int prime )
+    {
+        if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            using N = decltype( LatticeBlockSplat( pos ) );
+
+            auto offset = [prime]( int lane )
+            {
+                int corner = lane + TABLE * (int)N::ElementCount;
+                int axisOffset = AXIS == 0 ? corner & 3 : ( corner >> ( AXIS + 1 ) ) & 1;
+                return (int)( (unsigned)axisOffset * (unsigned)prime );
+            };
+
+            N offsets;
+            if constexpr( N::ElementCount == 16 )
+            {
+                offsets = FS::Constant<int, N::FeatureFlags>( offset( 0 ), offset( 1 ), offset( 2 ), offset( 3 ), offset( 4 ), offset( 5 ), offset( 6 ), offset( 7 ),
+                    offset( 8 ), offset( 9 ), offset( 10 ), offset( 11 ), offset( 12 ), offset( 13 ), offset( 14 ), offset( 15 ) );
+            }
+            else
+            {
+                static_assert( N::ElementCount == 8 );
+                offsets = FS::Constant<int, N::FeatureFlags>( offset( 0 ), offset( 1 ), offset( 2 ), offset( 3 ), offset( 4 ), offset( 5 ), offset( 6 ), offset( 7 ) );
+            }
+
+            return LatticeBlockSplat( pos ) * N( prime ) + offsets;
+        }
+        else
+        {
+            return pos;
+        }
+    }
+
+    // Per lane lookup of lattice block corner values, index = lane's corner index within the table register
+    template<typename F, typename T, typename I>
+    FS_FORCEINLINE static F LatticeBlockPermute( const T& table, const I& index )
+    {
+        if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, table );
+        }
+        else if constexpr( ( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) && std::is_same_v<typename F::ElementType, float> )
+        {
+            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), table, index );
+        }
+        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
+        {
+            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), table, index );
+        }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> )
+        {
+            auto t = FS::Cast<std::int32_t>( table );
+            uint8x16x2_t bytes = { { vreinterpretq_u8_s32( t.v0.GetNative() ), vreinterpretq_u8_s32( t.v1.GetNative() ) } };
+
+            auto lookup = [&bytes]( int32x4_t idx )
+            {
+                // Byte index = 4 * index + { 0, 1, 2, 3 }, indices past the table read 0
+                uint32x4_t byteIdx = vmlaq_n_u32( vdupq_n_u32( 0x03020100 ), vreinterpretq_u32_s32( idx ), 0x04040404 );
+                return vreinterpretq_s32_u8( vqtbl2q_u8( bytes, vreinterpretq_u8_u32( byteIdx ) ) );
+            };
+
+            using IT = decltype( t );
+            IT result( typename IT::DoubledType( lookup( index.v0.GetNative() ) ), typename IT::DoubledType( lookup( index.v1.GetNative() ) ) );
+            return FS::Cast<typename F::ElementType>( result );
+        }
+#endif
+        else
+        {
+            return F( 0 );
+        }
+    }
+
     // The hash, gradient and interpolation helpers are templated on the register type so they also work on the native
     // halves of float32v (.v0/.v1), for generators that evaluate each half separately to reduce register pressure
 
@@ -203,6 +357,15 @@ namespace FastNoise
 
             return FS::FMulAdd( gX, fX, fY * gY );
         }
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        {
+            // Same tables as AVX2 through AArch64 TBL, which reads 0 past the table instead of using the low 3 bits
+            I index = hash & I( 7 );
+            F gX = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1 + kRoot2f, -1 - kRoot2f, 1 + kRoot2f, -1 - kRoot2f, 1, -1, 1, -1 ), index );
+            F gY = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1, 1, -1, -1, 1 + kRoot2f, 1 + kRoot2f, -1 - kRoot2f, -1 - kRoot2f ), index );
+
+            return FS::FMulAdd( gX, fX, fY * gY );
+        }
         else
         {
             fX ^= FS::Cast<float>( hash << 31 );
@@ -303,160 +466,6 @@ namespace FastNoise
 
         hash *= hash * I( HashMultiplier::A );
         return FS::Convert<float>( hash );
-    }
-
-    // Lattice blocks (AVX2/AVX512, AArch64): on uniform grids all lanes of a vector usually share one lattice row, so their corners
-    // are a subset of a 4 x 2 (x 2 x 2) block of lattice points. The block is hashed once per vector with lane = corner index
-    // dx + 4 * dy + 8 * dz + 16 * dw (split over several native registers when needed) and each lane permutes its corners out of it.
-    // AArch64 has 4 lane native registers: a table there is a whole int32v/float32v (the 8 corners of one z/w layer), looked up with
-    // TBL over both halves
-#if defined( __aarch64__ ) || defined( _M_ARM64 )
-#define FN_AARCH64_TBL 1
-#else
-#define FN_AARCH64_TBL 0
-#endif
-
-    template<FastSIMD::FeatureSet SIMD>
-    static constexpr bool kLatticeBlockTbl = FN_AARCH64_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
-
-    // Lane 0 of the first native register broadcast to a native register
-    template<typename I>
-    FS_FORCEINLINE static auto LatticeBlockBroadcast( const I& a )
-    {
-        if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
-        {
-            return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm512_permutexvar_epi32 ), decltype( a.v0 )( 0 ), a.v0 );
-        }
-        else if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
-        {
-            return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), a.v0, decltype( a.v0 )( 0 ) );
-        }
-#if FN_AARCH64_TBL
-        else if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
-        {
-            return FS::NativeExec<decltype( a.v0 )>( []( auto v ) { return vdupq_laneq_s32( v, 0 ); }, a.v0 );
-        }
-#endif
-        else
-        {
-            return a;
-        }
-    }
-
-    // Lane 0 broadcast to a block table register (a native register, the whole int32v on AArch64)
-    template<typename I>
-    FS_FORCEINLINE static auto LatticeBlockSplat( const I& a )
-    {
-        if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
-        {
-            auto b = LatticeBlockBroadcast( a );
-            return I( b, b );
-        }
-        else
-        {
-            return LatticeBlockBroadcast( a );
-        }
-    }
-
-    // True if all lanes share lane 0's seed and floored y/z/w and their floored x is lane 0's or one more, xOffset = x - lane 0's x
-    template<typename I, typename... P>
-    FS_FORCEINLINE static bool IsLatticeBlock( I& xOffset, const I& seed, const I& x, const P&... pos )
-    {
-        if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<I::FeatureFlags> )
-        {
-            auto diff = []( const I& a )
-            {
-                auto b = LatticeBlockBroadcast( a );
-                return a ^ I( b, b );
-            };
-
-            auto x0 = LatticeBlockBroadcast( x );
-            xOffset = x - I( x0, x0 );
-
-            I outside = ( xOffset & I( ~1 ) ) | diff( seed ) | ( diff( pos ) | ... );
-            auto outsideN = outside.v0 | outside.v1;
-
-            return !FS::AnyMask( outsideN != decltype( outsideN )( 0 ) );
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    // Primed coordinates of AXIS for the lattice block corners in table register TABLE
-    template<int AXIS, int TABLE = 0, typename I>
-    FS_FORCEINLINE static auto LatticeBlockPrimed( const I& pos, int prime )
-    {
-        if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<I::FeatureFlags> )
-        {
-            using N = decltype( LatticeBlockSplat( pos ) );
-
-            auto offset = [prime]( int lane )
-            {
-                int corner = lane + TABLE * (int)N::ElementCount;
-                int axisOffset = AXIS == 0 ? corner & 3 : ( corner >> ( AXIS + 1 ) ) & 1;
-                return (int)( (unsigned)axisOffset * (unsigned)prime );
-            };
-
-            N offsets;
-            if constexpr( N::ElementCount == 16 )
-            {
-                offsets = FS::Constant<int, N::FeatureFlags>( offset( 0 ), offset( 1 ), offset( 2 ), offset( 3 ), offset( 4 ), offset( 5 ), offset( 6 ), offset( 7 ),
-                    offset( 8 ), offset( 9 ), offset( 10 ), offset( 11 ), offset( 12 ), offset( 13 ), offset( 14 ), offset( 15 ) );
-            }
-            else
-            {
-                static_assert( N::ElementCount == 8 );
-                offsets = FS::Constant<int, N::FeatureFlags>( offset( 0 ), offset( 1 ), offset( 2 ), offset( 3 ), offset( 4 ), offset( 5 ), offset( 6 ), offset( 7 ) );
-            }
-
-            return LatticeBlockSplat( pos ) * N( prime ) + offsets;
-        }
-        else
-        {
-            return pos;
-        }
-    }
-
-    // Per lane lookup of lattice block corner values, index = lane's corner index within the table register
-    template<typename F, typename T, typename I>
-    FS_FORCEINLINE static F LatticeBlockPermute( const T& table, const I& index )
-    {
-        if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
-        {
-            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, table );
-        }
-        else if constexpr( ( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) && std::is_same_v<typename F::ElementType, float> )
-        {
-            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), table, index );
-        }
-        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
-        {
-            return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), table, index );
-        }
-#if FN_AARCH64_TBL
-        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> )
-        {
-            auto t = FS::Cast<std::int32_t>( table );
-            uint8x16x2_t bytes = { { vreinterpretq_u8_s32( t.v0.GetNative() ), vreinterpretq_u8_s32( t.v1.GetNative() ) } };
-
-            auto lookup = [&bytes]( int32x4_t idx )
-            {
-                // Byte index = 4 * index + { 0, 1, 2, 3 }, indices past the table read 0
-                uint32x4_t byteIdx = vmlaq_n_u32( vdupq_n_u32( 0x03020100 ), vreinterpretq_u32_s32( idx ), 0x04040404 );
-                return vreinterpretq_s32_u8( vqtbl2q_u8( bytes, vreinterpretq_u8_u32( byteIdx ) ) );
-            };
-
-            using IT = decltype( t );
-            IT result( typename IT::DoubledType( lookup( index.v0.GetNative() ) ), typename IT::DoubledType( lookup( index.v1.GetNative() ) ) );
-            return FS::Cast<typename F::ElementType>( result );
-        }
-#endif
-        else
-        {
-            return F( 0 );
-        }
     }
 
     template<typename F>
