@@ -95,9 +95,26 @@ public:
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
 
-        int32v xi = FS::Convert<int32_t>( xs );
-        int32v yi = FS::Convert<int32_t>( ys );
-        int32v zi = FS::Convert<int32_t>( zs );
+        // Corner-major path (AVX2 only, on AVX512 the per lane path measured about as fast on grids and the gate costs on other input)
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            int32v xi = FS::Convert<int32_t>( xs );
+            int32v yi = FS::Convert<int32_t>( ys );
+            int32v zi = FS::Convert<int32_t>( zs );
+            int32v xOffset;
+
+            if( IsLatticeBlock( xOffset, seed, xi, yi, zi ) )
+            {
+                return WarpBlock( seed, warpAmp, xOffset, xi, yi, zi, x - xs, y - ys, z - zs, xOut, yOut, zOut );
+            }
+        }
+
+        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( Primes::X );
+        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( Primes::Y );
+        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( Primes::Z );
+        int32v x1 = x0 + int32v( Primes::X );
+        int32v y1 = y0 + int32v( Primes::Y );
+        int32v z1 = z0 + int32v( Primes::Z );
 
         float32v xs1 = InterpHermite( x - xs );
         float32v ys1 = InterpHermite( y - ys );
@@ -107,89 +124,6 @@ public:
         float32v zs0 = float32v( 1 ) - zs1;
 
         float32v normalise( 1.0f / (0x3ff / 2.0f) );
-
-        auto output = [&]( float32v xWarp, float32v yWarp, float32v zWarp )
-        {
-            xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
-            yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
-            zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
-
-            xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
-            yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
-            zOut = FS::FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
-
-            return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
-        };
-
-        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512): hash and decode the 4 x 2 x 2 lattice block
-        // once (one register on AVX512, z0/z1 registers on AVX2), permute the decoded corner values per lane. Same values and
-        // FMA order as the per lane path
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
-        {
-            int32v xOffset;
-            if( IsLatticeBlock( xOffset, seed, xi, yi, zi ) )
-            {
-                auto seedB = LatticeBlockBroadcast( seed );
-                auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
-                auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
-                auto hashZ0 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
-
-                using N = decltype( hashZ0 );
-                using NF = decltype( FS::Convert<float>( hashZ0 ) );
-
-                struct Table
-                {
-                    NF x, y, z;
-                };
-                auto decode = []( const N& hash )
-                {
-                    return Table{ FS::Convert<float>( hash & N( 0x3ff ) ), FS::Convert<float>( ( hash >> 11 ) & N( 0x3ff ) ),
-                                  FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) };
-                };
-
-                Table tZ0 = decode( hashZ0 );
-                Table tZ1 = tZ0;
-                int32v xOffsetZ1 = xOffset + int32v( 8 );
-
-                float32v xWarp, yWarp, zWarp;
-                auto corner = [&]( const Table& t, const float32v& contrib, const int32v& idx )
-                {
-                    xWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( t.x, idx ), xWarp );
-                    yWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( t.y, idx ), yWarp );
-                    zWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( t.z, idx ), zWarp );
-                };
-
-                float32v contrib000 = xs0 * ys0 * zs0;
-                xWarp = contrib000 * LatticeBlockPermute<float32v>( tZ0.x, xOffset );
-                yWarp = contrib000 * LatticeBlockPermute<float32v>( tZ0.y, xOffset );
-                zWarp = contrib000 * LatticeBlockPermute<float32v>( tZ0.z, xOffset );
-
-                corner( tZ0, xs1 * ys0 * zs0, xOffset + int32v( 1 ) );
-                corner( tZ0, xs0 * ys1 * zs0, xOffset + int32v( 4 ) );
-                corner( tZ0, xs1 * ys1 * zs0, xOffset + int32v( 5 ) );
-
-                // AVX512: the whole block fits one register, z1 corners are at index + 8
-                if constexpr( N::ElementCount < 16 )
-                {
-                    tZ1 = decode( HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) ) );
-                    xOffsetZ1 = xOffset;
-                }
-
-                corner( tZ1, xs0 * ys0 * zs1, xOffsetZ1 );
-                corner( tZ1, xs1 * ys0 * zs1, xOffsetZ1 + int32v( 1 ) );
-                corner( tZ1, xs0 * ys1 * zs1, xOffsetZ1 + int32v( 4 ) );
-                corner( tZ1, xs1 * ys1 * zs1, xOffsetZ1 + int32v( 5 ) );
-
-                return output( xWarp, yWarp, zWarp );
-            }
-        }
-
-        int32v x0 = xi * int32v( Primes::X );
-        int32v y0 = yi * int32v( Primes::Y );
-        int32v z0 = zi * int32v( Primes::Z );
-        int32v x1 = x0 + int32v( Primes::X );
-        int32v y1 = y0 + int32v( Primes::Y );
-        int32v z1 = z0 + int32v( Primes::Z );
 
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\
@@ -214,7 +148,15 @@ public:
 
     #undef GRADIENT_COORD
 
-        return output( xWarp, yWarp, zWarp );
+        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
+        zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
+
+        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        zOut = FS::FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
+
+        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
     }
             
     FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
@@ -234,6 +176,76 @@ public:
     }
 
 private:
+    template<typename T>
+    FS_FORCEINLINE static void WarpBlockCorner( const T& tableX, const T& tableY, const T& tableZ, float32v contrib, int32v index, float32v& xWarp, float32v& yWarp, float32v& zWarp )
+    {
+        xWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( tableX, index ), xWarp );
+        yWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( tableY, index ), yWarp );
+        zWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( tableZ, index ), zWarp );
+    }
+
+    // 3D corner-major path for lane-coherent vectors (uniform grids): lanes share seed and floored y/z and span at most 3 x cells.
+    // Hash and decode the 4 x 2 x 2 lattice block once (one register on AVX512, z0/z1 registers on AVX2) and permute the decoded
+    // corner values per lane, same values and FMA order as the per lane path in Warp
+    FS_FORCEINLINE float32v WarpBlock( int32v seed, float32v warpAmp, int32v xOffset, int32v xi, int32v yi, int32v zi, float32v xf, float32v yf, float32v zf, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    {
+        float32v xs1 = InterpHermite( xf );
+        float32v ys1 = InterpHermite( yf );
+        float32v zs1 = InterpHermite( zf );
+        float32v xs0 = float32v( 1 ) - xs1;
+        float32v ys0 = float32v( 1 ) - ys1;
+        float32v zs0 = float32v( 1 ) - zs1;
+
+        float32v normalise( 1.0f / (0x3ff / 2.0f) );
+
+        auto seedB = LatticeBlockBroadcast( seed );
+        auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
+        auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
+        auto hashZ0 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
+        auto hashZ1 = hashZ0;
+        int32v xOffsetZ1 = xOffset + int32v( 8 );
+
+        // AVX512: the whole block fits one register, z1 corners are at index + 8
+        using N = decltype( hashZ0 );
+        if constexpr( N::ElementCount < 16 )
+        {
+            hashZ1 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+            xOffsetZ1 = xOffset;
+        }
+
+        auto xZ0 = FS::Convert<float>( hashZ0 & N( 0x3ff ) );
+        auto yZ0 = FS::Convert<float>( ( hashZ0 >> 11 ) & N( 0x3ff ) );
+        auto zZ0 = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashZ0, 22 ) );
+
+        float32v contrib000 = xs0 * ys0 * zs0;
+        float32v xWarp = contrib000 * LatticeBlockPermute<float32v>( xZ0, xOffset );
+        float32v yWarp = contrib000 * LatticeBlockPermute<float32v>( yZ0, xOffset );
+        float32v zWarp = contrib000 * LatticeBlockPermute<float32v>( zZ0, xOffset );
+
+        WarpBlockCorner( xZ0, yZ0, zZ0, xs1 * ys0 * zs0, xOffset + int32v( 1 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ0, yZ0, zZ0, xs0 * ys1 * zs0, xOffset + int32v( 4 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ0, yZ0, zZ0, xs1 * ys1 * zs0, xOffset + int32v( 5 ), xWarp, yWarp, zWarp );
+
+        auto xZ1 = FS::Convert<float>( hashZ1 & N( 0x3ff ) );
+        auto yZ1 = FS::Convert<float>( ( hashZ1 >> 11 ) & N( 0x3ff ) );
+        auto zZ1 = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashZ1, 22 ) );
+
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs0 * ys0 * zs1, xOffsetZ1, xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs1 * ys0 * zs1, xOffsetZ1 + int32v( 1 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs0 * ys1 * zs1, xOffsetZ1 + int32v( 4 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs1 * ys1 * zs1, xOffsetZ1 + int32v( 5 ), xWarp, yWarp, zWarp );
+
+        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
+        zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
+
+        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        zOut = FS::FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
+
+        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
+    }
+
     // Width generic copies of InterpHermite/HashPrimesHB from Utils.inl, used on native register halves
     template<typename F>
     FS_FORCEINLINE static F InterpHermiteHalf( F t )
