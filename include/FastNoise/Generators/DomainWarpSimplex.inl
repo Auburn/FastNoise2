@@ -499,7 +499,7 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gW, fW, valueC );
             valueD = FS::FMulAdd( valueD_gW, fW, valueD );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) || kLatticeBlockTbl<SIMD> )
         {
             // Every basis gives the axes four roles: the ( positive ) indexed axis, the first and second unindexed axes and
             // either the negative indexed axis ( pairwise ) or the third unindexed axis ( single/extra ). With f gathered in
@@ -516,7 +516,18 @@ namespace FastNoise
             else // Byte shuffle the table into the top byte, the other bytes of the shuffle index have the high bit set and become 0
             {
                 I shuffleIndex = ( FS::BitShiftRightZeroExtend( indexBasis, 3 ) & I( 0x0F000000 ) ) | I( 0x00808080 );
-                roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B ), shuffleIndex );
+                auto table = FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B );
+
+                if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+                {
+                    roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), table, shuffleIndex );
+                }
+#if FN_AARCH64_TBL
+                else // AArch64 TBL: indices >= 16 also become 0
+                {
+                    roleAxes = FS::NativeExec<I>( []( int32x4_t t, int32x4_t idx ) { return vreinterpretq_s32_u8( vqtbl1q_u8( vreinterpretq_u8_s32( t ), vreinterpretq_u8_s32( idx ) ) ); }, table, shuffleIndex );
+                }
+#endif
             }
 
             auto gatherRole = [&]( I axisBits )

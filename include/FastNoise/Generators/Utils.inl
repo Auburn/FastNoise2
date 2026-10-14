@@ -311,13 +311,13 @@ namespace FastNoise
     // AArch64 has 4 lane native registers: a table there is a whole int32v/float32v (the 8 corners of one z/w layer), looked up with
     // TBL over both halves
 #if defined( __aarch64__ ) || defined( _M_ARM64 )
-#define FN_LATTICE_BLOCK_TBL 1
+#define FN_AARCH64_TBL 1
 #else
-#define FN_LATTICE_BLOCK_TBL 0
+#define FN_AARCH64_TBL 0
 #endif
 
     template<FastSIMD::FeatureSet SIMD>
-    static constexpr bool kLatticeBlockTbl = FN_LATTICE_BLOCK_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
+    static constexpr bool kLatticeBlockTbl = FN_AARCH64_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
 
     // Lane 0 of the first native register broadcast to a native register
     template<typename I>
@@ -331,7 +331,7 @@ namespace FastNoise
         {
             return FS::NativeExec<decltype( a.v0 )>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), a.v0, decltype( a.v0 )( 0 ) );
         }
-#if FN_LATTICE_BLOCK_TBL
+#if FN_AARCH64_TBL
         else if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
         {
             return FS::NativeExec<decltype( a.v0 )>( []( auto v ) { return vdupq_laneq_s32( v, 0 ); }, a.v0 );
@@ -435,7 +435,7 @@ namespace FastNoise
         {
             return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), table, index );
         }
-#if FN_LATTICE_BLOCK_TBL
+#if FN_AARCH64_TBL
         else if constexpr( kLatticeBlockTbl<F::FeatureFlags> )
         {
             auto t = FS::Cast<std::int32_t>( table );
