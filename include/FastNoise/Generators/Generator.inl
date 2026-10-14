@@ -100,6 +100,15 @@ public:
         gen->mGenGridBlockFn[DIMS - 2]( gen, seed, xTable, rowPos, rows, xCount, out );
     }
 
+    // GenTileable2D's version of GenGridBlockFn: the 4D positions x and z are the column tables, y and w are per row
+    using GenTileableBlockFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* __restrict, const float* __restrict, const float*, intptr_t, intptr_t, float* );
+
+    static FS_FORCEINLINE void CallGenTileableBlock( const DispatchClass* gen, int32v seed, const float* xTable, const float* zTable, const float* rowPos, intptr_t rows, intptr_t xSize, float* out )
+    {
+        assert( gen->mGenTileableBlockFn );
+        gen->mGenTileableBlockFn( gen, seed, xTable, zTable, rowPos, rows, xSize, out );
+    }
+
 // Defines the static Gen and GenBlock functions of a generator and points the function pointers at them,
 // GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
 #define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
@@ -137,6 +146,17 @@ public:
             }\
         }\
     }\
+    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenTileableBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict xTable, const float* __restrict zTable, const float* rowPos, intptr_t rows, intptr_t xSize, float* out )\
+    {\
+        for( ; rows > 0; rows--, rowPos += 2 * int32v::ElementCount, out += xSize )\
+        {\
+            for( intptr_t i = 0; i < xSize; i += int32v::ElementCount )\
+            {\
+                GenResultT result = GenFn( gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) );\
+                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            }\
+        }\
+    }\
 public:\
     DispatchClass()\
     {\
@@ -149,6 +169,7 @@ public:\
         this->mGenGridBlockFn[0] = &GenGridBlockFn<0>;\
         this->mGenGridBlockFn[1] = &GenGridBlockFn<0, 1>;\
         this->mGenGridBlockFn[2] = &GenGridBlockFn<0, 1, 2>;\
+        this->mGenTileableBlockFn = &GenTileableBlockFn;\
     }\
 private:
 
@@ -161,6 +182,7 @@ protected:
     GenFn4D mGenFn4D = nullptr;
     GenBlockFn mGenBlockFn[3] = {};
     GenGridBlockFn mGenGridBlockFn[3] = {};
+    GenTileableBlockFn mGenTileableBlockFn = nullptr;
 
 public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
@@ -628,6 +650,11 @@ public:
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 
+        if( IsTileableRowsSize( xSize ) && ySize > 0 )
+        {
+            return GenTileableRows( noiseOut, xSize, ySize, xFreq, yFreq, xMul, yMul, seed );
+        }
+
         // xPos/zPos are the same in every row, compute them once per column. The tables continue past the
         // end of the row with its first columns, so the vector starting at any column is a contiguous load
         intptr_t xTableSize = xSize + (intptr_t)int32v::ElementCount;
@@ -794,6 +821,78 @@ private:
         AccumulateMinMax( noiseOut, blockIndex, lastIndex, min, max );
 
         float32v gen = CallGenGridRow( std::make_index_sequence<DIMS - 1>(), seed, &xTable[xCount - (intptr_t)int32v::ElementCount], lastRowPos );
+
+        return StoreRemaining( noiseOut, lastIndex + (intptr_t)int32v::ElementCount, lastIndex, min, max, gen );
+    }
+
+    // Longest row for the tileable row path, its x/z tables are on the stack
+    static constexpr intptr_t kTileableRowsMaxXSize = 1024;
+
+    static FS_FORCEINLINE bool IsTileableRowsSize( int xSize )
+    {
+        return xSize > 0 && xSize <= kTileableRowsMaxXSize && xSize % (int)int32v::ElementCount == 0;
+    }
+
+    // GenTileable2D with rows of whole vectors, see GenUniformGridRows. The positions are computed as in GenTileable2D
+    FastNoise::OutputMinMax GenTileableRows( float* noiseOut, intptr_t xSize, intptr_t ySize, float32v xFreq, float32v yFreq, float32v xMul, float32v yMul, int seed ) const
+    {
+        float32v min( kInfinity );
+        float32v max( -kInfinity );
+
+        alignas( 64 ) float xPosTable[kTileableRowsMaxXSize];
+        alignas( 64 ) float zPosTable[kTileableRowsMaxXSize];
+
+        for( intptr_t column = 0; column < xSize; column += int32v::ElementCount )
+        {
+            float32v xF = FS::Convert<float>( int32v( (int32_t)column ) + FS::LoadIncremented<int32v>() ) * xMul;
+
+            FS::Store( &xPosTable[column], FS::Cos( xF ) * xFreq );
+            FS::Store( &zPosTable[column], FS::Sin( xF ) * xFreq );
+        }
+
+        constexpr intptr_t kMaxBlockRows = kMinMaxBlockSize / (intptr_t)int32v::ElementCount;
+        intptr_t blockRows = std::max<intptr_t>( 1, kMinMaxBlockSize / xSize );
+
+        // y and w per row
+        alignas( 64 ) float rowPos[kMaxBlockRows * 2 * int32v::ElementCount];
+        intptr_t blockIndex;
+        intptr_t rows;
+
+        for( intptr_t row = 0;; )
+        {
+            rows = std::min<intptr_t>( blockRows, ySize - row );
+
+            for( intptr_t blockRow = 0; blockRow < rows; blockRow++ )
+            {
+                float32v yF = FS::Convert<float>( int32v( (int32_t)( row + blockRow ) ) ) * yMul;
+
+                FS::Store( &rowPos[blockRow * 2 * int32v::ElementCount], FS::Cos( yF ) * yFreq );
+                FS::Store( &rowPos[( blockRow * 2 + 1 ) * int32v::ElementCount], FS::Sin( yF ) * yFreq );
+            }
+
+            blockIndex = row * xSize;
+            row += rows;
+
+            if( row == ySize )
+            {
+                break;
+            }
+
+            CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, rowPos, rows, xSize, &noiseOut[blockIndex] );
+            AccumulateMinMax( noiseOut, blockIndex, row * xSize, min, max );
+        }
+
+        // The last vector of the last block is generated by CallGen and stored by StoreRemaining as in the other paths
+        intptr_t lastIndex = xSize * ySize - (intptr_t)int32v::ElementCount;
+        intptr_t lastColumn = xSize - (intptr_t)int32v::ElementCount;
+        const float* lastRowPos = &rowPos[( rows - 1 ) * 2 * int32v::ElementCount];
+
+        CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, rowPos, rows - 1, xSize, &noiseOut[blockIndex] );
+        CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, lastRowPos, 1, lastColumn, &noiseOut[lastIndex - lastColumn] );
+        AccumulateMinMax( noiseOut, blockIndex, lastIndex, min, max );
+
+        float32v gen = CallGen( this, int32v( seed ), FS::Load<float32v>( &xPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos ),
+            FS::Load<float32v>( &zPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos + int32v::ElementCount ) );
 
         return StoreRemaining( noiseOut, lastIndex + (intptr_t)int32v::ElementCount, lastIndex, min, max, gen );
     }
