@@ -19,10 +19,26 @@
 
 namespace FastNoise
 {
-    // Unit gradient ( bits 28-30 ) and unit outer vector ( bits 25-27 ) each from 8 directions at 22.5 + 45k degrees.
+    // The (Super)Simplex warps hash each vertex with HashPrimesHB ( hash * A, no xorshift ) and take every bit they consume
+    // from the well mixed top bits 21-31. Left shifts are applied to ( hash >> 21 ) rather than to the product itself, so
+    // the compiler can't fold them into extra multiplies. The 3D GradientOuterProduct decode reads low bits and keeps HashPrimes
+    template<VectorizationScheme Scheme, int Dim, typename I, typename... P>
+    FS_FORCEINLINE static I HashWarpVertex( I seed, P... primedPos )
+    {
+        if constexpr( Dim == 3 && Scheme == VectorizationScheme::GradientOuterProduct )
+        {
+            return HashPrimes( seed, primedPos... );
+        }
+        else
+        {
+            return HashPrimesHB( seed, primedPos... );
+        }
+    }
+
+    // Unit gradient ( bits 29-31 ) and unit outer vector ( bits 26-28 ) each from 8 directions at 22.5 + 45k degrees.
     // 3 bit indices need no remapping and fit 8 entry tables
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FS_FORCEINLINE static void ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FS_FORCEINLINE static void ApplyGradientOuterProductVectorProductSimplex( int32v hash, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         constexpr float kA = 0.9238795325112867f; // cos( 22.5 )
         constexpr float kB = 0.3826834323650898f; // sin( 22.5 )
@@ -30,8 +46,8 @@ namespace FastNoise
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            int32v indexGradient = hash31 >> 28;
-            int32v indexOuterVector = hash31 >> 25; // permutexvar reads 4 bits, the tables repeat after 8
+            int32v indexGradient = hash >> 29;
+            int32v indexOuterVector = hash >> 26; // permutexvar reads 4 bits, the tables repeat after 8
 
             gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( kA, kB, -kB, -kA, -kA, -kB, kB, kA, kA, kB, -kB, -kA, -kA, -kB, kB, kA ) );
             gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( kB, kA, kA, kB, -kB, -kA, -kA, -kB, kB, kA, kA, kB, -kB, -kA, -kA, -kB ) );
@@ -40,11 +56,13 @@ namespace FastNoise
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
-            int32v indexGradient = hash31 >> 28;
-            int32v indexOuterVector = hash31 >> 25; // vpermps only reads the low 3 bits
+            int32v indexGradient = hash >> 29;
+            int32v indexOuterVector = hash >> 26; // vpermps only reads the low 3 bits
             if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
             {
-                indexOuterVector &= int32v( 7 ); // AArch64 TBL reads 0 past the table
+                // AArch64 TBL reads 0 past the table
+                indexGradient &= int32v( 7 );
+                indexOuterVector &= int32v( 7 );
             }
 
             gX = FN_PermuteTable8( FS::Constant<float>( kA, kB, -kB, -kA, -kA, -kB, kB, kA ), indexGradient );
@@ -54,20 +72,24 @@ namespace FastNoise
         }
         else
         {
-            // Index bit 0: odd base direction, bit 1: rotate by 90, bit 2: rotate by 180
-            auto rotate = []( int32v bits, float32v baseX, float32v baseY, float32v& outX, float32v& outY )
+            // Index bit 0: odd base direction, bit 1: rotate by 90, bit 2: rotate by 180. Both rotations by 180 are applied as
+            // sign flips of the contribution: bit 31 directly, bit 28 with a select ( clang folds an isolated
+            // ( ( hash >> 21 ) << 24 ) & mask into ( hash * ( A << 3 ) ) & mask, i.e. an extra multiply )
+            auto rotate = []( int32v rotate90, float32v baseX, float32v baseY, float32v& outX, float32v& outY )
             {
-                float32v flip = FS::Cast<float>( ( bits << 1 ) & int32v( 1 << 31 ) );
-                outX = FS::SelectHighBit( bits << 2, float32v( 0 ) - baseY, baseX ) ^ flip;
-                outY = FS::SelectHighBit( bits << 2, baseX, baseY ) ^ flip;
+                outX = FS::SelectHighBit( rotate90, float32v( 0 ) - baseY, baseX );
+                outY = FS::SelectHighBit( rotate90, baseX, baseY );
             };
 
-            int32v oddGradient = hash31 << 3;
-            rotate( hash31, FS::SelectHighBit( oddGradient, float32v( kB ), float32v( kA ) ), FS::SelectHighBit( oddGradient, float32v( kA ), float32v( kB ) ), gX, gY );
+            int32v hashTop = hash >> 21;
+            int32v oddGradient = hashTop << 23;
+            rotate( hashTop << 22, FS::SelectHighBit( oddGradient, float32v( kB ), float32v( kA ) ), FS::SelectHighBit( oddGradient, float32v( kA ), float32v( kB ) ), gX, gY );
 
-            int32v outerBits = hash31 << 3; // bits 25-27 -> 28-30
-            int32v oddOuter = outerBits << 3;
-            rotate( outerBits, FS::SelectHighBit( oddOuter, float32v( kB ), float32v( kA ) ), FS::SelectHighBit( oddOuter, float32v( kA ), float32v( kB ) ), vX, vY );
+            int32v oddOuter = hashTop << 26;
+            rotate( hashTop << 25, FS::SelectHighBit( oddOuter, float32v( kB ), float32v( kA ) ), FS::SelectHighBit( oddOuter, float32v( kA ), float32v( kB ) ), vX, vY );
+
+            multiplier ^= FS::Cast<float>( hash & int32v( 1 << 31 ) );
+            multiplier = FS::SelectHighBit( hashTop << 24, float32v( 0 ) - multiplier, multiplier );
         }
 
         multiplier *= FN_FMulAdd( fY, gY, fX * gX );
@@ -133,13 +155,34 @@ namespace FastNoise
     }
 
     // Gradient and outer vector both from the 32 vectors ( 0, +-1, +-1, +-1 ) and permutations ( as 4D Perlin ): the
-    // gradient from hash bits 0-4 ( GetGradientDotPerlin ), the outer vector from bits 5-9 with the same layout
+    // gradient from hash bits 27-31 ( GetGradientDotPerlin ), the outer vector from bits 22-26 with the same layout
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FN_WARP_HELPER_4D ApplyGradientOuterProductVectorProductSimplex( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
-        multiplier *= GetGradientDotPerlin( hash, fX, fY, fZ, fW );
+        int32v hashGradient = hash >> 27; // bits 27-31
 
-        int32v hashOuter = hash >> 5;
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // AArch64: TBL lookup of hash & 31
+        {
+            multiplier *= GetGradientDotPerlin( hashGradient, fX, fY, fZ, fW );
+        }
+        else
+        {
+            // GetGradientDotPerlin's SSE path with the signs taken as ( hashGradient << n ) & mask: its ( hash >> 1 ) << 31 form
+            // would be folded into ( hash * A ) << 3 and then into an extra multiply
+            int32v p = hashGradient & int32v( 3 << 3 );
+
+            float32v a = FS::Select( p > int32v( 0 ), fX, fY );
+            float32v b = FS::SelectHighBit( hashGradient << 27, fY, fZ );
+            float32v c = FS::Select( p > int32v( 2 << 3 ), fZ, fW );
+
+            float32v aSign = FS::Cast<float>( hashGradient << 31 );
+            float32v bSign = FS::Cast<float>( ( hashGradient << 30 ) & int32v( 1 << 31 ) );
+            float32v cSign = FS::Cast<float>( ( hashGradient << 29 ) & int32v( 1 << 31 ) );
+
+            multiplier *= ( a ^ aSign ) + ( b ^ bSign ) + ( c ^ cSign );
+        }
+
+        int32v hashOuter = hash >> 22; // bits 22-26
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
@@ -172,40 +215,50 @@ namespace FastNoise
 
     // Rotation by a multiple of 45 degrees ( 3 hash bits into an 8 entry cos/sin table ) and a hashed reflection: the dihedral group D8
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         constexpr float kR = 0.7071067811865476f;
-        float32v cos, sin;
+        float32v cos, sin, reflect; // Bit 31: reflection
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            int32v index = hash31 >> 28;
+            int32v index = hash >> 28; // permutexvar reads 4 bits, the tables repeat after 8
 
-            cos = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, kR, 0, -kR, -1, -kR, 0, kR, 0, 0, 0, 0, 0, 0, 0, 0 ) );
-            sin = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 0, kR, 1, kR, 0, -kR, -1, -kR, 0, 0, 0, 0, 0, 0, 0, 0 ) );
+            cos = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, kR, 0, -kR, -1, -kR, 0, kR, 1, kR, 0, -kR, -1, -kR, 0, kR ) );
+            sin = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 0, kR, 1, kR, 0, -kR, -1, -kR, 0, kR, 1, kR, 0, -kR, -1, -kR ) );
+            reflect = FS::Cast<float>( hash & int32v( 1 << 31 ) );
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
-            int32v index = hash31 >> 28; // [0,8), hash31 has a clear sign bit
+            int32v index = hash >> 28; // vpermps only reads the low 3 bits
+            if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
+            {
+                index &= int32v( 7 ); // AArch64 TBL reads 0 past the table
+            }
 
             cos = FN_PermuteTable8( FS::Constant<float>( 1, kR, 0, -kR, -1, -kR, 0, kR ), index );
             sin = FN_PermuteTable8( FS::Constant<float>( 0, kR, 1, kR, 0, -kR, -1, -kR ), index );
+            reflect = FS::Cast<float>( hash & int32v( 1 << 31 ) );
         }
         else
         {
             // Bit 28: diagonal, bit 29: rotate by 90, bit 30: rotate by 180
-            int32v diagonal = hash31 << 3;
+            int32v hashTop = hash >> 21;
+            int32v diagonal = hashTop << 24;
             float32v baseCos = FS::SelectHighBit( diagonal, float32v( kR ), float32v( 1 ) );
             float32v baseSin = FS::SelectHighBit( diagonal, float32v( kR ), float32v( 0 ) );
 
-            int32v rotate90 = hash31 << 2;
-            float32v flip = FS::Cast<float>( ( hash31 << 1 ) & int32v( 1 << 31 ) );
-            cos = FS::SelectHighBit( rotate90, float32v( 0 ) - baseSin, baseCos ) ^ flip;
-            sin = FS::SelectHighBit( rotate90, baseCos, baseSin ) ^ flip;
+            // The rotation by 180 is applied as a sign flip of the contribution with a select: clang folds an isolated
+            // ( ( hash >> 21 ) << 22 ) & mask into ( hash * ( A << 1 ) ) & mask, i.e. an extra multiply
+            int32v rotate90 = hashTop << 23;
+            cos = FS::SelectHighBit( rotate90, float32v( 0 ) - baseSin, baseCos );
+            sin = FS::SelectHighBit( rotate90, baseCos, baseSin );
+            multiplier = FS::SelectHighBit( hashTop << 22, float32v( 0 ) - multiplier, multiplier );
+            reflect = FS::Cast<float>( hash & int32v( 1 << 31 ) );
         }
 
         valueX = FN_FMulAdd( multiplier, FN_FNMulAdd( fY, sin, fX * cos ), valueX );
-        multiplier ^= FS::Cast<float>( hash31 << 31 );
+        multiplier ^= reflect;
         valueY = FN_FMulAdd( multiplier, FN_FMulAdd( fY, cos, fX * sin ), valueY );
     }
 
@@ -214,46 +267,50 @@ namespace FastNoise
     // directions), P a hashed axis permutation and S hashed per axis sign flips. The outer signed permutations act
     // irreducibly, so the warp covariance is isotropic like with a general random rotation, while the inner choice
     // keeps the matrix rows from all being axis aligned. Only selects, sign flips and a few adds, no table lookups.
-    // HashPrimes() leaves bit 31 clear, the usable bits are 0-30
+    // hashTop = HashPrimesHB() >> 21: bit k of hashTop is hash bit 21 + k
 
     template<typename F, typename I>
-    FS_FORCEINLINE static F FlipSign( F value, I hash31, int bit )
+    FS_FORCEINLINE static F FlipSign( F value, I hashTop, int bit )
     {
-        return value ^ FS::Cast<float>( ( hash31 << ( 31 - bit ) ) & I( 1 << 31 ) );
+        return value ^ FS::Cast<float>( ( hashTop << ( 31 - bit ) ) & I( 1 << 31 ) );
     }
 
     // M = ( 2, 2, -1 ) / 3 row permutations: ( 2/3 sum - z, 2/3 sum - y, 2/3 sum - x ). P: cyclic axis rotation [0,3)
+    // Bits: rotation from the whole top of the hash ( signed compares ), 21 z sign, 22 mix, 23-25 output signs
     template<typename F, typename I>
-    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProductImpl( I hash31, F fX, F fY, F fZ, F multiplier, F& valueX, F& valueY, F& valueZ )
+    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProductImpl( I hash, F fX, F fY, F fZ, F multiplier, F& valueX, F& valueY, F& valueZ )
     {
-        fZ ^= FS::Cast<float>( hash31 << 31 ); // ( 2, 2, -1 ) and ( 2, 2, 1 ) row variants
+        I hashTop = hash >> 21;
+        fZ ^= FS::Cast<float>( hashTop << 31 ); // ( 2, 2, -1 ) and ( 2, 2, 1 ) row variants
 
-        I useMix = hash31 << ( 31 - 4 );
+        I useMix = hashTop << 30;
         F sum = ( fX + fY + fZ ) * F( 2.0f / 3.0f );
         F mX = FS::SelectHighBit( useMix, sum - fZ, fX );
         F mY = FS::SelectHighBit( useMix, sum - fY, fY );
         F mZ = FS::SelectHighBit( useMix, sum - fX, fZ );
 
-        I rotate = hash31 >> 1;
-        I rotate2 = rotate + ( rotate << 1 ); // * 3 without a multiply. Sign bit set for rotation 2, bit 30 for rotation 1
-        I rotate1 = rotate2 << 1;
+        // Rotation floor( 3 * ( hash + 2^31 ) / 2^32 )
+        auto rotate2 = hash > I( 715827882 );
+        auto rotate12 = hash > I( -715827883 );
 
-        F pX = FS::SelectHighBit( rotate2, mZ, FS::SelectHighBit( rotate1, mY, mX ) );
-        F pY = FS::SelectHighBit( rotate2, mX, FS::SelectHighBit( rotate1, mZ, mY ) );
-        F pZ = FS::SelectHighBit( rotate2, mY, FS::SelectHighBit( rotate1, mX, mZ ) );
+        F pX = FS::Select( rotate2, mZ, FS::Select( rotate12, mY, mX ) );
+        F pY = FS::Select( rotate2, mX, FS::Select( rotate12, mZ, mY ) );
+        F pZ = FS::Select( rotate2, mY, FS::Select( rotate12, mX, mZ ) );
 
-        valueX = FN_FMulAdd( FlipSign( multiplier, hash31, 1 ), pX, valueX );
-        valueY = FN_FMulAdd( FlipSign( multiplier, hash31, 2 ), pY, valueY );
-        valueZ = FN_FMulAdd( FlipSign( multiplier, hash31, 3 ), pZ, valueZ );
+        valueX = FN_FMulAdd( FlipSign( multiplier, hashTop, 2 ), pX, valueX );
+        valueY = FN_FMulAdd( FlipSign( multiplier, hashTop, 3 ), pY, valueY );
+        valueZ = FN_FMulAdd( FlipSign( multiplier, hashTop, 4 ), pZ, valueZ );
     }
 
     // M = 4x4 Hadamard / 2. P: Klein four-group axis permutation ( pair swaps )
+    // Bits: 21 w sign, 22-25 output signs, 29 mix, 30 swap pairs, 31 swap adjacent
     template<typename F, typename I>
-    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProductImpl( I hash31, F fX, F fY, F fZ, F fW, F multiplier, F& valueX, F& valueY, F& valueZ, F& valueW )
+    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProductImpl( I hash, F fX, F fY, F fZ, F fW, F multiplier, F& valueX, F& valueY, F& valueZ, F& valueW )
     {
-        fW ^= FS::Cast<float>( hash31 << 31 ); // Hadamard rows with an even or odd number of negative entries
+        I hashTop = hash >> 21;
+        fW ^= FS::Cast<float>( hashTop << 31 ); // Hadamard rows with an even or odd number of negative entries
 
-        I useMix = hash31 << ( 31 - 5 );
+        I useMix = hashTop << 23;
         F sumXY = fX + fY, diffXY = fX - fY;
         F sumZW = fZ + fW, diffZW = fZ - fW;
         F mX = FS::SelectHighBit( useMix, sumXY + sumZW, fX );
@@ -262,47 +319,46 @@ namespace FastNoise
         F mW = FS::SelectHighBit( useMix, diffXY - diffZW, fW );
         multiplier *= FS::SelectHighBit( useMix, F( 0.5f ), F( 1.0f ) );
 
-        I swapAdjacent = hash31 << 1;
-        F aX = FS::SelectHighBit( swapAdjacent, mY, mX );
-        F aY = FS::SelectHighBit( swapAdjacent, mX, mY );
-        F aZ = FS::SelectHighBit( swapAdjacent, mW, mZ );
-        F aW = FS::SelectHighBit( swapAdjacent, mZ, mW );
+        F aX = FS::SelectHighBit( hash, mY, mX );
+        F aY = FS::SelectHighBit( hash, mX, mY );
+        F aZ = FS::SelectHighBit( hash, mW, mZ );
+        F aW = FS::SelectHighBit( hash, mZ, mW );
 
-        I swapPairs = hash31 << 2;
+        I swapPairs = hashTop << 22;
         F pX = FS::SelectHighBit( swapPairs, aZ, aX );
         F pY = FS::SelectHighBit( swapPairs, aW, aY );
         F pZ = FS::SelectHighBit( swapPairs, aX, aZ );
         F pW = FS::SelectHighBit( swapPairs, aY, aW );
 
-        valueX = FN_FMulAdd( FlipSign( multiplier, hash31, 1 ), pX, valueX );
-        valueY = FN_FMulAdd( FlipSign( multiplier, hash31, 2 ), pY, valueY );
-        valueZ = FN_FMulAdd( FlipSign( multiplier, hash31, 3 ), pZ, valueZ );
-        valueW = FN_FMulAdd( FlipSign( multiplier, hash31, 4 ), pW, valueW );
+        valueX = FN_FMulAdd( FlipSign( multiplier, hashTop, 1 ), pX, valueX );
+        valueY = FN_FMulAdd( FlipSign( multiplier, hashTop, 2 ), pY, valueY );
+        valueZ = FN_FMulAdd( FlipSign( multiplier, hashTop, 3 ), pZ, valueZ );
+        valueW = FN_FMulAdd( FlipSign( multiplier, hashTop, 4 ), pW, valueW );
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProduct( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProduct( int32v hash, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
-        ApplyOrthogonalMatrixVectorProductImpl( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
+        ApplyOrthogonalMatrixVectorProductImpl( hash, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
     }
 
     // 4D below AVX512: process each native register half separately, skipping halves with no contribution
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FN_WARP_HELPER_4D ApplyOrthogonalMatrixVectorProduct( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    FN_WARP_HELPER_4D ApplyOrthogonalMatrixVectorProduct( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            ApplyOrthogonalMatrixVectorProductImpl( hash31, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
+            ApplyOrthogonalMatrixVectorProductImpl( hash, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
         }
         else
         {
             if( FS::AnyMask( multiplier.v0 != float32v::DoubledType( 0 ) ) )
             {
-                ApplyOrthogonalMatrixVectorProductImpl( hash31.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
+                ApplyOrthogonalMatrixVectorProductImpl( hash.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
             }
             if( FS::AnyMask( multiplier.v1 != float32v::DoubledType( 0 ) ) )
             {
-                ApplyOrthogonalMatrixVectorProductImpl( hash31.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
+                ApplyOrthogonalMatrixVectorProductImpl( hash.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
             }
         }
     }
@@ -441,9 +497,9 @@ protected:
         float32v valueX( 0 );
         float32v valueY( 0 );
 
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase ), dx0, dy0, falloff0, valueX, valueY );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1, falloff1, valueX, valueY );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2, falloff2, valueX, valueY );
+        ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 2>( seed, xPrimedBase, yPrimedBase ), dx0, dy0, falloff0, valueX, valueY );
+        ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 2>( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1, falloff1, valueX, valueY );
+        ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 2>( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2, falloff2, valueX, valueY );
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             100.040101f :
@@ -537,10 +593,10 @@ protected:
         float32v valueY( 0 );
         float32v valueZ( 0 );
 
-        ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0, falloff0, valueX, valueY, valueZ );
-        ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1, falloff1, valueX, valueY, valueZ );
-        ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, FS::MaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2, falloff2, valueX, valueY, valueZ );
-        ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ) ), dx3, dy3, dz3, falloff3, valueX, valueY, valueZ );
+        ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0, falloff0, valueX, valueY, valueZ );
+        ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1, falloff1, valueX, valueY, valueZ );
+        ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( seed, FS::MaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2, falloff2, valueX, valueY, valueZ );
+        ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ) ), dx3, dy3, dz3, falloff3, valueX, valueY, valueZ );
 
         if constexpr( Scheme != VectorizationScheme::OrthogonalGradientMatrix )
         {
@@ -643,7 +699,7 @@ protected:
             float32v falloff = FS::Max( falloff0, float32v( 0 ) );
             falloff *= falloff; falloff *= falloff;
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff, valueX, valueY, valueZ, valueW );
+            ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff, valueX, valueY, valueZ, valueW );
         }
 
         // Vertex i (1 to 3) steps along the axes ranked above 3 - i
@@ -663,7 +719,7 @@ protected:
             falloff = FS::Max( falloff, float32v( 0 ) );
             falloff *= falloff; falloff *= falloff;
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+            ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( seed,
                 FS::MaskedAdd( maskX, xPrimedBase, int32v( Primes::X ) ),
                 FS::MaskedAdd( maskY, yPrimedBase, int32v( Primes::Y ) ),
                 FS::MaskedAdd( maskZ, zPrimedBase, int32v( Primes::Z ) ),
@@ -678,7 +734,7 @@ protected:
             float32v falloff = FS::Max( falloff4, float32v( 0 ) );
             falloff *= falloff; falloff *= falloff;
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+            ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( seed,
                 xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
                 dx0 - float32v( kUnskew4 * 4 + 1 ), dy0 - float32v( kUnskew4 * 4 + 1 ), dz0 - float32v( kUnskew4 * 4 + 1 ), dw0 - float32v( kUnskew4 * 4 + 1 ),
                 falloff, valueX, valueY, valueZ, valueW );
@@ -836,7 +892,7 @@ protected:
 
         // Vertex <0, 0>
         {
-            int32v hash = HashPrimes( seed, xPrimedBase, yPrimedBase );
+            int32v hash = HashWarpVertex<Scheme, 2>( seed, xPrimedBase, yPrimedBase );
             falloffBase0 = FN_FNMulAdd( dxBase, dxBase, FN_FNMulAdd( dyBase, dyBase, float32v( kFalloffRadiusSquared ) ) );
             float32v falloff = falloffBase0; falloff *= falloff; falloff *= falloff;
             ApplyVectorContributionSimplex<Scheme>( hash, dxBase, dyBase, falloff, valueX, valueY );
@@ -844,7 +900,7 @@ protected:
 
         // Vertex <1, 1>
         {
-            int32v hash = HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) );
+            int32v hash = HashWarpVertex<Scheme, 2>( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) );
             float32v falloff = FN_FMulAdd( unskewDelta,
                 float32v( -4.0 * ( kRoot3 + 2.0 ) / ( kRoot3 + 3.0 ) ),
                 falloffBase0 - float32v( kFalloffRadiusSquared ) );
@@ -858,7 +914,7 @@ protected:
 
         // Vertex <1, 0> or <-1, 0> or <1, 2>
         {
-            int32v hash = HashPrimes( seed,
+            int32v hash = HashWarpVertex<Scheme, 2>( seed,
                 FS::InvMaskedSub( forwardXY, FS::MaskedAdd( forwardX, xPrimedBase, int32v( Primes::X * 2 ) ), int32v( Primes::X ) ),
                 FS::MaskedAdd( forwardXY, yPrimedBase, int32v( Primes::Y ) ) );
             float32v dx = dxBase - FS::Select( forwardX, float32v( 1 + 2 * kUnskew2 ), float32v( -1 ) );
@@ -870,7 +926,7 @@ protected:
 
         // Vertex <0, 1> or <0, -1> or <2, 1>
         {
-            int32v hash = HashPrimes( seed,
+            int32v hash = HashWarpVertex<Scheme, 2>( seed,
                 FS::MaskedAdd( forwardXY, xPrimedBase, int32v( Primes::X ) ),
                 FS::InvMaskedSub( forwardXY, FS::MaskedAdd( forwardY, yPrimedBase, int32v( (int32_t)( Primes::Y * 2LL ) ) ), int32v( Primes::Y ) ) );
             float32v dx = FS::MaskedSub( forwardY, dxBase, float32v( 2 * kUnskew2 ) );
@@ -991,7 +1047,7 @@ protected:
             float32v falloffBase = FN_FNMulAdd( dzBase, dzBase, FN_FNMulAdd( dyBase, dyBase, FN_FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) * float32v( 0.5f );
             falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase,
+            ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase,
                 ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
         }
 
@@ -1010,7 +1066,7 @@ protected:
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1029,7 +1085,7 @@ protected:
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1048,7 +1104,7 @@ protected:
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1067,7 +1123,7 @@ protected:
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1085,7 +1141,7 @@ protected:
             {
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1103,7 +1159,7 @@ protected:
             {
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1121,7 +1177,7 @@ protected:
             {
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
+                ApplyVectorContributionCommon<Scheme>( HashWarpVertex<Scheme, 3>( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
             }
         }
@@ -1274,7 +1330,7 @@ protected:
             float32v falloffBase = FN_FNMulAdd( dwBase, dwBase, FN_FNMulAdd( dzBase, dzBase, FN_FNMulAdd( dyBase, dyBase, FN_FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) ) * float32v( 0.5f );
             falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase,
+            ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase,
                 ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
         }
 
@@ -1294,7 +1350,7 @@ protected:
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1315,7 +1371,7 @@ protected:
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1336,7 +1392,7 @@ protected:
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1357,7 +1413,7 @@ protected:
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1378,7 +1434,7 @@ protected:
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1397,7 +1453,7 @@ protected:
             {
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1417,7 +1473,7 @@ protected:
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1437,7 +1493,7 @@ protected:
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1457,7 +1513,7 @@ protected:
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1476,7 +1532,7 @@ protected:
             {
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1496,7 +1552,7 @@ protected:
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1516,7 +1572,7 @@ protected:
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1535,7 +1591,7 @@ protected:
             {
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1555,7 +1611,7 @@ protected:
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
@@ -1574,7 +1630,7 @@ protected:
             {
                 int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
 
-                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                ApplyVectorContributionSimplex<Scheme>( HashWarpVertex<Scheme, 4>( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
                     ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
             }
         }
