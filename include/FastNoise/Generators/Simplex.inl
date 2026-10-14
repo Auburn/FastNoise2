@@ -20,14 +20,6 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         }
     }
 
-    // AVX512 only: mask & ( a >= b ) or mask & ( a > b ) as one masked compare
-    template<bool OR_EQUAL>
-    FS_FORCEINLINE static mask32v MaskedGreater( mask32v mask, float32v a, float32v b )
-    {
-        constexpr int kPredicate = OR_EQUAL ? 0x1D : 0x1E; // _CMP_GE_OQ : _CMP_GT_OQ, not defined in the SSE TUs
-        return FS::NativeExec<mask32v>( []( auto m, auto fa, auto fb ) { return _mm512_mask_cmp_ps_mask( m, fa, fb, kPredicate ); }, mask, a, b );
-    }
-
     // Offsets, falloff and gradient of one 4D vertex. Evaluating each vertex in one go keeps fewer offsets and masks live
     // at once, mostly helps SSE where float32v only has 8 registers. (As a lambda MSVC miscompiled it for AVX512)
     FS_FORCEINLINE static float32v VertexGradientRampValue( float32v& falloff, double unskew, mask32v maskX, mask32v maskY, mask32v maskZ, mask32v maskW,

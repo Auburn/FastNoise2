@@ -44,6 +44,14 @@ namespace FastNoise
     // The hash, gradient and interpolation helpers are templated on the register type so they also work on the native
     // halves of float32v (.v0/.v1), for generators that evaluate each half separately to reduce register pressure
 
+    // AVX512 only: mask & ( a >= b ) or mask & ( a > b ) as one masked compare
+    template<bool OR_EQUAL, typename M, typename F>
+    FS_FORCEINLINE static M MaskedGreater( M mask, F a, F b )
+    {
+        constexpr int kPredicate = OR_EQUAL ? 0x1D : 0x1E; // _CMP_GE_OQ : _CMP_GT_OQ, not defined in the SSE TUs
+        return FS::NativeExec<M>( []( auto m, auto fa, auto fb ) { return _mm512_mask_cmp_ps_mask( m, fa, fb, kPredicate ); }, mask, a, b );
+    }
+
     template<typename F, typename I>
     FS_FORCEINLINE static F GetGradientDotSimplex( I hash31, F fX, F fY )
     {
