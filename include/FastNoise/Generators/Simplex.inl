@@ -352,8 +352,10 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     }
 
     // Skipping vertices that are out of range for every point pays off when SIMD lanes are spatially coherent.
-    // 3D on AVX512 (32 points per register) rarely skips enough to cover the extra branching, 4D always skips
-    static constexpr bool kSkipOutOfRangeVertices3D = !( SIMD & FastSIMD::FeatureFlag::AVX512_F );
+    // 3D on AVX512 (32 points per register) rarely skips enough to cover the extra branching, 4D always skips.
+    // On ARM the 3D branches mispredict too often once lanes are less coherent (fractal octaves, warped positions):
+    // Demo_MountainTerrain 2D measured 11% slower with them on an Apple M1, single octave grids only gained 3%
+    static constexpr bool kSkipOutOfRangeVertices3D = !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && !( SIMD & FastSIMD::FeatureFlag::ARM );
 
     // True if any lane of the clamped falloff is in range. Out of range lanes are exactly +0, so on SSE4.1/AVX2 OR the
     // halves and test for any set bit instead of compare + movemask per half
