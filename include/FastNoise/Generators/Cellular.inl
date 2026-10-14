@@ -905,12 +905,101 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             return ( this->*genFloor )( seed, x, y );
         }
 
+        if( mDistanceFunction == DistanceFunction::Minkowski )
+        {
+            auto select = []( auto, auto, auto count, auto ) -> GenTPtr<float32v, float32v>
+            {
+                return &DispatchClass::GenMinkowskiT<decltype( count )::value>;
+            };
+            auto genMinkowski = this->template SelectCount<DistanceFunction::Minkowski, kMaxDistanceCount>( mValueIndex + 1, select );
+
+            return ( this->*genMinkowski )( seed, x, y );
+        }
+
         auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y );
+    }
+
+    // 2D Minkowski: Pow makes the cells expensive enough for pruning to pay off. Separate from the generic variant,
+    // whose plain 3x3 loop measured slower with the pruned loop in the same function (bigger function, worse codegen)
+    template<int COUNT>
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenMinkowskiT( int32v seed, float32v x, float32v y ) const
+    {
+        constexpr DistanceFunction distFunc = DistanceFunction::Minkowski;
+
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
+        float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
+        float32v sizeJitter;
+        bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
+        if( sizeJitterActive )
+        {
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
+        }
+
+        std::array<int32v, COUNT> valueHash;
+        std::array<float32v, COUNT> distance;
+
+        distance.fill( float32v( kInfinity ) );
+
+        this->ScalePositions( this, x, y );
+
+        constexpr int valueIndex = COUNT - 1;
+        float32v pos[] = { x, y };
+
+        std::array<int32v, 3> cellPrimed[2];
+        std::array<float32v, 3> cellOffset[2];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
+
+        typename DispatchClass::template CellBounds<2> bounds;
+        typename DispatchClass::template CellIterator<2> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
+
+        while( const int8_t* o = cells.Next( distance[valueIndex] ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
+
+            int32v newCellValueHash = hash;
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            for( int i = 0; i < COUNT; i++ )
+            {
+                mask32v closer = newDistance < distance[i];
+
+                int32v localCellValueHash = valueHash[i];
+                valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
+
+                if( i >= valueIndex )
+                {
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
+                    break;
+                }
+
+                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                float32v localDistance = distance[i];
+                distance[i] = FS::Min( newDistance, distance[i] );
+                newDistance = FS::Max( localDistance, newDistance );
+                newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
+            }
+        }
+
+        return this->ScaleOutput( this, FS::Convert<float>( valueHash[valueIndex] ), -kValueBounds, kValueBounds );
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
