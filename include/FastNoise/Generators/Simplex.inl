@@ -126,7 +126,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
         constexpr double kFalloffRadiusSquared = 0.6;
 
-        float32v skewDelta = float32v( kSkew3 ) * ( x + y + z );
+        float32v skewDelta = float32v( kSkew3 ) * SkewSum( x, y, z );
         float32v xSkewed = x + skewDelta;
         float32v ySkewed = y + skewDelta;
         float32v zSkewed = z + skewDelta;
@@ -490,7 +490,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         constexpr double kDistanceSquaredB = 1.0;
         constexpr double kFalloffRadiusSquared = kDistanceSquaredA;
 
-        float32v skewDelta = float32v( kSkew3 ) * ( x + y + z );
+        float32v skewDelta = float32v( kSkew3 ) * SkewSum( x, y, z );
 
         float32v xSkewed = x + skewDelta;
         float32v ySkewed = y + skewDelta;
