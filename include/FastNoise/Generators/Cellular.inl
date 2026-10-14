@@ -2008,8 +2008,10 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
-        // Manhattan only: with EuclideanSquared the pruned 3^D search alone measured faster for CellularLookup
-        if constexpr( SPECIALISED && !SIZE_JITTER && DIST_FUNC == DistanceFunction::Manhattan )
+        // EuclideanSquared not on SSE2: its floor and blend emulation made it slower than the pruned 3^D search alone
+        bool nearBlockDone = false;
+        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Manhattan ||
+                      ( DIST_FUNC == DistanceFunction::EuclideanSquared && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) ) ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
@@ -2020,6 +2022,12 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 {
                     return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ), cell[2] * float32v( mScale ) );
                 }
+                // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
+                distance = closest;
+                cellX = cell[0];
+                cellY = cell[1];
+                cellZ = cell[2];
+                nearBlockDone = true;
             }
         }
 
@@ -2032,7 +2040,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
 
         typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
 
         while( const int8_t* o = cells.Next( distance ) )
         {
