@@ -359,6 +359,35 @@ namespace FastNoise
         }
     }
 
+    // a ^ lane 0 of a (static functions instead of lambdas, MSVC doesn't always inline lambdas)
+    template<typename I>
+    FS_FORCEINLINE static I LatticeBlockDiff( const I& a )
+    {
+        auto b = LatticeBlockBroadcast( a );
+
+        if constexpr( FS::IsNativeV<I> )
+        {
+            return a ^ b;
+        }
+        else
+        {
+            return a ^ I( b, b );
+        }
+    }
+
+    template<typename N>
+    FS_FORCEINLINE static N LatticeBlockMaxUnsigned( const N& a, const N& b )
+    {
+        if constexpr( N::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::NativeExec<N>( FS_BIND_INTRINSIC( _mm512_max_epu32 ), a, b );
+        }
+        else
+        {
+            return FS::NativeExec<N>( FS_BIND_INTRINSIC( _mm256_max_epu32 ), a, b );
+        }
+    }
+
     // True if all lanes share lane 0's seed and floored y/z/w and their floored x is in lane 0's x + [0, XW - 2], xOffset = x - lane 0's x
     // (XW = x width of the block, power of 2: every lane's x and x + 1 corners are in the block)
     template<int XW = 4, typename I, typename... P>
@@ -366,41 +395,22 @@ namespace FastNoise
     {
         if constexpr( FS::IsNativeV<I> && ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) )
         {
-            auto diff = []( const I& a ) { return a ^ LatticeBlockBroadcast( a ); };
-
             xOffset = x - LatticeBlockBroadcast( x );
 
-            I outside = ( ( xOffset | ( xOffset + I( 1 ) ) ) & I( ~( XW - 1 ) ) ) | diff( seed ) | ( diff( pos ) | ... );
+            I outside = ( ( xOffset | ( xOffset + I( 1 ) ) ) & I( ~( XW - 1 ) ) ) | LatticeBlockDiff( seed ) | ( LatticeBlockDiff( pos ) | ... );
 
             return !FS::AnyMask( outside != I( 0 ) );
         }
         else if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
         {
-            auto diff = []( const I& a )
-            {
-                auto b = LatticeBlockBroadcast( a );
-                return a ^ I( b, b );
-            };
-
             auto x0 = LatticeBlockBroadcast( x );
             xOffset = x - I( x0, x0 );
 
-            I outside = diff( seed ) | ( diff( pos ) | ... );
+            I outside = LatticeBlockDiff( seed ) | ( LatticeBlockDiff( pos ) | ... );
             using N = decltype( outside.v0 );
 
             // xOffset in [0, XW - 2] <=> ( m | ( m + 1 ) ) < XW for the unsigned max m of both halves (negative offsets are huge)
-            auto umax = []( const N& a, const N& b )
-            {
-                if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
-                {
-                    return FS::NativeExec<N>( FS_BIND_INTRINSIC( _mm512_max_epu32 ), a, b );
-                }
-                else
-                {
-                    return FS::NativeExec<N>( FS_BIND_INTRINSIC( _mm256_max_epu32 ), a, b );
-                }
-            };
-            N xMax = umax( xOffset.v0, xOffset.v1 );
+            N xMax = LatticeBlockMaxUnsigned( xOffset.v0, xOffset.v1 );
             auto outsideN = outside.v0 | outside.v1 | ( ( xMax | ( xMax + N( 1 ) ) ) & N( ~( XW - 1 ) ) );
 
             return !FS::AnyMask( outsideN != decltype( outsideN )( 0 ) );
