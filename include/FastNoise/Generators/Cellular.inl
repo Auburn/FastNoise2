@@ -104,9 +104,10 @@ protected:
         int8_t linear[kCount][D];
         int8_t pairIndex[kCount][2]; // 4D only: CellBounds pair indices for nearest order
         uint32_t parentMask[kCount]; // Nearest order: bits of the previous shell cells one step closer to the centre
+        uint32_t nearBlockMask[D + 1]; // Nearest order: bits of each shell's cells in the 2^D block of centre and near side cells
         int shellStart[D + 2];
 
-        constexpr CellOrder() : nearest{}, linear{}, pairIndex{}, parentMask{}, shellStart{}
+        constexpr CellOrder() : nearest{}, linear{}, pairIndex{}, parentMask{}, nearBlockMask{}, shellStart{}
         {
             int n = 0;
             for( int shell = 0; shell <= D; shell++ )
@@ -141,6 +142,19 @@ protected:
                 }
             }
             shellStart[D + 1] = n;
+
+            for( int shell = 0; shell <= D; shell++ )
+            {
+                for( int c = shellStart[shell]; c < shellStart[shell + 1]; c++ )
+                {
+                    bool nearBlock = true;
+                    for( int d = 0; d < D; d++ )
+                    {
+                        nearBlock &= nearest[c][d] != 2;
+                    }
+                    nearBlockMask[shell] |= (uint32_t)nearBlock << ( c - shellStart[shell] );
+                }
+            }
 
             for( int shell = 2; shell <= D; shell++ )
             {
@@ -284,11 +298,19 @@ protected:
     {
     public:
         FS_FORCEINLINE CellIterator( CellBounds<D>& bounds, std::array<int32v, 3>* cellPrimed, std::array<float32v, 3>* cellPos, bool relative, const float32v* pos,
-                                     DistanceFunction distFunc, float32v minkowskiP, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter ) :
+                                     DistanceFunction distFunc, float32v minkowskiP, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter,
+                                     bool nearBlockDone = false ) :
             mBounds( bounds )
         {
             PruneMode pruneMode = GetPruneMode<D>( distFunc, minkowskiP, pos, jitter, D == 2 ? kJitter2D : ( D == 3 ? kJitter3D : kJitter4D ), distanceIndex );
             mPrune = pruneMode != kPruneNone;
+
+            // The caller already visited the 2^D block of centre and near side cells (see FloorCellsClosest()): skip it
+            mSkipNearBlock = nearBlockDone && pruneMode == kPruneNearFirst;
+            if( mSkipNearBlock )
+            {
+                mVisit &= ~kOrder.nearBlockMask[0];
+            }
             mCombineMax = distFunc == DistanceFunction::MaxAxis || distFunc == DistanceFunction::Minkowski;
 
             // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
@@ -329,6 +351,10 @@ protected:
                 }
                 mCell = kOrder.shellStart[++mShell];
                 mVisit = mShellVisit = ShellVisitMask( distToBeat, ~mShellVisit );
+                if( mSkipNearBlock )
+                {
+                    mVisit &= ~kOrder.nearBlockMask[mShell];
+                }
             }
 
             while( !( mVisit & 1 ) )
@@ -485,7 +511,11 @@ protected:
             uint32_t visit = 0;
             for( int c = mCell; c < kOrder.shellStart[mShell + 1]; c++ )
             {
-                if( !( kOrder.parentMask[c] & skippedPrev ) )
+                if( mSkipNearBlock && ( kOrder.nearBlockMask[mShell] >> ( c - mCell ) & 1 ) )
+                {
+                    visit |= 1u << ( c - mCell ); // Already visited, still counts as visited for the cells beyond it
+                }
+                else if( !( kOrder.parentMask[c] & skippedPrev ) )
                 {
                     visit |= (uint32_t)!AllLanes( Bound( c ) >= distToBeat ) << ( c - mCell );
                 }
@@ -498,6 +528,7 @@ protected:
         CellBounds<D>& mBounds;
         float32v mBallRadius;
         bool mPrune;
+        bool mSkipNearBlock;
         bool mBall = false;
         bool mCombineMax = false;
         int mCell = 0;
@@ -1161,6 +1192,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
+        bool nearBlockDone = false;
         if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
         {
             float32v floorPos[] = { x, y, z };
@@ -1172,9 +1204,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 {
                     return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
                 }
-                // The 3^D search starts from the closest point so far, its pruning then skips most cells
+                // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
                 distance[0] = closest;
                 valueHash[0] = hash;
+                nearBlockDone = true;
             }
         }
 
@@ -1188,7 +1221,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
 
         typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
@@ -1558,6 +1591,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
+        bool nearBlockDone = false;
         if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
         {
             float32v floorPos[] = { x, y, z };
@@ -1569,7 +1603,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
                 {
                     return GetReturn( distance, 1 + this->kJitter3D );
                 }
-                // The 3^D search starts from the closest point so far, its pruning then skips most cells
+                // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
+                nearBlockDone = true;
             }
         }
 
@@ -1590,7 +1625,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
         typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
