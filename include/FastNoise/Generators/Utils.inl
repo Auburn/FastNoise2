@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <climits>
 
 // Realign the stack on entry: clang otherwise spills AVX registers to slots that are only 16 byte aligned (x86-64 ABI),
@@ -198,6 +199,18 @@ namespace FastNoise
     // The hash, gradient and interpolation helpers are templated on the register type so they also work on the native
     // halves of float32v (.v0/.v1), for generators that evaluate each half separately to reduce register pressure
 
+    // TBL table of a 16 entry gradient component table with values 0/+-1: the 3rd and 4th byte of each float (the rest are 0)
+    static constexpr std::array<std::uint8_t, 32> GradientBytePlanes( const int ( &g )[16] )
+    {
+        std::array<std::uint8_t, 32> b{};
+        for( int i = 0; i < 16; i++ )
+        {
+            b[i] = g[i] ? 0x80 : 0;
+            b[i + 16] = g[i] > 0 ? 0x3F : g[i] < 0 ? 0xBF : 0;
+        }
+        return b;
+    }
+
     template<typename F, typename I>
     FS_FORCEINLINE static F GetGradientDotSimplex( I hash31, F fX, F fY )
     {
@@ -297,6 +310,38 @@ namespace FastNoise
 
             return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, fZ * gZ ));
         }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        {
+            // The AVX512 tables through TBL. Every component is 0 or +-1, so only the top two bytes of the float are set: one 32 byte
+            // table per axis holds those two byte planes and the low bytes read 0 past the table. Byte index { -, -, h, h + 16 }
+            static constexpr int kGX[16] = { 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 };
+            static constexpr int kGY[16] = { 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 };
+            static constexpr int kGZ[16] = { 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 };
+            alignas( 16 ) static constexpr auto kPlanesX = GradientBytePlanes( kGX );
+            alignas( 16 ) static constexpr auto kPlanesY = GradientBytePlanes( kGY );
+            alignas( 16 ) static constexpr auto kPlanesZ = GradientBytePlanes( kGZ );
+
+            uint8x16x2_t tableX = { { vld1q_u8( kPlanesX.data() ), vld1q_u8( kPlanesX.data() + 16 ) } };
+            uint8x16x2_t tableY = { { vld1q_u8( kPlanesY.data() ), vld1q_u8( kPlanesY.data() + 16 ) } };
+            uint8x16x2_t tableZ = { { vld1q_u8( kPlanesZ.data() ), vld1q_u8( kPlanesZ.data() + 16 ) } };
+
+            auto byteIndex = []( int32x4_t h )
+            {
+                return vreinterpretq_u8_u32( vmlaq_n_u32( vdupq_n_u32( 0x1000FFFF ), vandq_u32( vreinterpretq_u32_s32( h ), vdupq_n_u32( 15 ) ), 0x01010000 ) );
+            };
+            uint8x16_t index0 = byteIndex( hash.v0.GetNative() );
+            uint8x16_t index1 = byteIndex( hash.v1.GetNative() );
+
+            auto lookup = [&]( const uint8x16x2_t& table )
+            {
+                using H = typename F::DoubledType;
+                return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
+            };
+
+            return FS::FMulAdd( lookup( tableX ), fX, FS::FMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
+        }
+#endif
         else
         {
             I hasha13 = hash & I( 13 );
