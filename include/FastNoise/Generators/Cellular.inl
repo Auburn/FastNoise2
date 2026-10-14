@@ -871,6 +871,9 @@ protected:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual CellularValue, public DispatchClass<Cellular<>, SIMD>
 {
+    // Names the cellular base for its member templates (CellBounds, CellIterator); GCC 16 rejects reaching them through the injected class name
+    using CellularBase = DispatchClass<Cellular<>, SIMD>;
+
     FASTNOISE_IMPL_GEN_FN( Gen );
 
     template<typename... P>
@@ -1098,8 +1101,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
 
-        typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
@@ -1189,8 +1192,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, w, cellPrimed[3], cellOffset[3] );
 
-        typename DispatchClass::template CellBounds<4> bounds;
-        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
+        typename CellularBase::template CellBounds<4> bounds;
+        typename CellularBase::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
@@ -1242,6 +1245,9 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual CellularDistance, public DispatchClass<Cellular<>, SIMD>
 {
+    // Names the cellular base for its member templates (CellBounds, CellIterator); GCC 16 rejects reaching them through the injected class name
+    using CellularBase = DispatchClass<Cellular<>, SIMD>;
+
     FASTNOISE_IMPL_GEN_FN( Gen );
 
     template<typename... P>
@@ -1396,8 +1402,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             }
 
             int pruneIndex = GetDistanceCount() - 1;
-            typename DispatchClass::template CellBounds<2> bounds;
-            typename DispatchClass::template CellIterator<2> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+            typename CellularBase::template CellBounds<2> bounds;
+            typename CellularBase::template CellIterator<2> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
             while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
             {
@@ -1500,8 +1506,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         }
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
-        typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
@@ -1582,8 +1588,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         }
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
-        typename DispatchClass::template CellBounds<4> bounds;
-        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
+        typename CellularBase::template CellBounds<4> bounds;
+        typename CellularBase::template CellIterator<4> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
@@ -1671,6 +1677,9 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual CellularLookup, public DispatchClass<Cellular<Seeded<ScalableGenerator>>, SIMD>
 {
+    // Names the cellular base for its member templates (CellBounds, CellIterator); GCC 16 rejects reaching them through the injected class name
+    using CellularBase = DispatchClass<Cellular<Seeded<ScalableGenerator>>, SIMD>;
+
     FASTNOISE_IMPL_GEN_FN( Gen );
 
     template<typename... P>
@@ -1811,8 +1820,8 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0] );
             this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
 
-            typename DispatchClass::template CellBounds<2> bounds;
-            typename DispatchClass::template CellIterator<2> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
+            typename CellularBase::template CellBounds<2> bounds;
+            typename CellularBase::template CellIterator<2> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
 
             while( const int8_t* o = cells.Next( distance ) )
             {
@@ -1907,8 +1916,8 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
 
-        typename DispatchClass::template CellBounds<3> bounds;
-        typename DispatchClass::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( distance ) )
         {
@@ -1984,8 +1993,8 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
         this->CellAxis( FS::Convert<int32_t>( w ) + int32v( -1 ), Primes::W, float32v( 0 ), cellPrimed[3], cellPos[3] );
 
-        typename DispatchClass::template CellBounds<4> bounds;
-        typename DispatchClass::template CellIterator<4> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
+        typename CellularBase::template CellBounds<4> bounds;
+        typename CellularBase::template CellIterator<4> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
 
         while( const int8_t* o = cells.Next( distance ) )
         {
