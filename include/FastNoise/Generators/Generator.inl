@@ -53,6 +53,36 @@ public:
     }
 #endif
 
+#if FASTSIMD_CURRENT_ARCH_IS( WASM )
+    // wasm32 passes structs with more than one member through memory, pass the native halves of the arguments as separate v128 values
+    using GenArgF = typename float32v::DoubledType;
+    using GenArgI = typename int32v::DoubledType;
+
+    using GenFn2D = GenResult( * )( const DispatchClass*, GenArgI, GenArgI, GenArgF, GenArgF, GenArgF, GenArgF );
+    using GenFn3D = GenResult( * )( const DispatchClass*, GenArgI, GenArgI, GenArgF, GenArgF, GenArgF, GenArgF, GenArgF, GenArgF );
+    using GenFn4D = GenResult( * )( const DispatchClass*, GenArgI, GenArgI, GenArgF, GenArgF, GenArgF, GenArgF, GenArgF, GenArgF, GenArgF, GenArgF );
+
+    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y )
+    {
+        assert( gen->mGenFn2D );
+        GenResult result = gen->mGenFn2D( gen, seed.v0, seed.v1, x.v0, x.v1, y.v0, y.v1 );
+        return float32v( result.v0, result.v1 );
+    }
+
+    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z )
+    {
+        assert( gen->mGenFn3D );
+        GenResult result = gen->mGenFn3D( gen, seed.v0, seed.v1, x.v0, x.v1, y.v0, y.v1, z.v0, z.v1 );
+        return float32v( result.v0, result.v1 );
+    }
+
+    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )
+    {
+        assert( gen->mGenFn4D );
+        GenResult result = gen->mGenFn4D( gen, seed.v0, seed.v1, x.v0, x.v1, y.v0, y.v1, z.v0, z.v1, w.v0, w.v1 );
+        return float32v( result.v0, result.v1 );
+    }
+#else
     using GenFn2D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v );
     using GenFn3D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v );
     using GenFn4D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v );
@@ -77,6 +107,7 @@ public:
         GenResult result = gen->mGenFn4D( gen, seed, x, y, z, w );
         return float32v( result.v0, result.v1 );
     }
+#endif
 
     // Evaluates count values from positions stored per vector as { x[N], y[N], ... } (N = float32v::ElementCount)
     using GenBlockFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float*, float*, intptr_t );
@@ -88,8 +119,32 @@ public:
         gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count );
     }
 
+#if FASTSIMD_CURRENT_ARCH_IS( WASM )
+#define FASTNOISE_IMPL_GEN_FN_HALVES( GENFUNC )\
+    using GenArgFT = typename DispatchClass<Generator, SIMD>::GenArgF;\
+    using GenArgIT = typename DispatchClass<Generator, SIMD>::GenArgI;\
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT GenFn( const DispatchClass<Generator, SIMD>* gen, GenArgIT s0, GenArgIT s1, GenArgFT x0, GenArgFT x1, GenArgFT y0, GenArgFT y1 )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( int32v( s0, s1 ), float32v( x0, x1 ), float32v( y0, y1 ) ) );\
+    }\
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT GenFn( const DispatchClass<Generator, SIMD>* gen, GenArgIT s0, GenArgIT s1, GenArgFT x0, GenArgFT x1, GenArgFT y0, GenArgFT y1, GenArgFT z0, GenArgFT z1 )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( int32v( s0, s1 ), float32v( x0, x1 ), float32v( y0, y1 ), float32v( z0, z1 ) ) );\
+    }\
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT GenFn( const DispatchClass<Generator, SIMD>* gen, GenArgIT s0, GenArgIT s1, GenArgFT x0, GenArgFT x1, GenArgFT y0, GenArgFT y1, GenArgFT z0, GenArgFT z1, GenArgFT w0, GenArgFT w1 )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( int32v( s0, s1 ), float32v( x0, x1 ), float32v( y0, y1 ), float32v( z0, z1 ), float32v( w0, w1 ) ) );\
+    }
+#endif
+
 // Defines the static Gen and GenBlock functions of a generator and points the function pointers at them,
 // GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
+#if FASTSIMD_CURRENT_ARCH_IS( WASM )
+#define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
+    using GenResultT = typename DispatchClass<Generator, SIMD>::GenResult;\
+    FASTNOISE_IMPL_GEN_FN_HALVES( GENFUNC )\
+    FASTNOISE_IMPL_GEN_BLOCK_FN( GENFUNC )
+#else
 #define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
     using GenResultT = typename DispatchClass<Generator, SIMD>::GenResult;\
     FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y )\
@@ -104,6 +159,10 @@ public:
     {\
         return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z, w ) );\
     }\
+    FASTNOISE_IMPL_GEN_BLOCK_FN( GENFUNC )
+#endif
+
+#define FASTNOISE_IMPL_GEN_BLOCK_FN( GENFUNC )\
     template<size_t... DIM>\
     FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* pos, float* out, intptr_t count )\
     {\
