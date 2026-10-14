@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "Modifiers.h"
 
 template<FastSIMD::FeatureSet SIMD>
@@ -9,6 +11,23 @@ class FastSIMD::DispatchClass<DomainScale, SIMD> final : public virtual DomainSc
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mSource, seed, (pos * float32v( mScale ))... );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        this->template GetSourceBlockAt<DIMS, DIMS>( mSource, seed, pos, out, count,
+            [this]( float* dst, intptr_t, auto... p ) { this->StoreBlockVector( dst, (p * float32v( mScale ))... ); } );
+
+        return true;
     }
 };
 
@@ -38,6 +57,40 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
         float32v offsetPos[] = { ( pos + this->GetSourceValue( mOffset[I], seed, pos... ) )... };
 
         return this->GetSourceValue( mSource, seed, offsetPos[I]... );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        bool constantOffsets = true;
+        for( size_t i = 0; i < DIMS; i++ )
+        {
+            constantOffsets &= !mOffset[i].simdGeneratorPtr;
+        }
+
+        if( constantOffsets && !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        GenBlock( std::make_index_sequence<DIMS>(), seed, pos, out, count );
+
+        return true;
+    }
+
+    template<size_t... I>
+    FS_FORCEINLINE void GenBlock( std::index_sequence<I...>, int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        static constexpr size_t DIMS = sizeof...( I );
+        alignas( 64 ) float offsetBuffers[DIMS][DispatchClass<Generator, SIMD>::kGenBlockSize];
+
+        const typename DispatchClass<Generator, SIMD>::BlockValues offsets[] = { this->template GetSourceBlockValues<DIMS>( mOffset[I], seed, pos, offsetBuffers[I], count )... };
+
+        this->template GetSourceBlockAt<DIMS, DIMS>( mSource, seed, pos, out, count,
+            [&offsets]( float* dst, intptr_t i, auto... p ) { DispatchClass::StoreBlockVector( dst, ( p + offsets[I][i] )... ); } );
     }
 };
 
@@ -71,6 +124,52 @@ class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainR
         // No rotation for 4D yet
         return this->GetSourceValue( mSource, seed, x, y, z, w );
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        // Same positions as Gen
+        auto rotate3D = [this]( float* dst, intptr_t, float32v x, float32v y, float32v z ) {
+            this->StoreBlockVector( dst,
+                FS::FMulAdd( x, float32v( mXa ), FS::FMulAdd( y, float32v( mXb ), z * float32v( mXc ) ) ),
+                FS::FMulAdd( x, float32v( mYa ), FS::FMulAdd( y, float32v( mYb ), z * float32v( mYc ) ) ),
+                FS::FMulAdd( x, float32v( mZa ), FS::FMulAdd( y, float32v( mZb ), z * float32v( mZc ) ) ) );
+        };
+
+        if constexpr( DIMS == 2 )
+        {
+            if( mPitchSin == 0.0f && mRollSin == 0.0f )
+            {
+                this->template GetSourceBlockAt<2, 2>( mSource, seed, pos, out, count, [this]( float* dst, intptr_t, float32v x, float32v y ) {
+                    this->StoreBlockVector( dst,
+                        FS::FNMulAdd( y, float32v( mYawSin ), x * float32v( mYawCos ) ),
+                        FS::FMulAdd( x, float32v( mYawSin ), y * float32v( mYawCos ) ) );
+                } );
+                return true;
+            }
+
+            this->template GetSourceBlockAt<2, 3>( mSource, seed, pos, out, count,
+                [&rotate3D]( float* dst, intptr_t i, float32v x, float32v y ) { rotate3D( dst, i, x, y, float32v( 0 ) ); } );
+        }
+        else if constexpr( DIMS == 3 )
+        {
+            this->template GetSourceBlockAt<3, 3>( mSource, seed, pos, out, count, rotate3D );
+        }
+        else
+        {
+            this->template GetSourceBlock<DIMS>( mSource, seed, pos, out, count );
+        }
+
+        return true;
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -82,6 +181,17 @@ class FastSIMD::DispatchClass<SeedOffset, SIMD> final : public virtual SeedOffse
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->GetSourceValue( mSource, seed + int32v( mOffset ), pos... );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        this->template GetSourceBlock<DIMS>( mSource, seed + int32v( mOffset ), pos, out, count );
+
+        return true;
     }
 };
 
@@ -126,6 +236,34 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
 
         return result;
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
+        {
+            // As in GenT, so the constant maths compiles the same way
+            float fromMin = mFromMin.constant;
+            float fromMax = mFromMax.constant;
+            float toMin = mToMin.constant;
+            float toMax = mToMax.constant;
+
+            this->template CombineSourceBlocks<DIMS>( [=]( float32v source ) {
+                return Remap( source, float32v( fromMin ), float32v( fromMax ), float32v( toMin ), float32v( toMax ) );
+            }, seed, pos, out, count, mSource );
+
+            return true;
+        }
+
+        this->template CombineSourceBlocks<DIMS>( [this]( float32v source, float32v fromMin, float32v fromMax, float32v toMin, float32v toMax ) {
+            return Remap( source, fromMin, fromMax, toMin, toMax );
+        }, seed, pos, out, count, mSource, mFromMin, mFromMax, mToMin, mToMax );
+
+        return true;
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -136,8 +274,11 @@ class FastSIMD::DispatchClass<ConvertRGBA8, SIMD> final : public virtual Convert
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v source = this->GetSourceValue( mSource, seed, pos... );
-        
+        return ConvertRGBA8( this->GetSourceValue( mSource, seed, pos... ) );
+    }
+
+    FS_FORCEINLINE float32v ConvertRGBA8( float32v source ) const
+    {
         source = FS::Min( source, float32v( mMax ));
         source = FS::Max( source, float32v( mMin ));
         source -= float32v( mMin );
@@ -152,6 +293,23 @@ class FastSIMD::DispatchClass<ConvertRGBA8, SIMD> final : public virtual Convert
         output |= byteVal << 16;
 
         return FS::Cast<float>( output );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        // Cheap op, for a source without GenBlock the per vector path is faster
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        this->template CombineSourceBlocks<DIMS>( [this]( float32v source ) { return ConvertRGBA8( source ); }, seed, pos, out, count, mSource );
+
+        return true;
     }
 };
 
@@ -178,13 +336,25 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
 
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
+        if constexpr( DYNAMIC_SMOOTHNESS )
+        {
+            return TerraceValue<true>( source, false, this->GetSourceValue( mSmoothness, seed, pos... ) );
+        }
+        else
+        {
+            return TerraceValue<false>( source, constantSmoothness, float32v( 0 ) );
+        }
+    }
+
+    template<bool DYNAMIC_SMOOTHNESS>
+    FS_FORCEINLINE float32v TerraceValue( float32v source, bool constantSmoothness, float32v smoothness ) const
+    {
         source *= float32v( mStepCount );
         float32v rounded = FS::Round( source );
 
         if constexpr( DYNAMIC_SMOOTHNESS )
         {
             // Dynamic smoothness from generator
-            float32v smoothness = this->GetSourceValue( mSmoothness, seed, pos... );
             mask32v smoothnessMask = smoothness != float32v( 0.0f );
 
             if( FS::AnyMask( smoothnessMask ) )
@@ -221,6 +391,27 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
 
         return rounded * float32v( mStepCountRecip );
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( mSmoothness.simdGeneratorPtr )
+        {
+            this->template CombineSourceBlocks<DIMS>( [this]( float32v source, float32v smoothness ) { return TerraceValue<true>( source, false, smoothness ); },
+                seed, pos, out, count, mSource, mSmoothness );
+            return true;
+        }
+
+        bool constantSmoothness = mSmoothness.constant != 0.0f;
+
+        this->template CombineSourceBlocks<DIMS>( [this, constantSmoothness]( float32v source ) { return TerraceValue<false>( source, constantSmoothness, float32v( 0 ) ); },
+            seed, pos, out, count, mSource );
+
+        return true;
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -240,6 +431,18 @@ class FastSIMD::DispatchClass<PingPong, SIMD> final : public virtual PingPong, p
         float32v pingPongStrength = this->GetSourceValue( mPingPongStrength, seed, pos... );
         return PingPong( this->GetSourceValue( mSource, seed, pos... ) * pingPongStrength );
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        this->template CombineSourceBlocks<DIMS>( []( float32v pingPongStrength, float32v source ) { return PingPong( source * pingPongStrength ); },
+            seed, pos, out, count, mPingPongStrength, mSource );
+
+        return true;
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -254,6 +457,26 @@ class FastSIMD::DispatchClass<DomainAxisScale, SIMD> final : public virtual Doma
         ((pos *= float32v( mScale[idx++] )), ...);
 
         return this->GetSourceValue( mSource, seed, pos... );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        this->template GetSourceBlockAt<DIMS, DIMS>( mSource, seed, pos, out, count, [this]( float* dst, intptr_t, auto... p ) {
+            size_t idx = 0;
+            ((p *= float32v( mScale[idx++] )), ...);
+            this->StoreBlockVector( dst, p... );
+        } );
+
+        return true;
     }
 };
 
@@ -273,6 +496,33 @@ class FastSIMD::DispatchClass<AddDimension, SIMD> final : public virtual AddDime
         {
             return this->GetSourceValue( mSource, seed, pos..., this->GetSourceValue( mNewDimensionPosition, seed, pos... ) );
         }
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if constexpr( DIMS == (size_t)FastNoise::Dim::Count )
+        {
+            this->template GetSourceBlock<DIMS>( mSource, seed, pos, out, count );
+        }
+        else
+        {
+            if( !this->SourceHasGenBlock( mSource ) )
+            {
+                return false;
+            }
+
+            alignas( 64 ) float newDimBuffer[DispatchClass<Generator, SIMD>::kGenBlockSize];
+            auto newDim = this->template GetSourceBlockValues<DIMS>( mNewDimensionPosition, seed, pos, newDimBuffer, count );
+
+            this->template GetSourceBlockAt<DIMS, DIMS + 1>( mSource, seed, pos, out, count,
+                [&newDim]( float* dst, intptr_t i, auto... p ) { DispatchClass::StoreBlockVector( dst, p..., newDim[i] ); } );
+        }
+
+        return true;
     }
 };
 
@@ -316,6 +566,60 @@ class FastSIMD::DispatchClass<RemoveDimension, SIMD> final : public virtual Remo
         default:
             return this->GetSourceValue( mSource, seed, x, y, z, w );
         }
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        auto removeBlock = [&]( auto removeIdx ) {
+            this->template GetSourceBlockAt<DIMS, DIMS - 1>( mSource, seed, pos, out, count, [&]( float* dst, intptr_t, auto... p ) {
+                const float32v arrayPos[] = { p... };
+                for( size_t d = 0, o = 0; d < DIMS; d++ )
+                {
+                    if( d != decltype( removeIdx )::value )
+                    {
+                        FS::Store( dst + int32v::ElementCount * o++, arrayPos[d] );
+                    }
+                }
+            } );
+        };
+
+        if constexpr( DIMS > 2 )
+        {
+            switch( mRemoveDimension )
+            {
+            case FastNoise::Dim::X:
+                removeBlock( std::integral_constant<size_t, 0>() );
+                return true;
+            case FastNoise::Dim::Y:
+                removeBlock( std::integral_constant<size_t, 1>() );
+                return true;
+            case FastNoise::Dim::Z:
+                removeBlock( std::integral_constant<size_t, 2>() );
+                return true;
+            case FastNoise::Dim::W:
+                if constexpr( DIMS > 3 )
+                {
+                    removeBlock( std::integral_constant<size_t, 3>() );
+                return true;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+
+        this->template GetSourceBlock<DIMS>( mSource, seed, pos, out, count );
+
+        return true;
     }
 };
 
@@ -404,6 +708,77 @@ class FastSIMD::DispatchClass<GeneratorCache, SIMD> final : public virtual Gener
 
         return value;
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    // The same cache for block evaluation, keyed on a whole block (seed, value count and positions). Other generators evaluating
+    // the cached source at the same positions get there one block at a time, so a cache of the last vector would always miss
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        static constexpr intptr_t kBlockSize = DispatchClass<Generator, SIMD>::kGenBlockSize;
+        static constexpr std::uint32_t kSlotCount = 4;
+
+        struct BlockCache
+        {
+            const void* generators[kSlotCount] = {};
+            std::uint32_t slotsUsed = 0;
+            intptr_t count = 0;
+            alignas( 64 ) std::int32_t seed[int32v::ElementCount] = {};
+            alignas( 64 ) float pos[kBlockSize * DIMS];
+            alignas( 64 ) float values[kSlotCount][kBlockSize];
+        };
+        // Allocated on first use, the buffers are too large for static TLS in every thread
+        thread_local static std::unique_ptr<BlockCache> CachePtr;
+
+        BlockCache* cache = CachePtr.get();
+        if( !cache )
+        {
+            CachePtr.reset( cache = new BlockCache() );
+        }
+
+        const void* source = mSource.simdGeneratorPtr;
+        size_t posBytes = (size_t)count * DIMS * sizeof( float );
+
+        bool isSameKey = cache->count == count && !FS::AnyMask( seed != FS::Load<int32v>( cache->seed ) ) && std::memcmp( cache->pos, pos, posBytes ) == 0;
+
+        std::uint32_t slot = 0;
+
+        if( isSameKey )
+        {
+            for( std::uint32_t i = 0; i < cache->slotsUsed; i++ )
+            {
+                if( cache->generators[i] == source )
+                {
+                    std::memcpy( out, cache->values[i], count * sizeof( float ) );
+                    return true;
+                }
+            }
+
+            // Use the next slot, replace the last one if all are in use
+            slot = std::min( cache->slotsUsed, kSlotCount - 1 );
+        }
+        else
+        {
+            cache->count = count;
+            FS::Store( cache->seed, seed );
+            std::memcpy( cache->pos, pos, posBytes );
+        }
+
+        // As in GenT: the slot is tagged before evaluating the source, the value isn't stored if a nested cache took the slot
+        cache->slotsUsed = slot + 1;
+        cache->generators[slot] = source;
+
+        this->template GetSourceBlock<DIMS>( mSource, seed, pos, out, count );
+
+        if( cache->generators[slot] == source )
+        {
+            std::memcpy( cache->values[slot], out, count * sizeof( float ) );
+        }
+
+        return true;
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -415,8 +790,25 @@ class FastSIMD::DispatchClass<SignedSquareRoot, SIMD> final : public virtual Sig
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v value = this->GetSourceValue( mSource, seed, pos... );
-        
+
         return FastLengthSqrt( FS::Abs( value ) ) | FS::SignBit( value );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        // Cheap op, for a source without GenBlock the per vector path is faster
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        this->template CombineSourceBlocks<DIMS>( []( float32v value ) { return FastLengthSqrt( FS::Abs( value ) ) | FS::SignBit( value ); }, seed, pos, out, count, mSource );
+
+        return true;
     }
 };
 
@@ -429,8 +821,24 @@ class FastSIMD::DispatchClass<Abs, SIMD> final : public virtual Abs, public Disp
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         float32v value = this->GetSourceValue( mSource, seed, pos... );
-        
+
         return FS::Abs( value );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        this->template CombineSourceBlocks<DIMS>( []( float32v value ) { return FS::Abs( value ); }, seed, pos, out, count, mSource );
+
+        return true;
     }
 };
 
@@ -493,5 +901,38 @@ class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual Do
     {
         RotateCoords( mRotationType, x, y, z );
         return this->GetSourceValue( mSource, seed, x, y, z, w );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        // Same positions as Gen
+        if constexpr( DIMS == 2 )
+        {
+            this->template GetSourceBlockAt<2, 3>( mSource, seed, pos, out, count, [this]( float* dst, intptr_t, float32v x, float32v y ) {
+                float32v z = 0;
+                RotateCoords( PlaneRotationType::ImproveXYPlanes, x, y, z );
+                this->StoreBlockVector( dst, x, y, z );
+            } );
+        }
+        else
+        {
+            PlaneRotationType rotationType = mRotationType;
+
+            this->template GetSourceBlockAt<DIMS, DIMS>( mSource, seed, pos, out, count, [this, rotationType]( float* dst, intptr_t, float32v x, float32v y, float32v z, auto... w ) {
+                RotateCoords( rotationType, x, y, z );
+                this->StoreBlockVector( dst, x, y, z, w... );
+            } );
+        }
+
+        return true;
     }
 };

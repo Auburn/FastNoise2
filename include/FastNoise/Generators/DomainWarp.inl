@@ -28,6 +28,35 @@ protected:
         return this->GetSourceValue( mSource, seed, pos...);
     }
 
+    // GenBlock of the final warp classes, the same values as WarpGenT: the positions are warped per vector,
+    // then the source is evaluated for the whole block
+    template<typename WarpT, size_t DIMS>
+    FS_FORCEINLINE bool WarpGenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        if( !this->SourceHasGenBlock( mSource ) )
+        {
+            return false;
+        }
+
+        alignas( 64 ) float warpAmpBuffer[DispatchClass<Generator, SIMD>::kGenBlockSize];
+        auto warpAmp = this->template GetSourceBlockValues<DIMS>( mWarpAmplitude, seed, pos, warpAmpBuffer, count );
+        bool generatorAmp = mWarpAmplitude.simdGeneratorPtr;
+        float32v frequency( this->mFrequency );
+
+        this->template GetSourceBlockAt<DIMS, DIMS>( mSource, seed, pos, out, count, [&]( float* dst, intptr_t i, auto... p ) {
+            float32v amp = warpAmp[i];
+
+            // Warping by 0 doesn't move the position, as in WarpGenT
+            if( !generatorAmp || FS::AnyMask( amp != float32v( 0 ) ) )
+            {
+                static_cast<const WarpT*>( this )->Warp( seed, amp, ( p * frequency )..., p... );
+            }
+            this->StoreBlockVector( dst, p... );
+        } );
+
+        return true;
+    }
+
 public:
     float GetWarpFrequency() const { return this->mFrequency; }
     const FastNoise::HybridSource& GetWarpAmplitude() const { return mWarpAmplitude; }
@@ -42,6 +71,15 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpGradient, SIMD> final : public virtual DomainWarpGradient, public DispatchClass<DomainWarp, SIMD>
 {
     FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template WarpGenBlock<DispatchClass, DIMS>( seed, pos, out, count );
+    }
 
 public:
     FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const

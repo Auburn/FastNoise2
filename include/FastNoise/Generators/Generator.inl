@@ -23,6 +23,13 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_GEN_FN_ATTRIBUTES
 #endif
 
+// Block evaluation paths are kept out of line, so a generator's per vector path stays as small as without them
+#if defined( _MSC_VER ) && !defined( __clang__ )
+#define FASTNOISE_NOINLINE __declspec( noinline )
+#else
+#define FASTNOISE_NOINLINE __attribute__(( noinline ))
+#endif
+
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Generator, SIMD> : public virtual Generator
 {
@@ -107,6 +114,20 @@ public:
     template<size_t... DIM>\
     FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* pos, float* out, intptr_t count )\
     {\
+        if constexpr( DispatchClass::kHasGenBlock )\
+        {\
+            int& blockDepth = DispatchClass<Generator, SIMD>::GenBlockDepth();\
+            if( blockDepth < DispatchClass<Generator, SIMD>::kMaxGenBlockDepth )\
+            {\
+                blockDepth++;\
+                bool evaluated = static_cast<const DispatchClass*>( gen )->template GenBlock<sizeof...( DIM )>( seed, pos, out, count );\
+                blockDepth--;\
+                if( evaluated )\
+                {\
+                    return;\
+                }\
+            }\
+        }\
         for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
         {\
             GenResultT result = GenFn( gen, seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... );\
@@ -122,10 +143,162 @@ public:\
         this->mGenBlockFn[0] = &GenBlockFn<0, 1>;\
         this->mGenBlockFn[1] = &GenBlockFn<0, 1, 2>;\
         this->mGenBlockFn[2] = &GenBlockFn<0, 1, 2, 3>;\
+        this->mHasGenBlock = DispatchClass::kHasGenBlock;\
     }\
 private:
 
 #define FASTNOISE_IMPL_GEN_T FASTNOISE_IMPL_GEN_FN( GenT )
+
+    // Generators that evaluate a whole position block themselves (e.g. calling their sources' block functions once per block
+    // instead of once per vector) set this and define template<size_t DIMS> bool GenBlock( seed, pos, out, count ), returning
+    // false to have the block evaluated per vector instead. It is not inlined, so the per vector loop stays as without it
+    static constexpr bool kHasGenBlock = false;
+
+    // Number of values in a position block, blocks hold up to this many values (a multiple of the vector size)
+    static constexpr intptr_t kGenBlockSize = int32v::ElementCount * 16;
+
+    // Each nested GenBlock keeps block buffers on the stack, past this depth sources are evaluated per vector
+    static constexpr int kMaxGenBlockDepth = 8;
+
+    static FS_FORCEINLINE int& GenBlockDepth()
+    {
+        thread_local int depth = 0;
+        return depth;
+    }
+
+    // True if the source evaluates blocks with its own GenBlock (generators with sources). Evaluating a generator without one
+    // per vector with the positions in registers is faster than storing computed positions for a block and reloading them
+    template<typename T>
+    static FS_FORCEINLINE bool SourceHasGenBlock( const FastNoise::GeneratorSourceT<T>& memberVariable )
+    {
+        assert( memberVariable.simdGeneratorPtr );
+        return reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr )->mHasGenBlock;
+    }
+
+    template<size_t DIMS, typename T>
+    static FS_FORCEINLINE void GetSourceBlock( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, const float* pos, float* out, intptr_t count )
+    {
+        assert( memberVariable.simdGeneratorPtr );
+        CallGenBlock<DIMS>( reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr ), seed, pos, out, count );
+    }
+
+    // Calls f( i, x, y[, z[, w]] ) for the vector of positions at each output index i of a position block
+    template<size_t DIMS, typename F>
+    static FS_FORCEINLINE void ForEachBlockVector( const float* pos, intptr_t count, F&& f )
+    {
+        ForEachBlockVector( std::make_index_sequence<DIMS>(), pos, count, f );
+    }
+
+    template<size_t... I, typename F>
+    static FS_FORCEINLINE void ForEachBlockVector( std::index_sequence<I...>, const float* pos, intptr_t count, F& f )
+    {
+        for( intptr_t i = 0; i < count; i += int32v::ElementCount )
+        {
+            f( i, FS::Load<float32v>( pos + i * sizeof...( I ) + I * int32v::ElementCount )... );
+        }
+    }
+
+    // Value of a source for the vector at output index i of a position block, evaluated on its own
+    template<size_t DIMS, typename S>
+    static FS_FORCEINLINE float32v GetSourceValueAt( const S& memberVariable, int32v seed, const float* pos, intptr_t i )
+    {
+        return GetSourceValueAt( memberVariable, seed, pos + i * DIMS, std::make_index_sequence<DIMS>() );
+    }
+
+    template<typename S, size_t... I>
+    static FS_FORCEINLINE float32v GetSourceValueAt( const S& memberVariable, int32v seed, const float* vectorPos, std::index_sequence<I...> )
+    {
+        return GetSourceValue( memberVariable, seed, FS::Load<float32v>( vectorPos + I * int32v::ElementCount )... );
+    }
+
+    // True if any of the generator sources evaluates blocks with its own GenBlock, see SourceHasGenBlock
+    template<typename... S>
+    static FS_FORCEINLINE bool AnySourceHasGenBlock( const S&... memberVariables )
+    {
+        return ( SourceHasGenBlockOrConstant( memberVariables ) || ... );
+    }
+
+    template<typename T>
+    static FS_FORCEINLINE bool SourceHasGenBlockOrConstant( const FastNoise::GeneratorSourceT<T>& memberVariable )
+    {
+        return SourceHasGenBlock( memberVariable );
+    }
+
+    template<typename T>
+    static FS_FORCEINLINE bool SourceHasGenBlockOrConstant( const FastNoise::HybridSourceT<T>& memberVariable )
+    {
+        return memberVariable.simdGeneratorPtr && reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr )->mHasGenBlock;
+    }
+
+    // Stores the position vectors for output index i of a block at dst = blockPos + i * DIMS
+    template<typename... P>
+    static FS_FORCEINLINE void StoreBlockVector( float* dst, P... pos )
+    {
+        ( ( FS::Store( dst, pos ), dst += int32v::ElementCount ), ... );
+    }
+
+    // Evaluates the source at the positions transform( dst, i, pos... ) stores for the vector at each output index i (with StoreBlockVector)
+    template<size_t DIMS, size_t SOURCE_DIMS, typename T, typename F>
+    static FS_FORCEINLINE void GetSourceBlockAt( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, const float* pos, float* out, intptr_t count, F&& transform )
+    {
+        alignas( 64 ) float sourcePos[kGenBlockSize * SOURCE_DIMS];
+
+        ForEachBlockVector<DIMS>( pos, count, [&]( intptr_t i, auto... p ) { transform( sourcePos + i * SOURCE_DIMS, i, p... ); } );
+
+        GetSourceBlock<SOURCE_DIMS>( memberVariable, seed, sourcePos, out, count );
+    }
+
+    // Source values of a block: generator output in a buffer, or the constant of a hybrid source. The constant is read through
+    // a pointer in every iteration, so loops can't hoist maths on it (e.g. x / constant to x * ( 1 / constant )) which changes the output
+    struct BlockValues
+    {
+        const float* values;
+        const float* constant;
+
+        FS_FORCEINLINE float32v operator[]( intptr_t i ) const
+        {
+            return values ? FS::Load<float32v>( values + i ) : float32v( *constant );
+        }
+    };
+
+    template<size_t DIMS, typename T>
+    static FS_FORCEINLINE BlockValues GetSourceBlockValues( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, const float* pos, float* buffer, intptr_t count )
+    {
+        GetSourceBlock<DIMS>( memberVariable, seed, pos, buffer, count );
+        return { buffer, nullptr };
+    }
+
+    template<size_t DIMS, typename T>
+    static FS_FORCEINLINE BlockValues GetSourceBlockValues( const FastNoise::HybridSourceT<T>& memberVariable, int32v seed, const float* pos, float* buffer, intptr_t count )
+    {
+        if( memberVariable.simdGeneratorPtr )
+        {
+            CallGenBlock<DIMS>( reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr ), seed, pos, buffer, count );
+            return { buffer, nullptr };
+        }
+        return { nullptr, &memberVariable.constant };
+    }
+
+    // out = op( values of each source... ) for a block, the sources are evaluated in order a block at a time
+    template<size_t DIMS, typename OP, typename... S>
+    static FS_FORCEINLINE void CombineSourceBlocks( OP op, int32v seed, const float* pos, float* out, intptr_t count, const S&... sources )
+    {
+        CombineSourceBlocks<DIMS>( std::index_sequence_for<S...>(), op, seed, pos, out, count, sources... );
+    }
+
+    template<size_t DIMS, size_t... I, typename OP, typename... S>
+    static FS_FORCEINLINE void CombineSourceBlocks( std::index_sequence<I...>, OP& op, int32v seed, const float* pos, float* out, intptr_t count, const S&... sources )
+    {
+        // The first source is evaluated straight into out
+        alignas( 64 ) float buffers[sizeof...( S ) > 1 ? sizeof...( S ) - 1 : 1][kGenBlockSize];
+
+        const BlockValues values[] = { GetSourceBlockValues<DIMS>( sources, seed, pos, I == 0 ? out : buffers[I - ( I > 0 )], count )... };
+
+        for( intptr_t i = 0; i < count; i += int32v::ElementCount )
+        {
+            FS::Store( out + i, op( values[I][i]... ) );
+        }
+    }
 
 protected:
     // Set by the constructor FASTNOISE_IMPL_GEN_T/FASTNOISE_IMPL_GEN_FN adds to each generator
@@ -133,6 +306,7 @@ protected:
     GenFn3D mGenFn3D = nullptr;
     GenFn4D mGenFn4D = nullptr;
     GenBlockFn mGenBlockFn[3] = {};
+    bool mHasGenBlock = false;
 
 public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
@@ -683,7 +857,7 @@ private:
 
     // Min/max is accumulated from the stored output once per block of Gen() calls,
     // this avoids spilling and reloading the min/max registers around every call
-    static constexpr intptr_t kMinMaxBlockSize = int32v::ElementCount * 16;
+    static constexpr intptr_t kMinMaxBlockSize = kGenBlockSize;
 
     // Positions are buffered per block and evaluated with one CallGenBlock(): the loops computing them keep their
     // state in registers instead of spilling it around every Gen call, and small generators inline into the block loop.
