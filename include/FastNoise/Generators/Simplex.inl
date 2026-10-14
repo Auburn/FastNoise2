@@ -45,7 +45,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
@@ -119,7 +119,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
@@ -220,7 +220,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y, z, w );
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
@@ -405,7 +405,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
@@ -491,7 +491,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
@@ -1152,7 +1152,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y, z, w );
 
         float32v value = GenSuperSimplex4D( seed, x, y, z, w );

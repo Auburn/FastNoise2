@@ -151,7 +151,7 @@ public:
 public:
     FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
@@ -195,7 +195,7 @@ public:
             
     FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
@@ -266,7 +266,7 @@ public:
             
     FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
 
         if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || !( SIMD & ( FastSIMD::FeatureFlag::AVX2 | FastSIMD::FeatureFlag::ARM ) ) )
         {

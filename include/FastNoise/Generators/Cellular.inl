@@ -1446,7 +1446,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter2D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y );
@@ -1497,7 +1497,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         constexpr DistanceFunction distFunc = DistanceFunction::Minkowski;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -1572,7 +1572,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -1769,7 +1769,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter3D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y, z );
@@ -1808,7 +1808,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
@@ -1941,7 +1941,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
@@ -2066,7 +2066,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter2D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y );
@@ -2105,7 +2105,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -2284,7 +2284,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter3D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y, z );
@@ -2323,7 +2323,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
@@ -2436,7 +2436,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
@@ -2598,7 +2598,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter2D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y );
@@ -2637,7 +2637,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -2807,7 +2807,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter3D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y, z );
@@ -2846,7 +2846,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
@@ -2935,7 +2935,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;

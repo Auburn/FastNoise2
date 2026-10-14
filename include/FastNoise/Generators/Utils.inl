@@ -30,6 +30,13 @@ namespace FastNoise
         static constexpr int A = (int)0xB7E0A5F5;
     };
 
+    // Seed offsets (node Seed Offset, fractal octaves) move the seed in steps of a large odd constant instead of 1: the lattice
+    // hashes combine the seed with xor and multiplies, so seeds that only differ in their low bits give correlated noise
+    static constexpr int SeedSteps( int steps )
+    {
+        return (int)( (unsigned)steps * 0x9E3779B9u );
+    }
+
     static constexpr double kRoot2 = 1.4142135623730950488016887242097;
     static constexpr double kRoot3 = 1.7320508075688772935274463415059;
     static constexpr double kRoot5 = 2.2360679774997896964091736687313;

@@ -1,6 +1,7 @@
 #include <memory>
 
 #include "Modifiers.h"
+#include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainScale, SIMD> final : public virtual DomainScale, public DispatchClass<Generator, SIMD>
@@ -180,7 +181,7 @@ class FastSIMD::DispatchClass<SeedOffset, SIMD> final : public virtual SeedOffse
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mSource, seed + int32v( mOffset ), pos... );
+        return this->GetSourceValue( mSource, seed + int32v( SeedSteps( mOffset ) ), pos... );
     }
 
 public:
@@ -194,7 +195,7 @@ public:
     template<size_t DIMS>
     FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
-        this->template GetSourceBlock<DIMS>( mSource, seed + int32v( mOffset ), pos, out, count );
+        this->template GetSourceBlock<DIMS>( mSource, seed + int32v( SeedSteps( mOffset ) ), pos, out, count );
 
         return true;
     }

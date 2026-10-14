@@ -24,7 +24,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y );
 
         float32v xs = FS::Floor( x );
@@ -46,7 +46,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y, z );
 
         float32v xs = FS::Floor( x );
@@ -95,7 +95,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         this->ScalePositions( this, x, y, z, w );
 
         float32v xs = FS::Floor( x );
