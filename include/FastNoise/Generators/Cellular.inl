@@ -386,6 +386,14 @@ protected:
                 }
             }
 
+            // Negative size factor allows negative distances, never skip those lanes. Applied before the bounds are stored:
+            // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from
+            mask32v sizeJitterValid;
+            if( sizeJitterActive )
+            {
+                sizeJitterValid = minFactor >= float32v( 0 );
+            }
+
             for( int d = 0; d < D; d++ )
             {
                 float32v axisRadius = FS::FMulAdd( FS::Abs( pos[d] ), float32v( 1.f / ( 1 << 21 ) ), radius );
@@ -394,43 +402,34 @@ protected:
                 {
                     // Cell centre - position
                     float32v centreOffset = relative ? cellPos[d][i] : cellPos[d][i] - pos[d];
+                    float32v b;
 
                     if( ball )
                     {
-                        bounds.axis[d][i] = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
-                        continue;
+                        b = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
                     }
-
-                    float32v b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
-
-                    switch( distFunc )
+                    else
                     {
-                    default:
-                        b *= b;
-                        break;
-                    case DistanceFunction::Manhattan:
-                    case DistanceFunction::MaxAxis:
-                    case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
-                        break;
-                    case DistanceFunction::Hybrid:
-                        b = FS::FMulAdd( b, b, b );
-                        break;
+                        b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
+
+                        switch( distFunc )
+                        {
+                        default:
+                            b *= b;
+                            break;
+                        case DistanceFunction::Manhattan:
+                        case DistanceFunction::MaxAxis:
+                        case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
+                            break;
+                        case DistanceFunction::Hybrid:
+                            b = FS::FMulAdd( b, b, b );
+                            break;
+                        }
+
+                        b *= scale;
                     }
 
-                    bounds.axis[d][i] = b * scale;
-                }
-            }
-
-            if( sizeJitterActive )
-            {
-                // Negative size factor allows negative distances, never skip those lanes
-                mask32v valid = minFactor >= float32v( 0 );
-                for( int d = 0; d < D; d++ )
-                {
-                    for( int i = 0; i < 3; i++ )
-                    {
-                        bounds.axis[d][i] = FS::Select( valid, bounds.axis[d][i], float32v( -kInfinity ) );
-                    }
+                    bounds.axis[d][i] = sizeJitterActive ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
                 }
             }
 
