@@ -96,6 +96,18 @@ public:
         gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count );
     }
 
+    // Evaluates out[begin, end) from positions stored per axis, { offsets[0] + axes[0][i], offsets[1] + axes[1][i], ... }.
+    // The positions are loaded in axis order (braced init): fast-math reassociation in an inlined generator depends on that
+    // order, loaded right to left (MS ABI argument order) DomainRotatePlane's output changed
+    using GenBlockPlanarFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* const*, const float*, float*, intptr_t, intptr_t );
+
+    template<size_t DIMS>
+    static FS_FORCEINLINE void CallGenBlockPlanar( const DispatchClass* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )
+    {
+        assert( gen->mGenBlockPlanarFn[DIMS - 2] );
+        gen->mGenBlockPlanarFn[DIMS - 2]( gen, seed, axes, offsets, out, begin, end );
+    }
+
 // Defines the static Gen and GenBlock functions of a generator and points the function pointers at them,
 // GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
 #define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
@@ -121,6 +133,16 @@ public:
             FS::Store( out + i, float32v( result.v0, result.v1 ) );\
         }\
     }\
+    template<size_t... DIM>\
+    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockPlanarFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )\
+    {\
+        for( intptr_t i = begin; i < end; i += int32v::ElementCount )\
+        {\
+            float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };\
+            GenResultT result = GenFn( gen, seed, pos[DIM]... );\
+            FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+        }\
+    }\
 public:\
     DispatchClass()\
     {\
@@ -130,6 +152,9 @@ public:\
         this->mGenBlockFn[0] = &GenBlockFn<0, 1>;\
         this->mGenBlockFn[1] = &GenBlockFn<0, 1, 2>;\
         this->mGenBlockFn[2] = &GenBlockFn<0, 1, 2, 3>;\
+        this->mGenBlockPlanarFn[0] = &GenBlockPlanarFn<0, 1>;\
+        this->mGenBlockPlanarFn[1] = &GenBlockPlanarFn<0, 1, 2>;\
+        this->mGenBlockPlanarFn[2] = &GenBlockPlanarFn<0, 1, 2, 3>;\
     }\
 private:
 
@@ -141,6 +166,7 @@ protected:
     GenFn3D mGenFn3D = nullptr;
     GenFn4D mGenFn4D = nullptr;
     GenBlockFn mGenBlockFn[3] = {};
+    GenBlockPlanarFn mGenBlockPlanarFn[3] = {};
 
 public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
@@ -444,26 +470,10 @@ public:
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        intptr_t index = 0;
-        while( index < count - (intptr_t)int32v::ElementCount )
-        {
-            intptr_t blockIndex = index;
-            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
+        const float* axes[] = { xPosArray, yPosArray };
+        const float offsets[] = { xOffset, yOffset };
 
-            do
-            {
-                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-
-                float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
-                FS::Store( &noiseOut[index], gen );
-
-                index += int32v::ElementCount;
-            }
-            while( index < blockEnd );
-
-            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
-        }
+        intptr_t index = GenPositionArrayBlocks<2>( noiseOut, count, axes, offsets, seed, min, max );
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
@@ -478,27 +488,10 @@ public:
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        intptr_t index = 0;
-        while( index < count - (intptr_t)int32v::ElementCount )
-        {
-            intptr_t blockIndex = index;
-            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
+        const float* axes[] = { xPosArray, yPosArray, zPosArray };
+        const float offsets[] = { xOffset, yOffset, zOffset };
 
-            do
-            {
-                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-                float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
-
-                float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
-                FS::Store( &noiseOut[index], gen );
-
-                index += int32v::ElementCount;
-            }
-            while( index < blockEnd );
-
-            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
-        }
+        intptr_t index = GenPositionArrayBlocks<3>( noiseOut, count, axes, offsets, seed, min, max );
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
@@ -514,28 +507,10 @@ public:
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        intptr_t index = 0;
-        while( index < count - (intptr_t)int32v::ElementCount )
-        {
-            intptr_t blockIndex = index;
-            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
+        const float* axes[] = { xPosArray, yPosArray, zPosArray, wPosArray };
+        const float offsets[] = { xOffset, yOffset, zOffset, wOffset };
 
-            do
-            {
-                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-                float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
-                float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
-
-                float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
-                FS::Store( &noiseOut[index], gen );
-
-                index += int32v::ElementCount;
-            }
-            while( index < blockEnd );
-
-            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
-        }
+        intptr_t index = GenPositionArrayBlocks<4>( noiseOut, count, axes, offsets, seed, min, max );
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
@@ -696,11 +671,35 @@ private:
 
     // Positions are buffered per block and evaluated with one CallGenBlock(): the loops computing them keep their
     // state in registers instead of spilling it around every Gen call, and small generators inline into the block loop.
-    // Not used for position arrays, they have no such state and copying their positions measured slower (AVX512)
+    // Position arrays are read in place instead (CallGenBlockPlanar), copying their positions measured slower (AVX512)
     template<typename... P>
     static FS_FORCEINLINE void StoreBlockPositions( float*& blockPos, P... pos )
     {
         ( ( FS::Store( blockPos, pos ), blockPos += int32v::ElementCount ), ... );
+    }
+
+    // Evaluates the full vectors of a position array in blocks of one CallGenBlockPlanar() each, which reads the positions
+    // straight from the caller's arrays. Returns the index of the first value not evaluated
+    template<size_t DIMS>
+    FS_FORCEINLINE intptr_t GenPositionArrayBlocks( float* noiseOut, intptr_t count, const float* const* axes, const float* offsets, int seed, float32v& min, float32v& max ) const
+    {
+        intptr_t index = 0;
+        while( index < count - (intptr_t)int32v::ElementCount )
+        {
+            intptr_t blockIndex = index;
+            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
+
+            CallGenBlockPlanar<DIMS>( this, int32v( seed ), axes, offsets, noiseOut, blockIndex, blockEnd );
+
+            do
+            {
+                index += int32v::ElementCount;
+            }
+            while( index < blockEnd );
+
+            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
+        }
+        return index;
     }
 
     static FS_FORCEINLINE void AccumulateMinMax( const float* noiseOut, intptr_t index, intptr_t endIndex, float32v& min, float32v& max )
