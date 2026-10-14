@@ -100,7 +100,7 @@ namespace FastNoise
         float mYa = 0.0f;
         float mYb = 1.0f;
         float mYc = 0.0f;
-        float mZa = 0.0f;
+        float mZa = -0.0f; // Matches CalculateRotation() for the default angles: -sin( 0 )
         float mZb = 0.0f;
         float mZc = 1.0f;
 

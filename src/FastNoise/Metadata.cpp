@@ -6,6 +6,8 @@
 #include <limits>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
+#include <new>
 
 #include "FastNoise/Metadata.h"
 #include "FastNoise/FastNoise.h"
@@ -689,6 +691,88 @@ namespace FastNoise
     struct MetadataT;
 }
 
+#ifndef NDEBUG
+// Node created in zeroed memory, so padding bytes match and whole nodes can be compared
+template<typename T>
+class DebugZeroedNode
+{
+public:
+    DebugZeroedNode()
+    {
+        sAlloc = nullptr;
+        mGenerator = FastSIMD::NewDispatchClass<T>( FastSIMD::FeatureSet::Max, &Allocate );
+        mAlloc = sAlloc;
+        mSize = sSize;
+        mAlign = sAlign;
+    }
+
+    ~DebugZeroedNode()
+    {
+        if( mGenerator )
+        {
+            mGenerator->~T();
+            ::operator delete( mAlloc, std::align_val_t( mAlign ) );
+        }
+    }
+
+    DebugZeroedNode( const DebugZeroedNode& ) = delete;
+    DebugZeroedNode& operator=( const DebugZeroedNode& ) = delete;
+
+    Generator* Get() const { return mGenerator; }
+
+    bool MemoryEqual( const DebugZeroedNode& rhs ) const
+    {
+        return std::memcmp( mAlloc, rhs.mAlloc, mSize ) == 0;
+    }
+
+private:
+    static void* Allocate( size_t size, size_t align )
+    {
+        sSize = size;
+        sAlign = align;
+        sAlloc = ::operator new( size, std::align_val_t( align ) );
+        return std::memset( sAlloc, 0, size );
+    }
+
+    // Only used during static init, which is single threaded
+    static inline void* sAlloc = nullptr;
+    static inline size_t sSize = 0;
+    static inline size_t sAlign = 0;
+
+    T* mGenerator;
+    void* mAlloc;
+    size_t mSize;
+    size_t mAlign;
+};
+
+// Applies each metadata default value to a new node and checks the node is unchanged
+// Returns the first member where the metadata default doesn't match the node's member default
+template<typename T>
+static const Metadata::Member* DebugFindMetadataDefaultMismatch( const Metadata& metadata )
+{
+    DebugZeroedNode<T> defaultNode;
+    DebugZeroedNode<T> metadataNode;
+
+    for( const Metadata::MemberVariable& variable : metadata.memberVariables )
+    {
+        if( !variable.setFunc( metadataNode.Get(), variable.valueDefault ) || !defaultNode.MemoryEqual( metadataNode ) )
+        {
+            return &variable;
+        }
+    }
+
+    for( const Metadata::MemberHybrid& hybrid : metadata.memberHybrids )
+    {
+        if( !hybrid.setValueFunc( metadataNode.Get(), hybrid.valueDefault ) || !defaultNode.MemoryEqual( metadataNode ) )
+        {
+            return &hybrid;
+        }
+    }
+
+    return nullptr;
+}
+#endif
+
 template<typename T>
 static std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* className )
 {
@@ -697,6 +781,10 @@ static std::unique_ptr<const MetadataT<T>> CreateMetadataInstance( const char* c
 
     // Node must be in a group or it is not selectable in the UI
     assert( newMetadata->groups.size() );
+
+    // Metadata default value doesn't match the node's member default
+    // Default values are not serialised, so encoded node trees would decode differently to what the Node Editor shows
+    assert( !DebugFindMetadataDefaultMismatch<T>( *newMetadata ) );
     return std::unique_ptr<const MetadataT<T>>( newMetadata );
 }
 

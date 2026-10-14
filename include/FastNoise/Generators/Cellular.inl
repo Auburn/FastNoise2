@@ -61,7 +61,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 int32v newCellValueHash = hash;
-                float32v newDistance = CalcDistance<true>( mDistanceFunction, minkowskiP, xd, yd );
+                float32v newDistance = CalcDistance<false>( mDistanceFunction, minkowskiP, xd, yd );
                 if( sizeJitterActive )
                 {
                     float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
