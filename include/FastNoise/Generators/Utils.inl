@@ -278,8 +278,21 @@ namespace FastNoise
         }
     }
 
-    template<bool DO_SQRT = true, FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault(), typename... P>
-    FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, const HybridSource& minkowskiP, int32v seed, float32v pX, P... pos )
+    // Sample Minkowski P once at the generator's input position, not per distance calculation
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault(), typename... P>
+    FS_FORCEINLINE static float32v GetMinkowskiP( DistanceFunction distFunc, const HybridSource& minkowskiP, int32v seed, P... pos )
+    {
+        // Avoid evaluating a connected source when it isn't used
+        if( distFunc != DistanceFunction::Minkowski )
+        {
+            return float32v( 0 );
+        }
+
+        return FastSIMD::DispatchClass<Generator, SIMD>::GetSourceValue( minkowskiP, seed, pos... );
+    }
+
+    template<bool DO_SQRT = true, typename... P>
+    FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, float32v minkowskiP, float32v pX, P... pos )
     {
         switch( distFunc )
         {
@@ -327,9 +340,10 @@ namespace FastNoise
 
             case DistanceFunction::Minkowski:
             {
-                float32v minkowski = FastSIMD::DispatchClass<Generator, SIMD>::GetSourceValue( minkowskiP, seed, pX, pos... );
+                float32v sum = FS::Pow( FS::Abs( pX ), minkowskiP );
+                ((sum += FS::Pow( FS::Abs( pos ), minkowskiP )), ...);
 
-                return FS::Pow( FS::Pow( FS::Abs( pX ), minkowski) + (FS::Pow( FS::Abs( pos ), minkowski) + ...), FS::Reciprocal( minkowski ) );
+                return FS::Pow( sum, FS::Reciprocal( minkowskiP ) );
             }
         }
     }    
