@@ -291,12 +291,6 @@ namespace FastNoise
         return FastSIMD::DispatchClass<Generator, SIMD>::GetSourceValue( minkowskiP, seed, pos... );
     }
 
-    // FS::Pow( 0, p ) returns 1, mask so that 0 maps to 0
-    FS_FORCEINLINE static float32v PowNonNegative( float32v value, float32v pow )
-    {
-        return FS::Masked( value > float32v( 0 ), FS::Pow( value, pow ) );
-    }
-
     template<bool DO_SQRT = true, typename... P>
     FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, float32v minkowskiP, float32v pX, P... pos )
     {
@@ -346,10 +340,10 @@ namespace FastNoise
 
             case DistanceFunction::Minkowski:
             {
-                float32v sum = PowNonNegative( FS::Abs( pX ), minkowskiP );
-                ((sum += PowNonNegative( FS::Abs( pos ), minkowskiP )), ...);
+                float32v sum = FS::Pow( FS::Abs( pX ), minkowskiP );
+                ((sum += FS::Pow( FS::Abs( pos ), minkowskiP )), ...);
 
-                return PowNonNegative( sum, FS::Reciprocal( minkowskiP ) );
+                return FS::Pow( sum, FS::Reciprocal( minkowskiP ) );
             }
         }
     }    
