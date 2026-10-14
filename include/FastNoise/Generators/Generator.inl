@@ -658,8 +658,18 @@ public:
         // xPos/zPos are the same in every row, compute them once per column. The tables continue past the
         // end of the row with its first columns, so the vector starting at any column is a contiguous load
         intptr_t xTableSize = xSize + (intptr_t)int32v::ElementCount;
-        std::vector<float> xTables( ( xTableSize + int32v::ElementCount ) * 2 );
-        float* xPosTable = xTables.data();
+        intptr_t xTablesSize = ( xTableSize + int32v::ElementCount ) * 2;
+
+        // On the stack unless the rows are long, a heap allocation costs about as much as a small tile
+        alignas( 64 ) float xTablesStack[( kTileableStackMaxXSize + 2 * int32v::ElementCount ) * 2];
+        std::vector<float> xTablesHeap;
+        float* xPosTable = xTablesStack;
+
+        if( xSize > kTileableStackMaxXSize )
+        {
+            xTablesHeap.resize( xTablesSize );
+            xPosTable = xTablesHeap.data();
+        }
         float* zPosTable = xPosTable + xTableSize + int32v::ElementCount;
 
         for( intptr_t column = 0; column < xTableSize; column += int32v::ElementCount )
@@ -827,6 +837,9 @@ private:
 
     // Longest row for the tileable row path, its x/z tables are on the stack
     static constexpr intptr_t kTileableRowsMaxXSize = 1024;
+
+    // Longest row with GenTileable2D's own x/z tables on the stack
+    static constexpr intptr_t kTileableStackMaxXSize = 512;
 
     static FS_FORCEINLINE bool IsTileableRowsSize( int xSize )
     {
