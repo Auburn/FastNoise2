@@ -266,13 +266,27 @@ protected:
         {
             mask32v up = pos[d] >= FS::Round( pos[d] );
 
-            int32v primedNear = FS::Select( up, primed[d][2], primed[d][0] );
-            primed[d][2] = FS::Select( up, primed[d][0], primed[d][2] );
-            primed[d][0] = primedNear;
+            if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+            {
+                // Xor swap: clang 23 turns selects into slots kept in memory into vmaskmovps, slow to store and to load back
+                int32v primedSwap = FS::Masked( up, primed[d][0] ^ primed[d][2] );
+                primed[d][0] ^= primedSwap;
+                primed[d][2] ^= primedSwap;
 
-            float32v cellPosNear = FS::Select( up, cellPos[d][2], cellPos[d][0] );
-            cellPos[d][2] = FS::Select( up, cellPos[d][0], cellPos[d][2] );
-            cellPos[d][0] = cellPosNear;
+                float32v cellPosSwap = FS::Masked( up, cellPos[d][0] ^ cellPos[d][2] );
+                cellPos[d][0] ^= cellPosSwap;
+                cellPos[d][2] ^= cellPosSwap;
+            }
+            else
+            {
+                int32v primedNear = FS::Select( up, primed[d][2], primed[d][0] );
+                primed[d][2] = FS::Select( up, primed[d][0], primed[d][2] );
+                primed[d][0] = primedNear;
+
+                float32v cellPosNear = FS::Select( up, cellPos[d][2], cellPos[d][0] );
+                cellPos[d][2] = FS::Select( up, cellPos[d][0], cellPos[d][2] );
+                cellPos[d][0] = cellPosNear;
+            }
         }
     }
 
