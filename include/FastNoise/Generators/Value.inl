@@ -7,7 +7,8 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
     FASTNOISE_IMPL_GEN_FN( Gen );
 
     // Corner-major path for lane-coherent vectors (uniform grids, AVX2): x/y lerp of one z/w layer of a lattice block table, bit identical
-    // to the per lane path. Only used in 3D/4D on AVX2: in 2D and on AVX512 it measured slower than hashing every corner per lane
+    // to the per lane path. Only used in 3D/4D on AVX2: in 2D and on AVX512 it measured slower than hashing every corner per lane.
+    // AArch64 (TBL lookups): 3D 1.00 / 4D 0.93 on grids but 1.12 / 1.08 on random positions on an Apple M1, not enabled
     template<typename T>
     FS_FORCEINLINE static float32v LatticeBlockLerpXY( const T& table, int32v xOffset, float32v xs, float32v ys )
     {
@@ -65,7 +66,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, yi, zi ) )
             {
-                auto seedB = LatticeBlockBroadcast( seed );
+                auto seedB = LatticeBlockSplat( seed );
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
 
@@ -117,7 +118,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, yi, zi, wi ) )
             {
-                auto seedB = LatticeBlockBroadcast( seed );
+                auto seedB = LatticeBlockSplat( seed );
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
                 auto zp0 = LatticeBlockPrimed<2, 0>( zi, Primes::Z );
