@@ -766,7 +766,7 @@ protected:
     }
 
     // 3D: worth checking the 2^D cells first: coherent lanes rarely need more, incoherent lanes are each an independent chance of needing the
-    // 3^D search too, worth it up to 16 lanes and not with Manhattan's looser bound
+    // 3^D search too, still worth it at 32 lanes since that search skips the 2^D cells, but not with Manhattan's looser bound
     // Not without jitter: every point is on the lattice, exact distance ties must keep the 3^D search's cell order
     // CellularLookup only with coherent lanes (INCOHERENT = false): a seeded search picked another cell on rare lanes
     template<bool INCOHERENT = true>
@@ -776,7 +776,7 @@ protected:
         {
             return false;
         }
-        return ( INCOHERENT && float32v::ElementCount <= 16 && distFunc != DistanceFunction::Manhattan ) || IsCoherent<3>( pos );
+        return ( INCOHERENT && distFunc != DistanceFunction::Manhattan ) || IsCoherent<3>( pos );
     }
 
     // True if no lane can have a closer point than distance in the other cells of the 3^D search, after the 2^D cells around the position
