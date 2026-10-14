@@ -49,7 +49,12 @@ public:
     {
         return { v.v0.GetNative(), v.v1.GetNative() };
     }
+
+    // Generators inlined into the position array block loop measured slower with MSVC AVX512 (White up to 1.3x)
+    static constexpr bool kInlinePlanarBlock = !( SIMD & FastSIMD::FeatureFlag::AVX512_F );
 #else
+    static constexpr bool kInlinePlanarBlock = true;
+
     struct GenResult
     {
         typename float32v::DoubledType v0, v1;
@@ -139,8 +144,15 @@ public:
         for( intptr_t i = begin; i < end; i += int32v::ElementCount )\
         {\
             float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };\
-            GenResultT result = GenFn( gen, seed, pos[DIM]... );\
-            FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            if constexpr( DispatchClass<Generator, SIMD>::kInlinePlanarBlock )\
+            {\
+                GenResultT result = GenFn( gen, seed, pos[DIM]... );\
+                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            }\
+            else\
+            {\
+                FS::Store( out + i, DispatchClass<Generator, SIMD>::CallGen( gen, seed, pos[DIM]... ) );\
+            }\
         }\
     }\
 public:\
