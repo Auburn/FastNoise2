@@ -751,9 +751,11 @@ protected:
     // Incoherent lanes are each an independent chance of needing the cells beyond (~6% per lane), still a win with SSE4.1's 8 lanes per vector
     // (not SSE2: no native floor)
     // Coherence first, one axis at a time: most incoherent batches already fail on x. A constant grid jitter is tested as a scalar
+    // INCOHERENT = false: coherent lanes only, for distance functions whose 2x2 completeness bound is too loose for incoherent lanes
+    template<bool INCOHERENT = true>
     FS_FORCEINLINE bool Closest2DActive( float32v x, float32v y, float32v jitter ) const
     {
-        constexpr bool kIncoherent = float32v::ElementCount <= 8 && ( SIMD & FastSIMD::FeatureFlag::SSE41 );
+        constexpr bool kIncoherent = INCOHERENT && float32v::ElementCount <= 8 && ( SIMD & FastSIMD::FeatureFlag::SSE41 );
         constexpr float kMaxJitter = kJitter2D * 1.001f;
         if constexpr( !kIncoherent )
         {
@@ -1093,6 +1095,22 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 int32v hash;
                 this->template Closest2D<true, false>( distFunc, seed, jitter, x, y, &hash, nullptr );
                 return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+            }
+        }
+
+        // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the 3x3 loop below only runs if a lane might be missing it
+        // Hybrid only with coherent lanes: its looser bound needs the 3x3 loop too often for incoherent lanes
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        {
+            if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
+            {
+                float32v floorPos[] = { x, y };
+                int32v hash;
+                float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
             }
         }
 
@@ -1499,6 +1517,22 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             {
                 distance[0] = this->template Closest2D<false, false>( distFunc, seed, jitter, x, y, nullptr, nullptr );
                 return GetReturn( distance, 1 + this->kJitter2D );
+            }
+        }
+
+        // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the 3x3 loop below only runs if a lane might be missing it
+        // Hybrid only with coherent lanes: its looser bound needs the 3x3 loop too often for incoherent lanes
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        {
+            if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
+            {
+                float32v floorPos[] = { x, y };
+                float32v closest = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, floorPos, nullptr, nullptr );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
+                {
+                    distance[0] = closest;
+                    return GetReturn( distance, 1 + this->kJitter2D );
+                }
             }
         }
 
@@ -1926,6 +1960,22 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 float32v cell[2];
                 this->template Closest2D<false, true>( distFunc, seed, jitter, x, y, nullptr, cell );
                 return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ) );
+            }
+        }
+
+        // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the 3x3 loop below only runs if a lane might be missing it
+        // Hybrid only with coherent lanes: its looser bound needs the 3x3 loop too often for incoherent lanes
+        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        {
+            if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
+            {
+                float32v floorPos[] = { x, y };
+                float32v cell[2];
+                float32v closest = this->template FloorCellsClosest<2, false, true>( distFunc, seed, jitter, floorPos, nullptr, cell );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
+                {
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ) );
+                }
             }
         }
 
