@@ -116,16 +116,9 @@ public:
     {\
         if constexpr( DispatchClass::kHasGenBlock )\
         {\
-            int& blockDepth = DispatchClass<Generator, SIMD>::GenBlockDepth();\
-            if( blockDepth < DispatchClass<Generator, SIMD>::kMaxGenBlockDepth )\
+            if( static_cast<const DispatchClass*>( gen )->template GenBlock<sizeof...( DIM )>( seed, pos, out, count ) )\
             {\
-                blockDepth++;\
-                bool evaluated = static_cast<const DispatchClass*>( gen )->template GenBlock<sizeof...( DIM )>( seed, pos, out, count );\
-                blockDepth--;\
-                if( evaluated )\
-                {\
-                    return;\
-                }\
+                return;\
             }\
         }\
         for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
@@ -151,7 +144,8 @@ private:
 
     // Generators that evaluate a whole position block themselves (e.g. calling their sources' block functions once per block
     // instead of once per vector) set this and define template<size_t DIMS> bool GenBlock( seed, pos, out, count ), returning
-    // false to have the block evaluated per vector instead. It is not inlined, so the per vector loop stays as without it
+    // false to have the block evaluated per vector instead. Its block buffers are kept in functions that aren't inlined
+    // (FASTNOISE_NOINLINE), so they don't add stack probes and spills to the per vector loop
     static constexpr bool kHasGenBlock = false;
 
     // Number of values in a position block, blocks hold up to this many values (a multiple of the vector size)
@@ -164,6 +158,23 @@ private:
     {
         thread_local int depth = 0;
         return depth;
+    }
+
+    // Evaluates a source for a block from a GenBlock, per vector past kMaxGenBlockDepth nested block calls
+    template<size_t DIMS>
+    static FS_FORCEINLINE void CallSourceBlock( const DispatchClass* gen, int32v seed, const float* pos, float* out, intptr_t count )
+    {
+        int& depth = GenBlockDepth();
+
+        if( depth < kMaxGenBlockDepth )
+        {
+            depth++;
+            CallGenBlock<DIMS>( gen, seed, pos, out, count );
+            depth--;
+            return;
+        }
+
+        ForEachBlockVector<DIMS>( pos, count, [&]( intptr_t i, auto... p ) { FS::Store( out + i, CallGen( gen, seed, p... ) ); } );
     }
 
     // True if the source evaluates blocks with its own GenBlock (generators with sources). Evaluating a generator without one
@@ -179,7 +190,7 @@ private:
     static FS_FORCEINLINE void GetSourceBlock( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, const float* pos, float* out, intptr_t count )
     {
         assert( memberVariable.simdGeneratorPtr );
-        CallGenBlock<DIMS>( reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr ), seed, pos, out, count );
+        CallSourceBlock<DIMS>( reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr ), seed, pos, out, count );
     }
 
     // Calls f( i, x, y[, z[, w]] ) for the vector of positions at each output index i of a position block
@@ -215,17 +226,17 @@ private:
     template<typename... S>
     static FS_FORCEINLINE bool AnySourceHasGenBlock( const S&... memberVariables )
     {
-        return ( SourceHasGenBlockOrConstant( memberVariables ) || ... );
+        return ( IsGenBlockSource( memberVariables ) || ... );
     }
 
     template<typename T>
-    static FS_FORCEINLINE bool SourceHasGenBlockOrConstant( const FastNoise::GeneratorSourceT<T>& memberVariable )
+    static FS_FORCEINLINE bool IsGenBlockSource( const FastNoise::GeneratorSourceT<T>& memberVariable )
     {
         return SourceHasGenBlock( memberVariable );
     }
 
     template<typename T>
-    static FS_FORCEINLINE bool SourceHasGenBlockOrConstant( const FastNoise::HybridSourceT<T>& memberVariable )
+    static FS_FORCEINLINE bool IsGenBlockSource( const FastNoise::HybridSourceT<T>& memberVariable )
     {
         return memberVariable.simdGeneratorPtr && reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr )->mHasGenBlock;
     }
@@ -239,7 +250,7 @@ private:
 
     // Evaluates the source at the positions transform( dst, i, pos... ) stores for the vector at each output index i (with StoreBlockVector)
     template<size_t DIMS, size_t SOURCE_DIMS, typename T, typename F>
-    static FS_FORCEINLINE void GetSourceBlockAt( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, const float* pos, float* out, intptr_t count, F&& transform )
+    static FASTNOISE_NOINLINE void GetSourceBlockAt( const FastNoise::GeneratorSourceT<T>& memberVariable, int32v seed, const float* pos, float* out, intptr_t count, F&& transform )
     {
         alignas( 64 ) float sourcePos[kGenBlockSize * SOURCE_DIMS];
 
@@ -273,10 +284,23 @@ private:
     {
         if( memberVariable.simdGeneratorPtr )
         {
-            CallGenBlock<DIMS>( reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr ), seed, pos, buffer, count );
+            CallSourceBlock<DIMS>( reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr ), seed, pos, buffer, count );
             return { buffer, nullptr };
         }
         return { nullptr, &memberVariable.constant };
+    }
+
+    // out = op( out, source values ) for a block
+    template<size_t DIMS, typename S, typename OP>
+    static FASTNOISE_NOINLINE void ApplySourceBlock( const S& memberVariable, OP op, int32v seed, const float* pos, float* out, intptr_t count )
+    {
+        alignas( 64 ) float buffer[kGenBlockSize];
+        BlockValues values = GetSourceBlockValues<DIMS>( memberVariable, seed, pos, buffer, count );
+
+        for( intptr_t i = 0; i < count; i += int32v::ElementCount )
+        {
+            FS::Store( out + i, op( FS::Load<float32v>( out + i ), values[i] ) );
+        }
     }
 
     // out = op( values of each source... ) for a block, the sources are evaluated in order a block at a time
@@ -287,7 +311,7 @@ private:
     }
 
     template<size_t DIMS, size_t... I, typename OP, typename... S>
-    static FS_FORCEINLINE void CombineSourceBlocks( std::index_sequence<I...>, OP& op, int32v seed, const float* pos, float* out, intptr_t count, const S&... sources )
+    static FASTNOISE_NOINLINE void CombineSourceBlocks( std::index_sequence<I...>, OP& op, int32v seed, const float* pos, float* out, intptr_t count, const S&... sources )
     {
         // The first source is evaluated straight into out
         alignas( 64 ) float buffers[sizeof...( S ) > 1 ? sizeof...( S ) - 1 : 1][kGenBlockSize];

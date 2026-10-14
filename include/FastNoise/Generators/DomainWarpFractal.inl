@@ -103,7 +103,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         return this->template GenWarpFractalBlock<true, DIMS>( *this, seed, pos, out, count );
     }
@@ -124,7 +124,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         return this->template GenWarpFractalBlock<false, DIMS>( *this, seed, pos, out, count );
     }

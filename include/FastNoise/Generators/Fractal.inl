@@ -9,7 +9,7 @@ protected:
     // through octaveValue( source ) (FBm: source, Ridged: 1 - 2 * |source|), weightValue( source ) is the value lerped
     // towards for weighted strength. Static taking the final class so members are read at fixed offsets
     template<size_t DIMS, typename Self, typename OctaveValue, typename WeightValue>
-    static FS_FORCEINLINE void GenOctaveBlocks( const Self& self, int32v seed, const float* pos, float* out, intptr_t count, OctaveValue octaveValue, WeightValue weightValue )
+    static FASTNOISE_NOINLINE void GenOctaveBlocks( const Self& self, int32v seed, const float* pos, float* out, intptr_t count, OctaveValue octaveValue, WeightValue weightValue )
     {
         static constexpr intptr_t kBlockSize = DispatchClass<Generator, SIMD>::kGenBlockSize;
         static constexpr intptr_t N = int32v::ElementCount;
@@ -120,7 +120,7 @@ public:
 
     // Octave by octave over the whole block: one source block call per octave instead of a source call per vector
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( mGain.simdGeneratorPtr || mWeightedStrength.simdGeneratorPtr )
         {
@@ -179,7 +179,7 @@ public:
 
     // Octave by octave over the whole block, see FractalFBm
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( mGain.simdGeneratorPtr || mWeightedStrength.simdGeneratorPtr )
         {

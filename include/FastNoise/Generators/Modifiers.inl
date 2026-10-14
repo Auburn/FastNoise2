@@ -17,7 +17,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !this->SourceHasGenBlock( mSource ) )
         {
@@ -63,7 +63,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         bool constantOffsets = true;
         for( size_t i = 0; i < DIMS; i++ )
@@ -82,7 +82,7 @@ public:
     }
 
     template<size_t... I>
-    FS_FORCEINLINE void GenBlock( std::index_sequence<I...>, int32v seed, const float* pos, float* out, intptr_t count ) const
+    FASTNOISE_NOINLINE void GenBlock( std::index_sequence<I...>, int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         static constexpr size_t DIMS = sizeof...( I );
         alignas( 64 ) float offsetBuffers[DIMS][DispatchClass<Generator, SIMD>::kGenBlockSize];
@@ -129,7 +129,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !this->SourceHasGenBlock( mSource ) )
         {
@@ -187,7 +187,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         this->template GetSourceBlock<DIMS>( mSource, seed + int32v( mOffset ), pos, out, count );
 
@@ -241,7 +241,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
         {
@@ -299,7 +299,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         // Cheap op, for a source without GenBlock the per vector path is faster
         if( !this->SourceHasGenBlock( mSource ) )
@@ -396,7 +396,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( mSmoothness.simdGeneratorPtr )
         {
@@ -436,7 +436,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         this->template CombineSourceBlocks<DIMS>( []( float32v pingPongStrength, float32v source ) { return PingPong( source * pingPongStrength ); },
             seed, pos, out, count, mPingPongStrength, mSource );
@@ -463,7 +463,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !this->SourceHasGenBlock( mSource ) )
         {
@@ -502,7 +502,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if constexpr( DIMS == (size_t)FastNoise::Dim::Count )
         {
@@ -515,14 +515,20 @@ public:
                 return false;
             }
 
-            alignas( 64 ) float newDimBuffer[DispatchClass<Generator, SIMD>::kGenBlockSize];
-            auto newDim = this->template GetSourceBlockValues<DIMS>( mNewDimensionPosition, seed, pos, newDimBuffer, count );
-
-            this->template GetSourceBlockAt<DIMS, DIMS + 1>( mSource, seed, pos, out, count,
-                [&newDim]( float* dst, intptr_t i, auto... p ) { DispatchClass::StoreBlockVector( dst, p..., newDim[i] ); } );
+            GenBlockNewDimension<DIMS>( seed, pos, out, count );
         }
 
         return true;
+    }
+
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE void GenBlockNewDimension( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        alignas( 64 ) float newDimBuffer[DispatchClass<Generator, SIMD>::kGenBlockSize];
+        auto newDim = this->template GetSourceBlockValues<DIMS>( mNewDimensionPosition, seed, pos, newDimBuffer, count );
+
+        this->template GetSourceBlockAt<DIMS, DIMS + 1>( mSource, seed, pos, out, count,
+            [&newDim]( float* dst, intptr_t i, auto... p ) { DispatchClass::StoreBlockVector( dst, p..., newDim[i] ); } );
     }
 };
 
@@ -572,7 +578,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !this->SourceHasGenBlock( mSource ) )
         {
@@ -798,7 +804,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         // Cheap op, for a source without GenBlock the per vector path is faster
         if( !this->SourceHasGenBlock( mSource ) )
@@ -829,7 +835,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !this->SourceHasGenBlock( mSource ) )
         {
@@ -907,7 +913,7 @@ public:
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
-    FASTNOISE_NOINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
         if( !this->SourceHasGenBlock( mSource ) )
         {
