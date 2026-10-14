@@ -79,7 +79,7 @@ public:
     }
 
     // Evaluates count values from positions stored per vector as { x[N], y[N], ... } (N = float32v::ElementCount)
-    using GenBlockFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float*, float*, intptr_t );
+    using GenBlockFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* __restrict, float* __restrict, intptr_t );
 
     template<size_t DIMS>
     static FS_FORCEINLINE void CallGenBlock( const DispatchClass* gen, int32v seed, const float* pos, float* out, intptr_t count )
@@ -105,7 +105,7 @@ public:
         return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z, w ) );\
     }\
     template<size_t... DIM>\
-    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* pos, float* out, intptr_t count )\
+    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict pos, float* __restrict out, intptr_t count )\
     {\
         for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
         {\
