@@ -239,7 +239,15 @@ protected:
 
     FS_FORCEINLINE static bool AllLanes( mask32v m )
     {
-        return FS::BitMask( m ) == (FS::BitStorage<mask32v::ElementCount>)( ~0ull >> ( 64 - mask32v::ElementCount ) );
+        // NEON has no movemask, BitMask() costs a horizontal add per native half: test that no lane is clear instead
+        if constexpr( SIMD & FastSIMD::FeatureFlag::ARM )
+        {
+            return !FS::AnyMask( ~m );
+        }
+        else
+        {
+            return FS::BitMask( m ) == (FS::BitStorage<mask32v::ElementCount>)( ~0ull >> ( 64 - mask32v::ElementCount ) );
+        }
     }
 
     // Primed cell coordinates and cell positions ( - origin ) for the 3 neighbour cells on one axis: [-1, 0, +1]
