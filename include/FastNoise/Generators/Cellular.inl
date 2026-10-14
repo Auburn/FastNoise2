@@ -1435,6 +1435,12 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     template<typename... P>
     using GenTPtr = float32v( FS_VECTORCALL DispatchClass::* )( int32v, P... ) const;
 
+    // The top bits of the cell hash are only as well mixed as hash * A, squaring makes them depend on every bit
+    FS_FORCEINLINE float32v CellValue( int32v hash ) const
+    {
+        return this->ScaleOutput( this, FS::Convert<float>( hash * hash ), -kValueBounds, kValueBounds );
+    }
+
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
     float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y ) const
     {
@@ -1449,7 +1455,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         int32v hash;
         this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, pos, &hash, nullptr );
 
-        return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+        return CellValue( hash );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
@@ -1556,7 +1562,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( valueHash[valueIndex] ), -kValueBounds, kValueBounds );
+        return CellValue( valueHash[valueIndex] );
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
@@ -1589,7 +1595,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             {
                 int32v hash;
                 this->template Closest2D<true, false>( distFunc, seed, jitter, x, y, &hash, nullptr );
-                return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                return CellValue( hash );
             }
         }
 
@@ -1606,12 +1612,12 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
                 if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 if constexpr( ( DIST_FUNC == DistanceFunction::Hybrid && float32v::ElementCount != 16 ) || float32v::ElementCount >= 32 )
                 {
                     this->template FarCells2D<true, false>( distFunc, seed, jitter, floorPos, closest, &hash, nullptr );
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
             }
         }
@@ -1627,12 +1633,12 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr, &sizeJitter );
                 if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos, &minFactor ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 if constexpr( float32v::ElementCount != 16 )
                 {
                     this->template FarCells2D<true, false>( distFunc, seed, jitter, floorPos, closest, &hash, nullptr, &sizeJitter );
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
             }
         }
@@ -1697,7 +1703,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             xc += int32v( Primes::X );
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
+        return CellValue( this->DistanceAt( valueHash, valueIndex ) );
     }
 
     // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
@@ -1772,7 +1778,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         int32v hash;
         this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, pos, &hash, nullptr );
 
-        return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+        return CellValue( hash );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -1829,7 +1835,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
                 if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
                 distance[0] = closest;
@@ -1849,7 +1855,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr, &sizeJitter );
                 if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos, &minFactor ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 distance[0] = closest;
                 valueHash[0] = hash;
@@ -1898,7 +1904,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 this->template FloorCellsVisit<3>( distFunc, seed, jitter, floorPos, insert );
                 if( this->template FloorCellsComplete<3>( distFunc, distance[COUNT - 1], jitter, floorPos ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( valueHash[COUNT - 1] ), -kValueBounds, kValueBounds );
+                    return CellValue( valueHash[COUNT - 1] );
                 }
                 nearBlockDone = true;
             }
@@ -1915,7 +1921,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             Search3D( valueHash, distance, valueIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
+        return CellValue( this->DistanceAt( valueHash, valueIndex ) );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
@@ -2006,7 +2012,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
+        return CellValue( this->DistanceAt( valueHash, valueIndex ) );
     }
 };
 
