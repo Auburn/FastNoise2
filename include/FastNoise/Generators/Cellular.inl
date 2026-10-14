@@ -776,12 +776,12 @@ protected:
         {
             return false;
         }
-        return ( INCOHERENT && distFunc != DistanceFunction::Manhattan ) || IsCoherent<3>( pos );
+        return ( INCOHERENT && distFunc == DistanceFunction::EuclideanSquared ) || IsCoherent<3>( pos );
     }
 
     // True if no lane can have a closer point than distance in the other cells of the 3^D search, after the 2^D cells around the position
     // (FloorCellsClosest()): the closest centre of those cells is ( 1 + edge, edge, ... ) away with the 1 on the axis with the smallest edge
-    // distance, and their points are within the jitter radius of the centre. EuclideanSquared/Manhattan distance only
+    // distance, and their points are within the jitter radius of the centre. EuclideanSquared/Manhattan/Hybrid/MaxAxis distance only
     template<int D>
     FS_FORCEINLINE static bool FloorCellsComplete( DistanceFunction distFunc, float32v distance, float32v jitter, const float32v* pos )
     {
@@ -792,6 +792,7 @@ protected:
             edge[d] = FS::Min( t, float32v( 1 ) - t );
         }
 
+        constexpr float kRootD = D == 2 ? kRoot2f : ( D == 3 ? kRoot3f : 2.0f );
         float32v radius = FS::FMulAdd( FS::Abs( jitter ), float32v( 1 + 1.f / 512 ), float32v( 1.f / ( 1 << 20 ) ) );
         mask32v closer;
         if( distFunc == DistanceFunction::Manhattan )
@@ -801,7 +802,16 @@ protected:
             {
                 centreDist += edge[d];
             }
-            closer = FS::FMulAdd( radius, float32v( D == 2 ? kRoot2f : ( D == 3 ? kRoot3f : 2.0f ) ), distance ) > centreDist * float32v( 1 - 1.f / 4096 );
+            closer = FS::FMulAdd( radius, float32v( kRootD ), distance ) > centreDist * float32v( 1 - 1.f / 4096 );
+        }
+        else if( distFunc == DistanceFunction::MaxAxis )
+        {
+            float32v minEdge = edge[0];
+            for( int d = 1; d < D; d++ )
+            {
+                minEdge = FS::Min( minEdge, edge[d] );
+            }
+            closer = distance + radius > ( float32v( 1 ) + minEdge ) * float32v( 1 - 1.f / 4096 );
         }
         else
         {
@@ -812,8 +822,24 @@ protected:
                 edgeSqr = FS::FMulAdd( edge[d], edge[d], edgeSqr );
                 minEdge = FS::Min( minEdge, edge[d] );
             }
-            float32v reach = FS::Sqrt( distance ) + radius;
-            closer = reach * reach > FS::FMulAdd( minEdge, float32v( 2 ), edgeSqr + float32v( 1 ) ) * float32v( 1 - 1.f / 4096 );
+            float32v centreDistSqr = FS::FMulAdd( minEdge, float32v( 2 ), edgeSqr + float32v( 1 ) );
+
+            if( distFunc == DistanceFunction::Hybrid )
+            {
+                // EuclideanSquared + Manhattan: at least the sum of both lower bounds, each from its own closest centre
+                float32v centreDist = float32v( 1 ) + edge[0];
+                for( int d = 1; d < D; d++ )
+                {
+                    centreDist += edge[d];
+                }
+                float32v ballDist = FS::Sqrt( centreDistSqr ) - radius;
+                closer = distance > FS::FMulAdd( ballDist, ballDist, FS::FNMulAdd( radius, float32v( kRootD ), centreDist ) ) * float32v( 1 - 1.f / 4096 );
+            }
+            else
+            {
+                float32v reach = FS::Sqrt( distance ) + radius;
+                closer = reach * reach > centreDistSqr * float32v( 1 - 1.f / 4096 );
+            }
         }
         return !FS::AnyMask( closer );
     }
@@ -1193,7 +1219,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
         bool nearBlockDone = false;
-        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ||
+                                                                DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
@@ -1592,7 +1619,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
         bool nearBlockDone = false;
-        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ||
+                                                                DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
@@ -2008,10 +2036,9 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
-        // EuclideanSquared not on SSE2: its floor and blend emulation made it slower than the pruned 3^D search alone
+        // Except Manhattan not on SSE2: its floor and blend emulation made it slower than the pruned 3^D search alone
         bool nearBlockDone = false;
-        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Manhattan ||
-                      ( DIST_FUNC == DistanceFunction::EuclideanSquared && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) ) ) )
+        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Manhattan || ( SIMD & FastSIMD::FeatureFlag::SSE41 ) ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
