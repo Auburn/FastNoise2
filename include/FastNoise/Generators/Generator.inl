@@ -109,8 +109,16 @@ public:
     {\
         for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
         {\
-            GenResultT result = GenFn( gen, seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... );\
-            FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            if constexpr( SIMD & FastSIMD::FeatureFlag::WASM )\
+            {\
+                /* WASM passes float32v arguments and results through memory, inline the generator instead of calling GenFn */\
+                FS::Store( out + i, static_cast<const DispatchClass*>( gen )->GENFUNC( seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... ) );\
+            }\
+            else\
+            {\
+                GenResultT result = GenFn( gen, seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... );\
+                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            }\
         }\
     }\
 public:\
