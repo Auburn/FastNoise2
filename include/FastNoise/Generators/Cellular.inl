@@ -1278,6 +1278,64 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
     }
 
+    // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
+    template<size_t COUNT>
+    FS_FORCEINLINE void Search3D( std::array<int32v, COUNT>& valueHash, std::array<float32v, COUNT>& distance, int valueIndex, DistanceFunction distFunc, float32v minkowskiP,
+                                  float32v jitter, bool sizeJitterActive, const float32v& sizeJitter, int32v seed, float32v x, float32v y, float32v z, bool nearBlockDone ) const
+    {
+        float32v pos[] = { x, y, z };
+
+        std::array<int32v, 3> cellPrimed[3];
+        std::array<float32v, 3> cellOffset[3];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
+        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
+
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
+
+        while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
+
+            int32v newCellValueHash = hash;
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            for( int i = 0; i < (int)COUNT; i++ )
+            {
+                mask32v closer = newDistance < distance[i];
+
+                int32v localCellValueHash = valueHash[i];
+                valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
+
+                if( i >= valueIndex )
+                {
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
+                    break;
+                }
+
+                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                float32v localDistance = distance[i];
+                distance[i] = FS::Min( newDistance, distance[i] );
+                newDistance = FS::Max( localDistance, newDistance );
+                newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
+            }
+        }
+    }
+
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
     float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
     {
@@ -1380,56 +1438,14 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         int valueIndex = SPECIALISED ? COUNT - 1 : mValueIndex;
-        float32v pos[] = { x, y, z };
-
-        std::array<int32v, 3> cellPrimed[3];
-        std::array<float32v, 3> cellOffset[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
-        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
-        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
-
-        typename CellularBase::template CellBounds<3> bounds;
-        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
-
-        while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
+        // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
+        if( SPECIALISED && nearBlockDone )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
-
-            int32v newCellValueHash = hash;
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
-            if( sizeJitterActive )
-            {
-                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-            }
-
-            for( int i = 0; i < COUNT; i++ )
-            {
-                mask32v closer = newDistance < distance[i];
-
-                int32v localCellValueHash = valueHash[i];
-                valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
-
-                if( i >= valueIndex )
-                {
-                    distance[i] = FS::Select( closer, newDistance, distance[i] );
-                    break;
-                }
-
-                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
-                float32v localDistance = distance[i];
-                distance[i] = FS::Min( newDistance, distance[i] );
-                newDistance = FS::Max( localDistance, newDistance );
-                newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
-            }
+            Search3D( valueHash, distance, valueIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
+        }
+        else
+        {
+            Search3D( valueHash, distance, valueIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
         return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
@@ -1913,21 +1929,14 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         }
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
-        if constexpr( kFloorFirstCount )
+        // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
+        if( SPECIALISED && nearBlockDone )
         {
-            // Separate loops: incoherent positions keep the search without the 2^D block tests
-            if( nearBlockDone )
-            {
-                Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
-            }
-            else
-            {
-                Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
-            }
+            Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
         }
         else
         {
-            Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, nearBlockDone );
+            Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
         return GetReturn( distance, 1 + this->kJitter3D );
@@ -2258,6 +2267,52 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
     }
 
+    // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
+    FS_FORCEINLINE void Search3D( float32v& distance, float32v& cellX, float32v& cellY, float32v& cellZ, DistanceFunction distFunc, float32v minkowskiP, float32v jitter,
+                                  bool sizeJitterActive, const float32v& sizeJitter, int32v seed, float32v x, float32v y, float32v z, bool nearBlockDone ) const
+    {
+        float32v pos[] = { x, y, z };
+
+        std::array<int32v, 3> cellPrimed[3];
+        std::array<float32v, 3> cellPos[3];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
+        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
+
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
+
+        while( const int8_t* o = cells.Next( distance ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+            float32v localCellX = FS::FMulAdd( xd, invMag, cellPos[0][o[0]] );
+            float32v localCellY = FS::FMulAdd( yd, invMag, cellPos[1][o[1]] );
+            float32v localCellZ = FS::FMulAdd( zd, invMag, cellPos[2][o[2]] );
+            xd = localCellX - x;
+            yd = localCellY - y;
+            zd = localCellZ - z;
+
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            mask32v closer = newDistance < distance;
+            distance = FS::Min( newDistance, distance );
+
+            cellX = FS::Select( closer, localCellX, cellX );
+            cellY = FS::Select( closer, localCellY, cellY );
+            cellZ = FS::Select( closer, localCellZ, cellZ );
+        }
+    }
+
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
     float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
     {
@@ -2362,45 +2417,14 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             }
         }
 
-        float32v pos[] = { x, y, z };
-
-        std::array<int32v, 3> cellPrimed[3];
-        std::array<float32v, 3> cellPos[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0], seed );
-        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
-        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
-
-        typename CellularBase::template CellBounds<3> bounds;
-        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
-
-        while( const int8_t* o = cells.Next( distance ) )
+        // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
+        if( SPECIALISED && nearBlockDone )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-            float32v localCellX = FS::FMulAdd( xd, invMag, cellPos[0][o[0]] );
-            float32v localCellY = FS::FMulAdd( yd, invMag, cellPos[1][o[1]] );
-            float32v localCellZ = FS::FMulAdd( zd, invMag, cellPos[2][o[2]] );
-            xd = localCellX - x;
-            yd = localCellY - y;
-            zd = localCellZ - z;
-
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
-            if( sizeJitterActive )
-            {
-                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-            }
-
-            mask32v closer = newDistance < distance;
-            distance = FS::Min( newDistance, distance );
-
-            cellX = FS::Select( closer, localCellX, cellX );
-            cellY = FS::Select( closer, localCellY, cellY );
-            cellZ = FS::Select( closer, localCellZ, cellZ );
+            Search3D( distance, cellX, cellY, cellZ, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
+        }
+        else
+        {
+            Search3D( distance, cellX, cellY, cellZ, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ) );
