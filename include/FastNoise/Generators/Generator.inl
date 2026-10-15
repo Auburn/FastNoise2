@@ -491,9 +491,15 @@ private:
 
     int32_t ReferencesFetchAdd( int32_t add ) const noexcept final
     {
-        if( add )
+        if( add > 0 )
         {
             return mReferences.fetch_add( add, std::memory_order_relaxed );
+        }
+        if( add < 0 )
+        {
+            // Release so this thread's accesses to the node happen before another thread destroys it
+            // Acquire so the thread that destroys the node sees all other threads' accesses
+            return mReferences.fetch_add( add, std::memory_order_acq_rel );
         }
 
         return mReferences.load( std::memory_order_relaxed );

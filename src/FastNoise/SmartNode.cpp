@@ -110,24 +110,22 @@ namespace FastNoise
 
         void* Alloc( size_t size, size_t align ) 
         {
-            if( void* ptr = AllocFromPools( size, align ) )
-            {
-                return ptr;
-            }
-
             std::lock_guard lock( mMutex );
 
             if( void* ptr = AllocFromPools( size, align ) )
             {
                 return ptr;
             }
+
+            // New pool must at least fit its header and this alloc, even if the pool size is set smaller
+            size_t newPoolSize = std::max<size_t>( sNewPoolSize, sizeof( SmartNodeManagerPool ) + size + align );
       
-            if( void* poolAlloc = std::malloc( std::max( (uint32_t)sizeof( SmartNodeManagerPool ), sNewPoolSize ) ) )
+            if( void* poolAlloc = std::malloc( newPoolSize ) )
             {        
-                SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( sNewPoolSize - (uint32_t)sizeof( SmartNodeManagerPool ) );
+                SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( (uint32_t)std::min<size_t>( newPoolSize - sizeof( SmartNodeManagerPool ), UINT32_MAX ) );
 
                 void* alloc = newPool->TryAlloc( size, align );
-                assert( alloc ); // Alloc too large to fit in empty pool, increase pool size
+                assert( alloc ); // New pool is sized to always fit the alloc
 
                 if( mPools )
                 {
@@ -153,6 +151,8 @@ namespace FastNoise
 
         void Free( const void* ptr )
         {
+            std::lock_guard lock( mMutex );
+
             SmartNodeManagerPool* pool = mPools;
 
             while( pool )
@@ -204,8 +204,6 @@ namespace FastNoise
                 {
                     if( emptyPool ) // Only remove a pool if we have 2 empty pools
                     {
-                        std::lock_guard lock( mMutex );
-
                         SmartNodeManagerPool* toRemove = nextPool;
 
                         if( toRemove->MarkForRemoval() )
@@ -228,7 +226,7 @@ namespace FastNoise
         }
         
         SmartNodeManagerPool* mPools = nullptr;
-        mutable std::mutex mMutex;
+        mutable std::mutex mMutex; // Held while traversing or modifying mPools, since RemoveEmptyPool() frees pools
     };
 
     static SmartNodeMemoryAllocator gMemoryAllocator;

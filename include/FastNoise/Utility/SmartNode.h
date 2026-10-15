@@ -323,7 +323,7 @@ namespace std
     {
         size_t operator()( const FastNoise::SmartNode<T>& node ) const noexcept
         {
-            return std::hash<T*>( node.get() );
+            return std::hash<const T*>{}( node.get() );
         }        
     };
 }
