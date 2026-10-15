@@ -883,30 +883,23 @@ protected:
         float32v dy0 = dySkewed + unskewDelta;
         float32v dz0 = dzSkewed + unskewDelta;
 
+        mask32v maskX1 = xGreaterEqualY & xGreaterEqualZ;
+        mask32v maskY1 = FS::BitwiseAndNot( yGreaterEqualZ, xGreaterEqualY );
+        mask32v maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
+
+        mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
+        mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
+        mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
+
         // AVX512 orthogonal matrix scheme: masked compares build each vertex mask in one instruction, a and( not ) of two compares
-        // is a compare under the other mask. Fewer live k masks, it spilled them. The other scheme does not spill and the extra
-        // compares compete with its FMAs
-        constexpr bool kMaskedCompares = ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && Scheme == VectorizationScheme::OrthogonalGradientMatrix;
-        mask32v maskX1, maskY1, nMaskY2, nMaskZ2;
-        if constexpr( kMaskedCompares )
+        // is a compare under the other mask (the k logic above is then dead code). Fewer live k masks, it spilled them. The other
+        // scheme does not spill and the extra compares compete with its FMAs
+        if constexpr( kUseMaskedGreater && ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && Scheme == VectorizationScheme::OrthogonalGradientMatrix )
         {
             maskX1 = MaskedGreater<true>( xGreaterEqualY, dxSkewed, dzSkewed );
             maskY1 = MaskedGreater<false>( yGreaterEqualZ, dySkewed, dxSkewed );
             nMaskY2 = MaskedGreater<false>( xGreaterEqualY, dzSkewed, dySkewed );
             nMaskZ2 = MaskedGreater<true>( xGreaterEqualZ, dySkewed, dzSkewed );
-        }
-        else
-        {
-            maskX1 = xGreaterEqualY & xGreaterEqualZ;
-            maskY1 = FS::BitwiseAndNot( yGreaterEqualZ, xGreaterEqualY );
-        }
-        mask32v maskZ1 = xGreaterEqualZ | yGreaterEqualZ; // Inv masked
-
-        mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
-        if constexpr( !kMaskedCompares )
-        {
-            nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
-            nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
         }
 
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );

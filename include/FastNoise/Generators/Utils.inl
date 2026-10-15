@@ -44,7 +44,14 @@ namespace FastNoise
     // The hash, gradient and interpolation helpers are templated on the register type so they also work on the native
     // halves of float32v (.v0/.v1), for generators that evaluate each half separately to reduce register pressure
 
-    // AVX512 only: mask & ( a >= b ) or mask & ( a > b ) as one masked compare
+    // AVX512 only: mask & ( a >= b ) or mask & ( a > b ) as one masked compare.
+    // Not on MSVC: 14.51 compiles the Simplex 3D vertex masks built this way 25-30% slower than the k-register and/andn logic
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    static constexpr bool kUseMaskedGreater = false;
+#else
+    static constexpr bool kUseMaskedGreater = true;
+#endif
+
     template<bool OR_EQUAL, typename M, typename F>
     FS_FORCEINLINE static M MaskedGreater( M mask, F a, F b )
     {
