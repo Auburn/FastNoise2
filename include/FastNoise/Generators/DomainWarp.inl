@@ -65,8 +65,8 @@ public:
     #define GRADIENT_COORD( _x, _y )\
         int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
         float32v contrib##_x##_y = xs##_x * ys##_y;\
-        xWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16 ) ), yWarp )
+        xWarp = FusedMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
+        yWarp = FusedMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16 ) ), yWarp )
 
         int32v hash00 = HashPrimesHB(seed, x0, y0 );
         float32v contrib00 = xs0 * ys0;
@@ -79,13 +79,13 @@ public:
 
     #undef GRADIENT_COORD
 
-        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
-        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
+        xWarp = FusedMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FusedMulSub( yWarp, normalise, float32v( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        xOut = FusedMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FusedMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
 
-        return FS::FMulAdd( xWarp, xWarp, yWarp * yWarp );
+        return FusedMulAdd( xWarp, xWarp, yWarp * yWarp );
     }
             
     FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
@@ -114,9 +114,9 @@ public:
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\
         float32v contrib##_x##_y##_z = xs##_x * ys##_y * zs##_z;\
-        xWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
-        zWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
+        xWarp = FusedMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
+        yWarp = FusedMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
+        zWarp = FusedMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
 
         int32v hash000 = HashPrimesHB( seed, x0, y0, z0 );
         float32v contrib000 = xs0 * ys0 * zs0;
@@ -134,15 +134,15 @@ public:
 
     #undef GRADIENT_COORD
 
-        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
-        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
-        zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
+        xWarp = FusedMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FusedMulSub( yWarp, normalise, float32v( 1 ) );
+        zWarp = FusedMulSub( zWarp, normalise, float32v( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
-        zOut = FS::FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
+        xOut = FusedMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FusedMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        zOut = FusedMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
 
-        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
+        return FusedMulAdd( xWarp, xWarp, FusedMulAdd( yWarp, yWarp, zWarp * zWarp ) );
     }
             
     FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
@@ -166,7 +166,7 @@ private:
     template<typename F>
     FS_FORCEINLINE static F InterpHermiteHalf( F t )
     {
-        return t * t * FS::FNMulAdd( t, F( 2 ), F( 3 ) );
+        return t * t * FusedNMulAdd( t, F( 2 ), F( 3 ) );
     }
 
     template<typename I, typename... P>
@@ -210,10 +210,10 @@ private:
     #define GRADIENT_COORD( _x, _y, _z, _w )\
         I hash##_x##_y##_z##_w = HashPrimesHBHalf( seed, x##_x, y##_y, z##_z, w##_w );\
         F contrib##_x##_y##_z##_w = xs##_x * ys##_y * zs##_z * ws##_w;\
-        xWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & I( 0xff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & I( 0xff ) ), yWarp );\
-        zWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & I( 0xff ) ), zWarp );\
-        wWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
+        xWarp = FusedMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & I( 0xff ) ), xWarp );\
+        yWarp = FusedMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & I( 0xff ) ), yWarp );\
+        zWarp = FusedMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & I( 0xff ) ), zWarp );\
+        wWarp = FusedMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
 
         I hash0000 = HashPrimesHBHalf( seed, x0, y0, z0, w0 );
         F contrib0000 = xs0 * ys0 * zs0 * ws0;
@@ -240,17 +240,17 @@ private:
 
     #undef GRADIENT_COORD
 
-        xWarp = FS::FMulSub( xWarp, normalise, F( 1 ) );
-        yWarp = FS::FMulSub( yWarp, normalise, F( 1 ) );
-        zWarp = FS::FMulSub( zWarp, normalise, F( 1 ) );
-        wWarp = FS::FMulSub( wWarp, normalise, F( 1 ) );
+        xWarp = FusedMulSub( xWarp, normalise, F( 1 ) );
+        yWarp = FusedMulSub( yWarp, normalise, F( 1 ) );
+        zWarp = FusedMulSub( zWarp, normalise, F( 1 ) );
+        wWarp = FusedMulSub( wWarp, normalise, F( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp * F( this->mAxisScale[0] ), xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp * F( this->mAxisScale[1] ), yOut );
-        zOut = FS::FMulAdd( zWarp, warpAmp * F( this->mAxisScale[2] ), zOut );
-        wOut = FS::FMulAdd( wWarp, warpAmp * F( this->mAxisScale[3] ), wOut );
+        xOut = FusedMulAdd( xWarp, warpAmp * F( this->mAxisScale[0] ), xOut );
+        yOut = FusedMulAdd( yWarp, warpAmp * F( this->mAxisScale[1] ), yOut );
+        zOut = FusedMulAdd( zWarp, warpAmp * F( this->mAxisScale[2] ), zOut );
+        wOut = FusedMulAdd( wWarp, warpAmp * F( this->mAxisScale[3] ), wOut );
 
-        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, FS::FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
+        return FusedMulAdd( xWarp, xWarp, FusedMulAdd( yWarp, yWarp, FusedMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
     }
 };
 

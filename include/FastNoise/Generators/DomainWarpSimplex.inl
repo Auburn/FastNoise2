@@ -18,10 +18,10 @@ namespace FastNoise
             float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( kRoot3f, -kRoot3f, 1, -1, kRoot3f, -kRoot3f, -1, 1, 2, -2, 0, 0, 0, 0, 0, 0 ) );
             float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( 1, -1, kRoot3f, -kRoot3f, -1, 1, kRoot3f, -kRoot3f, 0, 0, 2, -2, 0, 0, 0, 0 ) );
 
-            multiplier *= FS::FMulAdd( fY, gY, fX * gX );
+            multiplier *= FusedMulAdd( fY, gY, fX * gX );
 
-            valueX = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( kRoot3f, -kRoot3f, 1, -1, kRoot3f, -kRoot3f, -1, 1, 2, -2, 0, 0, 0, 0, 0, 0 ) ), valueX );
-            valueY = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, -1, kRoot3f, -kRoot3f, -1, 1, kRoot3f, -kRoot3f, 0, 0, 2, -2, 0, 0, 0, 0 ) ), valueY );
+            valueX = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( kRoot3f, -kRoot3f, 1, -1, kRoot3f, -kRoot3f, -1, 1, 2, -2, 0, 0, 0, 0, 0, 0 ) ), valueX );
+            valueY = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, -1, kRoot3f, -kRoot3f, -1, 1, kRoot3f, -kRoot3f, 0, 0, 2, -2, 0, 0, 0, 0 ) ), valueY );
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
@@ -38,10 +38,10 @@ namespace FastNoise
             float32v gX = LatticeBlockPermute<float32v>( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexGradient );
             float32v gY = LatticeBlockPermute<float32v>( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexGradient );
 
-            multiplier *= FS::FMulAdd( fY, gY, fX * gX ) ^ finalSign;
+            multiplier *= FusedMulAdd( fY, gY, fX * gX ) ^ finalSign;
 
-            valueX = FS::FMulAdd( multiplier, LatticeBlockPermute<float32v>( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexOuterVector ), valueX );
-            valueY = FS::FMulAdd( multiplier, LatticeBlockPermute<float32v>( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexOuterVector ), valueY );
+            valueX = FusedMulAdd( multiplier, LatticeBlockPermute<float32v>( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexOuterVector ), valueX );
+            valueY = FusedMulAdd( multiplier, LatticeBlockPermute<float32v>( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexOuterVector ), valueY );
         }
         else
         {
@@ -79,11 +79,11 @@ namespace FastNoise
             float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0 ) );
             float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0 ) );
 
-            multiplier *= FS::FMulAdd( gZ, fZ, FS::FMulAdd( fY, gY, fX * gX ) );
+            multiplier *= FusedMulAdd( gZ, fZ, FusedMulAdd( fY, gY, fX * gX ) );
 
-            valueX = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) ), valueX );
-            valueY = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0 ) ), valueY );
-            valueZ = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0 ) ), valueZ );
+            valueX = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0 ) ), valueX );
+            valueY = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 0, 0, 0, 0 ) ), valueY );
+            valueZ = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0 ) ), valueZ );
         }
         else
         {
@@ -144,12 +144,12 @@ namespace FastNoise
             float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexGradient, -tableZ );
             float32v gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexGradient, -tableW );
 
-            multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) );
+            multiplier *= FusedMulAdd( gW, fW, FusedMulAdd( gZ, fZ, FusedMulAdd( gY, fY, gX * fX ) ) );
 
-            valueX = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableX, indexOuterVector, -tableX ), valueX );
-            valueY = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableY, indexOuterVector, -tableY ), valueY );
-            valueZ = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexOuterVector, -tableZ ), valueZ );
-            valueW = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexOuterVector, -tableW ), valueW );
+            valueX = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableX, indexOuterVector, -tableX ), valueX );
+            valueY = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableY, indexOuterVector, -tableY ), valueY );
+            valueZ = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexOuterVector, -tableZ ), valueZ );
+            valueW = FusedMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexOuterVector, -tableW ), valueW );
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
         {
@@ -184,13 +184,13 @@ namespace FastNoise
             float32v gW = lookup( indexGradient, tableLowW, tableHighW );
 
             // The negated entries flip every component, so apply their sign to the dot product and the multiplier instead
-            multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) ) ^ FS::Cast<float>( indexGradient & int32v( 1 << 31 ) );
+            multiplier *= FusedMulAdd( gW, fW, FusedMulAdd( gZ, fZ, FusedMulAdd( gY, fY, gX * fX ) ) ) ^ FS::Cast<float>( indexGradient & int32v( 1 << 31 ) );
             multiplier ^= FS::Cast<float>( indexOuterVector & int32v( 1 << 31 ) );
 
-            valueX = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowX, tableHighX ), valueX );
-            valueY = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowY, tableHighY ), valueY );
-            valueZ = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowZ, tableHighZ ), valueZ );
-            valueW = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowW, tableHighW ), valueW );
+            valueX = FusedMulAdd( multiplier, lookup( indexOuterVector, tableLowX, tableHighX ), valueX );
+            valueY = FusedMulAdd( multiplier, lookup( indexOuterVector, tableLowY, tableHighY ), valueY );
+            valueZ = FusedMulAdd( multiplier, lookup( indexOuterVector, tableLowZ, tableHighZ ), valueZ );
+            valueW = FusedMulAdd( multiplier, lookup( indexOuterVector, tableLowW, tableHighW ), valueW );
         }
         else
         {
@@ -210,7 +210,7 @@ namespace FastNoise
                 float32v gZ = FS::MaskedIncrement( indexB == int32v( 2 << 27 ), FS::MaskedDecrement( indexA == int32v( 2 << 27 ), neutral ) );
                 float32v gW = FS::MaskedIncrement( indexB == int32v( 3 << 27 ), FS::MaskedDecrement( indexA == int32v( 3 << 27 ), neutral ) );
 
-                multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) );
+                multiplier *= FusedMulAdd( gW, fW, FusedMulAdd( gZ, fZ, FusedMulAdd( gY, fY, gX * fX ) ) );
             }
 
             {
@@ -229,10 +229,10 @@ namespace FastNoise
                 float32v gZ = FS::MaskedIncrement( indexB == int32v( 2 << 27 ), FS::MaskedDecrement( indexA == int32v( 2 << 27 ), neutral ) );
                 float32v gW = FS::MaskedIncrement( indexB == int32v( 3 << 27 ), FS::MaskedDecrement( indexA == int32v( 3 << 27 ), neutral ) );
 
-                valueX = FS::FMulAdd( multiplier, gX, valueX );
-                valueY = FS::FMulAdd( multiplier, gY, valueY );
-                valueZ = FS::FMulAdd( multiplier, gZ, valueZ );
-                valueW = FS::FMulAdd( multiplier, gW, valueW );
+                valueX = FusedMulAdd( multiplier, gX, valueX );
+                valueY = FusedMulAdd( multiplier, gY, valueY );
+                valueZ = FusedMulAdd( multiplier, gZ, valueZ );
+                valueW = FusedMulAdd( multiplier, gW, valueW );
             }
         }
     }
@@ -249,9 +249,9 @@ namespace FastNoise
             float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( kSkew2f, -kSkew2f, kSkew2f, -kSkew2f, kSkew2f + 1, -kSkew2f - 1, kSkew2f + 1, -kSkew2f - 1, 1, -1, 1, -1, 0, 0, 0, 0 ) );
             float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( kSkew2f + 1, kSkew2f + 1, -kSkew2f - 1, -kSkew2f - 1, kSkew2f, kSkew2f, -kSkew2f, -kSkew2f, 1, 1, -1, -1, 0, 0, 0, 0 ) );
 
-            valueX = FS::FMulAdd( multiplier, FS::FMulAdd( fY, gY, fX * gX ), valueX );
+            valueX = FusedMulAdd( multiplier, FusedMulAdd( fY, gY, fX * gX ), valueX );
             multiplier ^= FS::Cast<float>( hash31 << 31 );
-            valueY = FS::FMulAdd( multiplier, FS::FMulSub( fY, gX, fX * gY ), valueY );
+            valueY = FusedMulAdd( multiplier, FusedMulSub( fY, gX, fX * gY ), valueY );
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
@@ -261,9 +261,9 @@ namespace FastNoise
             float32v gX = LatticeBlockPermute<float32v>( FS::Constant<float>( kSkew2f, kSkew2f, kSkew2f + 1, kSkew2f + 1, 1, 1, 0, 0 ), index ) ^ signX;
             float32v gY = LatticeBlockPermute<float32v>( FS::Constant<float>( kSkew2f + 1, -kSkew2f - 1, kSkew2f, -kSkew2f, 1, -1, 0, 0 ), index );
 
-            valueX = FS::FMulAdd( multiplier, FS::FMulAdd( fY, gY, fX * gX ), valueX );
+            valueX = FusedMulAdd( multiplier, FusedMulAdd( fY, gY, fX * gX ), valueX );
             multiplier ^= FS::Cast<float>( hash31 << 31 );
-            valueY = FS::FMulAdd( multiplier, FS::FMulSub( fY, gX, fX * gY ), valueY );
+            valueY = FusedMulAdd( multiplier, FusedMulSub( fY, gX, fX * gY ), valueY );
         }
         else
         {
@@ -275,9 +275,9 @@ namespace FastNoise
             float32v gX = FS::MaskedIncrement( ofThree != int32v( 0 ), masked ) ^ signX;
             float32v gY = FS::MaskedIncrement( ofThree != int32v( 1 ), masked ) ^ signY;
 
-            valueX = FS::FMulAdd( multiplier, FS::FMulAdd( fY, gY, fX * gX ), valueX );
+            valueX = FusedMulAdd( multiplier, FusedMulAdd( fY, gY, fX * gX ), valueX );
             multiplier ^= FS::Cast<float>( hash31 << 31 );
-            valueY = FS::FMulAdd( multiplier, FS::FMulSub( fY, gX, fX * gY ), valueY );
+            valueY = FusedMulAdd( multiplier, FusedMulSub( fY, gX, fX * gY ), valueY );
         }
     }
 
@@ -317,17 +317,17 @@ namespace FastNoise
             F valueAB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gX, indexFacetBasisWithPermute2, tableB_gX );
             F valueAB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gY, indexFacetBasisWithPermute2, tableB_gY );
             F valueAB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gZ, indexFacetBasisWithPermute2, tableB_gZ );
-            valueAB = FS::FMulAdd( valueAB_gZ, fZ, FS::FMulAdd( fY, valueAB_gY, fX * valueAB_gX ) );
+            valueAB = FusedMulAdd( valueAB_gZ, fZ, FusedMulAdd( fY, valueAB_gY, fX * valueAB_gX ) );
 
             F valueBA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gX, indexFacetBasisWithPermute2, tableA_gX );
             F valueBA_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gY, indexFacetBasisWithPermute2, tableA_gY );
             F valueBA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gZ, indexFacetBasisWithPermute2, tableA_gZ );
-            valueBA = FS::FMulAdd( valueBA_gZ, fZ, FS::FMulAdd( fY, valueBA_gY, fX * valueBA_gX ) );
+            valueBA = FusedMulAdd( valueBA_gZ, fZ, FusedMulAdd( fY, valueBA_gY, fX * valueBA_gX ) );
 
             F valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gX );
             F valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gY );
             F valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gZ );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, FS::FMulAdd( fY, valueC_gY, fX * valueC_gX ) );
+            valueC = FusedMulAdd( valueC_gZ, fZ, FusedMulAdd( fY, valueC_gY, fX * valueC_gX ) );
         }
         else
         {
@@ -345,18 +345,18 @@ namespace FastNoise
             F fC = FS::SelectHighBit( notYZ, fX, FS::SelectHighBit( notXY, fZ, fY ) );
             F productC = fC * F( kComponentC );
 
-            F valueA = FS::FMulAdd( F( kComponentA ) ^ sign0, fA, FS::FMulAdd( F( kComponentB ) ^ sign1, fB, productC ) );
-            F valueB = FS::FMulAdd( F( kComponentB ) ^ sign0, fA, FS::FMulAdd( F( kComponentA ) ^ sign1, fB, productC ) );
-            valueC = FS::FMulAdd( F( kComponentsDE ) ^ sign0, fA, FS::FMulAdd( F( kComponentsDE ) ^ sign1, fB, fC * F( kComponentF ) ) );
+            F valueA = FusedMulAdd( F( kComponentA ) ^ sign0, fA, FusedMulAdd( F( kComponentB ) ^ sign1, fB, productC ) );
+            F valueB = FusedMulAdd( F( kComponentB ) ^ sign0, fA, FusedMulAdd( F( kComponentA ) ^ sign1, fB, productC ) );
+            valueC = FusedMulAdd( F( kComponentsDE ) ^ sign0, fA, FusedMulAdd( F( kComponentsDE ) ^ sign1, fB, fC * F( kComponentF ) ) );
 
             valueAB = FS::SelectHighBit( indexPermutation2HighBit, valueB, valueA );
             valueBA = FS::SelectHighBit( indexPermutation2HighBit, valueA, valueB );
         }
 
         multiplier ^= finalSign;
-        valueX = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 0 ), valueC, valueAB ), valueX );
-        valueY = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 1 ), valueC, FS::Select( indexPermutation3 == I( 2 ), valueBA, valueAB ) ), valueY );
-        valueZ = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 2 ), valueC, valueBA ), valueZ );
+        valueX = FusedMulAdd( multiplier, FS::Select( indexPermutation3 == I( 0 ), valueC, valueAB ), valueX );
+        valueY = FusedMulAdd( multiplier, FS::Select( indexPermutation3 == I( 1 ), valueC, FS::Select( indexPermutation3 == I( 2 ), valueBA, valueAB ) ), valueY );
+        valueZ = FusedMulAdd( multiplier, FS::Select( indexPermutation3 == I( 2 ), valueC, valueBA ), valueZ );
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
@@ -460,10 +460,10 @@ namespace FastNoise
                 FS::Constant<float>( eFillD, eIdxD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
 
-            valueA = FS::FMulAdd( valueA_gY, fY, valueA );
-            valueB = FS::FMulAdd( valueB_gY, fY, valueB );
-            valueC = FS::FMulAdd( valueC_gY, fY, valueC );
-            valueD = FS::FMulAdd( valueD_gY, fY, valueD );
+            valueA = FusedMulAdd( valueA_gY, fY, valueA );
+            valueB = FusedMulAdd( valueB_gY, fY, valueB );
+            valueC = FusedMulAdd( valueC_gY, fY, valueC );
+            valueD = FusedMulAdd( valueD_gY, fY, valueD );
 
             valueA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sFillABC, pDiagAB, pDiagAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB ), indexBasis,
@@ -482,10 +482,10 @@ namespace FastNoise
                 FS::Constant<float>( eFillD, eFillD, eIdxD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
 
-            valueA = FS::FMulAdd( valueA_gZ, fZ, valueA );
-            valueB = FS::FMulAdd( valueB_gZ, fZ, valueB );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, valueC );
-            valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
+            valueA = FusedMulAdd( valueA_gZ, fZ, valueA );
+            valueB = FusedMulAdd( valueB_gZ, fZ, valueB );
+            valueC = FusedMulAdd( valueC_gZ, fZ, valueC );
+            valueD = FusedMulAdd( valueD_gZ, fZ, valueD );
 
             valueA_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB ), indexBasis,
@@ -504,10 +504,10 @@ namespace FastNoise
                 FS::Constant<float>( eFillD, eFillD, eFillD, eIdxD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
 
-            valueA = FS::FMulAdd( valueA_gW, fW, valueA );
-            valueB = FS::FMulAdd( valueB_gW, fW, valueB );
-            valueC = FS::FMulAdd( valueC_gW, fW, valueC );
-            valueD = FS::FMulAdd( valueD_gW, fW, valueD );
+            valueA = FusedMulAdd( valueA_gW, fW, valueA );
+            valueB = FusedMulAdd( valueB_gW, fW, valueB );
+            valueC = FusedMulAdd( valueC_gW, fW, valueC );
+            valueD = FusedMulAdd( valueD_gW, fW, valueD );
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) || kLatticeBlockTbl<SIMD> )
         {
@@ -569,11 +569,11 @@ namespace FastNoise
                 }
             };
 
-            F valueAB = FS::FMulAdd( caseConstant( pIdxNegAB, sFillABC, eFillABC ), f3, FS::FMulAdd( caseConstant( pFillAB, sFillABC, eFillABC ), f12, caseConstant( pIdxPosAB, sIdxABC, eIdxABC ) * f0 ) );
-            valueA = FS::FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f1, valueAB );
-            valueB = FS::FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f2, valueAB );
-            valueC = FS::FMulAdd( caseConstant( pIdxNegC, sDiagABC, eDiagABC ), f3, FS::FMulAdd( caseConstant( pFillC, sFillABC, eFillABC ), f12, caseConstant( pIdxPosC, sIdxABC, eIdxABC ) * f0 ) );
-            valueD = FS::FMulAdd( caseConstant( pIdxNegD, sFillD, eFillD ), f3, FS::FMulAdd( caseConstant( pFillD, sFillD, eFillD ), f12, caseConstant( pIdxPosD, sIdxD, eIdxD ) * f0 ) );
+            F valueAB = FusedMulAdd( caseConstant( pIdxNegAB, sFillABC, eFillABC ), f3, FusedMulAdd( caseConstant( pFillAB, sFillABC, eFillABC ), f12, caseConstant( pIdxPosAB, sIdxABC, eIdxABC ) * f0 ) );
+            valueA = FusedMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f1, valueAB );
+            valueB = FusedMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f2, valueAB );
+            valueC = FusedMulAdd( caseConstant( pIdxNegC, sDiagABC, eDiagABC ), f3, FusedMulAdd( caseConstant( pFillC, sFillABC, eFillABC ), f12, caseConstant( pIdxPosC, sIdxABC, eIdxABC ) * f0 ) );
+            valueD = FusedMulAdd( caseConstant( pIdxNegD, sFillD, eFillD ), f3, FusedMulAdd( caseConstant( pFillD, sFillD, eFillD ), f12, caseConstant( pIdxPosD, sIdxD, eIdxD ) * f0 ) );
         }
         else
         {
@@ -644,10 +644,10 @@ namespace FastNoise
                 indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
             }
 
-            valueA = FS::FMulAdd( valueA_gY, fY, valueA );
-            valueB = FS::FMulAdd( valueB_gY, fY, valueB );
-            valueC = FS::FMulAdd( valueC_gY, fY, valueC );
-            valueD = FS::FMulAdd( valueD_gY, fY, valueD );
+            valueA = FusedMulAdd( valueA_gY, fY, valueA );
+            valueB = FusedMulAdd( valueB_gY, fY, valueB );
+            valueC = FusedMulAdd( valueC_gY, fY, valueC );
+            valueD = FusedMulAdd( valueD_gY, fY, valueD );
 
             {
                 auto indexedPositive = ( indexPositive == I( 2 << 27 ) );
@@ -669,10 +669,10 @@ namespace FastNoise
                 indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
             }
 
-            valueA = FS::FMulAdd( valueA_gZ, fZ, valueA );
-            valueB = FS::FMulAdd( valueB_gZ, fZ, valueB );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, valueC );
-            valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
+            valueA = FusedMulAdd( valueA_gZ, fZ, valueA );
+            valueB = FusedMulAdd( valueB_gZ, fZ, valueB );
+            valueC = FusedMulAdd( valueC_gZ, fZ, valueC );
+            valueD = FusedMulAdd( valueD_gZ, fZ, valueD );
 
             {
                 auto indexedPositive = ( indexPositive == I( 3 << 27 ) );
@@ -692,10 +692,10 @@ namespace FastNoise
                 valueD_gW = FS::Select( indexed, indexedComponentD,  componentUnindexedD );
             }
 
-            valueA = FS::FMulAdd( valueA_gW, fW, valueA );
-            valueB = FS::FMulAdd( valueB_gW, fW, valueB );
-            valueC = FS::FMulAdd( valueC_gW, fW, valueC );
-            valueD = FS::FMulAdd( valueD_gW, fW, valueD );
+            valueA = FusedMulAdd( valueA_gW, fW, valueA );
+            valueB = FusedMulAdd( valueB_gW, fW, valueB );
+            valueC = FusedMulAdd( valueC_gW, fW, valueC );
+            valueD = FusedMulAdd( valueD_gW, fW, valueD );
         }
 
         I valueIndexX = ( indexPermutation8 >> 1 ); // & I( 0x3 );
@@ -705,10 +705,10 @@ namespace FastNoise
         I valueIndexSumXYZ = valueIndexX + valueIndexY + valueIndexZ;
 
         multiplier ^= finalSign;
-        valueX = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexX << 31, FS::SelectHighBit( valueIndexX << 30, valueD, valueB ), FS::SelectHighBit( valueIndexX << 30, valueC, valueA ) ), valueX );
-        valueY = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexY << 31, FS::SelectHighBit( valueIndexY << 30, valueD, valueB ), FS::SelectHighBit( valueIndexY << 30, valueC, valueA ) ), valueY );
-        valueZ = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexZ << 31, FS::SelectHighBit( valueIndexZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexZ << 30, valueC, valueA ) ), valueZ );
-        valueW = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexSumXYZ << 31, FS::SelectHighBit( valueIndexSumXYZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexSumXYZ << 30, valueA, valueC ) ), valueW );
+        valueX = FusedMulAdd( multiplier, FS::SelectHighBit( valueIndexX << 31, FS::SelectHighBit( valueIndexX << 30, valueD, valueB ), FS::SelectHighBit( valueIndexX << 30, valueC, valueA ) ), valueX );
+        valueY = FusedMulAdd( multiplier, FS::SelectHighBit( valueIndexY << 31, FS::SelectHighBit( valueIndexY << 30, valueD, valueB ), FS::SelectHighBit( valueIndexY << 30, valueC, valueA ) ), valueY );
+        valueZ = FusedMulAdd( multiplier, FS::SelectHighBit( valueIndexZ << 31, FS::SelectHighBit( valueIndexZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexZ << 30, valueC, valueA ) ), valueZ );
+        valueW = FusedMulAdd( multiplier, FS::SelectHighBit( valueIndexSumXYZ << 31, FS::SelectHighBit( valueIndexSumXYZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexSumXYZ << 30, valueA, valueC ) ), valueW );
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
@@ -839,9 +839,9 @@ protected:
         float32v dx2 = dx0 - float32v( kUnskew2 * 2 + 1 );
         float32v dy2 = dy0 - float32v( kUnskew2 * 2 + 1 );
 
-        float32v falloff0 = FS::FNMulAdd( dx0, dx0, FS::FNMulAdd( dy0, dy0, float32v( kFalloffRadiusSquared ) ) );
-        float32v falloff1 = FS::FNMulAdd( dx1, dx1, FS::FNMulAdd( dy1, dy1, float32v( kFalloffRadiusSquared ) ) );
-        float32v falloff2 = falloff0 + FS::FMulAdd( unskewDelta,
+        float32v falloff0 = FusedNMulAdd( dx0, dx0, FusedNMulAdd( dy0, dy0, float32v( kFalloffRadiusSquared ) ) );
+        float32v falloff1 = FusedNMulAdd( dx1, dx1, FusedNMulAdd( dy1, dy1, float32v( kFalloffRadiusSquared ) ) );
+        float32v falloff2 = falloff0 + FusedMulAdd( unskewDelta,
             float32v( -4.0 * ( kRoot3 + 2.0 ) / ( kRoot3 + 3.0 ) ),
             float32v( -2.0 / 3.0 ) );
 
@@ -866,10 +866,10 @@ protected:
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
-        xOut = FS::FMulAdd( valueX, warpAmp, xOut );
-        yOut = FS::FMulAdd( valueY, warpAmp, yOut );
+        xOut = FusedMulAdd( valueX, warpAmp, xOut );
+        yOut = FusedMulAdd( valueY, warpAmp, yOut );
 
-        return FS::FMulAdd( valueY, valueY, valueX * valueX );
+        return FusedMulAdd( valueY, valueY, valueX * valueX );
     }
 
     template<VectorizationScheme Scheme>
@@ -922,9 +922,9 @@ protected:
         float32v dy2 = FS::MaskedIncrement( nMaskY2, dy0 );
         float32v dz2 = FS::MaskedIncrement( nMaskZ2, dz0 );
 
-        float32v falloff0 = FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) );
-        float32v falloff1 = FS::FNMulAdd( dz1, dz1, FS::FNMulAdd( dy1, dy1, FS::FNMulAdd( dx1, dx1, float32v( kFalloffRadiusSquared ) ) ) );
-        float32v falloff2 = FS::FNMulAdd( dz2, dz2, FS::FNMulAdd( dy2, dy2, FS::FNMulAdd( dx2, dx2, float32v( kFalloffRadiusSquared ) ) ) );
+        float32v falloff0 = FusedNMulAdd( dz0, dz0, FusedNMulAdd( dy0, dy0, FusedNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) );
+        float32v falloff1 = FusedNMulAdd( dz1, dz1, FusedNMulAdd( dy1, dy1, FusedNMulAdd( dx1, dx1, float32v( kFalloffRadiusSquared ) ) ) );
+        float32v falloff2 = FusedNMulAdd( dz2, dz2, FusedNMulAdd( dy2, dy2, FusedNMulAdd( dx2, dx2, float32v( kFalloffRadiusSquared ) ) ) );
         float32v falloff3 = falloff0 - ( unskewDelta + float32v( 3.0 / 4.0 ) );
 
         falloff0 = FS::Max( falloff0, float32v( 0 ) );
@@ -963,11 +963,11 @@ protected:
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
         valueZ *= float32v( kBounding * this->mAxisScale[2] );
-        xOut = FS::FMulAdd( valueX, warpAmp, xOut );
-        yOut = FS::FMulAdd( valueY, warpAmp, yOut );
-        zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
+        xOut = FusedMulAdd( valueX, warpAmp, xOut );
+        yOut = FusedMulAdd( valueY, warpAmp, yOut );
+        zOut = FusedMulAdd( valueZ, warpAmp, zOut );
 
-        return FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) );
+        return FusedMulAdd( valueZ, valueZ, FusedMulAdd( valueY, valueY, valueX * valueX ) );
     }
 
     template<VectorizationScheme Scheme>
@@ -1039,8 +1039,8 @@ protected:
         float32v valueW( 0 );
 
         // Each vertex is computed right before its contribution so fewer values stay live across the contribution calls
-        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
+        float32v falloff0 = FusedNMulAdd( dw0, dw0, FusedNMulAdd( dz0, dz0, FusedNMulAdd( dy0, dy0, FusedNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
+        float32v falloff4 = falloff0 + FusedMulAdd( unskewDelta,
             float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
             float32v( -4.0 / 5.0 ) );
         {
@@ -1063,7 +1063,7 @@ protected:
             float32v dz = FS::MaskedSub( maskZ, dz0, float32v( 1 ) ) - float32v( unskewOffset );
             float32v dw = FS::MaskedSub( maskW, dw0, float32v( 1 ) ) - float32v( unskewOffset );
 
-            float32v falloff = FS::FNMulAdd( dw, dw, FS::FNMulAdd( dz, dz, FS::FNMulAdd( dy, dy, FS::FNMulAdd( dx, dx, float32v( kFalloffRadiusSquared ) ) ) ) );
+            float32v falloff = FusedNMulAdd( dw, dw, FusedNMulAdd( dz, dz, FusedNMulAdd( dy, dy, FusedNMulAdd( dx, dx, float32v( kFalloffRadiusSquared ) ) ) ) );
             falloff = FS::Max( falloff, float32v( 0 ) );
             falloff *= falloff; falloff *= falloff;
 
@@ -1096,12 +1096,12 @@ protected:
         valueY *= float32v( kBounding * this->mAxisScale[1] );
         valueZ *= float32v( kBounding * this->mAxisScale[2] );
         valueW *= float32v( kBounding * this->mAxisScale[3] );
-        xOut = FS::FMulAdd( valueX, warpAmp, xOut );
-        yOut = FS::FMulAdd( valueY, warpAmp, yOut );
-        zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
-        wOut = FS::FMulAdd( valueW, warpAmp, wOut );
+        xOut = FusedMulAdd( valueX, warpAmp, xOut );
+        yOut = FusedMulAdd( valueY, warpAmp, yOut );
+        zOut = FusedMulAdd( valueZ, warpAmp, zOut );
+        wOut = FusedMulAdd( valueW, warpAmp, wOut );
 
-        return FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
+        return FusedMulAdd( valueW, valueW, FusedMulAdd( valueZ, valueZ, FusedMulAdd( valueY, valueY, valueX * valueX ) ) );
     }
 };
 
@@ -1218,8 +1218,8 @@ protected:
 
         mask32v forwardXY = dxSkewed + dySkewed > float32v( 1.0f );
         float32v boundaryXY = FS::Masked( forwardXY, float32v( -1.0f ) );
-        mask32v forwardX = FS::FMulAdd( dxSkewed, float32v( -2.0f ), dySkewed ) < boundaryXY;
-        mask32v forwardY = FS::FMulAdd( dySkewed, float32v( -2.0f ), dxSkewed ) < boundaryXY;
+        mask32v forwardX = FusedMulAdd( dxSkewed, float32v( -2.0f ), dySkewed ) < boundaryXY;
+        mask32v forwardY = FusedMulAdd( dySkewed, float32v( -2.0f ), dxSkewed ) < boundaryXY;
 
         float32v unskewDelta = float32v( kUnskew2 ) * ( dxSkewed + dySkewed );
         float32v dxBase = dxSkewed + unskewDelta;
@@ -1232,7 +1232,7 @@ protected:
         // Vertex <0, 0>
         {
             int32v hash = HashPrimes( seed, xPrimedBase, yPrimedBase );
-            falloffBase0 = FS::FNMulAdd( dxBase, dxBase, FS::FNMulAdd( dyBase, dyBase, float32v( kFalloffRadiusSquared ) ) );
+            falloffBase0 = FusedNMulAdd( dxBase, dxBase, FusedNMulAdd( dyBase, dyBase, float32v( kFalloffRadiusSquared ) ) );
             float32v falloff = falloffBase0; falloff *= falloff; falloff *= falloff;
             ApplyVectorContributionSimplex<Scheme>( hash, dxBase, dyBase, falloff, valueX, valueY );
         }
@@ -1240,7 +1240,7 @@ protected:
         // Vertex <1, 1>
         {
             int32v hash = HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) );
-            float32v falloff = FS::FMulAdd( unskewDelta,
+            float32v falloff = FusedMulAdd( unskewDelta,
                 float32v( -4.0 * ( kRoot3 + 2.0 ) / ( kRoot3 + 3.0 ) ),
                 falloffBase0 - float32v( kFalloffRadiusSquared ) );
             falloff *= falloff; falloff *= falloff;
@@ -1258,7 +1258,7 @@ protected:
                 FS::MaskedAdd( forwardXY, yPrimedBase, int32v( Primes::Y ) ) );
             float32v dx = dxBase - FS::Select( forwardX, float32v( 1 + 2 * kUnskew2 ), float32v( -1 ) );
             float32v dy = FS::MaskedSub( forwardX, dyBase, float32v( 2 * kUnskew2 ) );
-            float32v falloff = FS::Max( FS::FNMulAdd( dx, dx, FS::FNMulAdd( dy, dy, float32v( kFalloffRadiusSquared ) ) ), float32v( 0 ) );
+            float32v falloff = FS::Max( FusedNMulAdd( dx, dx, FusedNMulAdd( dy, dy, float32v( kFalloffRadiusSquared ) ) ), float32v( 0 ) );
             falloff *= falloff; falloff *= falloff;
             ApplyVectorContributionSimplex<Scheme>( hash, dx, dy, falloff, valueX, valueY );
         }
@@ -1270,7 +1270,7 @@ protected:
                 FS::InvMaskedSub( forwardXY, FS::MaskedAdd( forwardY, yPrimedBase, int32v( (int32_t)( Primes::Y * 2LL ) ) ), int32v( Primes::Y ) ) );
             float32v dx = FS::MaskedSub( forwardY, dxBase, float32v( 2 * kUnskew2 ) );
             float32v dy = dyBase - FS::Select( forwardY, float32v( 1 + 2 * kUnskew2 ), float32v( -1 ) );
-            float32v falloff = FS::Max( FS::FNMulAdd( dx, dx, FS::FNMulAdd( dy, dy, float32v( kFalloffRadiusSquared ) ) ), float32v( 0 ) );
+            float32v falloff = FS::Max( FusedNMulAdd( dx, dx, FusedNMulAdd( dy, dy, float32v( kFalloffRadiusSquared ) ) ), float32v( 0 ) );
             falloff *= falloff; falloff *= falloff;
             ApplyVectorContributionSimplex<Scheme>( hash, dx, dy, falloff, valueX, valueY );
         }
@@ -1281,10 +1281,10 @@ protected:
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
-        xOut = FS::FMulAdd( valueX, warpAmp, xOut );
-        yOut = FS::FMulAdd( valueY, warpAmp, yOut );
+        xOut = FusedMulAdd( valueX, warpAmp, xOut );
+        yOut = FusedMulAdd( valueY, warpAmp, yOut );
 
-        return FS::FMulAdd( valueY, valueY, valueX * valueX );
+        return FusedMulAdd( valueY, valueY, valueX * valueX );
     }
 
     template<VectorizationScheme Scheme>
@@ -1383,7 +1383,7 @@ protected:
 
         // Vertex <0, 0, 0>
         {
-            float32v falloffBase = FS::FNMulAdd( dzBase, dzBase, FS::FNMulAdd( dyBase, dyBase, FS::FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) * float32v( 0.5f );
+            float32v falloffBase = FusedNMulAdd( dzBase, dzBase, FusedNMulAdd( dyBase, dyBase, FusedNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) * float32v( 0.5f );
             falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
             ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase,
@@ -1397,7 +1397,7 @@ protected:
             float32v sign = SignBit( signValue );
             float32v offset = float32v( 3 * kReflectUnskew3 + 1 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1474,7 +1474,7 @@ protected:
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1492,7 +1492,7 @@ protected:
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1510,7 +1510,7 @@ protected:
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1538,11 +1538,11 @@ protected:
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
         valueZ *= float32v( kBounding * this->mAxisScale[2] );
-        xOut = FS::FMulAdd( valueX, warpAmp, xOut );
-        yOut = FS::FMulAdd( valueY, warpAmp, yOut );
-        zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
+        xOut = FusedMulAdd( valueX, warpAmp, xOut );
+        yOut = FusedMulAdd( valueY, warpAmp, yOut );
+        zOut = FusedMulAdd( valueZ, warpAmp, zOut );
 
-        return FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) );
+        return FusedMulAdd( valueZ, valueZ, FusedMulAdd( valueY, valueY, valueX * valueX ) );
     }
 
     template<VectorizationScheme Scheme>
@@ -1666,7 +1666,7 @@ protected:
 
         // Vertex <0, 0, 0, 0>
         {
-            float32v falloffBase = FS::FNMulAdd( dwBase, dwBase, FS::FNMulAdd( dzBase, dzBase, FS::FNMulAdd( dyBase, dyBase, FS::FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) ) * float32v( 0.5f );
+            float32v falloffBase = FusedNMulAdd( dwBase, dwBase, FusedNMulAdd( dzBase, dzBase, FusedNMulAdd( dyBase, dyBase, FusedNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) ) * float32v( 0.5f );
             falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
             ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase, dyBase, dzBase, dwBase,
@@ -1680,7 +1680,7 @@ protected:
 
             float32v offset = float32v( 4 * kUnskew4 + 1 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1702,7 +1702,7 @@ protected:
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1723,7 +1723,7 @@ protected:
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1744,7 +1744,7 @@ protected:
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1765,7 +1765,7 @@ protected:
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1786,7 +1786,7 @@ protected:
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1805,7 +1805,7 @@ protected:
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1825,7 +1825,7 @@ protected:
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1845,7 +1845,7 @@ protected:
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1865,7 +1865,7 @@ protected:
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1884,7 +1884,7 @@ protected:
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1904,7 +1904,7 @@ protected:
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1924,7 +1924,7 @@ protected:
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1943,7 +1943,7 @@ protected:
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1963,7 +1963,7 @@ protected:
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
-            float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), float32v( 0.0f ) );
+            float32v falloffBase = FS::Max( FusedMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), float32v( 0.0f ) );
 
             if( AnyInRange( falloffBase ) )
             {
@@ -1982,11 +1982,11 @@ protected:
         valueY *= float32v( kBounding * this->mAxisScale[1] );
         valueZ *= float32v( kBounding * this->mAxisScale[2] );
         valueW *= float32v( kBounding * this->mAxisScale[3] );
-        xOut = FS::FMulAdd( valueX, warpAmp, xOut );
-        yOut = FS::FMulAdd( valueY, warpAmp, yOut );
-        zOut = FS::FMulAdd( valueZ, warpAmp, zOut );
-        wOut = FS::FMulAdd( valueW, warpAmp, wOut );
+        xOut = FusedMulAdd( valueX, warpAmp, xOut );
+        yOut = FusedMulAdd( valueY, warpAmp, yOut );
+        zOut = FusedMulAdd( valueZ, warpAmp, zOut );
+        wOut = FusedMulAdd( valueW, warpAmp, wOut );
 
-        return FS::FMulAdd( valueW, valueW, FS::FMulAdd( valueZ, valueZ, FS::FMulAdd( valueY, valueY, valueX * valueX ) ) );
+        return FusedMulAdd( valueW, valueW, FusedMulAdd( valueZ, valueZ, FusedMulAdd( valueY, valueY, valueX * valueX ) ) );
     }
 };

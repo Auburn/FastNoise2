@@ -18,8 +18,8 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         int32v xOffsetY1 = xOffset + int32v( 4 );
 
         return Lerp(
-            FS::FMulAdd( xs, LatticeBlockPermute<float32v>( delta, xOffset ), LatticeBlockPermute<float32v>( table, xOffset ) ),
-            FS::FMulAdd( xs, LatticeBlockPermute<float32v>( delta, xOffsetY1 ), LatticeBlockPermute<float32v>( table, xOffsetY1 ) ), ys );
+            FusedMulAdd( xs, LatticeBlockPermute<float32v>( delta, xOffset ), LatticeBlockPermute<float32v>( table, xOffset ) ),
+            FusedMulAdd( xs, LatticeBlockPermute<float32v>( delta, xOffsetY1 ), LatticeBlockPermute<float32v>( table, xOffsetY1 ) ), ys );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const

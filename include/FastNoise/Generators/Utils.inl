@@ -56,6 +56,53 @@ namespace FastNoise
     template<FastSIMD::FeatureSet SIMD>
     static constexpr bool kLatticeBlockTbl = FN_AARCH64_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
 
+    // FS::FMulAdd / FNMulAdd / FMulSub on ARM are a multiply and an add in IR (vmlaq_f32, or generic), and clang's fast-math
+    // reassociation leaves many of them unfused. On AArch64 these emit FMLA / FMLS always (the FS ops elsewhere)
+    template<typename F>
+    FS_FORCEINLINE static F FusedMulAdd( const F& a, const F& b, const F& c )
+    {
+#if FN_AARCH64_TBL
+        if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
+        {
+            return FS::NativeExec<F>( []( float32x4_t x, float32x4_t y, float32x4_t z ) { return vfmaq_f32( z, x, y ); }, a, b, c );
+        }
+        else
+#endif
+        {
+            return FS::FMulAdd( a, b, c );
+        }
+    }
+
+    template<typename F>
+    FS_FORCEINLINE static F FusedNMulAdd( const F& a, const F& b, const F& c )
+    {
+#if FN_AARCH64_TBL
+        if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
+        {
+            return FS::NativeExec<F>( []( float32x4_t x, float32x4_t y, float32x4_t z ) { return vfmsq_f32( z, x, y ); }, a, b, c );
+        }
+        else
+#endif
+        {
+            return FS::FNMulAdd( a, b, c );
+        }
+    }
+
+    template<typename F>
+    FS_FORCEINLINE static F FusedMulSub( const F& a, const F& b, const F& c )
+    {
+#if FN_AARCH64_TBL
+        if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
+        {
+            return FS::NativeExec<F>( []( float32x4_t x, float32x4_t y, float32x4_t z ) { return vfmaq_f32( vnegq_f32( z ), x, y ); }, a, b, c );
+        }
+        else
+#endif
+        {
+            return FS::FMulSub( a, b, c );
+        }
+    }
+
     // Lane 0 of the first native register broadcast to a native register
     template<typename I>
     FS_FORCEINLINE static auto LatticeBlockBroadcast( const I& a )
@@ -350,7 +397,7 @@ namespace FastNoise
                 return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
             };
 
-            return FS::FMulAdd( lookup( tableX ), fX, FS::FMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
+            return FusedMulAdd( lookup( tableX ), fX, FusedMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
         }
 #endif
         else
@@ -420,7 +467,7 @@ namespace FastNoise
             F gX = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1 + kRoot2f, -1 - kRoot2f, 1 + kRoot2f, -1 - kRoot2f, 1, -1, 1, -1 ), index );
             F gY = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1, 1, -1, -1, 1 + kRoot2f, 1 + kRoot2f, -1 - kRoot2f, -1 - kRoot2f ), index );
 
-            return FS::FMulAdd( gX, fX, fY * gY );
+            return FusedMulAdd( gX, fX, fY * gY );
         }
         else
         {
@@ -480,7 +527,7 @@ namespace FastNoise
                 return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
             };
 
-            return FS::FMulAdd( lookup( kPlaneX ), fX, FS::FMulAdd( fY, lookup( kPlaneY ), FS::FMulAdd( fZ, lookup( kPlaneZ ), fW * lookup( kPlaneW ) ) ) ) * F( 0.5f );
+            return FusedMulAdd( lookup( kPlaneX ), fX, FusedMulAdd( fY, lookup( kPlaneY ), FusedMulAdd( fZ, lookup( kPlaneZ ), fW * lookup( kPlaneW ) ) ) ) * F( 0.5f );
         }
 #endif
         else
@@ -575,13 +622,13 @@ namespace FastNoise
     template<typename F>
     FS_FORCEINLINE static F InterpHermite( F t )
     {
-        return t * t * FS::FNMulAdd( t, F( 2 ), F( 3 ));
+        return t * t * FusedNMulAdd( t, F( 2 ), F( 3 ) );
     }
 
     template<typename F>
     FS_FORCEINLINE static F InterpQuintic( F t )
     {
-        return t * t * t * FS::FMulAdd( t, FS::FMulAdd( t, F( 6 ), F( -15 )), F( 10 ) );
+        return t * t * t * FusedMulAdd( t, FusedMulAdd( t, F( 6 ), F( -15 ) ), F( 10 ) );
     }
 
     FS_FORCEINLINE static float32v FastLengthSqrt( float32v sqrDist )
