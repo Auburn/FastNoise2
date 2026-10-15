@@ -27,9 +27,10 @@ using mask32v = typename float32v::MaskType;
 // FS::Sin( a ) * freq as poly * ( x * freq ). With x86 FMA the polynomial ends in an FMA builtin, which reassoc ranks by its
 // basic block, so whether it does depends on the surrounding loop: master's GenTileable2D keeps ( poly * x ) * freq, the column
 // table loops got poly * ( x * freq ) from GCC 13. The barrier keeps the product as written on GCC FMA targets; without FMA GCC
-// rewrites it in master too, and other compilers see the expression unchanged
-#if defined( __GNUC__ ) && !defined( __clang__ ) && __GNUC__ >= 12 && defined( __FMA__ )
-#define FASTNOISE_ASSOC_BARRIER( v ) FS::NativeExec<float32v>( []( auto n ) { return __builtin_assoc_barrier( n ); }, v )
+// rewrites it in master too, and other compilers see the expression unchanged. An empty asm rather than __builtin_assoc_barrier,
+// which GCC 13 lowers lane by lane on 512 bit vectors
+#if defined( __GNUC__ ) && !defined( __clang__ ) && defined( __FMA__ )
+#define FASTNOISE_ASSOC_BARRIER( v ) FS::NativeExec<float32v>( []( auto n ) { __asm__( "" : "+v"( n ) ); return n; }, v )
 #else
 #define FASTNOISE_ASSOC_BARRIER( v ) v
 #endif
