@@ -1437,6 +1437,53 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
+        // Several closest points: the 2^D cells first too, the 3^D search then starts from their sorted distances. Coherent lanes only
+        // More than 2 points are rarely all in the 2^D cells: then only a small gain, none on SSE2
+        constexpr bool kFloorFirstCount = SPECIALISED && COUNT >= 2 && !SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared &&
+                                          ( COUNT == 2 || ( SIMD & FastSIMD::FeatureFlag::SSE41 ) );
+        if constexpr( kFloorFirstCount )
+        {
+            float32v floorPos[] = { x, y, z };
+            if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
+            {
+                struct Insert
+                {
+                    std::array<int32v, COUNT>& valueHash;
+                    std::array<float32v, COUNT>& distance;
+
+                    // Same as the 3^D search's insertion
+                    FS_FORCEINLINE void operator()( float32v newDistance, int32v newCellValueHash ) const
+                    {
+                        for( int i = 0; i < COUNT; i++ )
+                        {
+                            mask32v closer = newDistance < distance[i];
+
+                            int32v localCellValueHash = valueHash[i];
+                            valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
+
+                            if( i == COUNT - 1 )
+                            {
+                                distance[i] = FS::Select( closer, newDistance, distance[i] );
+                                break;
+                            }
+
+                            float32v localDistance = distance[i];
+                            distance[i] = FS::Min( newDistance, distance[i] );
+                            newDistance = FS::Max( localDistance, newDistance );
+                            newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
+                        }
+                    }
+                } insert{ valueHash, distance };
+
+                this->template FloorCellsVisit<3>( distFunc, seed, jitter, floorPos, insert );
+                if( this->template FloorCellsComplete<3>( distFunc, distance[COUNT - 1], jitter, floorPos ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( valueHash[COUNT - 1] ), -kValueBounds, kValueBounds );
+                }
+                nearBlockDone = true;
+            }
+        }
+
         int valueIndex = SPECIALISED ? COUNT - 1 : mValueIndex;
         // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
         if( SPECIALISED && nearBlockDone )
