@@ -71,6 +71,29 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_GEN_CALL( fn, gen, seed, ... ) fn( gen, seed, __VA_ARGS__ )
 #endif
 
+// FASTNOISE_GEN_FN_CALL( gen, seed, pos... ) calls the generator's own Gen function from its block functions. MSVC AVX512
+// inlines a GenFn taking native-half aggregates there far less often (cellular grids up to 1.14x slower): call a copy
+// taking whole arguments instead, which MSVC inlines as before
+#if FASTNOISE_GEN_ARGS == 2
+#define FASTNOISE_GEN_FN_CALL( gen, seed, ... ) GenFnWhole( gen, seed, __VA_ARGS__ )
+#define FASTNOISE_IMPL_GEN_FN_WHOLE( GENFUNC )\
+    static GenResultT FS_VECTORCALL GenFnWhole( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y ) );\
+    }\
+    static GenResultT FS_VECTORCALL GenFnWhole( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y, float32v z )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z ) );\
+    }\
+    static GenResultT FS_VECTORCALL GenFnWhole( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z, w ) );\
+    }
+#else
+#define FASTNOISE_GEN_FN_CALL( gen, seed, ... ) FASTNOISE_GEN_CALL( GenFn, gen, seed, __VA_ARGS__ )
+#define FASTNOISE_IMPL_GEN_FN_WHOLE( GENFUNC )
+#endif
+
 #if FASTNOISE_GEN_SEED4_WHOLE
 #define FASTNOISE_GEN_PARAM_SEED4( name ) int32v name
 #define FASTNOISE_GEN_ARG_SEED4( name ) name
@@ -255,6 +278,7 @@ public:
     {\
         return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( FASTNOISE_GEN_VAL_SEED4( seed ), FASTNOISE_GEN_VAL( float32v, x ), FASTNOISE_GEN_VAL( float32v, y ), FASTNOISE_GEN_VAL( float32v, z ), FASTNOISE_GEN_VAL( float32v, w ) ) );\
     }\
+    FASTNOISE_IMPL_GEN_FN_WHOLE( GENFUNC )\
     template<size_t... DIM>\
     FASTNOISE_GEN_FN_ATTRIBUTES static bool FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict pos, float* __restrict out, intptr_t count, GenBlockMode mode )\
     {\
@@ -272,7 +296,7 @@ public:
         }\
         for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
         {\
-            GenResultT result = FASTNOISE_GEN_CALL( GenFn, gen, seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... );\
+            GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... );\
             FS::Store( out + i, float32v( result.v0, result.v1 ) );\
         }\
         return true;\
@@ -284,7 +308,7 @@ public:
         {\
             for( intptr_t i = 0; i < xCount; i += int32v::ElementCount )\
             {\
-                GenResultT result = FASTNOISE_GEN_CALL( GenFn, gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos + DIM * int32v::ElementCount )... );\
+                GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos + DIM * int32v::ElementCount )... );\
                 FS::Store( out + i, float32v( result.v0, result.v1 ) );\
             }\
         }\
@@ -295,7 +319,7 @@ public:
         {\
             for( intptr_t i = 0; i < xSize; i += int32v::ElementCount )\
             {\
-                GenResultT result = FASTNOISE_GEN_CALL( GenFn, gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) );\
+                GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) );\
                 FS::Store( out + i, float32v( result.v0, result.v1 ) );\
             }\
         }\
@@ -308,7 +332,7 @@ public:
             float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };\
             if constexpr( DispatchClass<Generator, SIMD>::kInlinePlanarBlock )\
             {\
-                GenResultT result = FASTNOISE_GEN_CALL( GenFn, gen, seed, pos[DIM]... );\
+                GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, pos[DIM]... );\
                 FS::Store( out + i, float32v( result.v0, result.v1 ) );\
             }\
             else\
