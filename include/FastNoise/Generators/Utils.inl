@@ -403,6 +403,14 @@ namespace FastNoise
         return _mm512_or_si512( _mm512_xor_si512( a.v0.GetNative(), b ), _mm512_xor_si512( a.v1.GetNative(), b ) );
     }
 #endif
+#if defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX2__ )
+    template<typename I>
+    FS_FORCEINLINE static __m256i LatticeBlockDiffAVX2( const I& a )
+    {
+        __m256i b = _mm256_permutevar8x32_epi32( a.v0.GetNative(), _mm256_setzero_si256() );
+        return _mm256_or_si256( _mm256_xor_si256( a.v0.GetNative(), b ), _mm256_xor_si256( a.v1.GetNative(), b ) );
+    }
+#endif
 
     // True if all lanes share lane 0's seed and floored y/z/w and their floored x is in lane 0's x + [0, XW - 2], xOffset = x - lane 0's x
     // (XW = x width of the block, power of 2: every lane's x and x + 1 corners are in the block)
@@ -424,6 +432,24 @@ namespace FastNoise
             __mmask16 xOutside = _mm512_cmpgt_epu32_mask( _mm512_max_epu32( xOffset0, xOffset1 ), _mm512_set1_epi32( XW - 2 ) );
 
             return ( xOutside | _mm512_test_epi32_mask( outside, outside ) ) == 0;
+        }
+        else
+#endif
+#if defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX2__ )
+        if constexpr( !FS::IsNativeV<I> && ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) && !( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            // Same as the AVX512 version above on raw __m256i values, the final test with vptest
+            __m256i x0 = _mm256_permutevar8x32_epi32( x.v0.GetNative(), _mm256_setzero_si256() );
+            __m256i xOffset0 = _mm256_sub_epi32( x.v0.GetNative(), x0 );
+            __m256i xOffset1 = _mm256_sub_epi32( x.v1.GetNative(), x0 );
+            xOffset = I( xOffset0, xOffset1 );
+
+            __m256i xMax = _mm256_max_epu32( xOffset0, xOffset1 );
+            __m256i outside = _mm256_and_si256( _mm256_or_si256( xMax, _mm256_add_epi32( xMax, _mm256_set1_epi32( 1 ) ) ), _mm256_set1_epi32( ~( XW - 1 ) ) );
+            outside = _mm256_or_si256( outside, LatticeBlockDiffAVX2( seed ) );
+            ( ( outside = _mm256_or_si256( outside, LatticeBlockDiffAVX2( pos ) ) ), ... );
+
+            return _mm256_testz_si256( outside, outside );
         }
         else
 #endif
