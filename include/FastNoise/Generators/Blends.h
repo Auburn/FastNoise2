@@ -219,7 +219,7 @@ namespace FastNoise
         {
             groups.push_back( "Blends" );
             this->AddGeneratorSource( "Value", &PowInt::SetValue );
-            this->AddVariable( "Pow", 2, &PowInt::SetPow, 2 );
+            this->AddVariable( "Pow", 2, &PowInt::SetPow, 2, 64 );
 
             description = "Faster than PowFloat node but only for int powers";
         }
