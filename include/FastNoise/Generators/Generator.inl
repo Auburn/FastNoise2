@@ -23,6 +23,17 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_GEN_FN_ATTRIBUTES
 #endif
 
+// GenTileable2D's sin positions: FS::Sin( a ) is poly * x, and GCC's -ffast-math reassociation (tree-reassoc) may evaluate
+// FS::Sin( a ) * freq as poly * ( x * freq ). With x86 FMA the polynomial ends in an FMA builtin, which reassoc ranks by its
+// basic block, so whether it does depends on the surrounding loop: master's GenTileable2D keeps ( poly * x ) * freq, the column
+// table loops got poly * ( x * freq ) from GCC 13. The barrier keeps the product as written on GCC FMA targets; without FMA GCC
+// rewrites it in master too, and other compilers see the expression unchanged
+#if defined( __GNUC__ ) && !defined( __clang__ ) && __GNUC__ >= 12 && defined( __FMA__ )
+#define FASTNOISE_ASSOC_BARRIER( v ) FS::NativeExec<float32v>( []( auto n ) { return __builtin_assoc_barrier( n ); }, v )
+#else
+#define FASTNOISE_ASSOC_BARRIER( v ) v
+#endif
+
 // Block evaluation paths are kept out of line, so a generator's per vector path stays as small as without them
 #if defined( _MSC_VER ) && !defined( __clang__ )
 #define FASTNOISE_NOINLINE __declspec( noinline )
@@ -1032,7 +1043,7 @@ public:
             float32v xF = FS::Convert<float>( columnIdx ) * xMul;
 
             FS::Store( &xPosTable[column], FS::Cos( xF ) * xFreq );
-            FS::Store( &zPosTable[column], FS::Sin( xF ) * xFreq );
+            FS::Store( &zPosTable[column], FASTNOISE_ASSOC_BARRIER( FS::Sin( xF ) ) * xFreq );
         }
 
         xIdx += FS::LoadIncremented<int32v>();
@@ -1045,7 +1056,7 @@ public:
         // yPos/wPos only change when a lane wraps onto the next row
         float32v yF = FS::Convert<float>( yIdx ) * yMul;
         float32v yPos = FS::Cos( yF ) * yFreq;
-        float32v wPos = FS::Sin( yF ) * yFreq;
+        float32v wPos = FASTNOISE_ASSOC_BARRIER( FS::Sin( yF ) ) * yFreq;
 
         alignas( 64 ) float posBuffer[kMinMaxBlockSize * 4];
 
@@ -1072,7 +1083,7 @@ public:
                 {
                     yF = FS::Convert<float>( yIdx ) * yMul;
                     yPos = FS::Cos( yF ) * yFreq;
-                    wPos = FS::Sin( yF ) * yFreq;
+                    wPos = FASTNOISE_ASSOC_BARRIER( FS::Sin( yF ) ) * yFreq;
                 }
             }
             while( index < blockEnd );
@@ -1264,7 +1275,7 @@ private:
             float32v xF = FS::Convert<float>( int32v( (int32_t)column ) + FS::LoadIncremented<int32v>() ) * xMul;
 
             FS::Store( &xPosTable[column], FS::Cos( xF ) * xFreq );
-            FS::Store( &zPosTable[column], FS::Sin( xF ) * xFreq );
+            FS::Store( &zPosTable[column], FASTNOISE_ASSOC_BARRIER( FS::Sin( xF ) ) * xFreq );
         }
 
         constexpr intptr_t kMaxBlockRows = kMinMaxBlockSize / (intptr_t)int32v::ElementCount;
@@ -1286,7 +1297,7 @@ private:
                 float32v yF = FS::Convert<float>( int32v( (int32_t)( row + blockRow ) ) ) * yMul;
 
                 FS::Store( &rowPos[blockRow * 2 * int32v::ElementCount], FS::Cos( yF ) * yFreq );
-                FS::Store( &rowPos[( blockRow * 2 + 1 ) * int32v::ElementCount], FS::Sin( yF ) * yFreq );
+                FS::Store( &rowPos[( blockRow * 2 + 1 ) * int32v::ElementCount], FASTNOISE_ASSOC_BARRIER( FS::Sin( yF ) ) * yFreq );
             }
 
             blockIndex = row * xSize;
