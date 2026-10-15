@@ -58,7 +58,12 @@ void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned simdLevel )
 
 void fnDeleteNodeRef( void* node )
 {
-    FastNoise::Internal::BumpNodeRefences( ToGen( node ), false );
+    if( node )
+    {
+        // Move the C API reference into a SmartNode, so the node is destroyed when this was its last reference
+        FastNoise::SmartNode<> smartNode = FastNoise::Internal::ToSmartNode( node );
+        FastNoise::Internal::BumpNodeRefences( ToGen( node ), false );
+    }
 }
 
 unsigned fnGetActiveFeatureSet( const void* node )
@@ -139,10 +144,12 @@ void* fnNewFromMetadata( int id, unsigned simdLevel )
 {
     if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
     {
-        FastNoise::SmartNode<> node = metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel );
-        FastNoise::Internal::BumpNodeRefences( node.get(), true );
+        if( FastNoise::SmartNode<> node = metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel ) )
+        {
+            FastNoise::Internal::BumpNodeRefences( node.get(), true );
 
-        return node.get();
+            return node.get();
+        }
     }
     return nullptr;
 }
