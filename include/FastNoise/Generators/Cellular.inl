@@ -801,6 +801,17 @@ protected:
     static constexpr bool kUnrollCells = false;
 #endif
 
+    // MSVC AVX512 with a FastSIMD whose 512 bit registers are trivially copyable (before its MSVC native register copies): MSVC copies them
+    // as two 32 byte halves through the stack, which makes some cellular paths much slower and was miscompiled in others
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    static constexpr bool kMsvcSplitCopies = ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && std::is_trivially_copy_constructible_v<typename float32v::DoubledType>;
+#else
+    static constexpr bool kMsvcSplitCopies = false;
+#endif
+
+    // 2D floor-first for Hybrid/MaxAxis and size jitter (FloorCellsClosest<2>() then FarCells2D()): 1.1-2x slower with kMsvcSplitCopies
+    static constexpr bool kFloorFirst2D = !kMsvcSplitCopies;
+
     // FloorCellsClosest()'s cell C (bit D - 1 - d = offset on axis d) with compile time indices
     template<int D, bool HASH, bool CELL, int C>
     FS_FORCEINLINE static void FloorCellVisit( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[D][2], const float32v ( &cellOffset )[D][2],
@@ -863,9 +874,9 @@ protected:
 
 #if defined( _MSC_VER ) && !defined( __clang__ )
         // MSVC miscompiled the computed cell indexing below for AVX512, explicit loops instead (~5% slower with clang)
-        // AVX2 only: CellularValue 3D measured 3-8% slower unrolled with SSE4.1, and 25-33% slower with AVX512 while
-        // MSVC splits the 64 byte register copies (FastSIMD without the MSVC native register copy)
-        if constexpr( kUnrollCells && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        // Per-cell calls on AVX2, and for 2D on AVX512 without kMsvcSplitCopies. Not SSE4.1 (CellularValue 3D 3-8% slower), not with
+        // kMsvcSplitCopies (25-33% slower) and not for 3D on AVX512 (its GenTs 5-12% slower, even on the cell block path)
+        if constexpr( kUnrollCells && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && ( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || ( D == 2 && !kMsvcSplitCopies ) ) )
         {
             FloorCellsVisitEach<D, HASH, CELL>( std::make_integer_sequence<int, 1 << D>{}, distFunc, seed, jitter, primed, cellOffset, pos, distance, closestHash, closestCell, sizeJitter );
         }
@@ -1244,8 +1255,8 @@ protected:
     // Cell blocks (AVX2/AVX512): on uniform grids the lanes of a vector usually share a cell row, so the 2^D cells around each lane are
     // in a W x 2 ( x 2 ) block of cells. Its feature points are decoded once per vector and each lane permutes its cells out of the block
     // tables (block cell dx + W * dy + 2 * W * dz, split over native registers of N lanes): the same instructions per lane as VisitFloorCell()
-    // MSVC AVX512 needs FastSIMD's native copy of 512 bit registers (without it MSVC copies them through the stack in halves: 1.1-1.45x slower)
-    static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
+    // Not with kMsvcSplitCopies: measured 1.1-1.45x slower there
+    static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !kMsvcSplitCopies && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
 
     // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
     template<int D>
@@ -1578,7 +1589,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         // missing it. Hybrid only with coherent lanes: its looser bound needs them too often for incoherent lanes
         // MaxAxis rarely needs them: below AVX512 its full 3x3 loop fallback measured faster than the separate far cells
         // (here also Hybrid and size jitter on AVX2: the far cells measured 2-6% slower there)
-        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
             {
@@ -1598,7 +1609,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
-        if constexpr( SPECIALISED && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
         {
             float32v minFactor = this->template SizeJitterMinFactor<2>( sizeJitter );
             if( this->template Closest2DActive<false>( x, y, jitter ) && this->AllLanes( minFactor > float32v( 0 ) ) )
@@ -1769,8 +1780,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
 #if defined( _MSC_VER ) && !defined( __clang__ )
-        // MSVC AVX512 (2 zmm per register) miscompiled the specialised variants tracking several points (wrong GenSingle output): generic variant
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        // MSVC AVX512 with kMsvcSplitCopies miscompiled the specialised variants tracking several points (wrong GenSingle output): generic variant
+        if constexpr( CellularBase::kMsvcSplitCopies )
         {
             if( mValueIndex > 0 )
             {
@@ -2117,7 +2128,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the other cells of the 3x3 search are only visited if a lane might be
         // missing it. Hybrid only with coherent lanes: its looser bound needs them too often for incoherent lanes
         // MaxAxis rarely needs them: below AVX512 its full 3x3 loop fallback measured faster than the separate far cells
-        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
             {
@@ -2138,7 +2149,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         }
 
         // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
-        if constexpr( SPECIALISED && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
         {
             float32v minFactor = this->template SizeJitterMinFactor<2>( sizeJitter );
             if( this->template Closest2DActive<false>( x, y, jitter ) && this->AllLanes( minFactor > float32v( 0 ) ) )
@@ -2295,8 +2306,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         }
 
 #if defined( _MSC_VER ) && !defined( __clang__ )
-        // MSVC AVX512 (2 zmm per register) miscompiled the specialised variants tracking several distances (wrong GenSingle output): generic variant
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        // MSVC AVX512 with kMsvcSplitCopies miscompiled the specialised variants tracking several distances (wrong GenSingle output): generic variant
+        if constexpr( CellularBase::kMsvcSplitCopies )
         {
             if( GetDistanceCount() > 1 )
             {
@@ -2663,7 +2674,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         // missing it. Hybrid only with coherent lanes: its looser bound needs them too often for incoherent lanes
         // MaxAxis rarely needs them: below AVX512 its full 3x3 loop fallback measured faster than the separate far cells
         // (here also Hybrid and size jitter on AVX2: the far cells measured 2-6% slower there)
-        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
             {
@@ -2683,7 +2694,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         }
 
         // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
-        if constexpr( SPECIALISED && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
         {
             float32v minFactor = this->template SizeJitterMinFactor<2>( sizeJitter );
             if( this->template Closest2DActive<false>( x, y, jitter ) && this->AllLanes( minFactor > float32v( 0 ) ) )
