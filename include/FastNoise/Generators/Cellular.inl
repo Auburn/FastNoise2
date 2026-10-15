@@ -1408,6 +1408,17 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             return ( this->*genFloor )( seed, x, y, z );
         }
 
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC AVX512 (2 zmm per register) miscompiled the specialised variants tracking several points (wrong GenSingle output): generic variant
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            if( mValueIndex > 0 )
+            {
+                GenTPtr<float32v, float32v, float32v> genGeneric = &DispatchClass::GenT<false, DistanceFunction::EuclideanSquared, kMaxDistanceCount, false>;
+                return ( this->*genGeneric )( seed, x, y, z );
+            }
+        }
+#endif
         auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -1930,6 +1941,17 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             return ( this->*genFloor )( seed, x, y, z );
         }
 
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC AVX512 (2 zmm per register) miscompiled the specialised variants tracking several distances (wrong GenSingle output): generic variant
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            if( GetDistanceCount() > 1 )
+            {
+                GenTPtr<float32v, float32v, float32v> genGeneric = &DispatchClass::GenT<false, DistanceFunction::EuclideanSquared, kMaxDistanceCount, false>;
+                return ( this->*genGeneric )( seed, x, y, z );
+            }
+        }
+#endif
         auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
