@@ -258,6 +258,18 @@ namespace FastNoise
         }
     }
 
+    // x + y + z of scaled positions for the 3D skew. MSVC 19.5x (VS 2026) /fp:fast miscompiles k * ( x * f + y * f + z * f ) on
+    // 2x wide registers: it factors f out of the sum but leaves it on z. Summing y + z first avoids it
+    template<typename F>
+    FS_FORCEINLINE static F SkewSum( F x, F y, F z )
+    {
+#if defined( _MSC_VER ) && !defined( __clang__ ) && _MSC_VER >= 1950
+        return x + ( y + z );
+#else
+        return x + y + z;
+#endif
+    }
+
     // Equivalent to FS::Convert<int32_t>( floored ), on AVX512 the conversion rounds down directly so it doesn't have to wait on the floor
     template<typename F>
     FS_FORCEINLINE static auto FloorToInt( F value, F floored )
