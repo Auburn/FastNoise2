@@ -30,14 +30,6 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_NOINLINE __attribute__(( noinline ))
 #endif
 
-// Start of a branch whose first statement is the same source call as in the other branch: the compiler can't move the call
-// across the empty asm statement, so it doesn't hoist the call of both branches above the condition
-#if defined( __GNUC__ ) || defined( __clang__ )
-#define FASTNOISE_SEPARATE_BRANCH() __asm__ volatile( "" )
-#else
-#define FASTNOISE_SEPARATE_BRANCH()
-#endif
-
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Generator, SIMD> : public virtual Generator
 {
@@ -510,16 +502,15 @@ public:
 
     // Returns op( lhs, rhs ), evaluating LHS before RHS. A constant RHS gets its own path: there the positions are only
     // used by the LHS call, otherwise they are spilled before that call for an RHS call that doesn't happen.
-    // The constant is read after the call (a broadcast load), so no vector is kept across the call
+    // Reading the constant before the call also keeps the compiler from hoisting the LHS call of both paths above the branch
     template<typename L, typename T, typename OP, typename... POS>
     static FS_FORCEINLINE float32v FS_VECTORCALL CombineSourceValues( const L& lhs, const FastNoise::HybridSourceT<T>& rhs, OP op, int32v seed, POS... pos )
     {
         if( !rhs.simdGeneratorPtr )
         {
-            FASTNOISE_SEPARATE_BRANCH();
-            float32v lhsValue = GetSourceValue( lhs, seed, pos... );
+            float rhsConstant = rhs.constant;
 
-            return op( lhsValue, float32v( rhs.constant ) );
+            return op( GetSourceValue( lhs, seed, pos... ), float32v( rhsConstant ) );
         }
 
         float32v lhsValue = GetSourceValue( lhs, seed, pos... );

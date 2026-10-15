@@ -211,10 +211,12 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
         // With constant ranges the positions are only used by the source call, see CombineSourceValues
         if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
         {
-            FASTNOISE_SEPARATE_BRANCH();
-            float32v source = this->GetSourceValue( mSource, seed, pos... );
+            float fromMin = mFromMin.constant;
+            float fromMax = mFromMax.constant;
+            float toMin = mToMin.constant;
+            float toMax = mToMax.constant;
 
-            return Remap( source, float32v( mFromMin.constant ), float32v( mFromMax.constant ), float32v( mToMin.constant ), float32v( mToMax.constant ) );
+            return Remap( this->GetSourceValue( mSource, seed, pos... ), float32v( fromMin ), float32v( fromMax ), float32v( toMin ), float32v( toMax ) );
         }
 
         float32v source = this->GetSourceValue( mSource, seed, pos... );

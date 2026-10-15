@@ -68,10 +68,9 @@ class FastSIMD::DispatchClass<Multiply, SIMD> final : public virtual Multiply, p
     {
         if( !mRHS.simdGeneratorPtr ) // Constant RHS path, see CombineSourceValues
         {
-            FASTNOISE_SEPARATE_BRANCH();
-            float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
+            float rhsConstant = mRHS.constant;
 
-            return lhs * float32v( mRHS.constant );
+            return this->GetSourceValue( mLHS, seed, pos... ) * float32v( rhsConstant );
         }
 
         float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
