@@ -6,6 +6,14 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 {
     FASTNOISE_IMPL_GEN_FN( Gen );
 
+    // AVX2/AVX512 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
+    // doesn't always inline lambdas)
+    template<typename T>
+    FS_FORCEINLINE static float32v LatticeBlockDot( const T& gX, const T& dotRest, const int32v& index, const float32v& fX )
+    {
+        return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
+    }
+
     // SSE4.1 lattice blocks: gX * fX + the rest of the dot product, both looked up from one x row of 4 corners
     template<typename T>
     FS_FORCEINLINE static float32v LatticeRowDot( const T& gX, const T& dotRest, const int32v& byteIndex, const float32v& fX )
@@ -54,14 +62,9 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 NF gX = GetGradientDotPerlin( hash, one, zero );
                 NF dotY = fY * GetGradientDotPerlin( hash, zero, one );
 
-                auto dot = [&]( const int32v& idx, const float32v& fX )
-                {
-                    return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotY, idx ) );
-                };
-
                 float32v value = Lerp(
-                    Lerp( dot( xOffset, xf0 ), dot( xOffset + int32v( 1 ), xf1 ), xs ),
-                    Lerp( dot( xOffset + int32v( 4 ), xf0 ), dot( xOffset + int32v( 5 ), xf1 ), xs ), ys );
+                    Lerp( LatticeBlockDot( gX, dotY, xOffset, xf0 ), LatticeBlockDot( gX, dotY, xOffset + int32v( 1 ), xf1 ), xs ),
+                    Lerp( LatticeBlockDot( gX, dotY, xOffset + int32v( 4 ), xf0 ), LatticeBlockDot( gX, dotY, xOffset + int32v( 5 ), xf1 ), xs ), ys );
 
                 return this->ScaleOutput( this, value, -kBounding, kBounding );
             }
@@ -145,17 +148,12 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 NF dotYZZ0 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
                 NF dotYZZ1 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
 
-                auto dot = [&]( const NF& gX, const NF& dotYZ, const int32v& idx, const float32v& fX )
-                {
-                    return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotYZ, idx ) );
-                };
-
                 float32v value = Lerp( Lerp(
-                    Lerp( dot( gXZ0, dotYZZ0, xOffset, xf0 ), dot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
-                    Lerp( dot( gXZ0, dotYZZ0, xOffset + int32v( 4 ), xf0 ), dot( gXZ0, dotYZZ0, xOffset + int32v( 5 ), xf1 ), xs ), ys ),
+                    Lerp( LatticeBlockDot( gXZ0, dotYZZ0, xOffset, xf0 ), LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
+                    Lerp( LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 4 ), xf0 ), LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 5 ), xf1 ), xs ), ys ),
                     Lerp(
-                    Lerp( dot( gXZ1, dotYZZ1, xOffsetZ1, xf0 ), dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 1 ), xf1 ), xs ),
-                    Lerp( dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 4 ), xf0 ), dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 5 ), xf1 ), xs ), ys ), zs );
+                    Lerp( LatticeBlockDot( gXZ1, dotYZZ1, xOffsetZ1, xf0 ), LatticeBlockDot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 1 ), xf1 ), xs ),
+                    Lerp( LatticeBlockDot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 4 ), xf0 ), LatticeBlockDot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 5 ), xf1 ), xs ), ys ), zs );
 
                 return this->ScaleOutput( this, value, -kBounding, kBounding );
             }
