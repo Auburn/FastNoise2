@@ -481,8 +481,7 @@ namespace FastNoise
         }
     }
 
-    // TABLES: allow the AArch64 TBL decode (Perlin 4D keeps the select decode, its 16 corners measured 4% slower with the tables)
-    template<bool TABLES = true, typename F, typename I>
+    template<typename F, typename I>
     FS_FORCEINLINE static F GetGradientDotPerlin( I hash, F fX, F fY, F fZ, F fW )
     {
         if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
@@ -498,7 +497,7 @@ namespace FastNoise
             return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) ));
         }
 #if FN_AARCH64_TBL
-        else if constexpr( TABLES && kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
         {
             // The AVX512 tables through TBL, indexed by hash & 31 (gZ/gW repeat each entry, they ignore bit 0). The components are
             // stored doubled: +-2.0f only has its top byte set, so each axis is one 32 byte table and the other bytes read 0 past
