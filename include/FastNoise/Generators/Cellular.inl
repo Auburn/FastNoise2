@@ -1880,9 +1880,11 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             }
         }
 
-        // The 2 closest distances: the 2^D cells first too, the 3^D search then starts from their sorted distances. Coherent lanes only
-        // (more distances: the 2^D cells rarely hold them, measured no faster)
-        if constexpr( SPECIALISED && COUNT == 2 && !SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        // Several closest distances: the 2^D cells first too, the 3^D search then starts from their sorted distances. Coherent lanes only
+        // More than 2 distances are rarely all in the 2^D cells: then only a small gain, none on SSE2
+        constexpr bool kFloorFirstCount = SPECIALISED && COUNT >= 2 && !SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared &&
+                                          ( COUNT == 2 || ( SIMD & FastSIMD::FeatureFlag::SSE41 ) );
+        if constexpr( kFloorFirstCount )
         {
             float32v floorPos[] = { x, y, z };
             if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
@@ -1911,7 +1913,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         }
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
-        if constexpr( SPECIALISED && COUNT == 2 && !SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        if constexpr( kFloorFirstCount )
         {
             // Separate loops: incoherent positions keep the search without the 2^D block tests
             if( nearBlockDone )
