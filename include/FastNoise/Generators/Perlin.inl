@@ -6,6 +6,13 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 {
     FASTNOISE_IMPL_GEN_FN( Gen );
 
+    // SSE4.1 lattice blocks: gX * fX + the rest of the dot product, both looked up from one x row of 4 corners
+    template<typename T>
+    FS_FORCEINLINE static float32v LatticeRowDot( const T& gX, const T& dotRest, const int32v& byteIndex, const float32v& fX )
+    {
+        return FS::FMulAdd( LatticeRowPermute<float32v>( gX, byteIndex ), fX, LatticeRowPermute<float32v>( dotRest, byteIndex ) );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
@@ -149,6 +156,56 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                     Lerp(
                     Lerp( dot( gXZ1, dotYZZ1, xOffsetZ1, xf0 ), dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 1 ), xf1 ), xs ),
                     Lerp( dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 4 ), xf0 ), dot( gXZ1, dotYZZ1, xOffsetZ1 + int32v( 5 ), xf1 ), xs ), ys ), zs );
+
+                return this->ScaleOutput( this, value, -kBounding, kBounding );
+            }
+        }
+        // SSE4.1: same with one register per x row of 4 block corners, looked up with pshufb. The SSE gradient dot product is a
+        // single rounded sum of two signed components, so it equals gX * fX + ( y/z part )
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) && !( SIMD & FastSIMD::FeatureFlag::AVX ) )
+        {
+            int32v xOffset;
+            if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ) ) )
+            {
+                auto seedB = LatticeBlockBroadcast( seed );
+                auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
+                auto yp0 = LatticeBlockPrimed<1, 0>( yi, Primes::Y );
+                auto zp0 = LatticeBlockPrimed<2, 0>( zi, Primes::Z );
+                auto yp1 = LatticeBlockPrimed<1, 1>( yi, Primes::Y );
+                auto zp1 = LatticeBlockPrimed<2, 2>( zi, Primes::Z );
+
+                using NF = decltype( FS::Cast<float>( xp ) );
+                NF one( 1 ), zero( 0 );
+
+                // y/z offsets per row: f0 or f1 = f0 - 1, same ops as the per lane path
+                NF fY0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) );
+                NF fZ0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( zf0 ) ) );
+                NF fY1 = fY0 - NF( 1 );
+                NF fZ1 = fZ0 - NF( 1 );
+
+                auto hash00 = HashPrimes( seedB, xp, yp0, zp0 );
+                auto hash10 = HashPrimes( seedB, xp, yp1, zp0 );
+                auto hash01 = HashPrimes( seedB, xp, yp0, zp1 );
+                auto hash11 = HashPrimes( seedB, xp, yp1, zp1 );
+
+                NF gX00 = GetGradientDotCommon( hash00, one, zero, zero );
+                NF gX10 = GetGradientDotCommon( hash10, one, zero, zero );
+                NF gX01 = GetGradientDotCommon( hash01, one, zero, zero );
+                NF gX11 = GetGradientDotCommon( hash11, one, zero, zero );
+                NF dotYZ00 = GetGradientDotCommon( hash00, zero, fY0, fZ0 );
+                NF dotYZ10 = GetGradientDotCommon( hash10, zero, fY1, fZ0 );
+                NF dotYZ01 = GetGradientDotCommon( hash01, zero, fY0, fZ1 );
+                NF dotYZ11 = GetGradientDotCommon( hash11, zero, fY1, fZ1 );
+
+                int32v idx0 = LatticeRowByteIndex( xOffset );
+                int32v idx1 = idx0 + int32v( 0x04040404 );
+
+                float32v value = Lerp( Lerp(
+                    Lerp( LatticeRowDot( gX00, dotYZ00, idx0, xf0 ), LatticeRowDot( gX00, dotYZ00, idx1, xf1 ), xs ),
+                    Lerp( LatticeRowDot( gX10, dotYZ10, idx0, xf0 ), LatticeRowDot( gX10, dotYZ10, idx1, xf1 ), xs ), ys ),
+                    Lerp(
+                    Lerp( LatticeRowDot( gX01, dotYZ01, idx0, xf0 ), LatticeRowDot( gX01, dotYZ01, idx1, xf1 ), xs ),
+                    Lerp( LatticeRowDot( gX11, dotYZ11, idx0, xf0 ), LatticeRowDot( gX11, dotYZ11, idx1, xf1 ), xs ), ys ), zs );
 
                 return this->ScaleOutput( this, value, -kBounding, kBounding );
             }
