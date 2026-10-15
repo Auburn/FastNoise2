@@ -1,10 +1,18 @@
 #include "DomainWarpSimplex.h"
 #include "Utils.inl"
 
+// GCC doesn't inline the 2D/3D vector contribution helpers by itself (not declared inline, above its auto-inline limit),
+// each call then passes its float32v arguments through memory. Clang inlines them already
+#if defined( __GNUC__ ) && !defined( __clang__ )
+#define FN_WARP_INLINE_GCC FS_FORCEINLINE
+#else
+#define FN_WARP_INLINE_GCC
+#endif
+
 namespace FastNoise
 {
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FN_WARP_INLINE_GCC static void FS_VECTORCALL ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
         int32v indexGradient = hashShifted * int32v( 12 >> 2 ); // [0,12) in the upper four bits
@@ -60,7 +68,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyGradientOuterProductVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    FN_WARP_INLINE_GCC static void FS_VECTORCALL ApplyGradientOuterProductVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
         int32v indexGradient = FS::BitShiftRightZeroExtend( hashShifted * int32v( 12 >> 2 ), 28 ); // [0,12)
@@ -228,7 +236,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FN_ALIGN_STACK static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FN_ALIGN_STACK FN_WARP_INLINE_GCC static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         int32v index = FS::BitShiftRightZeroExtend( hash31, 1 ) * int32v( 12 >> 2 ); // [0,12) in the upper four bits
 
@@ -350,7 +358,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    FN_WARP_INLINE_GCC static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
         ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
     }
