@@ -1258,9 +1258,11 @@ protected:
     // Not with kMsvcSplitCopies: measured 1.1-1.45x slower there
     static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !kMsvcSplitCopies && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
 
-    // MSVC AVX2 2D (kUnrollCells): msvc4's per-cell lane path measured faster than the cell block path, except in Closest2D() for CellularDistance
+    // MSVC 2D (kUnrollCells): msvc4's per-cell lane path measured faster than the cell block path on AVX2, except in Closest2D() for
+    // CellularDistance, and on AVX512 for CellularValue
     template<int D, bool CLOSEST_2D, bool HASH, bool CELL>
-    static constexpr bool kCellBlockD = kCellBlock && !( kUnrollCells && D == 2 && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && ( !CLOSEST_2D || HASH || CELL ) );
+    static constexpr bool kCellBlockD = kCellBlock && !( kUnrollCells && D == 2 &&
+        ( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) ? ( !CLOSEST_2D || HASH || CELL ) : ( HASH && !CELL ) ) );
 
     // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
     template<int D>
