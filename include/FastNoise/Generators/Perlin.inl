@@ -6,12 +6,12 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 {
     FASTNOISE_IMPL_GEN_FN( Gen );
 
-    // AVX2/AVX512 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
+    // AVX2/AVX512/AArch64 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
     // doesn't always inline lambdas)
     template<typename T>
     FS_FORCEINLINE static float32v LatticeBlockDot( const T& gX, const T& dotRest, const int32v& index, const float32v& fX )
     {
-        return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
+        return FN_FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
     }
 
     // SSE4.1 lattice blocks: gX * fX + the rest of the dot product, both looked up from one x row of 4 corners
@@ -49,14 +49,14 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ) ) )
             {
-                auto hash = HashPrimes( LatticeBlockBroadcast( seed ), LatticeBlockPrimed<0>( xi, Primes::X ), LatticeBlockPrimed<1>( yi, Primes::Y ) );
+                auto hash = HashPrimes( LatticeBlockSplat( seed ), LatticeBlockPrimed<0>( xi, Primes::X ), LatticeBlockPrimed<1>( yi, Primes::Y ) );
 
                 using NF = decltype( FS::Cast<float>( hash ) );
                 NF one( 1 ), zero( 0 );
 
                 // y offset per block lane: yf0 or yf1 = yf0 - 1, same ops as the per lane path
-                auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockBroadcast( yi );
-                NF fY = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) ) - FS::Convert<float>( blockY );
+                auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockSplat( yi );
+                NF fY = FS::Cast<float>( LatticeBlockSplat( FS::Cast<std::int32_t>( yf0 ) ) ) - FS::Convert<float>( blockY );
 
                 // FMulAdd( gX, fX, fY * gY )
                 NF gX = GetGradientDotPerlin( hash, one, zero );
@@ -108,15 +108,15 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr double kBounding = 1.0363423824310302734375;
 
-        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512): all lanes share y and z, hash the lattice block and decode
+        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512/AArch64): all lanes share y and z, hash the lattice block and decode
         // its gradients once, fold the y/z terms of the dot products into the block and permute them per lane. Gradients have two +-1
         // components so the dot product rounds the same as GetGradientDotCommon
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
         {
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ) ) )
             {
-                auto seedB = LatticeBlockBroadcast( seed );
+                auto seedB = LatticeBlockSplat( seed );
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
                 auto hashZ0 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
@@ -125,10 +125,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 NF one( 1 ), zero( 0 );
 
                 // y/z offsets per block lane: f0 or f1 = f0 - 1, same ops as the per lane path
-                auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockBroadcast( yi );
-                auto blockZ0 = LatticeBlockPrimed<2, 0>( zi, 1 ) - LatticeBlockBroadcast( zi );
-                NF fY = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) ) - FS::Convert<float>( blockY );
-                NF fZ = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( zf0 ) ) );
+                auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockSplat( yi );
+                auto blockZ0 = LatticeBlockPrimed<2, 0>( zi, 1 ) - LatticeBlockSplat( zi );
+                NF fY = FS::Cast<float>( LatticeBlockSplat( FS::Cast<std::int32_t>( yf0 ) ) ) - FS::Convert<float>( blockY );
+                NF fZ = FS::Cast<float>( LatticeBlockSplat( FS::Cast<std::int32_t>( zf0 ) ) );
                 NF fZ0 = fZ - FS::Convert<float>( blockZ0 );
 
                 // AVX512: the whole 4 x 2 x 2 block fits one register, z1 corners are at index + 8
@@ -138,15 +138,15 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 if constexpr( NF::ElementCount < 16 )
                 {
                     hashZ1 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
-                    fZ1 = fZ - FS::Convert<float>( LatticeBlockPrimed<2, 1>( zi, 1 ) - LatticeBlockBroadcast( zi ) );
+                    fZ1 = fZ - FS::Convert<float>( LatticeBlockPrimed<2, 1>( zi, 1 ) - LatticeBlockSplat( zi ) );
                     xOffsetZ1 = xOffset;
                 }
 
                 // x gradient and y/z part of the dot product: FMulAdd( gX, fX, FMulAdd( fY, gY, fZ * gZ ) )
                 NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
                 NF gXZ1 = GetGradientDotCommon( hashZ1, one, zero, zero );
-                NF dotYZZ0 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
-                NF dotYZZ1 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
+                NF dotYZZ0 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
+                NF dotYZZ1 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
 
                 float32v value = Lerp( Lerp(
                     Lerp( LatticeBlockDot( gXZ0, dotYZZ0, xOffset, xf0 ), LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
@@ -165,7 +165,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ) ) )
             {
-                auto seedB = LatticeBlockBroadcast( seed );
+                auto seedB = LatticeBlockSplat( seed );
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp0 = LatticeBlockPrimed<1, 0>( yi, Primes::Y );
                 auto zp0 = LatticeBlockPrimed<2, 0>( zi, Primes::Z );
@@ -176,8 +176,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 NF one( 1 ), zero( 0 );
 
                 // y/z offsets per row: f0 or f1 = f0 - 1, same ops as the per lane path
-                NF fY0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) );
-                NF fZ0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( zf0 ) ) );
+                NF fY0 = FS::Cast<float>( LatticeBlockSplat( FS::Cast<std::int32_t>( yf0 ) ) );
+                NF fZ0 = FS::Cast<float>( LatticeBlockSplat( FS::Cast<std::int32_t>( zf0 ) ) );
                 NF fY1 = fY0 - NF( 1 );
                 NF fZ1 = fZ0 - NF( 1 );
 
