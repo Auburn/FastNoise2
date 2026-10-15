@@ -85,23 +85,31 @@ public:
         return float32v( result.v0, result.v1 );
     }
 
-    // Evaluates count values from positions stored per vector as { x[N], y[N], ... } (N = float32v::ElementCount).
-    // For a position array (positions copied into the block) it only evaluates the block if the generator's GenBlock does
-    // and BlockPositionArrays() allows it, and returns whether it did
-    using GenBlockFn = bool( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* __restrict, float* __restrict, intptr_t, bool );
+    // How GenBlockFn evaluates a block: Always (with the generator's GenBlock, else per vector), or only if the generator's
+    // GenBlock evaluates it, returning whether it did. IfGenBlockArray is IfGenBlock for positions copied from a position
+    // array, there BlockPositionArrays() must allow it too
+    enum class GenBlockMode
+    {
+        Always,
+        IfGenBlock,
+        IfGenBlockArray
+    };
+
+    // Evaluates count values from positions stored per vector as { x[N], y[N], ... } (N = float32v::ElementCount), see GenBlockMode
+    using GenBlockFn = bool( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* __restrict, float* __restrict, intptr_t, GenBlockMode );
 
     template<size_t DIMS>
     static FS_FORCEINLINE void CallGenBlock( const DispatchClass* gen, int32v seed, const float* pos, float* out, intptr_t count )
     {
         assert( gen->mGenBlockFn[DIMS - 2] );
-        gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count, false );
+        gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count, GenBlockMode::Always );
     }
 
     template<size_t DIMS>
-    static FS_FORCEINLINE bool TryGenBlock( const DispatchClass* gen, int32v seed, const float* pos, float* out, intptr_t count )
+    static FS_FORCEINLINE bool TryGenBlock( const DispatchClass* gen, int32v seed, const float* pos, float* out, intptr_t count, GenBlockMode mode )
     {
         assert( gen->mGenBlockFn[DIMS - 2] );
-        return gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count, true );
+        return gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count, mode );
     }
 
     // Evaluates rows of xCount values (a multiple of N) on a uniform grid: x from the column table xTable, the other
@@ -129,6 +137,7 @@ public:
 // GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
 #define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
     using GenResultT = typename DispatchClass<Generator, SIMD>::GenResult;\
+    using GenBlockMode = typename DispatchClass<Generator, SIMD>::GenBlockMode;\
     FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y )\
     {\
         return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y ) );\
@@ -142,17 +151,17 @@ public:
         return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z, w ) );\
     }\
     template<size_t... DIM>\
-    FASTNOISE_GEN_FN_ATTRIBUTES static bool FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict pos, float* __restrict out, intptr_t count, bool isPositionArray )\
+    FASTNOISE_GEN_FN_ATTRIBUTES static bool FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict pos, float* __restrict out, intptr_t count, GenBlockMode mode )\
     {\
         if constexpr( DispatchClass::kHasGenBlock )\
         {\
-            if( ( !isPositionArray || static_cast<const DispatchClass*>( gen )->BlockPositionArrays() ) &&\
+            if( ( mode != GenBlockMode::IfGenBlockArray || static_cast<const DispatchClass*>( gen )->BlockPositionArrays() ) &&\
                 static_cast<const DispatchClass*>( gen )->template GenBlock<sizeof...( DIM )>( seed, pos, out, count ) )\
             {\
                 return true;\
             }\
         }\
-        if( isPositionArray )\
+        if( mode != GenBlockMode::Always )\
         {\
             return false;\
         }\
@@ -477,7 +486,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( !this->mHasGenBlock && yCount > 0 && IsGridRowsSize( xCount, yCount ) )
+        if( yCount > 0 && IsGridRowsSize( xCount, yCount ) )
         {
             const int count[] = { xCount, yCount };
             const float offset[] = { xOffset, yOffset };
@@ -548,7 +557,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const final
     {
-        if( !this->mHasGenBlock && yCount > 0 && zCount > 0 && IsGridRowsSize( xCount, yCount ) )
+        if( yCount > 0 && zCount > 0 && IsGridRowsSize( xCount, yCount ) )
         {
             const int count[] = { xCount, yCount, zCount };
             const float offset[] = { xOffset, yOffset, zOffset };
@@ -632,7 +641,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const final
     {
-        if( !this->mHasGenBlock && yCount > 0 && zCount > 0 && wCount > 0 && IsGridRowsSize( xCount, yCount ) )
+        if( yCount > 0 && zCount > 0 && wCount > 0 && IsGridRowsSize( xCount, yCount ) )
         {
             const int count[] = { xCount, yCount, zCount, wCount };
             const float offset[] = { xOffset, yOffset, zOffset, wOffset };
@@ -895,7 +904,7 @@ public:
         float32v xMul = float32v( 1 / xSizePi );
         float32v yMul = float32v( 1 / ySizePi );
 
-        if( !this->mHasGenBlock && IsTileableRowsSize( xSize ) && ySize > 0 )
+        if( IsTileableRowsSize( xSize ) && ySize > 0 )
         {
             return GenTileableRows( noiseOut, xSize, ySize, xFreq, yFreq, xMul, yMul, seed );
         }
@@ -987,16 +996,22 @@ public:
     }
 
 private:
+    // Composite roots (generators with a GenBlock) evaluate the blocks of the row paths with their GenBlock, see GenRowsBlock.
+    // Not on AVX512: there the row kernels measured faster for them (FBm, MinSmooth, Ridged, Fade 1.01-1.06 slower with GenBlock)
+    FS_FORCEINLINE bool RowsUseGenBlock() const
+    {
+        return !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && this->mHasGenBlock;
+    }
+
     // Longest row for the uniform grid row path, its x table is on the stack
     static constexpr intptr_t kGridRowsMaxXCount = 2048;
 
     // Rows of whole vectors, or rows shorter than a vector that pack exactly into whole vectors: xCount divides N and
     // yCount is a multiple of N / xCount, so the rows in a vector differ only in y (e.g. 16 wide chunks on AVX512).
-    // The row paths call Gen per vector, so they are only used for generators without a GenBlock (leaf roots):
-    // composite roots evaluate the position blocks of the per vector paths with their GenBlock
-    static FS_FORCEINLINE bool IsGridRowsSize( int xCount, int yCount )
+    // Rows evaluated with GenBlock (RowsUseGenBlock) must fit a GenBlock position block, see TryGenRowsBlock
+    FS_FORCEINLINE bool IsGridRowsSize( int xCount, int yCount ) const
     {
-        if( xCount <= 0 || xCount > kGridRowsMaxXCount )
+        if( xCount <= 0 || xCount > kGridRowsMaxXCount || ( RowsUseGenBlock() && xCount > kGenBlockSize ) )
         {
             return false;
         }
@@ -1011,7 +1026,8 @@ private:
     // positions are constant per row, so no positions are stored per vector. Every position is the same vector
     // FMulAdd of the same index as in the per vector loop, the output is identical.
     // Rows shorter than a vector are packed N / xCount per vector: the x table repeats the row, y is per lane
-    // (first y + the lane's row in the vector) and z/w are the same for the whole vector
+    // (first y + the lane's row in the vector) and z/w are the same for the whole vector.
+    // Leaf roots evaluate the rows with GenGridBlockFn (Gen per vector), composite roots with their GenBlock, see TryGenRowsBlock
     template<size_t DIMS>
     FastNoise::OutputMinMax GenUniformGridRows( float* noiseOut, const int* count, const float* offset, const float* stepSize, int seed ) const
     {
@@ -1067,6 +1083,8 @@ private:
             laneRow = FS::Load<int32v>( laneRowArray );
         }
 
+        const float* columnTables[DIMS] = { xTable };
+        bool genBlock = RowsUseGenBlock();
         intptr_t blockIndex;
         intptr_t rows;
 
@@ -1103,7 +1121,10 @@ private:
                 break;
             }
 
-            CallGenGridBlock<DIMS>( this, int32v( seed ), xTable, rowPos, rows, rowLength, &noiseOut[blockIndex] );
+            if( !GenRowsBlock<DIMS>( genBlock, seed, columnTables, rowPos, rowLength, &noiseOut[blockIndex], row * rowLength - blockIndex ) )
+            {
+                CallGenGridBlock<DIMS>( this, int32v( seed ), xTable, rowPos, rows, rowLength, &noiseOut[blockIndex] );
+            }
             AccumulateMinMax( noiseOut, blockIndex, row * rowLength, min, max );
         }
 
@@ -1111,8 +1132,11 @@ private:
         intptr_t lastIndex = rowLength * totalRows - (intptr_t)int32v::ElementCount;
         const float* lastRowPos = &rowPos[( rows - 1 ) * ( DIMS - 1 ) * int32v::ElementCount];
 
-        CallGenGridBlock<DIMS>( this, int32v( seed ), xTable, rowPos, rows - 1, rowLength, &noiseOut[blockIndex] );
-        CallGenGridBlock<DIMS>( this, int32v( seed ), xTable, lastRowPos, 1, rowLength - (intptr_t)int32v::ElementCount, &noiseOut[lastIndex + (intptr_t)int32v::ElementCount - rowLength] );
+        if( !GenRowsBlock<DIMS>( genBlock, seed, columnTables, rowPos, rowLength, &noiseOut[blockIndex], lastIndex - blockIndex ) )
+        {
+            CallGenGridBlock<DIMS>( this, int32v( seed ), xTable, rowPos, rows - 1, rowLength, &noiseOut[blockIndex] );
+            CallGenGridBlock<DIMS>( this, int32v( seed ), xTable, lastRowPos, 1, rowLength - (intptr_t)int32v::ElementCount, &noiseOut[lastIndex + (intptr_t)int32v::ElementCount - rowLength] );
+        }
         AccumulateMinMax( noiseOut, blockIndex, lastIndex, min, max );
 
         float32v gen = CallGenGridRow( std::make_index_sequence<DIMS - 1>(), seed, &xTable[rowLength - (intptr_t)int32v::ElementCount], lastRowPos );
@@ -1126,9 +1150,9 @@ private:
     // Longest row with GenTileable2D's own x/z tables on the stack
     static constexpr intptr_t kTileableStackMaxXSize = 512;
 
-    static FS_FORCEINLINE bool IsTileableRowsSize( int xSize )
+    FS_FORCEINLINE bool IsTileableRowsSize( int xSize ) const
     {
-        return xSize > 0 && xSize <= kTileableRowsMaxXSize && xSize % (int)int32v::ElementCount == 0;
+        return xSize > 0 && xSize <= kTileableRowsMaxXSize && xSize % (int)int32v::ElementCount == 0 && ( !RowsUseGenBlock() || xSize <= kGenBlockSize );
     }
 
     // GenTileable2D with rows of whole vectors, see GenUniformGridRows. The positions are computed as in GenTileable2D
@@ -1153,6 +1177,8 @@ private:
 
         // y and w per row
         alignas( 64 ) float rowPos[kMaxBlockRows * 2 * int32v::ElementCount];
+        const float* columnTables[4] = { xPosTable, nullptr, zPosTable, nullptr };
+        bool genBlock = RowsUseGenBlock();
         intptr_t blockIndex;
         intptr_t rows;
 
@@ -1176,7 +1202,10 @@ private:
                 break;
             }
 
-            CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, rowPos, rows, xSize, &noiseOut[blockIndex] );
+            if( !GenRowsBlock<4>( genBlock, seed, columnTables, rowPos, xSize, &noiseOut[blockIndex], row * xSize - blockIndex ) )
+            {
+                CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, rowPos, rows, xSize, &noiseOut[blockIndex] );
+            }
             AccumulateMinMax( noiseOut, blockIndex, row * xSize, min, max );
         }
 
@@ -1185,14 +1214,69 @@ private:
         intptr_t lastColumn = xSize - (intptr_t)int32v::ElementCount;
         const float* lastRowPos = &rowPos[( rows - 1 ) * 2 * int32v::ElementCount];
 
-        CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, rowPos, rows - 1, xSize, &noiseOut[blockIndex] );
-        CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, lastRowPos, 1, lastColumn, &noiseOut[lastIndex - lastColumn] );
+        if( !GenRowsBlock<4>( genBlock, seed, columnTables, rowPos, xSize, &noiseOut[blockIndex], lastIndex - blockIndex ) )
+        {
+            CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, rowPos, rows - 1, xSize, &noiseOut[blockIndex] );
+            CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, lastRowPos, 1, lastColumn, &noiseOut[lastIndex - lastColumn] );
+        }
         AccumulateMinMax( noiseOut, blockIndex, lastIndex, min, max );
 
         float32v gen = CallGen( this, int32v( seed ), FS::Load<float32v>( &xPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos ),
             FS::Load<float32v>( &zPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos + int32v::ElementCount ) );
 
         return StoreRemaining( noiseOut, lastIndex + (intptr_t)int32v::ElementCount, lastIndex, min, max, gen );
+    }
+
+    // Composite roots evaluate the row blocks of the row paths with their GenBlock until it declines (decided by the node
+    // tree, so the same for every block of a call), the row kernels evaluate the rest. Returns true if GenBlock evaluated it
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenRowsBlock( bool& genBlock, int seed, const float* const* columnTables, const float* rowPos, intptr_t rowLength, float* out, intptr_t count ) const
+    {
+        return genBlock && count > 0 && ( genBlock = TryGenRowsBlock<DIMS>( seed, columnTables, rowPos, rowLength, out, count ) );
+    }
+
+    // Stores count values of rows of rowLength (a multiple of N) as a position block and evaluates it with GenBlockMode::IfGenBlock.
+    // Axes with a column table take it from there, the others from rowPos (one vector per axis and row, in axis order).
+    // count is at most kGenBlockSize, see IsGridRowsSize/IsTileableRowsSize
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool TryGenRowsBlock( int seed, const float* const* columnTables, const float* rowPos, intptr_t rowLength, float* out, intptr_t count ) const
+    {
+        alignas( 64 ) float posBuffer[kGenBlockSize * DIMS];
+        float* blockPos = posBuffer;
+
+        intptr_t rowAxes = 0;
+        for( size_t dim = 0; dim < DIMS; dim++ )
+        {
+            rowAxes += columnTables[dim] ? 0 : 1;
+        }
+
+        for( intptr_t i = 0, column = 0; i < count; i += int32v::ElementCount )
+        {
+            const float* axisRowPos = rowPos;
+
+            for( size_t dim = 0; dim < DIMS; dim++ )
+            {
+                if( columnTables[dim] )
+                {
+                    FS::Store( blockPos, FS::Load<float32v>( columnTables[dim] + column ) );
+                }
+                else
+                {
+                    FS::Store( blockPos, FS::Load<float32v>( axisRowPos ) );
+                    axisRowPos += int32v::ElementCount;
+                }
+                blockPos += int32v::ElementCount;
+            }
+
+            column += int32v::ElementCount;
+            if( column == rowLength )
+            {
+                column = 0;
+                rowPos += rowAxes * int32v::ElementCount;
+            }
+        }
+
+        return TryGenBlock<DIMS>( this, int32v( seed ), posBuffer, out, count, GenBlockMode::IfGenBlock );
     }
 
     // Next grid row: y += yStep (yCount is a multiple of it), carrying into z and w
@@ -1289,7 +1373,7 @@ private:
 
             // If GenBlock falls back to per vector evaluation (decided by the node tree), the rest is evaluated by the
             // per vector loop of the caller: GenBlockFn's own per vector loop compiles differently than CallGen
-            if( !TryGenBlock<DIMS>( this, int32v( seed ), posBuffer, &noiseOut[blockIndex], index - blockIndex ) )
+            if( !TryGenBlock<DIMS>( this, int32v( seed ), posBuffer, &noiseOut[blockIndex], index - blockIndex, GenBlockMode::IfGenBlockArray ) )
             {
                 return blockIndex;
             }
