@@ -247,6 +247,15 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 return GenPerlin4DBlock( seed, xOffset, xi, FloorToInt( y, ys ), FloorToInt( z, zs ), FloorToInt( w, ws ), x - xs, y - ys, z - zs, w - ws );
             }
         }
+        else if constexpr( ( F::FeatureFlags & FastSIMD::FeatureFlag::SSE41 ) && !( F::FeatureFlags & FastSIMD::FeatureFlag::AVX ) )
+        {
+            I xi = FloorToInt( x, xs );
+            I xOffset;
+            if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ), FS::Cast<std::int32_t>( w ) ) )
+            {
+                return GenPerlin4DRows( seed, xOffset, xi, FloorToInt( y, ys ), FloorToInt( z, zs ), FloorToInt( w, ws ), x - xs, y - ys, z - zs, w - ws );
+            }
+        }
 
         I x0 = FloorToInt( x, xs ) * I( Primes::X );
         I y0 = FloorToInt( y, ys ) * I( Primes::Y );
@@ -382,6 +391,79 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
     FS_FORCEINLINE static F Perlin4DBlockDotAVX2( const F& sA, const F& tB, const F& tC, const I& index, const F& fX )
     {
         return FS::FMulAdd( fX, LatticeBlockPermute<F>( sA, index ), LatticeBlockPermute<F>( tB, index ) ) + LatticeBlockPermute<F>( tC, index );
+    }
+
+    // SSE4.1 Perlin 4D lattice block: one register per x row of 4 corners, looked up with pshufb. Each lane adds up
+    // FMulAdd( fX, sA, tB ) + tC as on AVX2 (see Perlin4DBlockLayerAVX2), i.e. ( a' + b' ) + c'. Not bit exact: fast-math
+    // reassociates the per lane path's ( a' + b' ) + c' differently per corner, so a few results differ in the last bit
+    template<typename F, typename I>
+    FS_FORCEINLINE static F GenPerlin4DRows( I seed, I xOffset, I xi, I yi, I zi, I wi, F xf0, F yf0, F zf0, F wf0 )
+    {
+        F xf1 = xf0 - F( 1 );
+
+        F xs = InterpQuintic( xf0 );
+        F ys = InterpQuintic( yf0 );
+        F zs = InterpQuintic( zf0 );
+        F ws = InterpQuintic( wf0 );
+
+        auto seedB = LatticeBlockBroadcast( seed );
+        auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
+        using NI = decltype( xp );
+        using NF = decltype( FS::Cast<float>( xp ) );
+
+        NI yp0 = LatticeBlockPrimed<1, 0>( yi, Primes::Y );
+        NI zp0 = LatticeBlockPrimed<2, 0>( zi, Primes::Z );
+        NI wp0 = LatticeBlockPrimed<3, 0>( wi, Primes::W );
+        NI yp1 = yp0 + NI( Primes::Y );
+        NI zp1 = zp0 + NI( Primes::Z );
+        NI wp1 = wp0 + NI( Primes::W );
+
+        // y/z/w offsets of the rows: f0 or f1 = f0 - 1, same ops as the per lane path
+        NF fY0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( yf0 ) ) );
+        NF fZ0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( zf0 ) ) );
+        NF fW0 = FS::Cast<float>( LatticeBlockBroadcast( FS::Cast<std::int32_t>( wf0 ) ) );
+        NF fY1 = fY0 - NF( 1 );
+        NF fZ1 = fZ0 - NF( 1 );
+        NF fW1 = fW0 - NF( 1 );
+
+        I idx0 = LatticeRowByteIndex( xOffset );
+        I idx1 = idx0 + I( 0x04040404 );
+
+        return Lerp( Lerp( Lerp(
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp0, wp0 ), fY0, fZ0, fW0, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp0, wp0 ), fY1, fZ0, fW0, idx0, idx1, xf0, xf1, xs ), ys ),
+            Lerp(
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp1, wp0 ), fY0, fZ1, fW0, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp1, wp0 ), fY1, fZ1, fW0, idx0, idx1, xf0, xf1, xs ), ys ), zs ),
+            Lerp( Lerp(
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp0, wp1 ), fY0, fZ0, fW1, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp0, wp1 ), fY1, fZ0, fW1, idx0, idx1, xf0, xf1, xs ), ys ),
+            Lerp(
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp0, zp1, wp1 ), fY0, fZ1, fW1, idx0, idx1, xf0, xf1, xs ),
+            Perlin4DRowLerpX( HashPrimes( seedB, xp, yp1, zp1, wp1 ), fY1, fZ1, fW1, idx0, idx1, xf0, xf1, xs ), ys ), zs ), ws );
+    }
+
+    // One row of the SSE4.1 block: tables sA (x sign or zero), tB (b' or a' + b' when x is absent), tC (c'), signs applied by xor
+    template<typename NI, typename NF, typename F, typename I>
+    FS_FORCEINLINE static F Perlin4DRowLerpX( NI hash, NF fY, NF fZ, NF fW, const I& idx0, const I& idx1, const F& xf0, const F& xf1, const F& xs )
+    {
+        NI p = hash & NI( 3 << 3 );
+        auto hasX = p > NI( 0 );
+
+        NF b = FS::SelectHighBit( hash << 27, fY, fZ );
+        NF c = FS::Select( p > NI( 2 << 3 ), fZ, fW );
+        NF aSign = FS::Cast<float>( hash << 31 );
+        NF bSign = FS::Cast<float>( ( hash >> 1 ) << 31 );
+        NF cSign = FS::Cast<float>( ( hash >> 2 ) << 31 );
+
+        NF bSigned = b ^ bSign;
+        NF sA = FS::Masked( hasX, NF( 1 ) ^ aSign );
+        NF tB = FS::Select( hasX, bSigned, ( fY ^ aSign ) + bSigned );
+        NF tC = c ^ cSign;
+
+        return Lerp(
+            FS::FMulAdd( xf0, LatticeRowPermute<F>( sA, idx0 ), LatticeRowPermute<F>( tB, idx0 ) ) + LatticeRowPermute<F>( tC, idx0 ),
+            FS::FMulAdd( xf1, LatticeRowPermute<F>( sA, idx1 ), LatticeRowPermute<F>( tB, idx1 ) ) + LatticeRowPermute<F>( tC, idx1 ), xs );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
