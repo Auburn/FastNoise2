@@ -65,8 +65,8 @@ public:
     #define GRADIENT_COORD( _x, _y )\
         int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
         float32v contrib##_x##_y = xs##_x * ys##_y;\
-        xWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16 ) ), yWarp )
+        xWarp = FN_FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
+        yWarp = FN_FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16 ) ), yWarp )
 
         int32v hash00 = HashPrimesHB(seed, x0, y0 );
         float32v contrib00 = xs0 * ys0;
@@ -79,13 +79,13 @@ public:
 
     #undef GRADIENT_COORD
 
-        xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
-        yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
+        xWarp = FN_FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FN_FMulSub( yWarp, normalise, float32v( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        xOut = FN_FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FN_FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
 
-        return FS::FMulAdd( xWarp, xWarp, yWarp * yWarp );
+        return FN_FMulAdd( xWarp, xWarp, yWarp * yWarp );
     }
             
     FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
@@ -94,6 +94,20 @@ public:
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
+
+        // Corner-major path (AVX2 only, on AVX512 the per lane path measured about as fast on grids and the gate costs on other input)
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            int32v xi = FS::Convert<int32_t>( xs );
+            int32v yi = FS::Convert<int32_t>( ys );
+            int32v zi = FS::Convert<int32_t>( zs );
+            int32v xOffset;
+
+            if( IsLatticeBlock( xOffset, seed, xi, yi, zi ) )
+            {
+                return WarpBlock( seed, warpAmp, xOffset, xi, yi, zi, x - xs, y - ys, z - zs, xOut, yOut, zOut );
+            }
+        }
 
         int32v x0 = FS::Convert<int32_t>( xs ) * int32v( Primes::X );
         int32v y0 = FS::Convert<int32_t>( ys ) * int32v( Primes::Y );
@@ -114,9 +128,9 @@ public:
     #define GRADIENT_COORD( _x, _y, _z )\
         int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\
         float32v contrib##_x##_y##_z = xs##_x * ys##_y * zs##_z;\
-        xWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
-        zWarp = FS::FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
+        xWarp = FN_FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
+        yWarp = FN_FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
+        zWarp = FN_FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
 
         int32v hash000 = HashPrimesHB( seed, x0, y0, z0 );
         float32v contrib000 = xs0 * ys0 * zs0;
@@ -134,6 +148,93 @@ public:
 
     #undef GRADIENT_COORD
 
+        xWarp = FN_FMulSub( xWarp, normalise, float32v( 1 ) );
+        yWarp = FN_FMulSub( yWarp, normalise, float32v( 1 ) );
+        zWarp = FN_FMulSub( zWarp, normalise, float32v( 1 ) );
+
+        xOut = FN_FMulAdd( xWarp, warpAmp * float32v( this->mAxisScale[0] ), xOut );
+        yOut = FN_FMulAdd( yWarp, warpAmp * float32v( this->mAxisScale[1] ), yOut );
+        zOut = FN_FMulAdd( zWarp, warpAmp * float32v( this->mAxisScale[2] ), zOut );
+
+        return FN_FMulAdd( xWarp, xWarp, FN_FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
+    }
+            
+    FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    {
+        seed += int32v( mSeedOffset );
+
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || !( SIMD & ( FastSIMD::FeatureFlag::AVX2 | FastSIMD::FeatureFlag::ARM ) ) )
+        {
+            return WarpImpl( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
+        }
+        else // Process each native register half separately, too many live values to fit in registers otherwise (AVX2, NEON)
+        {
+            auto value0 = WarpImpl( seed.v0, warpAmp.v0, x.v0, y.v0, z.v0, w.v0, xOut.v0, yOut.v0, zOut.v0, wOut.v0 );
+            auto value1 = WarpImpl( seed.v1, warpAmp.v1, x.v1, y.v1, z.v1, w.v1, xOut.v1, yOut.v1, zOut.v1, wOut.v1 );
+            return float32v( value0, value1 );
+        }
+    }
+
+private:
+    template<typename T>
+    FS_FORCEINLINE static void WarpBlockCorner( const T& tableX, const T& tableY, const T& tableZ, float32v contrib, int32v index, float32v& xWarp, float32v& yWarp, float32v& zWarp )
+    {
+        xWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( tableX, index ), xWarp );
+        yWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( tableY, index ), yWarp );
+        zWarp = FS::FMulAdd( contrib, LatticeBlockPermute<float32v>( tableZ, index ), zWarp );
+    }
+
+    // 3D corner-major path for lane-coherent vectors (uniform grids): lanes share seed and floored y/z and span at most 3 x cells.
+    // Hash and decode the 4 x 2 x 2 lattice block once (one register on AVX512, z0/z1 registers on AVX2) and permute the decoded
+    // corner values per lane, same values and FMA order as the per lane path in Warp
+    FS_FORCEINLINE float32v WarpBlock( int32v seed, float32v warpAmp, int32v xOffset, int32v xi, int32v yi, int32v zi, float32v xf, float32v yf, float32v zf, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    {
+        float32v xs1 = InterpHermite( xf );
+        float32v ys1 = InterpHermite( yf );
+        float32v zs1 = InterpHermite( zf );
+        float32v xs0 = float32v( 1 ) - xs1;
+        float32v ys0 = float32v( 1 ) - ys1;
+        float32v zs0 = float32v( 1 ) - zs1;
+
+        float32v normalise( 1.0f / (0x3ff / 2.0f) );
+
+        auto seedB = LatticeBlockBroadcast( seed );
+        auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
+        auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
+        auto hashZ0 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
+        auto hashZ1 = hashZ0;
+        int32v xOffsetZ1 = xOffset + int32v( 8 );
+
+        // AVX512: the whole block fits one register, z1 corners are at index + 8
+        using N = decltype( hashZ0 );
+        if constexpr( N::ElementCount < 16 )
+        {
+            hashZ1 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+            xOffsetZ1 = xOffset;
+        }
+
+        auto xZ0 = FS::Convert<float>( hashZ0 & N( 0x3ff ) );
+        auto yZ0 = FS::Convert<float>( ( hashZ0 >> 11 ) & N( 0x3ff ) );
+        auto zZ0 = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashZ0, 22 ) );
+
+        float32v contrib000 = xs0 * ys0 * zs0;
+        float32v xWarp = contrib000 * LatticeBlockPermute<float32v>( xZ0, xOffset );
+        float32v yWarp = contrib000 * LatticeBlockPermute<float32v>( yZ0, xOffset );
+        float32v zWarp = contrib000 * LatticeBlockPermute<float32v>( zZ0, xOffset );
+
+        WarpBlockCorner( xZ0, yZ0, zZ0, xs1 * ys0 * zs0, xOffset + int32v( 1 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ0, yZ0, zZ0, xs0 * ys1 * zs0, xOffset + int32v( 4 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ0, yZ0, zZ0, xs1 * ys1 * zs0, xOffset + int32v( 5 ), xWarp, yWarp, zWarp );
+
+        auto xZ1 = FS::Convert<float>( hashZ1 & N( 0x3ff ) );
+        auto yZ1 = FS::Convert<float>( ( hashZ1 >> 11 ) & N( 0x3ff ) );
+        auto zZ1 = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashZ1, 22 ) );
+
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs0 * ys0 * zs1, xOffsetZ1, xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs1 * ys0 * zs1, xOffsetZ1 + int32v( 1 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs0 * ys1 * zs1, xOffsetZ1 + int32v( 4 ), xWarp, yWarp, zWarp );
+        WarpBlockCorner( xZ1, yZ1, zZ1, xs1 * ys1 * zs1, xOffsetZ1 + int32v( 5 ), xWarp, yWarp, zWarp );
+
         xWarp = FS::FMulSub( xWarp, normalise, float32v( 1 ) );
         yWarp = FS::FMulSub( yWarp, normalise, float32v( 1 ) );
         zWarp = FS::FMulSub( zWarp, normalise, float32v( 1 ) );
@@ -144,29 +245,12 @@ public:
 
         return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
     }
-            
-    FN_ALIGN_STACK FS_FORCEINLINE float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
-    {
-        seed += int32v( mSeedOffset );
 
-        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
-        {
-            return WarpImpl( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
-        }
-        else // Process each native register half separately, too many live values to fit in registers otherwise
-        {
-            auto value0 = WarpImpl( seed.v0, warpAmp.v0, x.v0, y.v0, z.v0, w.v0, xOut.v0, yOut.v0, zOut.v0, wOut.v0 );
-            auto value1 = WarpImpl( seed.v1, warpAmp.v1, x.v1, y.v1, z.v1, w.v1, xOut.v1, yOut.v1, zOut.v1, wOut.v1 );
-            return float32v( value0, value1 );
-        }
-    }
-
-private:
     // Width generic copies of InterpHermite/HashPrimesHB from Utils.inl, used on native register halves
     template<typename F>
     FS_FORCEINLINE static F InterpHermiteHalf( F t )
     {
-        return t * t * FS::FNMulAdd( t, F( 2 ), F( 3 ) );
+        return t * t * FN_FNMulAdd( t, F( 2 ), F( 3 ) );
     }
 
     template<typename I, typename... P>
@@ -210,10 +294,10 @@ private:
     #define GRADIENT_COORD( _x, _y, _z, _w )\
         I hash##_x##_y##_z##_w = HashPrimesHBHalf( seed, x##_x, y##_y, z##_z, w##_w );\
         F contrib##_x##_y##_z##_w = xs##_x * ys##_y * zs##_z * ws##_w;\
-        xWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & I( 0xff ) ), xWarp );\
-        yWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & I( 0xff ) ), yWarp );\
-        zWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & I( 0xff ) ), zWarp );\
-        wWarp = FS::FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
+        xWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & I( 0xff ) ), xWarp );\
+        yWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & I( 0xff ) ), yWarp );\
+        zWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & I( 0xff ) ), zWarp );\
+        wWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
 
         I hash0000 = HashPrimesHBHalf( seed, x0, y0, z0, w0 );
         F contrib0000 = xs0 * ys0 * zs0 * ws0;
@@ -240,17 +324,17 @@ private:
 
     #undef GRADIENT_COORD
 
-        xWarp = FS::FMulSub( xWarp, normalise, F( 1 ) );
-        yWarp = FS::FMulSub( yWarp, normalise, F( 1 ) );
-        zWarp = FS::FMulSub( zWarp, normalise, F( 1 ) );
-        wWarp = FS::FMulSub( wWarp, normalise, F( 1 ) );
+        xWarp = FN_FMulSub( xWarp, normalise, F( 1 ) );
+        yWarp = FN_FMulSub( yWarp, normalise, F( 1 ) );
+        zWarp = FN_FMulSub( zWarp, normalise, F( 1 ) );
+        wWarp = FN_FMulSub( wWarp, normalise, F( 1 ) );
 
-        xOut = FS::FMulAdd( xWarp, warpAmp * F( this->mAxisScale[0] ), xOut );
-        yOut = FS::FMulAdd( yWarp, warpAmp * F( this->mAxisScale[1] ), yOut );
-        zOut = FS::FMulAdd( zWarp, warpAmp * F( this->mAxisScale[2] ), zOut );
-        wOut = FS::FMulAdd( wWarp, warpAmp * F( this->mAxisScale[3] ), wOut );
+        xOut = FN_FMulAdd( xWarp, warpAmp * F( this->mAxisScale[0] ), xOut );
+        yOut = FN_FMulAdd( yWarp, warpAmp * F( this->mAxisScale[1] ), yOut );
+        zOut = FN_FMulAdd( zWarp, warpAmp * F( this->mAxisScale[2] ), zOut );
+        wOut = FN_FMulAdd( wWarp, warpAmp * F( this->mAxisScale[3] ), wOut );
 
-        return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, FS::FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
+        return FN_FMulAdd( xWarp, xWarp, FN_FMulAdd( yWarp, yWarp, FN_FMulAdd( zWarp, zWarp, wWarp * wWarp ) ) );
     }
 };
 
