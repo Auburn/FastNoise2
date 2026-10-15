@@ -1571,7 +1571,9 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
+        // std::array::fill here: with InfiniteDistances() MSVC 14.51 ran CellularValue_idx2 2D 1.05 (SSE2) to 1.13 (AVX2) times slower
+        std::array<float32v, COUNT> distance;
+        distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y );
 
