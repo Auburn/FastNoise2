@@ -860,7 +860,7 @@ protected:
 
         float32v distance = FloorCellsInit<D, HASH, CELL>( closestHash, closestCell );
 
-        if constexpr( kCellBlock )
+        if constexpr( kCellBlockD<D, false, HASH, CELL> )
         {
             // Not with size jitter: the block path doesn't scale the distances. Not for 2D Hybrid on AVX512: measured 4% slower there
             constexpr bool kAvx512 = SIMD & FastSIMD::FeatureFlag::AVX512_F;
@@ -1133,7 +1133,7 @@ protected:
             floored[d] = FS::Floor( pos[d] );
             t[d] = pos[d] - floored[d];
             cell[d] = FloorToInt( pos[d], floored[d] );
-            if constexpr( !kCellBlock )
+            if constexpr( !kCellBlockD<2, true, HASH, CELL> )
             {
                 primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
                 primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
@@ -1143,7 +1143,7 @@ protected:
 
         float32v distance = FloorCellsInit<2, HASH, CELL>( closestHash, closestCell );
         bool block = false;
-        if constexpr( kCellBlock )
+        if constexpr( kCellBlockD<2, true, HASH, CELL> )
         {
             int32v xOffset;
             if( IsCellBlock<2>( xOffset, seed, cell ) )
@@ -1162,7 +1162,7 @@ protected:
         }
         if( !block )
         {
-            if constexpr( kCellBlock ) // Not up front: they would stay live across the cell block path
+            if constexpr( kCellBlockD<2, true, HASH, CELL> ) // Not up front: they would stay live across the cell block path
             {
                 PrimeFloorCells( cell[0], 0, primed[0] );
                 PrimeFloorCells( cell[1], 1, primed[1] );
@@ -1218,7 +1218,7 @@ protected:
 
         if( FS::AnyMask( visit ) )
         {
-            if constexpr( kCellBlock )
+            if constexpr( kCellBlockD<2, true, HASH, CELL> )
             {
                 if( block )
                 {
@@ -1257,6 +1257,10 @@ protected:
     // tables (block cell dx + W * dy + 2 * W * dz, split over native registers of N lanes): the same instructions per lane as VisitFloorCell()
     // Not with kMsvcSplitCopies: measured 1.1-1.45x slower there
     static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !kMsvcSplitCopies && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
+
+    // MSVC AVX2 2D (kUnrollCells): msvc4's per-cell lane path measured faster than the cell block path, except in Closest2D() for CellularDistance
+    template<int D, bool CLOSEST_2D, bool HASH, bool CELL>
+    static constexpr bool kCellBlockD = kCellBlock && !( kUnrollCells && D == 2 && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && ( !CLOSEST_2D || HASH || CELL ) );
 
     // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
     template<int D>
