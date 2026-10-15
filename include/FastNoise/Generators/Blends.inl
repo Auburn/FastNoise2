@@ -147,6 +147,11 @@ class FastSIMD::DispatchClass<Divide, SIMD> final : public virtual Divide, publi
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mLHS, mRHS );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -179,6 +184,11 @@ class FastSIMD::DispatchClass<Modulus, SIMD> final : public virtual Modulus, pub
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mLHS, mRHS );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -208,6 +218,11 @@ class FastSIMD::DispatchClass<PowFloat, SIMD> final : public virtual PowFloat, p
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mValue, mPow );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -343,6 +358,11 @@ class FastSIMD::DispatchClass<MinSmooth, SIMD> final : public virtual MinSmooth,
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mLHS, mRHS, mSmoothness );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -382,6 +402,11 @@ class FastSIMD::DispatchClass<MaxSmooth, SIMD> final : public virtual MaxSmooth,
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mLHS, mRHS, mSmoothness );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -442,6 +467,11 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mA, mB, mFade, mFadeMin, mFadeMax );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>

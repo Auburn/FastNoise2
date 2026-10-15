@@ -184,6 +184,11 @@ class FastSIMD::DispatchClass<SeedOffset, SIMD> final : public virtual SeedOffse
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mSource );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -238,6 +243,11 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mSource, mFromMin, mFromMax, mToMin, mToMax );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -393,6 +403,11 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mSource, mSmoothness );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -433,6 +448,11 @@ class FastSIMD::DispatchClass<PingPong, SIMD> final : public virtual PingPong, p
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mSource, mPingPongStrength );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
@@ -716,6 +736,11 @@ class FastSIMD::DispatchClass<GeneratorCache, SIMD> final : public virtual Gener
     }
 
 public:
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return this->AnySourceHasGenBlock( mSource );
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     // The same cache for block evaluation, keyed on a whole block (seed, value count and positions). Other generators evaluating
@@ -910,6 +935,13 @@ class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual Do
     }
 
 public:
+    // Position arrays keep their per vector evaluation: with the rotation compiled into the block loop fast-math reassociates it
+    // differently, which moves outputs by up to ~1e-3 relative at far (~1e5) positions
+    FS_FORCEINLINE bool BlockPositionArrays() const
+    {
+        return false;
+    }
+
     static constexpr bool kHasGenBlock = true;
 
     template<size_t DIMS>
