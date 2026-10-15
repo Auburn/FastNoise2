@@ -266,13 +266,27 @@ protected:
         {
             mask32v up = pos[d] >= FS::Round( pos[d] );
 
-            int32v primedNear = FS::Select( up, primed[d][2], primed[d][0] );
-            primed[d][2] = FS::Select( up, primed[d][0], primed[d][2] );
-            primed[d][0] = primedNear;
+            if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+            {
+                // Xor swap: clang 23 turns selects into slots kept in memory into vmaskmovps, slow to store and to load back
+                int32v primedSwap = FS::Masked( up, primed[d][0] ^ primed[d][2] );
+                primed[d][0] ^= primedSwap;
+                primed[d][2] ^= primedSwap;
 
-            float32v cellPosNear = FS::Select( up, cellPos[d][2], cellPos[d][0] );
-            cellPos[d][2] = FS::Select( up, cellPos[d][0], cellPos[d][2] );
-            cellPos[d][0] = cellPosNear;
+                float32v cellPosSwap = FS::Masked( up, cellPos[d][0] ^ cellPos[d][2] );
+                cellPos[d][0] ^= cellPosSwap;
+                cellPos[d][2] ^= cellPosSwap;
+            }
+            else
+            {
+                int32v primedNear = FS::Select( up, primed[d][2], primed[d][0] );
+                primed[d][2] = FS::Select( up, primed[d][0], primed[d][2] );
+                primed[d][0] = primedNear;
+
+                float32v cellPosNear = FS::Select( up, cellPos[d][2], cellPos[d][0] );
+                cellPos[d][2] = FS::Select( up, cellPos[d][0], cellPos[d][2] );
+                cellPos[d][0] = cellPosNear;
+            }
         }
     }
 
@@ -386,6 +400,14 @@ protected:
                 }
             }
 
+            // Negative size factor allows negative distances, never skip those lanes. Applied before the bounds are stored:
+            // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from
+            mask32v sizeJitterValid;
+            if( sizeJitterActive )
+            {
+                sizeJitterValid = minFactor >= float32v( 0 );
+            }
+
             for( int d = 0; d < D; d++ )
             {
                 float32v axisRadius = FS::FMulAdd( FS::Abs( pos[d] ), float32v( 1.f / ( 1 << 21 ) ), radius );
@@ -394,43 +416,34 @@ protected:
                 {
                     // Cell centre - position
                     float32v centreOffset = relative ? cellPos[d][i] : cellPos[d][i] - pos[d];
+                    float32v b;
 
                     if( ball )
                     {
-                        bounds.axis[d][i] = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
-                        continue;
+                        b = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
                     }
-
-                    float32v b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
-
-                    switch( distFunc )
+                    else
                     {
-                    default:
-                        b *= b;
-                        break;
-                    case DistanceFunction::Manhattan:
-                    case DistanceFunction::MaxAxis:
-                    case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
-                        break;
-                    case DistanceFunction::Hybrid:
-                        b = FS::FMulAdd( b, b, b );
-                        break;
+                        b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
+
+                        switch( distFunc )
+                        {
+                        default:
+                            b *= b;
+                            break;
+                        case DistanceFunction::Manhattan:
+                        case DistanceFunction::MaxAxis:
+                        case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
+                            break;
+                        case DistanceFunction::Hybrid:
+                            b = FS::FMulAdd( b, b, b );
+                            break;
+                        }
+
+                        b *= scale;
                     }
 
-                    bounds.axis[d][i] = b * scale;
-                }
-            }
-
-            if( sizeJitterActive )
-            {
-                // Negative size factor allows negative distances, never skip those lanes
-                mask32v valid = minFactor >= float32v( 0 );
-                for( int d = 0; d < D; d++ )
-                {
-                    for( int i = 0; i < 3; i++ )
-                    {
-                        bounds.axis[d][i] = FS::Select( valid, bounds.axis[d][i], float32v( -kInfinity ) );
-                    }
+                    bounds.axis[d][i] = sizeJitterActive ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
                 }
             }
 
