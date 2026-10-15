@@ -79,6 +79,11 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const final
     {
+        if( xCount <= 0 || yCount <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -92,7 +97,7 @@ public:
         int32v xCountV( xCount );
         int32v xMax = xCountV + int32v( -1 );
 
-        intptr_t totalValues = xCount * yCount;
+        intptr_t totalValues = (intptr_t)xCount * yCount;
         intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
@@ -128,6 +133,11 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const final
     {
+        if( xCount <= 0 || yCount <= 0 || zCount <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -146,13 +156,13 @@ public:
         int32v yCountV( yCount );
         int32v yMax = yCountV + int32v( -1 );
 
-        intptr_t totalValues = xCount * yCount * zCount;
+        intptr_t totalValues = (intptr_t)xCount * yCount * zCount;
         intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
-        AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+        AxisReset<true>( yIdx, zIdx, yMax, yCountV, (size_t)xCount * yCount );
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
@@ -172,7 +182,7 @@ public:
             xIdx += int32v( int32v::ElementCount );
 
             AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-            AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
+            AxisReset<false>( yIdx, zIdx, yMax, yCountV, (size_t)xCount * yCount );
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
@@ -186,6 +196,11 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const final
     {
+        if( xCount <= 0 || yCount <= 0 || zCount <= 0 || wCount <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -209,14 +224,14 @@ public:
         int32v zCountV( zCount );
         int32v zMax = zCountV + int32v( -1 );
 
-        intptr_t totalValues = xCount * yCount * zCount * wCount;
+        intptr_t totalValues = (intptr_t)xCount * yCount * zCount * wCount;
         intptr_t index = 0;
 
         xIdx += FS::LoadIncremented<int32v>();
 
         AxisReset<true>( xIdx, yIdx, xMax, xCountV, xCount );
-        AxisReset<true>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
-        AxisReset<true>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
+        AxisReset<true>( yIdx, zIdx, yMax, yCountV, (size_t)xCount * yCount );
+        AxisReset<true>( zIdx, wIdx, zMax, zCountV, (size_t)xCount * yCount * zCount );
 
         while( index < totalValues - (intptr_t)int32v::ElementCount )
         {
@@ -237,8 +252,8 @@ public:
             xIdx += int32v( int32v::ElementCount );
 
             AxisReset<false>( xIdx, yIdx, xMax, xCountV, xCount );
-            AxisReset<false>( yIdx, zIdx, yMax, yCountV, xCount * yCount );
-            AxisReset<false>( zIdx, wIdx, zMax, zCountV, xCount * yCount * zCount );
+            AxisReset<false>( yIdx, zIdx, yMax, yCountV, (size_t)xCount * yCount );
+            AxisReset<false>( zIdx, wIdx, zMax, zCountV, (size_t)xCount * yCount * zCount );
         }
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
@@ -253,6 +268,11 @@ public:
 
     FastNoise::OutputMinMax GenPositionArray2D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, float xOffset, float yOffset, int seed ) const final
     {
+        if( count <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -282,6 +302,11 @@ public:
 
     FastNoise::OutputMinMax GenPositionArray3D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, float xOffset, float yOffset, float zOffset, int seed ) const final
     {
+        if( count <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -313,6 +338,11 @@ public:
 
     FastNoise::OutputMinMax GenPositionArray4D( float* noiseOut, int count, const float* xPosArray, const float* yPosArray, const float* zPosArray, const float* wPosArray, float xOffset, float yOffset, float zOffset, float wOffset, int seed ) const final
     {
+        if( count <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -361,6 +391,11 @@ public:
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
     {
+        if( xSize <= 0 || ySize <= 0 )
+        {
+            return {};
+        }
+
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -371,7 +406,7 @@ public:
         int32v ySizeV( ySize );
         int32v xMax = xSizeV + int32v( -1 );
 
-        intptr_t totalValues = xSize * ySize;
+        intptr_t totalValues = (intptr_t)xSize * ySize;
         intptr_t index = 0;
 
         float pi2Recip( 0.15915493667f );
