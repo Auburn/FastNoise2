@@ -494,6 +494,16 @@ namespace FastNoise
             }
 
             case DistanceFunction::MaxAxis:
+            if constexpr( sizeof...( P ) > 0 && ( float32v::FeatureFlags & FastSIMD::FeatureFlag::AVX512_DQ ) )
+            {
+                // vrangeps 0xB: the larger magnitude with the sign cleared = max( |a|, |b| ) in one instruction
+                auto maxAbs = []( auto a, auto b ) { return _mm512_range_ps( a, b, 0xB ); };
+                float32v max = pX;
+                ((max = FS::NativeExec<float32v>( maxAbs, max, pos )), ...);
+
+                return max;
+            }
+            else
             {
                 float32v max = FS::Abs( pX );
                 ((max = FS::Max( FS::Abs( pos ), max )), ...);
