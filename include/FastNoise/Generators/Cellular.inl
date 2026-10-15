@@ -709,7 +709,9 @@ protected:
 
 #if defined( _MSC_VER ) && !defined( __clang__ )
         // MSVC miscompiled the computed cell indexing below for AVX512, explicit loops instead (~5% slower with clang)
-        if constexpr( kUnrollCells && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) ) // SSE4.1 CellularValue 3D was 3-8% slower unrolled
+        // AVX2 only: CellularValue 3D measured 3-8% slower unrolled with SSE4.1, and 25-33% slower with AVX512 while
+        // MSVC splits the 64 byte register copies (FastSIMD without the MSVC native register copy)
+        if constexpr( kUnrollCells && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
         {
             FloorCellsVisitEach<D, HASH, CELL>( std::make_integer_sequence<int, 1 << D>{}, distFunc, seed, jitter, primed, cellOffset, pos, distance, closestHash, closestCell );
         }
