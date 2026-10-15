@@ -442,7 +442,7 @@ protected:
             // Negative size factor allows negative distances, never skip those lanes. 4D applies it before the bounds are stored:
             // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from.
             // 2D/3D afterwards: InitPruning() is inlined into every GenT variant there, and the in-loop form grew the generic
-            // 3D variants by 250-350 instructions
+            // 3D variants by 250-350 instructions. MSVC AVX512 without kMsvcSplitCopies afterwards for 4D too (kSelectInLoopDim)
             mask32v sizeJitterValid;
             if( sizeJitterActive )
             {
@@ -484,11 +484,11 @@ protected:
                         b *= scale;
                     }
 
-                    bounds.axis[d][i] = ( D == 4 && sizeJitterActive ) ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
+                    bounds.axis[d][i] = ( D == kSelectInLoopDim && sizeJitterActive ) ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
                 }
             }
 
-            if( D != 4 && sizeJitterActive )
+            if( D != kSelectInLoopDim && sizeJitterActive )
             {
                 for( int d = 0; d < D; d++ )
                 {
@@ -808,6 +808,10 @@ protected:
 #else
     static constexpr bool kMsvcSplitCopies = false;
 #endif
+
+    // InitPruning(): dimension count whose size jitter bound select happens in the bounds loop (others after it). Not on MSVC AVX512
+    // without kMsvcSplitCopies: the in-loop form measured 1.3-1.4x slower for 4D size jitter there (Demo_CellularCaves 4D 1.12x)
+    static constexpr int kSelectInLoopDim = ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && kUnrollCells && !kMsvcSplitCopies ? 0 : 4;
 
     // 2D floor-first for Hybrid/MaxAxis and size jitter (FloorCellsClosest<2>() then FarCells2D()): 1.1-2x slower with kMsvcSplitCopies
     static constexpr bool kFloorFirst2D = !kMsvcSplitCopies;
