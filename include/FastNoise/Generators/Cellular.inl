@@ -957,8 +957,9 @@ protected:
     static constexpr int kCellBlockWidth = D == 2 ? (int)float32v::ElementCount / 4 : 4;
 
     // True if all lanes share lane 0's seed and cells on the axes above x, and their cell x is lane 0's + [0, W - 2]. xOffset = cell x - lane 0's
-    template<int D>
-    FS_FORCEINLINE static bool IsCellBlock( int32v& xOffset, int32v seed, const int32v* cell )
+    // I32 (= int32v) keeps the body dependent: clang outside MS mode checks non-dependent code at definition and rejects it on SSE
+    template<int D, typename I32>
+    FS_FORCEINLINE static bool IsCellBlock( I32& xOffset, I32 seed, const I32* cell )
     {
         using IN = decltype( seed.v0 );
         constexpr int W = kCellBlockWidth<D>;
@@ -1032,8 +1033,8 @@ protected:
 
     // The 2^D cells around the position with all lanes in one cell block (see IsCellBlock()), in the 3^D loops' order (axis 0 slowest)
     // cellOffset[d][i]: cell i's offset from the position on axis d (absolute position with CELL), as VisitFloorCell()'s base
-    template<int D, bool HASH, bool CELL>
-    FS_FORCEINLINE static void FloorCellsBlock( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, const int32v* cell, const float32v ( *cellOffset )[2],
+    template<int D, bool HASH, bool CELL, typename I32>
+    FS_FORCEINLINE static void FloorCellsBlock( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, const I32* cell, const float32v ( *cellOffset )[2],
                                                 int32v xOffset, float32v& distance, int32v* closestHash, float32v* closestCell )
     {
         using IN = decltype( seed.v0 );
