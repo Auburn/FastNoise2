@@ -104,9 +104,10 @@ protected:
         int8_t linear[kCount][D];
         int8_t pairIndex[kCount][2]; // 4D only: CellBounds pair indices for nearest order
         uint32_t parentMask[kCount]; // Nearest order: bits of the previous shell cells one step closer to the centre
+        uint32_t nearBlockMask[D + 1]; // Nearest order: bits of each shell's cells in the 2^D block of centre and near side cells
         int shellStart[D + 2];
 
-        constexpr CellOrder() : nearest{}, linear{}, pairIndex{}, parentMask{}, shellStart{}
+        constexpr CellOrder() : nearest{}, linear{}, pairIndex{}, parentMask{}, nearBlockMask{}, shellStart{}
         {
             int n = 0;
             for( int shell = 0; shell <= D; shell++ )
@@ -141,6 +142,19 @@ protected:
                 }
             }
             shellStart[D + 1] = n;
+
+            for( int shell = 0; shell <= D; shell++ )
+            {
+                for( int c = shellStart[shell]; c < shellStart[shell + 1]; c++ )
+                {
+                    bool nearBlock = true;
+                    for( int d = 0; d < D; d++ )
+                    {
+                        nearBlock &= nearest[c][d] != 2;
+                    }
+                    nearBlockMask[shell] |= (uint32_t)nearBlock << ( c - shellStart[shell] );
+                }
+            }
 
             for( int shell = 2; shell <= D; shell++ )
             {
@@ -222,6 +236,18 @@ protected:
         return kPruneNone;
     }
 
+    // N infinite distances. Not std::array::fill(): MSVC calls an out of line std::fill_n for it
+    template<size_t N>
+    FS_FORCEINLINE static std::array<float32v, N> InfiniteDistances()
+    {
+        std::array<float32v, N> distance;
+        for( size_t i = 0; i < N; i++ )
+        {
+            distance[i] = float32v( kInfinity );
+        }
+        return distance;
+    }
+
     // Constant indices only, so distance/hash arrays can stay in registers
     template<typename T, size_t N>
     FS_FORCEINLINE static T DistanceAt( const std::array<T, N>& distance, int index )
@@ -266,13 +292,27 @@ protected:
         {
             mask32v up = pos[d] >= FS::Round( pos[d] );
 
-            int32v primedNear = FS::Select( up, primed[d][2], primed[d][0] );
-            primed[d][2] = FS::Select( up, primed[d][0], primed[d][2] );
-            primed[d][0] = primedNear;
+            if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+            {
+                // Xor swap: clang 23 turns selects into slots kept in memory into vmaskmovps, slow to store and to load back
+                int32v primedSwap = FS::Masked( up, primed[d][0] ^ primed[d][2] );
+                primed[d][0] ^= primedSwap;
+                primed[d][2] ^= primedSwap;
 
-            float32v cellPosNear = FS::Select( up, cellPos[d][2], cellPos[d][0] );
-            cellPos[d][2] = FS::Select( up, cellPos[d][0], cellPos[d][2] );
-            cellPos[d][0] = cellPosNear;
+                float32v cellPosSwap = FS::Masked( up, cellPos[d][0] ^ cellPos[d][2] );
+                cellPos[d][0] ^= cellPosSwap;
+                cellPos[d][2] ^= cellPosSwap;
+            }
+            else
+            {
+                int32v primedNear = FS::Select( up, primed[d][2], primed[d][0] );
+                primed[d][2] = FS::Select( up, primed[d][0], primed[d][2] );
+                primed[d][0] = primedNear;
+
+                float32v cellPosNear = FS::Select( up, cellPos[d][2], cellPos[d][0] );
+                cellPos[d][2] = FS::Select( up, cellPos[d][0], cellPos[d][2] );
+                cellPos[d][0] = cellPosNear;
+            }
         }
     }
 
@@ -284,11 +324,20 @@ protected:
     {
     public:
         FS_FORCEINLINE CellIterator( CellBounds<D>& bounds, std::array<int32v, 3>* cellPrimed, std::array<float32v, 3>* cellPos, bool relative, const float32v* pos,
-                                     DistanceFunction distFunc, float32v minkowskiP, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter ) :
+                                     DistanceFunction distFunc, float32v minkowskiP, int distanceIndex, float32v jitter, bool sizeJitterActive, const float32v& sizeJitter,
+                                     bool nearBlockDone = false ) :
             mBounds( bounds )
         {
-            PruneMode pruneMode = GetPruneMode<D>( distFunc, minkowskiP, pos, jitter, D == 2 ? kJitter2D : ( D == 3 ? kJitter3D : kJitter4D ), distanceIndex );
+            // The caller already visited the 2^D block of centre and near side cells (see FloorCellsClosest()): skip it, which needs the
+            // near first order. Always valid, the other modes only exist for speed (and Minkowski, which never visits the block first)
+            PruneMode pruneMode = nearBlockDone ? kPruneNearFirst :
+                GetPruneMode<D>( distFunc, minkowskiP, pos, jitter, D == 2 ? kJitter2D : ( D == 3 ? kJitter3D : kJitter4D ), distanceIndex );
             mPrune = pruneMode != kPruneNone;
+            mSkipNearBlock = nearBlockDone;
+            if( mSkipNearBlock )
+            {
+                mVisit &= ~kOrder.nearBlockMask[0];
+            }
             mCombineMax = distFunc == DistanceFunction::MaxAxis || distFunc == DistanceFunction::Minkowski;
 
             // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
@@ -329,6 +378,10 @@ protected:
                 }
                 mCell = kOrder.shellStart[++mShell];
                 mVisit = mShellVisit = ShellVisitMask( distToBeat, ~mShellVisit );
+                if( mSkipNearBlock )
+                {
+                    mVisit &= ~kOrder.nearBlockMask[mShell];
+                }
             }
 
             while( !( mVisit & 1 ) )
@@ -386,6 +439,16 @@ protected:
                 }
             }
 
+            // Negative size factor allows negative distances, never skip those lanes. 4D applies it before the bounds are stored:
+            // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from.
+            // 2D/3D afterwards: InitPruning() is inlined into every GenT variant there, and the in-loop form grew the generic
+            // 3D variants by 250-350 instructions. MSVC AVX512 without kMsvcSplitCopies afterwards for 4D too (kSelectInLoopDim)
+            mask32v sizeJitterValid;
+            if( sizeJitterActive )
+            {
+                sizeJitterValid = minFactor >= float32v( 0 );
+            }
+
             for( int d = 0; d < D; d++ )
             {
                 float32v axisRadius = FS::FMulAdd( FS::Abs( pos[d] ), float32v( 1.f / ( 1 << 21 ) ), radius );
@@ -394,42 +457,44 @@ protected:
                 {
                     // Cell centre - position
                     float32v centreOffset = relative ? cellPos[d][i] : cellPos[d][i] - pos[d];
+                    float32v b;
 
                     if( ball )
                     {
-                        bounds.axis[d][i] = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
-                        continue;
+                        b = sizeJitterActive ? centreOffset * centreOffset * minFactor : centreOffset * centreOffset;
                     }
-
-                    float32v b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
-
-                    switch( distFunc )
+                    else
                     {
-                    default:
-                        b *= b;
-                        break;
-                    case DistanceFunction::Manhattan:
-                    case DistanceFunction::MaxAxis:
-                    case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
-                        break;
-                    case DistanceFunction::Hybrid:
-                        b = FS::FMulAdd( b, b, b );
-                        break;
+                        b = FS::Max( FS::Abs( centreOffset ) - axisRadius, float32v( 0 ) );
+
+                        switch( distFunc )
+                        {
+                        default:
+                            b *= b;
+                            break;
+                        case DistanceFunction::Manhattan:
+                        case DistanceFunction::MaxAxis:
+                        case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
+                            break;
+                        case DistanceFunction::Hybrid:
+                            b = FS::FMulAdd( b, b, b );
+                            break;
+                        }
+
+                        b *= scale;
                     }
 
-                    bounds.axis[d][i] = b * scale;
+                    bounds.axis[d][i] = ( D == kSelectInLoopDim && sizeJitterActive ) ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
                 }
             }
 
-            if( sizeJitterActive )
+            if( D != kSelectInLoopDim && sizeJitterActive )
             {
-                // Negative size factor allows negative distances, never skip those lanes
-                mask32v valid = minFactor >= float32v( 0 );
                 for( int d = 0; d < D; d++ )
                 {
                     for( int i = 0; i < 3; i++ )
                     {
-                        bounds.axis[d][i] = FS::Select( valid, bounds.axis[d][i], float32v( -kInfinity ) );
+                        bounds.axis[d][i] = FS::Select( sizeJitterValid, bounds.axis[d][i], float32v( -kInfinity ) );
                     }
                 }
             }
@@ -485,7 +550,11 @@ protected:
             uint32_t visit = 0;
             for( int c = mCell; c < kOrder.shellStart[mShell + 1]; c++ )
             {
-                if( !( kOrder.parentMask[c] & skippedPrev ) )
+                if( mSkipNearBlock && ( kOrder.nearBlockMask[mShell] >> ( c - mCell ) & 1 ) )
+                {
+                    visit |= 1u << ( c - mCell ); // Already visited, still counts as visited for the cells beyond it
+                }
+                else if( !( kOrder.parentMask[c] & skippedPrev ) )
                 {
                     visit |= (uint32_t)!AllLanes( Bound( c ) >= distToBeat ) << ( c - mCell );
                 }
@@ -498,6 +567,7 @@ protected:
         CellBounds<D>& mBounds;
         float32v mBallRadius;
         bool mPrune;
+        bool mSkipNearBlock;
         bool mBall = false;
         bool mCombineMax = false;
         int mCell = 0;
@@ -606,20 +676,55 @@ protected:
         return CalcDistance<false>( distFunc, float32v( 0 ), delta[I]... );
     }
 
+    // Size jitter's per cell distance factor bits, from the cell hash
+    template<int D>
+    FS_FORCEINLINE static float32v SizeJitterBits( int32v hash )
+    {
+        if constexpr( D == 2 )
+        {
+            return FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+        }
+        else
+        {
+            return FS::Convert<float>( hash & int32v( D == 3 ? 0xffff : 0xfffff ) );
+        }
+    }
+
+    // Smallest size jitter distance factor of any cell, see SizeJitterBits()
+    template<int D>
+    FS_FORCEINLINE static float32v SizeJitterMinFactor( float32v sizeJitter )
+    {
+        return FS::Min( FS::FNMulAdd( sizeJitter, float32v( D == 2 ? 0x3ff : ( D == 3 ? 0xffff : 0xfffff ) ), float32v( 1 ) ), float32v( 1 ) );
+    }
+
     // Feature point of the cell with hash input ( seed ^ primed... ), keeps it if closer. base is the cell's offset from the position,
     // or with CELL its absolute position: the distance is then measured like CellularLookup's 3^D search, so both pick the same cell
     template<int D, bool HASH, bool CELL>
-    FS_FORCEINLINE static void VisitFloorCell( DistanceFunction distFunc, int32v hash, float32v jitter, const float32v* base, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    FS_FORCEINLINE static void VisitFloorCell( DistanceFunction distFunc, int32v hash, float32v jitter, const float32v* base, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
+                                               const float32v* sizeJitter = nullptr )
     {
         hash *= int32v( HashMultiplier::A );
 
-        float32v point[D], delta[D];
+        float32v point[D];
         FeaturePointOffset<D>( hash, jitter, base, point );
+        KeepCloser<D, HASH, CELL>( distFunc, hash, point, pos, distance, closestHash, closestCell, sizeJitter );
+    }
+
+    // Keeps the feature point if closer, see VisitFloorCell()
+    template<int D, bool HASH, bool CELL>
+    FS_FORCEINLINE static void KeepCloser( DistanceFunction distFunc, int32v hash, const float32v* point, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
+                                           const float32v* sizeJitter = nullptr )
+    {
+        float32v delta[D];
         for( int d = 0; d < D; d++ )
         {
             delta[d] = CELL ? point[d] - pos[d] : point[d];
         }
         float32v newDistance = CalcDistanceArray( distFunc, delta, std::make_index_sequence<D>{} );
+        if( sizeJitter )
+        {
+            newDistance *= FS::FNMulAdd( *sizeJitter, SizeJitterBits<D>( hash ), float32v( 1 ) );
+        }
 
         mask32v closer = newDistance < distance;
         distance = FS::Min( newDistance, distance );
@@ -634,6 +739,40 @@ protected:
             {
                 closestCell[d] = FS::Select( closer, point[d], closestCell[d] );
             }
+        }
+    }
+
+    // Visits the 2^D cells around the position in FloorCellsClosest()'s order, calling visit( distance, hash ) with each feature point's
+    // distance (no sqrt, measured from the position) and cell hash
+    template<int D, typename VISIT>
+    FS_FORCEINLINE static void FloorCellsVisit( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, VISIT& visit )
+    {
+        int32v primed[D][2];
+        float32v cellOffset[D][2];
+
+        for( int d = 0; d < D; d++ )
+        {
+            float32v floored = FS::Floor( pos[d] );
+            primed[d][0] = FloorToInt( pos[d], floored ) * int32v( Primes::Lookup[d] );
+            primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            cellOffset[d][0] = floored - pos[d];
+            cellOffset[d][1] = cellOffset[d][0] + float32v( 1 );
+        }
+
+        for( int c = 0; c < ( 1 << D ); c++ )
+        {
+            int32v hash = seed;
+            float32v base[D];
+            for( int d = 0; d < D; d++ )
+            {
+                hash ^= primed[d][( c >> ( D - 1 - d ) ) & 1];
+                base[d] = cellOffset[d][( c >> ( D - 1 - d ) ) & 1];
+            }
+            hash *= int32v( HashMultiplier::A );
+
+            float32v point[D];
+            FeaturePointOffset<D>( hash, jitter, base, point );
+            visit( CalcDistanceArray( distFunc, point, std::make_index_sequence<D>{} ), hash );
         }
     }
 
@@ -655,18 +794,69 @@ protected:
         return float32v( kInfinity );
     }
 
+    // MSVC doesn't unroll the cell loops and keeps everything they index on the stack: one inlined call per cell instead
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    static constexpr bool kUnrollCells = true;
+#else
+    static constexpr bool kUnrollCells = false;
+#endif
+
+    // MSVC AVX512 with a FastSIMD whose 512 bit registers are trivially copyable (before its MSVC native register copies): MSVC copies them
+    // as two 32 byte halves through the stack, which makes some cellular paths much slower and was miscompiled in others
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    static constexpr bool kMsvcSplitCopies = ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && std::is_trivially_copy_constructible_v<typename float32v::DoubledType>;
+#else
+    static constexpr bool kMsvcSplitCopies = false;
+#endif
+
+    // InitPruning(): dimension count whose size jitter bound select happens in the bounds loop (others after it). Not on MSVC AVX512
+    // without kMsvcSplitCopies: the in-loop form measured 1.3-1.4x slower for 4D size jitter there (Demo_CellularCaves 4D 1.12x)
+    static constexpr int kSelectInLoopDim = ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && kUnrollCells && !kMsvcSplitCopies ? 0 : 4;
+
+    // 2D floor-first for Hybrid/MaxAxis and size jitter (FloorCellsClosest<2>() then FarCells2D()): 1.1-2x slower with kMsvcSplitCopies
+    static constexpr bool kFloorFirst2D = !kMsvcSplitCopies;
+
+    // FloorCellsClosest()'s cell C (bit D - 1 - d = offset on axis d) with compile time indices
+    template<int D, bool HASH, bool CELL, int C>
+    FS_FORCEINLINE static void FloorCellVisit( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[D][2], const float32v ( &cellOffset )[D][2],
+                                               const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell, const float32v* sizeJitter )
+    {
+        constexpr int xi = ( C >> ( D - 1 ) ) & 1, yi = ( C >> ( D - 2 ) ) & 1, zi = C & 1;
+
+        int32v hash = seed ^ primed[0][xi] ^ primed[1][yi];
+        float32v base[D];
+        base[0] = cellOffset[0][xi];
+        base[1] = cellOffset[1][yi];
+        if constexpr( D == 3 )
+        {
+            hash ^= primed[D - 1][zi];
+            base[D - 1] = cellOffset[D - 1][zi];
+        }
+        VisitFloorCell<D, HASH, CELL>( distFunc, hash, jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+    }
+
+    template<int D, bool HASH, bool CELL, int... C>
+    FS_FORCEINLINE static void FloorCellsVisitEach( std::integer_sequence<int, C...>, DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[D][2],
+                                                    const float32v ( &cellOffset )[D][2], const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
+                                                    const float32v* sizeJitter )
+    {
+        ( FloorCellVisit<D, HASH, CELL, C>( distFunc, seed, jitter, primed, cellOffset, pos, distance, closestHash, closestCell, sizeJitter ), ... );
+    }
+
     // Closest feature point among the 2^D cells around the position, see FloorCellsJitterBound(). Returns its distance (no sqrt),
     // optionally its cell hash and its absolute position (see VisitFloorCell()). Cells in the 3^D loops' order (axis 0 slowest)
     template<int D, bool HASH, bool CELL>
-    FS_FORCEINLINE static float32v FloorCellsClosest( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, int32v* closestHash, float32v* closestCell )
+    FS_FORCEINLINE static float32v FloorCellsClosest( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, int32v* closestHash, float32v* closestCell,
+                                                      const float32v* sizeJitter = nullptr )
     {
-        int32v primed[D][2];
+        int32v cell[D], primed[D][2];
         float32v cellOffset[D][2];
 
         for( int d = 0; d < D; d++ )
         {
             float32v floored = FS::Floor( pos[d] );
-            primed[d][0] = FloorToInt( pos[d], floored ) * int32v( Primes::Lookup[d] );
+            cell[d] = FloorToInt( pos[d], floored );
+            primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
             primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
             cellOffset[d][0] = CELL ? floored : floored - pos[d];
             cellOffset[d][1] = cellOffset[d][0] + float32v( 1 );
@@ -674,27 +864,48 @@ protected:
 
         float32v distance = FloorCellsInit<D, HASH, CELL>( closestHash, closestCell );
 
+        if constexpr( kCellBlockD<D, false, HASH, CELL> )
+        {
+            // Not with size jitter: the block path doesn't scale the distances. Not for 2D Hybrid on AVX512: measured 4% slower there
+            constexpr bool kAvx512 = SIMD & FastSIMD::FeatureFlag::AVX512_F;
+            int32v xOffset;
+            if( !sizeJitter && !( D == 2 && kAvx512 && distFunc == DistanceFunction::Hybrid ) && IsCellBlock<D>( xOffset, seed, cell ) )
+            {
+                FloorCellsBlock<D, HASH, CELL>( distFunc, seed, jitter, pos, cell, cellOffset, xOffset, distance, closestHash, closestCell );
+                return distance;
+            }
+        }
+
 #if defined( _MSC_VER ) && !defined( __clang__ )
         // MSVC miscompiled the computed cell indexing below for AVX512, explicit loops instead (~5% slower with clang)
-        for( int xi = 0; xi < 2; xi++ )
+        // Per-cell calls on AVX2, and for 2D on AVX512 without kMsvcSplitCopies. Not SSE4.1 (CellularValue 3D 3-8% slower), not with
+        // kMsvcSplitCopies (25-33% slower) and not for 3D on AVX512 (its GenTs 5-12% slower, even on the cell block path)
+        if constexpr( kUnrollCells && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && ( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || ( D == 2 && !kMsvcSplitCopies ) ) )
         {
-            int32v seedX = seed ^ primed[0][xi];
-            for( int yi = 0; yi < 2; yi++ )
+            FloorCellsVisitEach<D, HASH, CELL>( std::make_integer_sequence<int, 1 << D>{}, distFunc, seed, jitter, primed, cellOffset, pos, distance, closestHash, closestCell, sizeJitter );
+        }
+        else
+        {
+            for( int xi = 0; xi < 2; xi++ )
             {
-                int32v seedXY = seedX ^ primed[1][yi];
-                for( int zi = 0; zi < ( D == 3 ? 2 : 1 ); zi++ )
+                int32v seedX = seed ^ primed[0][xi];
+                for( int yi = 0; yi < 2; yi++ )
                 {
-                    float32v base[D];
-                    base[0] = cellOffset[0][xi];
-                    base[1] = cellOffset[1][yi];
-                    if constexpr( D == 3 )
+                    int32v seedXY = seedX ^ primed[1][yi];
+                    for( int zi = 0; zi < ( D == 3 ? 2 : 1 ); zi++ )
                     {
-                        base[2] = cellOffset[2][zi];
-                        VisitFloorCell<D, HASH, CELL>( distFunc, seedXY ^ primed[2][zi], jitter, base, pos, distance, closestHash, closestCell );
-                    }
-                    else
-                    {
-                        VisitFloorCell<D, HASH, CELL>( distFunc, seedXY, jitter, base, pos, distance, closestHash, closestCell );
+                        float32v base[D];
+                        base[0] = cellOffset[0][xi];
+                        base[1] = cellOffset[1][yi];
+                        if constexpr( D == 3 )
+                        {
+                            base[2] = cellOffset[2][zi];
+                            VisitFloorCell<D, HASH, CELL>( distFunc, seedXY ^ primed[2][zi], jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+                        }
+                        else
+                        {
+                            VisitFloorCell<D, HASH, CELL>( distFunc, seedXY, jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+                        }
                     }
                 }
             }
@@ -710,19 +921,52 @@ protected:
                 hash ^= primed[d][( c >> ( D - 1 - d ) ) & 1];
                 base[d] = cellOffset[d][( c >> ( D - 1 - d ) ) & 1];
             }
-            VisitFloorCell<D, HASH, CELL>( distFunc, hash, jitter, base, pos, distance, closestHash, closestCell );
+            VisitFloorCell<D, HASH, CELL>( distFunc, hash, jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
         }
 #endif
         return distance;
+    }
+
+    // Continues FloorCellsClosest<2>()'s search with the 5 other cells of the 3x3 search: the far side cell on each axis
+    // (matching the 3x3 search's round half to even at t == 0.5) next to the 2x2 cells, and the far corner
+    template<bool HASH, bool CELL>
+    FS_FORCEINLINE static void FarCells2D( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
+                                           const float32v* sizeJitter = nullptr )
+    {
+        int32v primed[2][3];
+        float32v cellOffset[2][3];
+
+        for( int d = 0; d < 2; d++ )
+        {
+            float32v floored = FS::Floor( pos[d] );
+            int32v cell = FloorToInt( pos[d], floored );
+            mask32v lowerHalf = FS::Convert<int32_t>( pos[d] ) == cell;
+
+            primed[d][0] = cell * int32v( Primes::Lookup[d] );
+            primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            primed[d][2] = primed[d][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[d] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[d] * 2u ) ) );
+            cellOffset[d][0] = CELL ? floored : floored - pos[d];
+            cellOffset[d][1] = cellOffset[d][0] + float32v( 1 );
+            cellOffset[d][2] = cellOffset[d][0] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) );
+        }
+
+        constexpr int kCells[5][2] = { { 2, 0 }, { 2, 1 }, { 0, 2 }, { 1, 2 }, { 2, 2 } };
+        for( int c = 0; c < 5; c++ )
+        {
+            float32v base[] = { cellOffset[0][kCells[c][0]], cellOffset[1][kCells[c][1]] };
+            VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ primed[0][kCells[c][0]] ^ primed[1][kCells[c][1]], jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+        }
     }
 
     // Closest2D() pays off when the jitter is small enough that the 2x2 cells usually hold the closest point and the lanes are close together.
     // Incoherent lanes are each an independent chance of needing the cells beyond (~6% per lane), still a win with SSE4.1's 8 lanes per vector
     // (not SSE2: no native floor)
     // Coherence first, one axis at a time: most incoherent batches already fail on x. A constant grid jitter is tested as a scalar
+    // INCOHERENT = false: coherent lanes only, for distance functions whose 2x2 completeness bound is too loose for incoherent lanes
+    template<bool INCOHERENT = true>
     FS_FORCEINLINE bool Closest2DActive( float32v x, float32v y, float32v jitter ) const
     {
-        constexpr bool kIncoherent = float32v::ElementCount <= 8 && ( SIMD & FastSIMD::FeatureFlag::SSE41 );
+        constexpr bool kIncoherent = INCOHERENT && float32v::ElementCount <= 8 && ( SIMD & FastSIMD::FeatureFlag::SSE41 );
         constexpr float kMaxJitter = kJitter2D * 1.001f;
         if constexpr( !kIncoherent )
         {
@@ -735,7 +979,8 @@ protected:
     }
 
     // 3D: worth checking the 2^D cells first: coherent lanes rarely need more, incoherent lanes are each an independent chance of needing the
-    // 3^D search too, worth it up to 16 lanes and not with Manhattan's looser bound
+    // 3^D search too, still worth it at 32 lanes since that search skips the 2^D cells, but not with Manhattan's looser bound
+    // (Hybrid's bound: up to 8 lanes)
     // Not without jitter: every point is on the lattice, exact distance ties must keep the 3^D search's cell order
     // CellularLookup only with coherent lanes (INCOHERENT = false): a seeded search picked another cell on rare lanes
     template<bool INCOHERENT = true>
@@ -745,14 +990,30 @@ protected:
         {
             return false;
         }
-        return ( INCOHERENT && float32v::ElementCount <= 16 && distFunc != DistanceFunction::Manhattan ) || IsCoherent<3>( pos );
+        bool incoherentActive = distFunc == DistanceFunction::EuclideanSquared || distFunc == DistanceFunction::MaxAxis ||
+                                ( distFunc == DistanceFunction::Hybrid && float32v::ElementCount <= 8 );
+        if( INCOHERENT && incoherentActive )
+        {
+            return true;
+        }
+
+        // One axis at a time: most incoherent batches already fail on x
+        for( int d = 0; d < 3; d++ )
+        {
+            if( !IsCoherent<1>( pos + d ) )
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     // True if no lane can have a closer point than distance in the other cells of the 3^D search, after the 2^D cells around the position
     // (FloorCellsClosest()): the closest centre of those cells is ( 1 + edge, edge, ... ) away with the 1 on the axis with the smallest edge
-    // distance, and their points are within the jitter radius of the centre. EuclideanSquared/Manhattan distance only
+    // distance, and their points are within the jitter radius of the centre. EuclideanSquared/Manhattan/Hybrid/MaxAxis distance only,
+    // with size jitter (sizeJitterMinFactor > 0, see SizeJitterMinFactor()) EuclideanSquared only
     template<int D>
-    FS_FORCEINLINE static bool FloorCellsComplete( DistanceFunction distFunc, float32v distance, float32v jitter, const float32v* pos )
+    FS_FORCEINLINE static bool FloorCellsComplete( DistanceFunction distFunc, float32v distance, float32v jitter, const float32v* pos, const float32v* sizeJitterMinFactor = nullptr )
     {
         float32v edge[D];
         for( int d = 0; d < D; d++ )
@@ -761,6 +1022,7 @@ protected:
             edge[d] = FS::Min( t, float32v( 1 ) - t );
         }
 
+        constexpr float kRootD = D == 2 ? kRoot2f : ( D == 3 ? kRoot3f : 2.0f );
         float32v radius = FS::FMulAdd( FS::Abs( jitter ), float32v( 1 + 1.f / 512 ), float32v( 1.f / ( 1 << 20 ) ) );
         mask32v closer;
         if( distFunc == DistanceFunction::Manhattan )
@@ -770,7 +1032,16 @@ protected:
             {
                 centreDist += edge[d];
             }
-            closer = FS::FMulAdd( radius, float32v( D == 2 ? kRoot2f : ( D == 3 ? kRoot3f : 2.0f ) ), distance ) > centreDist * float32v( 1 - 1.f / 4096 );
+            closer = FS::FMulAdd( radius, float32v( kRootD ), distance ) > centreDist * float32v( 1 - 1.f / 4096 );
+        }
+        else if( distFunc == DistanceFunction::MaxAxis )
+        {
+            float32v minEdge = edge[0];
+            for( int d = 1; d < D; d++ )
+            {
+                minEdge = FS::Min( minEdge, edge[d] );
+            }
+            closer = distance + radius > ( float32v( 1 ) + minEdge ) * float32v( 1 - 1.f / 4096 );
         }
         else
         {
@@ -781,10 +1052,73 @@ protected:
                 edgeSqr = FS::FMulAdd( edge[d], edge[d], edgeSqr );
                 minEdge = FS::Min( minEdge, edge[d] );
             }
-            float32v reach = FS::Sqrt( distance ) + radius;
-            closer = reach * reach > FS::FMulAdd( minEdge, float32v( 2 ), edgeSqr + float32v( 1 ) ) * float32v( 1 - 1.f / 4096 );
+            float32v centreDistSqr = FS::FMulAdd( minEdge, float32v( 2 ), edgeSqr + float32v( 1 ) );
+
+            if( distFunc == DistanceFunction::Hybrid )
+            {
+                // EuclideanSquared + Manhattan: at least the sum of both lower bounds, each from its own closest centre
+                float32v centreDist = float32v( 1 ) + edge[0];
+                for( int d = 1; d < D; d++ )
+                {
+                    centreDist += edge[d];
+                }
+                float32v ballDist = FS::Sqrt( centreDistSqr ) - radius;
+                closer = distance > FS::FMulAdd( ballDist, ballDist, FS::FNMulAdd( radius, float32v( kRootD ), centreDist ) ) * float32v( 1 - 1.f / 4096 );
+            }
+            else if( sizeJitterMinFactor )
+            {
+                // Distances are scaled by at least the smallest size jitter factor
+                float32v ballDist = FS::Sqrt( centreDistSqr ) - radius;
+                closer = distance > ballDist * ballDist * *sizeJitterMinFactor * float32v( 1 - 1.f / 4096 );
+            }
+            else
+            {
+                float32v reach = FS::Sqrt( distance ) + radius;
+                closer = reach * reach > centreDistSqr * float32v( 1 - 1.f / 4096 );
+            }
         }
         return !FS::AnyMask( closer );
+    }
+
+    // Closest2D()'s 2x2 cell ( XI, YI )
+    template<bool HASH, bool CELL, int XI, int YI>
+    FS_FORCEINLINE static void Closest2DCell( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[2][2],
+                                              const float32v* floored, const float32v* t, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        float32v base[2];
+        base[0] = CELL ? floored[0] + float32v( (float)XI ) : float32v( (float)XI ) - t[0];
+        base[1] = CELL ? floored[1] + float32v( (float)YI ) : float32v( (float)YI ) - t[1];
+        VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ primed[0][XI] ^ primed[1][YI], jitter, base, pos, distance, closestHash, closestCell );
+    }
+
+    // Closest2D()'s pair of cells beyond the 2x2 on axis D
+    template<bool HASH, bool CELL, int D>
+    FS_FORCEINLINE static void Closest2DFarCells( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v* cell, const int32v ( &primed )[2][2],
+                                                  const float32v* floored, const float32v* t, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        // Far side cell on axis D, matches the 3x3 search's round half to even at t == 0.5
+        mask32v lowerHalf = FS::Convert<int32_t>( pos[D] ) == cell[D];
+        int32v farPrimed = primed[D][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[D] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[D] * 2u ) ) );
+        float32v farOffset = CELL ? floored[D] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) ) : FS::Select( lowerHalf, float32v( -1 ) - t[D], float32v( 2 ) - t[D] );
+
+        Closest2DFarCell<HASH, CELL, D, 0>( distFunc, seed ^ farPrimed, jitter, farOffset, primed, floored, t, pos, distance, closestHash, closestCell );
+        Closest2DFarCell<HASH, CELL, D, 1>( distFunc, seed ^ farPrimed, jitter, farOffset, primed, floored, t, pos, distance, closestHash, closestCell );
+    }
+
+    template<bool HASH, bool CELL, int D, int I>
+    FS_FORCEINLINE static void Closest2DFarCell( DistanceFunction distFunc, int32v seedFar, float32v jitter, float32v farOffset, const int32v ( &primed )[2][2],
+                                                 const float32v* floored, const float32v* t, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        float32v otherOffset = CELL ? floored[D ^ 1] + float32v( (float)I ) : float32v( (float)I ) - t[D ^ 1];
+        float32v base[] = { D ? otherOffset : farOffset, D ? farOffset : otherOffset };
+        VisitFloorCell<2, HASH, CELL>( distFunc, seedFar ^ primed[D ^ 1][I], jitter, base, pos, distance, closestHash, closestCell );
+    }
+
+    // Primed coordinates of the cells at floor and floor + 1 on axis d
+    FS_FORCEINLINE static void PrimeFloorCells( int32v cell, int d, int32v* primed )
+    {
+        primed[0] = cell * int32v( Primes::Lookup[d] );
+        primed[1] = primed[0] + int32v( Primes::Lookup[d] );
     }
 
     // 2D closest point for EuclideanSquared/Manhattan, same result as the 3x3 cell search when the jitter radius is at most kJitter2D
@@ -803,21 +1137,60 @@ protected:
             floored[d] = FS::Floor( pos[d] );
             t[d] = pos[d] - floored[d];
             cell[d] = FloorToInt( pos[d], floored[d] );
-            primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
-            primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            if constexpr( !kCellBlockD<2, true, HASH, CELL> )
+            {
+                primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
+                primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            }
             edge[d] = FS::Min( t[d], float32v( 1 ) - t[d] );
         }
 
         float32v distance = FloorCellsInit<2, HASH, CELL>( closestHash, closestCell );
-        for( int xi = 0; xi < 2; xi++ )
+        bool block = false;
+        if constexpr( kCellBlockD<2, true, HASH, CELL> )
         {
-            int32v seedX = seed ^ primed[0][xi];
-            for( int yi = 0; yi < 2; yi++ )
+            int32v xOffset;
+            if( IsCellBlock<2>( xOffset, seed, cell ) )
             {
-                float32v base[2];
-                base[0] = CELL ? floored[0] + float32v( (float)xi ) : float32v( (float)xi ) - t[0];
-                base[1] = CELL ? floored[1] + float32v( (float)yi ) : float32v( (float)yi ) - t[1];
-                VisitFloorCell<2, HASH, CELL>( distFunc, seedX ^ primed[1][yi], jitter, base, pos, distance, closestHash, closestCell );
+                float32v cellOffset[2][2];
+                for( int d = 0; d < 2; d++ )
+                {
+                    for( int i = 0; i < 2; i++ )
+                    {
+                        cellOffset[d][i] = CELL ? floored[d] + float32v( (float)i ) : float32v( (float)i ) - t[d];
+                    }
+                }
+                block = true;
+                FloorCellsBlock<2, HASH, CELL>( distFunc, seed, jitter, pos, cell, cellOffset, xOffset, distance, closestHash, closestCell );
+            }
+        }
+        if( !block )
+        {
+            if constexpr( kCellBlockD<2, true, HASH, CELL> ) // Not up front: they would stay live across the cell block path
+            {
+                PrimeFloorCells( cell[0], 0, primed[0] );
+                PrimeFloorCells( cell[1], 1, primed[1] );
+            }
+            if constexpr( kUnrollCells )
+            {
+                Closest2DCell<HASH, CELL, 0, 0>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DCell<HASH, CELL, 0, 1>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DCell<HASH, CELL, 1, 0>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DCell<HASH, CELL, 1, 1>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+            }
+            else
+            {
+                for( int xi = 0; xi < 2; xi++ )
+                {
+                    int32v seedX = seed ^ primed[0][xi];
+                    for( int yi = 0; yi < 2; yi++ )
+                    {
+                        float32v base[2];
+                        base[0] = CELL ? floored[0] + float32v( (float)xi ) : float32v( (float)xi ) - t[0];
+                        base[1] = CELL ? floored[1] + float32v( (float)yi ) : float32v( (float)yi ) - t[1];
+                        VisitFloorCell<2, HASH, CELL>( distFunc, seedX ^ primed[1][yi], jitter, base, pos, distance, closestHash, closestCell );
+                    }
+                }
             }
         }
 
@@ -849,22 +1222,209 @@ protected:
 
         if( FS::AnyMask( visit ) )
         {
-            for( int d = 0; d < 2; d++ )
+            if constexpr( kCellBlockD<2, true, HASH, CELL> )
             {
-                // Far side cell on axis d, matches the 3x3 search's round half to even at t == 0.5
-                mask32v lowerHalf = FS::Convert<int32_t>( pos[d] ) == cell[d];
-                int32v farPrimed = primed[d][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[d] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[d] * 2u ) ) );
-                float32v farOffset = CELL ? floored[d] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) ) : FS::Select( lowerHalf, float32v( -1 ) - t[d], float32v( 2 ) - t[d] );
-
-                for( int i = 0; i < 2; i++ )
+                if( block )
                 {
-                    float32v otherOffset = CELL ? floored[d ^ 1] + float32v( (float)i ) : float32v( (float)i ) - t[d ^ 1];
-                    float32v base[] = { d ? otherOffset : farOffset, d ? farOffset : otherOffset };
-                    VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ farPrimed ^ primed[d ^ 1][i], jitter, base, pos, distance, closestHash, closestCell );
+                    PrimeFloorCells( cell[0], 0, primed[0] );
+                    PrimeFloorCells( cell[1], 1, primed[1] );
+                }
+            }
+            if constexpr( kUnrollCells )
+            {
+                Closest2DFarCells<HASH, CELL, 0>( distFunc, seed, jitter, cell, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DFarCells<HASH, CELL, 1>( distFunc, seed, jitter, cell, primed, floored, t, pos, distance, closestHash, closestCell );
+            }
+            else
+            {
+                for( int d = 0; d < 2; d++ )
+                {
+                    // Far side cell on axis d, matches the 3x3 search's round half to even at t == 0.5
+                    mask32v lowerHalf = FS::Convert<int32_t>( pos[d] ) == cell[d];
+                    int32v farPrimed = primed[d][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[d] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[d] * 2u ) ) );
+                    float32v farOffset = CELL ? floored[d] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) ) : FS::Select( lowerHalf, float32v( -1 ) - t[d], float32v( 2 ) - t[d] );
+
+                    for( int i = 0; i < 2; i++ )
+                    {
+                        float32v otherOffset = CELL ? floored[d ^ 1] + float32v( (float)i ) : float32v( (float)i ) - t[d ^ 1];
+                        float32v base[] = { d ? otherOffset : farOffset, d ? farOffset : otherOffset };
+                        VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ farPrimed ^ primed[d ^ 1][i], jitter, base, pos, distance, closestHash, closestCell );
+                    }
                 }
             }
         }
         return distance;
+    }
+
+    // Cell blocks (AVX2/AVX512): on uniform grids the lanes of a vector usually share a cell row, so the 2^D cells around each lane are
+    // in a W x 2 ( x 2 ) block of cells. Its feature points are decoded once per vector and each lane permutes its cells out of the block
+    // tables (block cell dx + W * dy + 2 * W * dz, split over native registers of N lanes): the same instructions per lane as VisitFloorCell()
+    // Not with kMsvcSplitCopies: measured 1.1-1.45x slower there
+    static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !kMsvcSplitCopies && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
+
+    // MSVC 2D (kUnrollCells): msvc4's per-cell lane path measured faster than the cell block path on AVX2, except in Closest2D() for
+    // CellularDistance, and on AVX512 for CellularValue
+    template<int D, bool CLOSEST_2D, bool HASH, bool CELL>
+    static constexpr bool kCellBlockD = kCellBlock && !( kUnrollCells && D == 2 &&
+        ( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) ? ( !CLOSEST_2D || HASH || CELL ) : ( HASH && !CELL ) ) );
+
+    // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
+    template<int D>
+    static constexpr int kCellBlockWidth = D == 2 ? (int)float32v::ElementCount / 4 : 4;
+
+    // True if all lanes share lane 0's seed and cells on the axes above x, and their cell x is lane 0's + [0, W - 2]. xOffset = cell x - lane 0's
+    // I32 (= int32v) keeps the body dependent: clang outside MS mode checks non-dependent code at definition and rejects it on SSE
+    template<int D, typename I32>
+    FS_FORCEINLINE static bool IsCellBlock( I32& xOffset, I32 seed, const I32* cell )
+    {
+        using IN = decltype( seed.v0 );
+        constexpr int W = kCellBlockWidth<D>;
+
+        IN x0 = LatticeBlockBroadcast( cell[0] );
+        IN seed0 = LatticeBlockBroadcast( seed );
+        xOffset = cell[0] - int32v( x0, x0 );
+
+        int32v outside = ( ( xOffset | ( xOffset + int32v( 1 ) ) ) & int32v( ~( W - 1 ) ) ) | ( seed ^ int32v( seed0, seed0 ) );
+        for( int d = 1; d < D; d++ )
+        {
+            IN cell0 = LatticeBlockBroadcast( cell[d] );
+            outside |= cell[d] ^ int32v( cell0, cell0 );
+        }
+        IN outsideN = outside.v0 | outside.v1;
+
+        return !FS::AnyMask( outsideN != IN( 0 ) );
+    }
+
+    // Cell offsets on AXIS times its prime, for the block cells in native register TABLE
+    template<typename IN, int D, int AXIS, int TABLE, size_t... L>
+    FS_FORCEINLINE static IN CellBlockPrimedOffsets( std::index_sequence<L...> )
+    {
+        constexpr int W = kCellBlockWidth<D>;
+        constexpr int N = (int)sizeof...( L );
+        return FS::Constant<int32_t, IN::FeatureFlags>( (int32_t)( (uint32_t)( AXIS == 0 ? ( TABLE * N + (int)L ) % W : ( ( TABLE * N + (int)L ) / ( ( W << AXIS ) / 2 ) ) & 1 ) * (uint32_t)Primes::Lookup[AXIS] )... );
+    }
+
+    // Feature point offsets of the block cells in native register TABLE (as FeaturePointOffset()), returns 1 / their length
+    template<int D, int TABLE, typename IN, typename FN>
+    FS_FORCEINLINE static FN CellBlockFeaturePoints( const IN& seed, const IN& x0, const int32v* cell, IN& hash, FN* offset )
+    {
+        constexpr auto lanes = std::make_index_sequence<IN::ElementCount>{};
+
+        hash = seed ^ ( x0 * IN( Primes::X ) + CellBlockPrimedOffsets<IN, D, 0, TABLE>( lanes ) );
+        hash ^= cell[1].v0 * IN( Primes::Y ) + CellBlockPrimedOffsets<IN, D, 1, TABLE>( lanes );
+        if constexpr( D == 3 )
+        {
+            hash ^= cell[2].v0 * IN( Primes::Z ) + CellBlockPrimedOffsets<IN, D, 2, TABLE>( lanes );
+        }
+        hash *= IN( HashMultiplier::A );
+
+        if constexpr( D == 2 )
+        {
+            offset[0] = FS::Convert<float>( hash & IN( 0x7ff ) ) - FN( 0x7ff / 2.0f );
+            offset[1] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - FN( 0x7ff / 2.0f );
+        }
+        else
+        {
+            offset[0] = FS::Convert<float>( hash & IN( 0x3ff ) ) - FN( 0x3ff / 2.0f );
+            offset[1] = FS::Convert<float>( ( hash >> 11 ) & IN( 0x3ff ) ) - FN( 0x3ff / 2.0f );
+            offset[2] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - FN( 0x3ff / 2.0f );
+        }
+
+        FN magSqr = offset[0] * offset[0];
+        for( int d = 1; d < D; d++ )
+        {
+            magSqr = FS::FMulAdd( offset[d], offset[d], magSqr );
+        }
+        return FS::InvSqrt( magSqr );
+    }
+
+    // Block tables of the feature points, see FloorCellsBlock()
+    template<int D, int TABLES, typename IN, typename FN>
+    struct CellBlockTables
+    {
+        IN hash[TABLES];
+        FN offset[TABLES][D];
+        FN invSqrt[TABLES];
+    };
+
+    // The 2^D cells around the position with all lanes in one cell block (see IsCellBlock()), in the 3^D loops' order (axis 0 slowest)
+    // cellOffset[d][i]: cell i's offset from the position on axis d (absolute position with CELL), as VisitFloorCell()'s base
+    template<int D, bool HASH, bool CELL, typename I32>
+    FS_FORCEINLINE static void FloorCellsBlock( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, const I32* cell, const float32v ( *cellOffset )[2],
+                                                int32v xOffset, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        using IN = decltype( seed.v0 );
+        using FN = decltype( jitter.v0 );
+        constexpr int kTables = ( kCellBlockWidth<D> << ( D - 1 ) ) / (int)IN::ElementCount;
+        static_assert( kTables == 1 || kTables == 2 );
+
+        // All lanes share lane 0's seed and cells on the axes above x
+        IN x0 = LatticeBlockBroadcast( cell[0] );
+        CellBlockTables<D, kTables, IN, FN> tables;
+        tables.invSqrt[0] = CellBlockFeaturePoints<D, 0>( seed.v0, x0, cell, tables.hash[0], tables.offset[0] );
+        if constexpr( kTables > 1 )
+        {
+            tables.invSqrt[1] = CellBlockFeaturePoints<D, 1>( seed.v0, x0, cell, tables.hash[1], tables.offset[1] );
+        }
+
+        // With HASH the closest cell's block index is kept instead (-1: none), its hash is looked up once at the end
+        int32v closestIndex( -1 );
+
+        if constexpr( kTables > 1 )
+        {
+            // Compile time cell indices pick the table register per cell
+            FloorCellsBlockVisit<D, HASH, CELL>( std::make_index_sequence<1 << D>{}, distFunc, tables, jitter, pos, cellOffset, xOffset, distance, &closestIndex, closestCell );
+        }
+        else
+        {
+            // A loop measured faster with one table register: fewer registers live
+            for( int c = 0; c < ( 1 << D ); c++ )
+            {
+                FloorCellsBlockVisitCell<D, HASH, CELL, 0>( c, distFunc, tables, jitter, pos, cellOffset, xOffset, distance, &closestIndex, closestCell );
+            }
+        }
+
+        if constexpr( HASH )
+        {
+            // Permutes only use the index bits within a table register
+            int32v hash = FS::Cast<int32_t>( LatticeBlockPermute<float32v>( FS::Cast<float>( tables.hash[0] ), closestIndex ) );
+            if constexpr( kTables > 1 )
+            {
+                int32v hash1 = FS::Cast<int32_t>( LatticeBlockPermute<float32v>( FS::Cast<float>( tables.hash[1] ), closestIndex ) );
+                hash = FS::Select( ( closestIndex & int32v( (int)IN::ElementCount ) ) != int32v( 0 ), hash1, hash );
+            }
+            *closestHash = FS::Select( closestIndex != int32v( -1 ), hash, *closestHash );
+        }
+    }
+
+    // Cell c's index in the cell block, see FloorCellsBlock()
+    template<int D>
+    static constexpr int CellBlockIndex( int c )
+    {
+        return ( ( c >> ( D - 1 ) ) & 1 ) + kCellBlockWidth<D> * ( ( c >> ( D - 2 ) ) & 1 ) + ( D == 3 ? 2 * kCellBlockWidth<D> * ( c & 1 ) : 0 );
+    }
+
+    template<int D, bool HASH, bool CELL, size_t... C, typename TABLES>
+    FS_FORCEINLINE static void FloorCellsBlockVisit( std::index_sequence<C...>, DistanceFunction distFunc, const TABLES& tables, float32v jitter, const float32v* pos, const float32v ( *cellOffset )[2],
+                                                     int32v xOffset, float32v& distance, int32v* closestIndex, float32v* closestCell )
+    {
+        constexpr int N = (int)decltype( xOffset.v0 )::ElementCount;
+        ( FloorCellsBlockVisitCell<D, HASH, CELL, CellBlockIndex<D>( (int)C ) / N>( (int)C, distFunc, tables, jitter, pos, cellOffset, xOffset, distance, closestIndex, closestCell ), ... );
+    }
+
+    // Cell c of the block: the table register holding it is TABLE, the permutes only use the index bits within it
+    template<int D, bool HASH, bool CELL, int TABLE, typename TABLES>
+    FS_FORCEINLINE static void FloorCellsBlockVisitCell( int c, DistanceFunction distFunc, const TABLES& tables, float32v jitter, const float32v* pos, const float32v ( *cellOffset )[2],
+                                                         int32v xOffset, float32v& distance, int32v* closestIndex, float32v* closestCell )
+    {
+        int32v index = xOffset + int32v( CellBlockIndex<D>( c ) );
+        float32v invMag = jitter * LatticeBlockPermute<float32v>( tables.invSqrt[TABLE], index );
+        float32v point[D];
+        for( int d = 0; d < D; d++ )
+        {
+            point[d] = FS::FMulAdd( LatticeBlockPermute<float32v>( tables.offset[TABLE][d], index ), invMag, cellOffset[d][( c >> ( D - 1 - d ) ) & 1] );
+        }
+        KeepCloser<D, HASH, CELL>( distFunc, index, point, pos, distance, closestIndex, closestCell );
     }
 };
 
@@ -908,12 +1468,99 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             return ( this->*genFloor )( seed, x, y );
         }
 
+        if( mDistanceFunction == DistanceFunction::Minkowski )
+        {
+            auto select = []( auto, auto, auto count, auto ) -> GenTPtr<float32v, float32v>
+            {
+                return &DispatchClass::GenMinkowskiT<decltype( count )::value>;
+            };
+            auto genMinkowski = this->template SelectCount<DistanceFunction::Minkowski, kMaxDistanceCount>( mValueIndex + 1, select );
+
+            return ( this->*genMinkowski )( seed, x, y );
+        }
+
         auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
         } );
 
         return ( this->*genT )( seed, x, y );
+    }
+
+    // 2D Minkowski: Pow makes the cells expensive enough for pruning to pay off. Separate from the generic variant,
+    // whose plain 3x3 loop measured slower with the pruned loop in the same function (bigger function, worse codegen)
+    template<int COUNT>
+    FN_ALIGN_STACK float32v FS_VECTORCALL GenMinkowskiT( int32v seed, float32v x, float32v y ) const
+    {
+        constexpr DistanceFunction distFunc = DistanceFunction::Minkowski;
+
+        int32v sourceSeed = seed;
+        seed += int32v( this->mSeedOffset );
+        float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
+        float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
+        float32v sizeJitter;
+        bool sizeJitterActive = mSizeJitter.simdGeneratorPtr || mSizeJitter.constant != 0.0f;
+        if( sizeJitterActive )
+        {
+            sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
+        }
+
+        std::array<int32v, COUNT> valueHash;
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
+
+        this->ScalePositions( this, x, y );
+
+        constexpr int valueIndex = COUNT - 1;
+        float32v pos[] = { x, y };
+
+        std::array<int32v, 3> cellPrimed[2];
+        std::array<float32v, 3> cellOffset[2];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
+
+        typename CellularBase::template CellBounds<2> bounds;
+        typename CellularBase::template CellIterator<2> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
+
+        while( const int8_t* o = cells.Next( distance[valueIndex] ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
+            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
+
+            int32v newCellValueHash = hash;
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            for( int i = 0; i < COUNT; i++ )
+            {
+                mask32v closer = newDistance < distance[i];
+
+                int32v localCellValueHash = valueHash[i];
+                valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
+
+                if( i >= valueIndex )
+                {
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
+                    break;
+                }
+
+                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                float32v localDistance = distance[i];
+                distance[i] = FS::Min( newDistance, distance[i] );
+                newDistance = FS::Max( localDistance, newDistance );
+                newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
+            }
+        }
+
+        return this->ScaleOutput( this, FS::Convert<float>( valueHash[valueIndex] ), -kValueBounds, kValueBounds );
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
@@ -934,8 +1581,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
+        // std::array::fill here: with InfiniteDistances() MSVC 14.51 ran CellularValue_idx2 2D 1.05 (SSE2) to 1.13 (AVX2) times slower
         std::array<float32v, COUNT> distance;
-        
         distance.fill( float32v( kInfinity ) );
 
         this->ScalePositions( this, x, y );
@@ -947,6 +1594,50 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 int32v hash;
                 this->template Closest2D<true, false>( distFunc, seed, jitter, x, y, &hash, nullptr );
                 return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+            }
+        }
+
+        // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the other cells of the 3x3 search are only visited if a lane might be
+        // missing it. Hybrid only with coherent lanes: its looser bound needs them too often for incoherent lanes
+        // MaxAxis rarely needs them: below AVX512 its full 3x3 loop fallback measured faster than the separate far cells
+        // (here also Hybrid and size jitter on AVX2: the far cells measured 2-6% slower there)
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        {
+            if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
+            {
+                float32v floorPos[] = { x, y };
+                int32v hash;
+                float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
+                if constexpr( ( DIST_FUNC == DistanceFunction::Hybrid && float32v::ElementCount != 16 ) || float32v::ElementCount >= 32 )
+                {
+                    this->template FarCells2D<true, false>( distFunc, seed, jitter, floorPos, closest, &hash, nullptr );
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
+            }
+        }
+
+        // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        {
+            float32v minFactor = this->template SizeJitterMinFactor<2>( sizeJitter );
+            if( this->template Closest2DActive<false>( x, y, jitter ) && this->AllLanes( minFactor > float32v( 0 ) ) )
+            {
+                float32v floorPos[] = { x, y };
+                int32v hash;
+                float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr, &sizeJitter );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos, &minFactor ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
+                if constexpr( float32v::ElementCount != 16 )
+                {
+                    this->template FarCells2D<true, false>( distFunc, seed, jitter, floorPos, closest, &hash, nullptr, &sizeJitter );
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
             }
         }
 
@@ -1013,6 +1704,64 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
     }
 
+    // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
+    template<size_t COUNT>
+    FS_FORCEINLINE void Search3D( std::array<int32v, COUNT>& valueHash, std::array<float32v, COUNT>& distance, int valueIndex, DistanceFunction distFunc, float32v minkowskiP,
+                                  float32v jitter, bool sizeJitterActive, const float32v& sizeJitter, int32v seed, float32v x, float32v y, float32v z, bool nearBlockDone ) const
+    {
+        float32v pos[] = { x, y, z };
+
+        std::array<int32v, 3> cellPrimed[3];
+        std::array<float32v, 3> cellOffset[3];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
+        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
+
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
+
+        while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
+
+            int32v newCellValueHash = hash;
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            for( int i = 0; i < (int)COUNT; i++ )
+            {
+                mask32v closer = newDistance < distance[i];
+
+                int32v localCellValueHash = valueHash[i];
+                valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
+
+                if( i >= valueIndex )
+                {
+                    distance[i] = FS::Select( closer, newDistance, distance[i] );
+                    break;
+                }
+
+                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
+                float32v localDistance = distance[i];
+                distance[i] = FS::Min( newDistance, distance[i] );
+                newDistance = FS::Max( localDistance, newDistance );
+                newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
+            }
+        }
+    }
+
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
     float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
     {
@@ -1042,6 +1791,17 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             return ( this->*genFloor )( seed, x, y, z );
         }
 
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC AVX512 with kMsvcSplitCopies miscompiled the specialised variants tracking several points (wrong GenSingle output): generic variant
+        if constexpr( CellularBase::kMsvcSplitCopies )
+        {
+            if( mValueIndex > 0 )
+            {
+                GenTPtr<float32v, float32v, float32v> genGeneric = &DispatchClass::GenT<false, DistanceFunction::EuclideanSquared, kMaxDistanceCount, false>;
+                return ( this->*genGeneric )( seed, x, y, z );
+            }
+        }
+#endif
         auto genT = this->template SelectGenT<kMaxDistanceCount>( mValueIndex + 1, []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -1068,14 +1828,14 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
-        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        bool nearBlockDone = false;
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ||
+                                                                DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
@@ -1086,63 +1846,88 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 {
                     return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
                 }
-                // The 3^D search starts from the closest point so far, its pruning then skips most cells
+                // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
                 distance[0] = closest;
                 valueHash[0] = hash;
+                nearBlockDone = true;
+            }
+        }
+
+        // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only, not on SSE2
+        if constexpr( SPECIALISED && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
+        {
+            float32v floorPos[] = { x, y, z };
+            float32v minFactor = this->template SizeJitterMinFactor<3>( sizeJitter );
+            if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) && this->AllLanes( minFactor > float32v( 0 ) ) )
+            {
+                int32v hash;
+                float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr, &sizeJitter );
+                if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos, &minFactor ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                }
+                distance[0] = closest;
+                valueHash[0] = hash;
+                nearBlockDone = true;
+            }
+        }
+
+        // Several closest points: the 2^D cells first too, the 3^D search then starts from their sorted distances. Coherent lanes only
+        // More than 2 points are rarely all in the 2^D cells: then only a small gain, none on SSE2
+        constexpr bool kFloorFirstCount = SPECIALISED && COUNT >= 2 && !SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared &&
+                                          ( COUNT == 2 || ( SIMD & FastSIMD::FeatureFlag::SSE41 ) );
+        if constexpr( kFloorFirstCount )
+        {
+            float32v floorPos[] = { x, y, z };
+            if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
+            {
+                struct Insert
+                {
+                    std::array<int32v, COUNT>& valueHash;
+                    std::array<float32v, COUNT>& distance;
+
+                    // Same as the 3^D search's insertion
+                    FS_FORCEINLINE void operator()( float32v newDistance, int32v newCellValueHash ) const
+                    {
+                        for( int i = 0; i < COUNT; i++ )
+                        {
+                            mask32v closer = newDistance < distance[i];
+
+                            int32v localCellValueHash = valueHash[i];
+                            valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
+
+                            if( i == COUNT - 1 )
+                            {
+                                distance[i] = FS::Select( closer, newDistance, distance[i] );
+                                break;
+                            }
+
+                            float32v localDistance = distance[i];
+                            distance[i] = FS::Min( newDistance, distance[i] );
+                            newDistance = FS::Max( localDistance, newDistance );
+                            newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
+                        }
+                    }
+                } insert{ valueHash, distance };
+
+                this->template FloorCellsVisit<3>( distFunc, seed, jitter, floorPos, insert );
+                if( this->template FloorCellsComplete<3>( distFunc, distance[COUNT - 1], jitter, floorPos ) )
+                {
+                    return this->ScaleOutput( this, FS::Convert<float>( valueHash[COUNT - 1] ), -kValueBounds, kValueBounds );
+                }
+                nearBlockDone = true;
             }
         }
 
         int valueIndex = SPECIALISED ? COUNT - 1 : mValueIndex;
-        float32v pos[] = { x, y, z };
-
-        std::array<int32v, 3> cellPrimed[3];
-        std::array<float32v, 3> cellOffset[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, x, cellPrimed[0], cellOffset[0], seed );
-        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, y, cellPrimed[1], cellOffset[1] );
-        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, z, cellPrimed[2], cellOffset[2] );
-
-        typename CellularBase::template CellBounds<3> bounds;
-        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, valueIndex, jitter, sizeJitterActive, sizeJitter );
-
-        while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
+        // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
+        if( SPECIALISED && nearBlockDone )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
-
-            int32v newCellValueHash = hash;
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
-            if( sizeJitterActive )
-            {
-                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-            }
-
-            for( int i = 0; i < COUNT; i++ )
-            {
-                mask32v closer = newDistance < distance[i];
-
-                int32v localCellValueHash = valueHash[i];
-                valueHash[i] = FS::Select( closer, newCellValueHash, valueHash[i] );
-
-                if( i >= valueIndex )
-                {
-                    distance[i] = FS::Select( closer, newDistance, distance[i] );
-                    break;
-                }
-
-                // Same as selecting on closer (incl. ties), but SSE2 doesn't match these selects to min/max itself
-                float32v localDistance = distance[i];
-                distance[i] = FS::Min( newDistance, distance[i] );
-                newDistance = FS::Max( localDistance, newDistance );
-                newCellValueHash = FS::Select( closer, localCellValueHash, newCellValueHash );
-            }
+            Search3D( valueHash, distance, valueIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
+        }
+        else
+        {
+            Search3D( valueHash, distance, valueIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
         return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
@@ -1176,9 +1961,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z, w );
 
@@ -1298,8 +2081,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y );
 
         float32v pos[] = { x, y };
-        std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, kMaxDistanceCount> distance = this->template InfiniteDistances<kMaxDistanceCount>();
         distance[0] = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
 
         return GetReturn( distance, 1 + this->kJitter2D );
@@ -1342,8 +2124,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y );
 
@@ -1352,6 +2133,48 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             if( this->Closest2DActive( x, y, jitter ) )
             {
                 distance[0] = this->template Closest2D<false, false>( distFunc, seed, jitter, x, y, nullptr, nullptr );
+                return GetReturn( distance, 1 + this->kJitter2D );
+            }
+        }
+
+        // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the other cells of the 3x3 search are only visited if a lane might be
+        // missing it. Hybrid only with coherent lanes: its looser bound needs them too often for incoherent lanes
+        // MaxAxis rarely needs them: below AVX512 its full 3x3 loop fallback measured faster than the separate far cells
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        {
+            if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
+            {
+                float32v floorPos[] = { x, y };
+                float32v closest = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, floorPos, nullptr, nullptr );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
+                {
+                    distance[0] = closest;
+                    return GetReturn( distance, 1 + this->kJitter2D );
+                }
+                if constexpr( DIST_FUNC == DistanceFunction::Hybrid || float32v::ElementCount >= 32 )
+                {
+                    this->template FarCells2D<false, false>( distFunc, seed, jitter, floorPos, closest, nullptr, nullptr );
+                    distance[0] = closest;
+                    return GetReturn( distance, 1 + this->kJitter2D );
+                }
+            }
+        }
+
+        // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        {
+            float32v minFactor = this->template SizeJitterMinFactor<2>( sizeJitter );
+            if( this->template Closest2DActive<false>( x, y, jitter ) && this->AllLanes( minFactor > float32v( 0 ) ) )
+            {
+                float32v floorPos[] = { x, y };
+                float32v closest = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, floorPos, nullptr, nullptr, &sizeJitter );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos, &minFactor ) )
+                {
+                    distance[0] = closest;
+                    return GetReturn( distance, 1 + this->kJitter2D );
+                }
+                this->template FarCells2D<false, false>( distFunc, seed, jitter, floorPos, closest, nullptr, nullptr, &sizeJitter );
+                distance[0] = closest;
                 return GetReturn( distance, 1 + this->kJitter2D );
             }
         }
@@ -1414,6 +2237,57 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         return GetReturn( distance, 1 + this->kJitter2D );
     }
 
+    // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
+    template<size_t COUNT>
+    FS_FORCEINLINE void Search3D( std::array<float32v, COUNT>& distance, int pruneIndex, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
+                                  const float32v& sizeJitter, int32v seed, float32v x, float32v y, float32v z, bool nearBlockDone ) const
+    {
+        float32v pos[] = { x, y, z };
+
+        std::array<int32v, 3> cellPrimed[3];
+        std::array<float32v, 3> cellOffset[3];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellOffset[1] );
+        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellOffset[2] );
+        for( int d = 0; d < 3; d++ )
+        {
+            for( int i = 0; i < 3; i++ )
+            {
+                cellOffset[d][i] -= pos[d];
+            }
+        }
+
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
+
+        while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
+
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            for( int i = (int)COUNT - 1; i > 0; i-- )
+            {
+                distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
+            }
+
+            distance[0] = FS::Min( distance[0], newDistance );
+        }
+    }
+
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
     float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y, float32v z ) const
     {
@@ -1425,8 +2299,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y, z );
 
         float32v pos[] = { x, y, z };
-        std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, kMaxDistanceCount> distance = this->template InfiniteDistances<kMaxDistanceCount>();
         distance[0] = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
 
         return GetReturn( distance, 1 + this->kJitter3D );
@@ -1444,6 +2317,17 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             return ( this->*genFloor )( seed, x, y, z );
         }
 
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC AVX512 with kMsvcSplitCopies miscompiled the specialised variants tracking several distances (wrong GenSingle output): generic variant
+        if constexpr( CellularBase::kMsvcSplitCopies )
+        {
+            if( GetDistanceCount() > 1 )
+            {
+                GenTPtr<float32v, float32v, float32v> genGeneric = &DispatchClass::GenT<false, DistanceFunction::EuclideanSquared, kMaxDistanceCount, false>;
+                return ( this->*genGeneric )( seed, x, y, z );
+            }
+        }
+#endif
         auto genT = this->template SelectGenT<kMaxDistanceCount>( GetDistanceCount(), []( auto specialised, auto distFunc, auto count, auto sizeJitter ) -> GenTPtr<float32v, float32v, float32v>
         {
             return &DispatchClass::GenT<decltype( specialised )::value, decltype( distFunc )::value, decltype( count )::value, decltype( sizeJitter )::value>;
@@ -1469,13 +2353,14 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
-        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ) )
+        bool nearBlockDone = false;
+        if constexpr( SPECIALISED && COUNT == 1 && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::EuclideanSquared || DIST_FUNC == DistanceFunction::Manhattan ||
+                                                                DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->FloorFirst3DActive( distFunc, jitter, floorPos ) )
@@ -1486,54 +2371,69 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
                 {
                     return GetReturn( distance, 1 + this->kJitter3D );
                 }
-                // The 3^D search starts from the closest point so far, its pruning then skips most cells
+                // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
+                nearBlockDone = true;
             }
         }
 
-        float32v pos[] = { x, y, z };
-
-        std::array<int32v, 3> cellPrimed[3];
-        std::array<float32v, 3> cellOffset[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellOffset[0], seed );
-        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellOffset[1] );
-        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellOffset[2] );
-        for( int d = 0; d < 3; d++ )
+        // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only, not on SSE2
+        if constexpr( SPECIALISED && COUNT == 1 && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
         {
-            for( int i = 0; i < 3; i++ )
+            float32v floorPos[] = { x, y, z };
+            float32v minFactor = this->template SizeJitterMinFactor<3>( sizeJitter );
+            if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) && this->AllLanes( minFactor > float32v( 0 ) ) )
             {
-                cellOffset[d][i] -= pos[d];
+                float32v closest = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, floorPos, nullptr, nullptr, &sizeJitter );
+                distance[0] = closest;
+                if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos, &minFactor ) )
+                {
+                    return GetReturn( distance, 1 + this->kJitter3D );
+                }
+                nearBlockDone = true;
+            }
+        }
+
+        // Several closest distances: the 2^D cells first too, the 3^D search then starts from their sorted distances. Coherent lanes only
+        // More than 2 distances are rarely all in the 2^D cells: then only a small gain, none on SSE2
+        constexpr bool kFloorFirstCount = SPECIALISED && COUNT >= 2 && !SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared &&
+                                          ( COUNT == 2 || ( SIMD & FastSIMD::FeatureFlag::SSE41 ) );
+        if constexpr( kFloorFirstCount )
+        {
+            float32v floorPos[] = { x, y, z };
+            if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
+            {
+                struct Insert
+                {
+                    std::array<float32v, COUNT>& distance;
+
+                    FS_FORCEINLINE void operator()( float32v newDistance, int32v ) const
+                    {
+                        for( int i = COUNT - 1; i > 0; i-- )
+                        {
+                            distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
+                        }
+                        distance[0] = FS::Min( distance[0], newDistance );
+                    }
+                } insert{ distance };
+
+                this->template FloorCellsVisit<3>( distFunc, seed, jitter, floorPos, insert );
+                if( this->template FloorCellsComplete<3>( distFunc, distance[COUNT - 1], jitter, floorPos ) )
+                {
+                    return GetReturn( distance, 1 + this->kJitter3D );
+                }
+                nearBlockDone = true;
             }
         }
 
         int pruneIndex = SPECIALISED ? COUNT - 1 : GetDistanceCount() - 1;
-        typename CellularBase::template CellBounds<3> bounds;
-        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellOffset, true, pos, distFunc, minkowskiP, pruneIndex, jitter, sizeJitterActive, sizeJitter );
-
-        while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
+        // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
+        if( SPECIALISED && nearBlockDone )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-            xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, invMag, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
-
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
-            if( sizeJitterActive )
-            {
-                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
-            }
-
-            for( int i = COUNT - 1; i > 0; i-- )
-            {
-                distance[i] = FS::Max( FS::Min( distance[i], newDistance ), distance[i - 1] );
-            }
-
-            distance[0] = FS::Min( distance[0], newDistance );
+            Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
+        }
+        else
+        {
+            Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
         return GetReturn( distance, 1 + this->kJitter3D );
@@ -1566,8 +2466,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z, w );
 
@@ -1783,6 +2682,50 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             }
         }
 
+        // Hybrid/MaxAxis: the 2x2 cells usually hold the closest point, the other cells of the 3x3 search are only visited if a lane might be
+        // missing it. Hybrid only with coherent lanes: its looser bound needs them too often for incoherent lanes
+        // MaxAxis rarely needs them: below AVX512 its full 3x3 loop fallback measured faster than the separate far cells
+        // (here also Hybrid and size jitter on AVX2: the far cells measured 2-6% slower there)
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Hybrid || DIST_FUNC == DistanceFunction::MaxAxis ) )
+        {
+            if( this->template Closest2DActive<DIST_FUNC == DistanceFunction::MaxAxis>( x, y, jitter ) )
+            {
+                float32v floorPos[] = { x, y };
+                float32v cell[2];
+                float32v closest = this->template FloorCellsClosest<2, false, true>( distFunc, seed, jitter, floorPos, nullptr, cell );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
+                {
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ) );
+                }
+                if constexpr( ( DIST_FUNC == DistanceFunction::Hybrid && float32v::ElementCount != 16 ) || float32v::ElementCount >= 32 )
+                {
+                    this->template FarCells2D<false, true>( distFunc, seed, jitter, floorPos, closest, nullptr, cell );
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ) );
+                }
+            }
+        }
+
+        // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
+        if constexpr( SPECIALISED && CellularBase::kFloorFirst2D && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared )
+        {
+            float32v minFactor = this->template SizeJitterMinFactor<2>( sizeJitter );
+            if( this->template Closest2DActive<false>( x, y, jitter ) && this->AllLanes( minFactor > float32v( 0 ) ) )
+            {
+                float32v floorPos[] = { x, y };
+                float32v cell[2];
+                float32v closest = this->template FloorCellsClosest<2, false, true>( distFunc, seed, jitter, floorPos, nullptr, cell, &sizeJitter );
+                if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos, &minFactor ) )
+                {
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ) );
+                }
+                if constexpr( float32v::ElementCount != 16 )
+                {
+                    this->template FarCells2D<false, true>( distFunc, seed, jitter, floorPos, closest, nullptr, cell, &sizeJitter );
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ) );
+                }
+            }
+        }
+
         // 2D cells are cheap: only Minkowski's are expensive enough for pruning to pay off in 2D,
         // other distance functions measured slower with it on incoherent positions
         if( SPECIALISED || distFunc != DistanceFunction::Minkowski )
@@ -1830,6 +2773,52 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         }
 
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
+    }
+
+    // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
+    FS_FORCEINLINE void Search3D( float32v& distance, float32v& cellX, float32v& cellY, float32v& cellZ, DistanceFunction distFunc, float32v minkowskiP, float32v jitter,
+                                  bool sizeJitterActive, const float32v& sizeJitter, int32v seed, float32v x, float32v y, float32v z, bool nearBlockDone ) const
+    {
+        float32v pos[] = { x, y, z };
+
+        std::array<int32v, 3> cellPrimed[3];
+        std::array<float32v, 3> cellPos[3];
+        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0], seed );
+        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
+        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
+
+        typename CellularBase::template CellBounds<3> bounds;
+        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter, nearBlockDone );
+
+        while( const int8_t* o = cells.Next( distance ) )
+        {
+            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
+            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+            float32v localCellX = FS::FMulAdd( xd, invMag, cellPos[0][o[0]] );
+            float32v localCellY = FS::FMulAdd( yd, invMag, cellPos[1][o[1]] );
+            float32v localCellZ = FS::FMulAdd( zd, invMag, cellPos[2][o[2]] );
+            xd = localCellX - x;
+            yd = localCellY - y;
+            zd = localCellZ - z;
+
+            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( sizeJitterActive )
+            {
+                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
+                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+            }
+
+            mask32v closer = newDistance < distance;
+            distance = FS::Min( newDistance, distance );
+
+            cellX = FS::Select( closer, localCellX, cellX );
+            cellY = FS::Select( closer, localCellY, cellY );
+            cellZ = FS::Select( closer, localCellZ, cellZ );
+        }
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
@@ -1893,8 +2882,9 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         this->ScalePositions( this, x, y, z );
 
         // The 2^D cells around the position usually hold the closest point, the 3^D search below only runs if a lane might be missing it
-        // Manhattan only: with EuclideanSquared the pruned 3^D search alone measured faster for CellularLookup
-        if constexpr( SPECIALISED && !SIZE_JITTER && DIST_FUNC == DistanceFunction::Manhattan )
+        // Except Manhattan not on SSE2: its floor and blend emulation made it slower than the pruned 3^D search alone
+        bool nearBlockDone = false;
+        if constexpr( SPECIALISED && !SIZE_JITTER && ( DIST_FUNC == DistanceFunction::Manhattan || ( SIMD & FastSIMD::FeatureFlag::SSE41 ) ) )
         {
             float32v floorPos[] = { x, y, z };
             if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) )
@@ -1905,48 +2895,44 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                 {
                     return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ), cell[2] * float32v( mScale ) );
                 }
+                // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
+                distance = closest;
+                cellX = cell[0];
+                cellY = cell[1];
+                cellZ = cell[2];
+                nearBlockDone = true;
             }
         }
 
-        float32v pos[] = { x, y, z };
-
-        std::array<int32v, 3> cellPrimed[3];
-        std::array<float32v, 3> cellPos[3];
-        this->CellAxis( FS::Convert<int32_t>( x ) + int32v( -1 ), Primes::X, float32v( 0 ), cellPrimed[0], cellPos[0], seed );
-        this->CellAxis( FS::Convert<int32_t>( y ) + int32v( -1 ), Primes::Y, float32v( 0 ), cellPrimed[1], cellPos[1] );
-        this->CellAxis( FS::Convert<int32_t>( z ) + int32v( -1 ), Primes::Z, float32v( 0 ), cellPrimed[2], cellPos[2] );
-
-        typename CellularBase::template CellBounds<3> bounds;
-        typename CellularBase::template CellIterator<3> cells( bounds, cellPrimed, cellPos, false, pos, distFunc, minkowskiP, 0, jitter, sizeJitterActive, sizeJitter );
-
-        while( const int8_t* o = cells.Next( distance ) )
+        // Size jitter: the same with distances scaled by at least the smallest size jitter factor, coherent lanes only
+        if constexpr( SPECIALISED && SIZE_JITTER && DIST_FUNC == DistanceFunction::EuclideanSquared && ( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
-
-            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
-            float32v localCellX = FS::FMulAdd( xd, invMag, cellPos[0][o[0]] );
-            float32v localCellY = FS::FMulAdd( yd, invMag, cellPos[1][o[1]] );
-            float32v localCellZ = FS::FMulAdd( zd, invMag, cellPos[2][o[2]] );
-            xd = localCellX - x;
-            yd = localCellY - y;
-            zd = localCellZ - z;
-
-            float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
-            if( sizeJitterActive )
+            float32v floorPos[] = { x, y, z };
+            float32v minFactor = this->template SizeJitterMinFactor<3>( sizeJitter );
+            if( this->template FloorFirst3DActive<false>( distFunc, jitter, floorPos ) && this->AllLanes( minFactor > float32v( 0 ) ) )
             {
-                float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
-                newDistance *= FS::FNMulAdd( sizeJitter, distanceJitter, float32v( 1 ) );
+                float32v cell[3];
+                float32v closest = this->template FloorCellsClosest<3, false, true>( distFunc, seed, jitter, floorPos, nullptr, cell, &sizeJitter );
+                if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos, &minFactor ) )
+                {
+                    return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cell[0] * float32v( mScale ), cell[1] * float32v( mScale ), cell[2] * float32v( mScale ) );
+                }
+                distance = closest;
+                cellX = cell[0];
+                cellY = cell[1];
+                cellZ = cell[2];
+                nearBlockDone = true;
             }
+        }
 
-            mask32v closer = newDistance < distance;
-            distance = FS::Min( newDistance, distance );
-
-            cellX = FS::Select( closer, localCellX, cellX );
-            cellY = FS::Select( closer, localCellY, cellY );
-            cellZ = FS::Select( closer, localCellZ, cellZ );
+        // Separate search loops with and without the 2^D cells done (see CellIterator), so neither pays for the other's tests
+        if( SPECIALISED && nearBlockDone )
+        {
+            Search3D( distance, cellX, cellY, cellZ, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, true );
+        }
+        else
+        {
+            Search3D( distance, cellX, cellY, cellZ, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ) );
