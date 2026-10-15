@@ -56,6 +56,12 @@ target_include_directories(FastNoise PUBLIC
 )
    
 target_compile_definitions(FastNoise PRIVATE FASTNOISE_EXPORT)
+
+# The code generation unit instantiates every node once more against the symbolic
+# registers. Its speed is irrelevant (tracing a tree takes microseconds), its size is not:
+# optimising for size makes it a third of the -O3 code and halves its compile time.
+set_source_files_properties("FastNoise/Codegen/Codegen.cpp" PROPERTIES
+    COMPILE_OPTIONS "$<IF:$<CXX_COMPILER_ID:MSVC>,/Os,-Os>")
 target_compile_definitions(FastNoise PUBLIC FASTNOISE2_VERSION="${FastNoise2_VERSION}")
 
 set_target_properties(FastNoise PROPERTIES

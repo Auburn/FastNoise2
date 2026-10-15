@@ -1,1 +1,2 @@
 add_subdirectory(WikiGenerator)
+add_subdirectory(NoiseCodegen)
