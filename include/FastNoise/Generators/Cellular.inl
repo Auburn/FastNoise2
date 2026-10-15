@@ -1244,12 +1244,8 @@ protected:
     // Cell blocks (AVX2/AVX512): on uniform grids the lanes of a vector usually share a cell row, so the 2^D cells around each lane are
     // in a W x 2 ( x 2 ) block of cells. Its feature points are decoded once per vector and each lane permutes its cells out of the block
     // tables (block cell dx + W * dy + 2 * W * dz, split over native registers of N lanes): the same instructions per lane as VisitFloorCell()
-    // Not MSVC AVX512: measured 1.1-1.45x slower there (64 byte register copies through the stack)
-#if defined( _MSC_VER ) && !defined( __clang__ )
-    static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
-#else
+    // MSVC AVX512 needs FastSIMD's native copy of 512 bit registers (without it MSVC copies them through the stack in halves: 1.1-1.45x slower)
     static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
-#endif
 
     // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
     template<int D>
