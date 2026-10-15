@@ -851,9 +851,10 @@ protected:
 
         if constexpr( kCellBlock )
         {
-            // Not with size jitter: the block path doesn't scale the distances
+            // Not with size jitter: the block path doesn't scale the distances. Not for 2D Hybrid on AVX512: measured 4% slower there
+            constexpr bool kAvx512 = SIMD & FastSIMD::FeatureFlag::AVX512_F;
             int32v xOffset;
-            if( !sizeJitter && IsCellBlock<D>( xOffset, seed, cell ) )
+            if( !sizeJitter && !( D == 2 && kAvx512 && distFunc == DistanceFunction::Hybrid ) && IsCellBlock<D>( xOffset, seed, cell ) )
             {
                 FloorCellsBlock<D, HASH, CELL>( distFunc, seed, jitter, pos, cell, cellOffset, xOffset, distance, closestHash, closestCell );
                 return distance;
