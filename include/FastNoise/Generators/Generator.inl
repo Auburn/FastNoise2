@@ -31,30 +31,43 @@ using mask32v = typename float32v::MaskType;
 #endif
 
 // How the int32v/float32v arguments of the static Gen functions are passed, chosen per compiler so the native halves of a
-// float32v arrive in vector registers:
-//   whole: clang (__regcall), MSVC (__vectorcall)
-//   halves: GCC on x86, SysV passes float32v (two native registers) through memory: the native halves are separate
+// float32v arrive in vector registers (FASTNOISE_GEN_ARGS):
+//   0 whole: clang (__regcall), MSVC below AVX512 (__vectorcall, float32v is a homogeneous vector aggregate)
+//   1 halves: GCC on x86, SysV passes float32v (two native registers) through memory: the native halves are separate
 //     arguments. The 4D seed stays one (memory) argument so x, y, z and w fill the 8 vector argument registers
+//   2 native aggregates: MSVC AVX512, FastSIMD's 512 bit registers have a copy constructor on MSVC, so float32v isn't a
+//     homogeneous vector aggregate and MSVC passes it by reference to a copy: pass { native v0, v1 } like GenResult
 // FASTNOISE_GEN_PARAM( T, name ) declares an argument, FASTNOISE_GEN_VAL( T, name ) is its value in the function,
 // FASTNOISE_GEN_*_SEED4 are the same for the 4D seed. FASTNOISE_GEN_CALL( fn, gen, seed, pos... ) calls a static Gen
 // function with int32v/float32v values (directly with whole arguments, so the call compiles as it did without this)
 #if defined( __GNUC__ ) && !defined( __clang__ ) && FASTSIMD_CURRENT_ARCH_IS( X86 )
-#define FASTNOISE_GEN_SPLIT_ARGS 1
+#define FASTNOISE_GEN_ARGS 1
 #define FASTNOISE_GEN_SEED4_WHOLE 1
+#elif defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX512F__ )
+#define FASTNOISE_GEN_ARGS 2
+#define FASTNOISE_GEN_SEED4_WHOLE 0
 #else
-#define FASTNOISE_GEN_SPLIT_ARGS 0
+#define FASTNOISE_GEN_ARGS 0
 #define FASTNOISE_GEN_SEED4_WHOLE 0
 #endif
 
-#if FASTNOISE_GEN_SPLIT_ARGS
+#if FASTNOISE_GEN_ARGS == 1
 #define FASTNOISE_GEN_PARAM( T, name ) typename T::DoubledType name##0, typename T::DoubledType name##1
 #define FASTNOISE_GEN_ARG( name ) name.v0, name.v1
 #define FASTNOISE_GEN_VAL( T, name ) T( name##0, name##1 )
-#define FASTNOISE_GEN_CALL( fn, gen, seed, ... ) DispatchClass<Generator, SIMD>::CallGenFn( fn, gen, seed, __VA_ARGS__ )
+#elif FASTNOISE_GEN_ARGS == 2
+#define FASTNOISE_GEN_PARAM( T, name ) typename DispatchClass<Generator, SIMD>::template GenArg<T> name
+#define FASTNOISE_GEN_ARG( name ) DispatchClass<Generator, SIMD>::ToGenArg( name )
+#define FASTNOISE_GEN_VAL( T, name ) DispatchClass<Generator, SIMD>::template FromGenArg<T>( name )
 #else
 #define FASTNOISE_GEN_PARAM( T, name ) T name
 #define FASTNOISE_GEN_ARG( name ) name
 #define FASTNOISE_GEN_VAL( T, name ) name
+#endif
+
+#if FASTNOISE_GEN_ARGS
+#define FASTNOISE_GEN_CALL( fn, gen, seed, ... ) DispatchClass<Generator, SIMD>::CallGenFn( fn, gen, seed, __VA_ARGS__ )
+#else
 #define FASTNOISE_GEN_CALL( fn, gen, seed, ... ) fn( gen, seed, __VA_ARGS__ )
 #endif
 
@@ -103,11 +116,31 @@ public:
     }
 #endif
 
+#if FASTNOISE_GEN_ARGS == 2
+    template<typename T>
+    struct GenArg
+    {
+        typename T::DoubledType::NativeType v0, v1;
+    };
+
+    template<typename T>
+    static FS_FORCEINLINE GenArg<T> ToGenArg( const T& v )
+    {
+        return { v.v0.GetNative(), v.v1.GetNative() };
+    }
+
+    template<typename T>
+    static FS_FORCEINLINE T FromGenArg( const GenArg<T>& v )
+    {
+        return T( v.v0, v.v1 );
+    }
+#endif
+
     using GenFn2D = GenResult( FS_VECTORCALL* )( const DispatchClass*, FASTNOISE_GEN_PARAM( int32v, seed ), FASTNOISE_GEN_PARAM( float32v, x ), FASTNOISE_GEN_PARAM( float32v, y ) );
     using GenFn3D = GenResult( FS_VECTORCALL* )( const DispatchClass*, FASTNOISE_GEN_PARAM( int32v, seed ), FASTNOISE_GEN_PARAM( float32v, x ), FASTNOISE_GEN_PARAM( float32v, y ), FASTNOISE_GEN_PARAM( float32v, z ) );
     using GenFn4D = GenResult( FS_VECTORCALL* )( const DispatchClass*, FASTNOISE_GEN_PARAM_SEED4( seed ), FASTNOISE_GEN_PARAM( float32v, x ), FASTNOISE_GEN_PARAM( float32v, y ), FASTNOISE_GEN_PARAM( float32v, z ), FASTNOISE_GEN_PARAM( float32v, w ) );
 
-#if FASTNOISE_GEN_SPLIT_ARGS
+#if FASTNOISE_GEN_ARGS
     static FS_FORCEINLINE GenResult CallGenFn( GenFn2D fn, const DispatchClass* gen, int32v seed, float32v x, float32v y )
     {
         return fn( gen, FASTNOISE_GEN_ARG( seed ), FASTNOISE_GEN_ARG( x ), FASTNOISE_GEN_ARG( y ) );
