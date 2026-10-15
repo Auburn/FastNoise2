@@ -57,17 +57,18 @@ namespace FastNoise
     static constexpr bool kLatticeBlockTbl = FN_AARCH64_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
 
     // FS::FMulAdd / FNMulAdd / FMulSub on ARM are a multiply and an add in IR (vmlaq_f32, or generic), and clang's fast-math
-    // reassociation leaves many of them unfused. On AArch64 these emit FMLA / FMLS always (the FS ops elsewhere)
+    // reassociation leaves many of them unfused. FN_FMulAdd / FN_FNMulAdd / FN_FMulSub emit FMLA / FMLS on AArch64, and are
+    // exactly the FS ops everywhere else: even an inlined forwarding wrapper changed MSVC's AVX512 codegen (DomainWarpSimplex 2D
+    // 15% slower), so other targets get the FS calls token for token
+#if FN_AARCH64_TBL
     template<typename F>
     FS_FORCEINLINE static F FusedMulAdd( const F& a, const F& b, const F& c )
     {
-#if FN_AARCH64_TBL
         if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
         {
             return FS::NativeExec<F>( []( float32x4_t x, float32x4_t y, float32x4_t z ) { return vfmaq_f32( z, x, y ); }, a, b, c );
         }
         else
-#endif
         {
             return FS::FMulAdd( a, b, c );
         }
@@ -76,13 +77,11 @@ namespace FastNoise
     template<typename F>
     FS_FORCEINLINE static F FusedNMulAdd( const F& a, const F& b, const F& c )
     {
-#if FN_AARCH64_TBL
         if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
         {
             return FS::NativeExec<F>( []( float32x4_t x, float32x4_t y, float32x4_t z ) { return vfmsq_f32( z, x, y ); }, a, b, c );
         }
         else
-#endif
         {
             return FS::FNMulAdd( a, b, c );
         }
@@ -91,17 +90,24 @@ namespace FastNoise
     template<typename F>
     FS_FORCEINLINE static F FusedMulSub( const F& a, const F& b, const F& c )
     {
-#if FN_AARCH64_TBL
         if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
         {
             return FS::NativeExec<F>( []( float32x4_t x, float32x4_t y, float32x4_t z ) { return vfmaq_f32( vnegq_f32( z ), x, y ); }, a, b, c );
         }
         else
-#endif
         {
             return FS::FMulSub( a, b, c );
         }
     }
+
+#define FN_FMulAdd FusedMulAdd
+#define FN_FNMulAdd FusedNMulAdd
+#define FN_FMulSub FusedMulSub
+#else
+#define FN_FMulAdd FS::FMulAdd
+#define FN_FNMulAdd FS::FNMulAdd
+#define FN_FMulSub FS::FMulSub
+#endif
 
     // Lane 0 of the first native register broadcast to a native register
     template<typename I>
@@ -242,6 +248,14 @@ namespace FastNoise
             return F( 0 );
         }
     }
+
+    // 8 entry float table lookup in DomainWarpSimplex: AArch64 TBL, elsewhere the AVX2 vpermps call token for token (going
+    // through LatticeBlockPermute there made MSVC 14.51's AVX2 DomainWarpSimplex 2D 5-9% slower)
+#if FN_AARCH64_TBL
+#define FN_PermuteTable8( table, index ) LatticeBlockPermute<float32v>( table, index )
+#else
+#define FN_PermuteTable8( table, index ) FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), table, index )
+#endif
 
     // The hash, gradient and interpolation helpers are templated on the register type so they also work on the native
     // halves of float32v (.v0/.v1), for generators that evaluate each half separately to reduce register pressure
@@ -397,7 +411,7 @@ namespace FastNoise
                 return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
             };
 
-            return FusedMulAdd( lookup( tableX ), fX, FusedMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
+            return FN_FMulAdd( lookup( tableX ), fX, FN_FMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
         }
 #endif
         else
@@ -467,7 +481,7 @@ namespace FastNoise
             F gX = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1 + kRoot2f, -1 - kRoot2f, 1 + kRoot2f, -1 - kRoot2f, 1, -1, 1, -1 ), index );
             F gY = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1, 1, -1, -1, 1 + kRoot2f, 1 + kRoot2f, -1 - kRoot2f, -1 - kRoot2f ), index );
 
-            return FusedMulAdd( gX, fX, fY * gY );
+            return FN_FMulAdd( gX, fX, fY * gY );
         }
         else
         {
@@ -526,7 +540,7 @@ namespace FastNoise
                 return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
             };
 
-            return FusedMulAdd( lookup( kPlaneX ), fX, FusedMulAdd( fY, lookup( kPlaneY ), FusedMulAdd( fZ, lookup( kPlaneZ ), fW * lookup( kPlaneW ) ) ) ) * F( 0.5f );
+            return FN_FMulAdd( lookup( kPlaneX ), fX, FN_FMulAdd( fY, lookup( kPlaneY ), FN_FMulAdd( fZ, lookup( kPlaneZ ), fW * lookup( kPlaneW ) ) ) ) * F( 0.5f );
         }
 #endif
         else
@@ -621,13 +635,13 @@ namespace FastNoise
     template<typename F>
     FS_FORCEINLINE static F InterpHermite( F t )
     {
-        return t * t * FusedNMulAdd( t, F( 2 ), F( 3 ) );
+        return t * t * FN_FNMulAdd( t, F( 2 ), F( 3 ) );
     }
 
     template<typename F>
     FS_FORCEINLINE static F InterpQuintic( F t )
     {
-        return t * t * t * FusedMulAdd( t, FusedMulAdd( t, F( 6 ), F( -15 ) ), F( 10 ) );
+        return t * t * t * FN_FMulAdd( t, FN_FMulAdd( t, F( 6 ), F( -15 ) ), F( 10 ) );
     }
 
     FS_FORCEINLINE static float32v FastLengthSqrt( float32v sqrDist )

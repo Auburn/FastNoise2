@@ -49,7 +49,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
                 auto dot = [&]( const int32v& idx, const float32v& fX )
                 {
-                    return FusedMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotY, idx ) );
+                    return FN_FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotY, idx ) );
                 };
 
                 float32v value = Lerp(
@@ -135,12 +135,12 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 // x gradient and y/z part of the dot product: FMulAdd( gX, fX, FMulAdd( fY, gY, fZ * gZ ) )
                 NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
                 NF gXZ1 = GetGradientDotCommon( hashZ1, one, zero, zero );
-                NF dotYZZ0 = FusedMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
-                NF dotYZZ1 = FusedMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
+                NF dotYZZ0 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
+                NF dotYZZ1 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
 
                 auto dot = [&]( const NF& gX, const NF& dotYZ, const int32v& idx, const float32v& fX )
                 {
-                    return FusedMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotYZ, idx ) );
+                    return FN_FMulAdd( LatticeBlockPermute<float32v>( gX, idx ), fX, LatticeBlockPermute<float32v>( dotYZ, idx ) );
                 };
 
                 float32v value = Lerp( Lerp(
