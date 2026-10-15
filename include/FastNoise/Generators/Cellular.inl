@@ -427,8 +427,10 @@ protected:
                 }
             }
 
-            // Negative size factor allows negative distances, never skip those lanes. Applied before the bounds are stored:
-            // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from
+            // Negative size factor allows negative distances, never skip those lanes. 4D applies it before the bounds are stored:
+            // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from.
+            // 2D/3D afterwards: InitPruning() is inlined into every GenT variant there, and the in-loop form grew the generic
+            // 3D variants by 250-350 instructions
             mask32v sizeJitterValid;
             if( sizeJitterActive )
             {
@@ -470,7 +472,18 @@ protected:
                         b *= scale;
                     }
 
-                    bounds.axis[d][i] = sizeJitterActive ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
+                    bounds.axis[d][i] = ( D == 4 && sizeJitterActive ) ? FS::Select( sizeJitterValid, b, float32v( -kInfinity ) ) : b;
+                }
+            }
+
+            if( D != 4 && sizeJitterActive )
+            {
+                for( int d = 0; d < D; d++ )
+                {
+                    for( int i = 0; i < 3; i++ )
+                    {
+                        bounds.axis[d][i] = FS::Select( sizeJitterValid, bounds.axis[d][i], float32v( -kInfinity ) );
+                    }
                 }
             }
 
