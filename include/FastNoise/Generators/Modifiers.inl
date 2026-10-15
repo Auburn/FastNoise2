@@ -253,6 +253,12 @@ public:
     template<size_t DIMS>
     FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
+        // Cheap op, for sources without GenBlock the per vector path is faster (uniform grid rows: 1.05-1.11 slower with GenBlock)
+        if( !this->AnySourceHasGenBlock( mSource, mFromMin, mFromMax, mToMin, mToMax ) )
+        {
+            return false;
+        }
+
         if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
         {
             // As in GenT, so the constant maths compiles the same way
