@@ -30,6 +30,14 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_NOINLINE __attribute__(( noinline ))
 #endif
 
+// Start of a branch whose first statement is the same source call as in the other branch: the compiler can't move the call
+// across the empty asm statement, so it doesn't hoist the call of both branches above the condition
+#if defined( __GNUC__ ) || defined( __clang__ )
+#define FASTNOISE_SEPARATE_BRANCH() __asm__ volatile( "" )
+#else
+#define FASTNOISE_SEPARATE_BRANCH()
+#endif
+
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Generator, SIMD> : public virtual Generator
 {
@@ -48,7 +56,12 @@ public:
     {
         return { v.v0.GetNative(), v.v1.GetNative() };
     }
+
+    // Generators inlined into the position array block loop measured slower with MSVC AVX512 (White up to 1.3x)
+    static constexpr bool kInlinePlanarBlock = !( SIMD & FastSIMD::FeatureFlag::AVX512_F );
 #else
+    static constexpr bool kInlinePlanarBlock = true;
+
     struct GenResult
     {
         typename float32v::DoubledType v0, v1;
@@ -133,6 +146,18 @@ public:
         gen->mGenTileableBlockFn( gen, seed, xTable, zTable, rowPos, rows, xSize, out );
     }
 
+    // Evaluates out[begin, end) from positions stored per axis, { offsets[0] + axes[0][i], offsets[1] + axes[1][i], ... }.
+    // The positions are loaded in axis order (braced init): fast-math reassociation in an inlined generator depends on that
+    // order, loaded right to left (MS ABI argument order) DomainRotatePlane's output changed
+    using GenBlockPlanarFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* const*, const float*, float*, intptr_t, intptr_t );
+
+    template<size_t DIMS>
+    static FS_FORCEINLINE void CallGenBlockPlanar( const DispatchClass* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )
+    {
+        assert( gen->mGenBlockPlanarFn[DIMS - 2] );
+        gen->mGenBlockPlanarFn[DIMS - 2]( gen, seed, axes, offsets, out, begin, end );
+    }
+
 // Defines the static Gen and GenBlock functions of a generator and points the function pointers at them,
 // GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
 #define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
@@ -195,6 +220,23 @@ public:
             }\
         }\
     }\
+    template<size_t... DIM>\
+    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockPlanarFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )\
+    {\
+        for( intptr_t i = begin; i < end; i += int32v::ElementCount )\
+        {\
+            float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };\
+            if constexpr( DispatchClass<Generator, SIMD>::kInlinePlanarBlock )\
+            {\
+                GenResultT result = GenFn( gen, seed, pos[DIM]... );\
+                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            }\
+            else\
+            {\
+                FS::Store( out + i, DispatchClass<Generator, SIMD>::CallGen( gen, seed, pos[DIM]... ) );\
+            }\
+        }\
+    }\
 public:\
     DispatchClass()\
     {\
@@ -209,6 +251,10 @@ public:\
         this->mGenGridBlockFn[2] = &GenGridBlockFn<0, 1, 2>;\
         this->mGenTileableBlockFn = &GenTileableBlockFn;\
         this->mHasGenBlock = DispatchClass::kHasGenBlock;\
+        this->mGenBlockPlanarFn[0] = &GenBlockPlanarFn<0, 1>;\
+        this->mGenBlockPlanarFn[1] = &GenBlockPlanarFn<0, 1, 2>;\
+        this->mGenBlockPlanarFn[2] = &GenBlockPlanarFn<0, 1, 2, 3>;\
+        this->template InitDispatchFns<DispatchClass>();\
     }\
 private:
 
@@ -413,6 +459,12 @@ protected:
     GenGridBlockFn mGenGridBlockFn[3] = {};
     GenTileableBlockFn mGenTileableBlockFn = nullptr;
     bool mHasGenBlock = false;
+    GenBlockPlanarFn mGenBlockPlanarFn[3] = {};
+
+    // Called by the constructor of the final class with its type, intermediate dispatch classes hide it to set up their own
+    // function pointers
+    template<typename FINAL>
+    void InitDispatchFns() {}
 
 public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
@@ -458,15 +510,16 @@ public:
 
     // Returns op( lhs, rhs ), evaluating LHS before RHS. A constant RHS gets its own path: there the positions are only
     // used by the LHS call, otherwise they are spilled before that call for an RHS call that doesn't happen.
-    // Reading the constant before the call also keeps the compiler from hoisting the LHS call of both paths above the branch
+    // The constant is read after the call (a broadcast load), so no vector is kept across the call
     template<typename L, typename T, typename OP, typename... POS>
     static FS_FORCEINLINE float32v FS_VECTORCALL CombineSourceValues( const L& lhs, const FastNoise::HybridSourceT<T>& rhs, OP op, int32v seed, POS... pos )
     {
         if( !rhs.simdGeneratorPtr )
         {
-            float rhsConstant = rhs.constant;
+            FASTNOISE_SEPARATE_BRANCH();
+            float32v lhsValue = GetSourceValue( lhs, seed, pos... );
 
-            return op( GetSourceValue( lhs, seed, pos... ), float32v( rhsConstant ) );
+            return op( lhsValue, float32v( rhs.constant ) );
         }
 
         float32v lhsValue = GetSourceValue( lhs, seed, pos... );
@@ -739,34 +792,10 @@ public:
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        intptr_t index = 0;
+        const float* axes[] = { xPosArray, yPosArray };
+        const float offsets[] = { xOffset, yOffset };
 
-        if( this->mHasGenBlock )
-        {
-            const float* posArrays[] = { xPosArray, yPosArray };
-            const float offsets[] = { xOffset, yOffset };
-            index = GenPositionArrayBlocks<2>( noiseOut, count, posArrays, offsets, seed, min, max );
-        }
-
-        while( index < count - (intptr_t)int32v::ElementCount )
-        {
-            intptr_t blockIndex = index;
-            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
-
-            do
-            {
-                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-
-                float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
-                FS::Store( &noiseOut[index], gen );
-
-                index += int32v::ElementCount;
-            }
-            while( index < blockEnd );
-
-            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
-        }
+        intptr_t index = GenPositionArrayBlocks<2>( noiseOut, count, axes, offsets, seed, min, max );
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
@@ -781,35 +810,10 @@ public:
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        intptr_t index = 0;
+        const float* axes[] = { xPosArray, yPosArray, zPosArray };
+        const float offsets[] = { xOffset, yOffset, zOffset };
 
-        if( this->mHasGenBlock )
-        {
-            const float* posArrays[] = { xPosArray, yPosArray, zPosArray };
-            const float offsets[] = { xOffset, yOffset, zOffset };
-            index = GenPositionArrayBlocks<3>( noiseOut, count, posArrays, offsets, seed, min, max );
-        }
-
-        while( index < count - (intptr_t)int32v::ElementCount )
-        {
-            intptr_t blockIndex = index;
-            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
-
-            do
-            {
-                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-                float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
-
-                float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
-                FS::Store( &noiseOut[index], gen );
-
-                index += int32v::ElementCount;
-            }
-            while( index < blockEnd );
-
-            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
-        }
+        intptr_t index = GenPositionArrayBlocks<3>( noiseOut, count, axes, offsets, seed, min, max );
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
@@ -825,36 +829,10 @@ public:
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
-        intptr_t index = 0;
+        const float* axes[] = { xPosArray, yPosArray, zPosArray, wPosArray };
+        const float offsets[] = { xOffset, yOffset, zOffset, wOffset };
 
-        if( this->mHasGenBlock )
-        {
-            const float* posArrays[] = { xPosArray, yPosArray, zPosArray, wPosArray };
-            const float offsets[] = { xOffset, yOffset, zOffset, wOffset };
-            index = GenPositionArrayBlocks<4>( noiseOut, count, posArrays, offsets, seed, min, max );
-        }
-
-        while( index < count - (intptr_t)int32v::ElementCount )
-        {
-            intptr_t blockIndex = index;
-            intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
-
-            do
-            {
-                float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
-                float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
-                float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
-                float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
-
-                float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
-                FS::Store( &noiseOut[index], gen );
-
-                index += int32v::ElementCount;
-            }
-            while( index < blockEnd );
-
-            AccumulateMinMax( noiseOut, blockIndex, index, min, max );
-        }
+        intptr_t index = GenPositionArrayBlocks<4>( noiseOut, count, axes, offsets, seed, min, max );
 
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
@@ -996,9 +974,10 @@ public:
     }
 
 private:
-    // Composite roots (generators with a GenBlock) evaluate the blocks of the row paths with their GenBlock, see GenRowsBlock.
-    // Not on AVX512: there the row kernels measured faster for them (FBm, MinSmooth, Ridged, Fade 1.01-1.06 slower with GenBlock)
-    FS_FORCEINLINE bool RowsUseGenBlock() const
+    // Composite roots (generators with a GenBlock) evaluate the blocks of the row paths and of position arrays with their
+    // GenBlock, see GenRowsBlock and GenPositionArrayBlocks. Not on AVX512: there evaluating them per vector (row kernels,
+    // CallGenBlockPlanar) measured faster (FBm, MinSmooth, Ridged, Fade, Mountain 1.01-1.06 slower with GenBlock)
+    FS_FORCEINLINE bool PreferGenBlock() const
     {
         return !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && this->mHasGenBlock;
     }
@@ -1008,10 +987,10 @@ private:
 
     // Rows of whole vectors, or rows shorter than a vector that pack exactly into whole vectors: xCount divides N and
     // yCount is a multiple of N / xCount, so the rows in a vector differ only in y (e.g. 16 wide chunks on AVX512).
-    // Rows evaluated with GenBlock (RowsUseGenBlock) must fit a GenBlock position block, see TryGenRowsBlock
+    // Rows evaluated with GenBlock (PreferGenBlock) must fit a GenBlock position block, see TryGenRowsBlock
     FS_FORCEINLINE bool IsGridRowsSize( int xCount, int yCount ) const
     {
-        if( xCount <= 0 || xCount > kGridRowsMaxXCount || ( RowsUseGenBlock() && xCount > kGenBlockSize ) )
+        if( xCount <= 0 || xCount > kGridRowsMaxXCount || ( PreferGenBlock() && xCount > kGenBlockSize ) )
         {
             return false;
         }
@@ -1084,7 +1063,7 @@ private:
         }
 
         const float* columnTables[DIMS] = { xTable };
-        bool genBlock = RowsUseGenBlock();
+        bool genBlock = PreferGenBlock();
         intptr_t blockIndex;
         intptr_t rows;
 
@@ -1152,7 +1131,7 @@ private:
 
     FS_FORCEINLINE bool IsTileableRowsSize( int xSize ) const
     {
-        return xSize > 0 && xSize <= kTileableRowsMaxXSize && xSize % (int)int32v::ElementCount == 0 && ( !RowsUseGenBlock() || xSize <= kGenBlockSize );
+        return xSize > 0 && xSize <= kTileableRowsMaxXSize && xSize % (int)int32v::ElementCount == 0 && ( !PreferGenBlock() || xSize <= kGenBlockSize );
     }
 
     // GenTileable2D with rows of whole vectors, see GenUniformGridRows. The positions are computed as in GenTileable2D
@@ -1178,7 +1157,7 @@ private:
         // y and w per row
         alignas( 64 ) float rowPos[kMaxBlockRows * 2 * int32v::ElementCount];
         const float* columnTables[4] = { xPosTable, nullptr, zPosTable, nullptr };
-        bool genBlock = RowsUseGenBlock();
+        bool genBlock = PreferGenBlock();
         intptr_t blockIndex;
         intptr_t rows;
 
@@ -1336,51 +1315,60 @@ private:
 
     // Positions are buffered per block and evaluated with one CallGenBlock(): the loops computing them keep their
     // state in registers instead of spilling it around every Gen call, and small generators inline into the block loop.
-    // Not used for position arrays, they have no such state and copying their positions measured slower (AVX512)
+    // Position arrays are read in place instead (CallGenBlockPlanar), copying their positions measured slower (AVX512)
     template<typename... P>
     static FS_FORCEINLINE void StoreBlockPositions( float*& blockPos, P... pos )
     {
         ( ( FS::Store( blockPos, pos ), blockPos += int32v::ElementCount ), ... );
     }
 
-    // Generators with a GenBlock evaluate position arrays a block at a time too, the positions are copied into a block buffer.
-    // Returns the index evaluation stopped at. Generators without one are evaluated per vector, which measured faster for them
-    // (and for the same output as before, the per vector path of position arrays calls Gen through its pointer)
+    // Evaluates the full vectors of a position array in blocks of kMinMaxBlockSize values. Returns the index of the first
+    // value not evaluated. A block is evaluated by CallGenBlockPlanar(), which reads the positions straight from the caller's
+    // arrays, or for generators with a GenBlock (composite roots, see PreferGenBlock) by their GenBlock with the positions copied
+    // into a position block, until it declines (decided by the node tree and BlockPositionArrays(), the same for every block)
     template<size_t DIMS>
-    FASTNOISE_NOINLINE intptr_t GenPositionArrayBlocks( float* noiseOut, intptr_t count, const float* const* posArrays, const float* offsets, int seed, float32v& min, float32v& max ) const
+    FS_FORCEINLINE intptr_t GenPositionArrayBlocks( float* noiseOut, intptr_t count, const float* const* axes, const float* offsets, int seed, float32v& min, float32v& max ) const
     {
-        alignas( 64 ) float posBuffer[kMinMaxBlockSize * DIMS];
-
+        bool genBlock = PreferGenBlock();
         intptr_t index = 0;
         while( index < count - (intptr_t)int32v::ElementCount )
         {
             intptr_t blockIndex = index;
             intptr_t blockEnd = std::min<intptr_t>( index + kMinMaxBlockSize, count - (intptr_t)int32v::ElementCount );
 
-            float* blockPos = posBuffer;
-
             do
             {
-                for( size_t d = 0; d < DIMS; d++ )
-                {
-                    FS::Store( blockPos + d * int32v::ElementCount, float32v( offsets[d] ) + FS::Load<float32v>( &posArrays[d][index] ) );
-                }
-
-                blockPos += DIMS * int32v::ElementCount;
                 index += int32v::ElementCount;
             }
             while( index < blockEnd );
 
-            // If GenBlock falls back to per vector evaluation (decided by the node tree), the rest is evaluated by the
-            // per vector loop of the caller: GenBlockFn's own per vector loop compiles differently than CallGen
-            if( !TryGenBlock<DIMS>( this, int32v( seed ), posBuffer, &noiseOut[blockIndex], index - blockIndex, GenBlockMode::IfGenBlockArray ) )
+            if( !( genBlock && ( genBlock = TryGenPositionArrayBlock<DIMS>( noiseOut, axes, offsets, seed, blockIndex, index ) ) ) )
             {
-                return blockIndex;
+                CallGenBlockPlanar<DIMS>( this, int32v( seed ), axes, offsets, noiseOut, blockIndex, blockEnd );
             }
             AccumulateMinMax( noiseOut, blockIndex, index, min, max );
         }
-
         return index;
+    }
+
+    // Copies the positions of the position array vectors [begin, end) into a position block and evaluates it with
+    // GenBlockMode::IfGenBlockArray, returns whether the generator's GenBlock evaluated it
+    template<size_t DIMS>
+    FASTNOISE_NOINLINE bool TryGenPositionArrayBlock( float* noiseOut, const float* const* axes, const float* offsets, int seed, intptr_t begin, intptr_t end ) const
+    {
+        alignas( 64 ) float posBuffer[kMinMaxBlockSize * DIMS];
+        float* blockPos = posBuffer;
+
+        for( intptr_t i = begin; i < end; i += int32v::ElementCount )
+        {
+            for( size_t d = 0; d < DIMS; d++ )
+            {
+                FS::Store( blockPos + d * int32v::ElementCount, float32v( offsets[d] ) + FS::Load<float32v>( &axes[d][i] ) );
+            }
+            blockPos += DIMS * int32v::ElementCount;
+        }
+
+        return TryGenBlock<DIMS>( this, int32v( seed ), posBuffer, &noiseOut[begin], end - begin, GenBlockMode::IfGenBlockArray );
     }
 
     static FS_FORCEINLINE void AccumulateMinMax( const float* noiseOut, intptr_t index, intptr_t endIndex, float32v& min, float32v& max )

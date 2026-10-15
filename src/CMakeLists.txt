@@ -99,8 +99,11 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
         endif()
 
         # LLVM bug: a __regcall (FS_VECTORCALL) sibling call can pass arguments in ymm/zmm8+ and still restore the callee
-        # saved xmm8-15 before the jump, corrupting them. Tail calls don't gain anything measurable here
-        if(NOT MSVC)
+        # saved xmm8-15 before the jump, corrupting them. Tail calls don't gain anything measurable here. Also for clang-cl:
+        # the static Gen functions return their result in registers, so a hidden return pointer no longer blocks such calls
+        if(MSVC)
+            target_compile_options(FastSIMD_FastNoise PRIVATE /clang:-fno-optimize-sibling-calls)
+        else()
             target_compile_options(FastSIMD_FastNoise PRIVATE -fno-optimize-sibling-calls)
         endif()
     endif()

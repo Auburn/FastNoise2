@@ -65,7 +65,7 @@ protected:
         float32v gain = self.GetSourceValue( self.mGain, seed, pos... );
         float32v lacunarity( self.mLacunarity );
 
-        float32v strength = warp->Warp( seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos[I]... );
+        float32v strength = warp->CallWarp( warp, seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos );
 
         // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
         bool isWeighted = self.mWeightedStrength.simdGeneratorPtr || self.mWeightedStrength.constant != 0.0f;
@@ -83,7 +83,7 @@ protected:
             {
                 amp *= gain;
             }
-            strength = warp->Warp( seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos[I]... );
+            strength = warp->CallWarp( warp, seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos );
         }
     }
 };
