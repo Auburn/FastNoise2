@@ -33,8 +33,9 @@ using mask32v = typename float32v::MaskType;
 // How the int32v/float32v arguments of the static Gen functions are passed, chosen per compiler so the native halves of a
 // float32v arrive in vector registers (FASTNOISE_GEN_ARGS):
 //   0 whole: clang (__regcall), MSVC below AVX512 (__vectorcall, float32v is a homogeneous vector aggregate)
-//   1 halves: GCC on x86, SysV passes float32v (two native registers) through memory: the native halves are separate
-//     arguments. The 4D seed stays one (memory) argument so x, y, z and w fill the 8 vector argument registers
+//   1 halves: GCC on x86 (SysV passes float32v, two native registers, through memory) and WASM (wasm32 passes structs
+//     with more than one member through memory): the native halves are separate arguments. With GCC the 4D seed stays
+//     one (memory) argument so x, y, z and w fill the 8 vector argument registers
 //   2 native aggregates: MSVC AVX512, FastSIMD's 512 bit registers have a copy constructor on MSVC, so float32v isn't a
 //     homogeneous vector aggregate and MSVC passes it by reference to a copy: pass { native v0, v1 } like GenResult
 // FASTNOISE_GEN_PARAM( T, name ) declares an argument, FASTNOISE_GEN_VAL( T, name ) is its value in the function,
@@ -43,6 +44,9 @@ using mask32v = typename float32v::MaskType;
 #if defined( __GNUC__ ) && !defined( __clang__ ) && FASTSIMD_CURRENT_ARCH_IS( X86 )
 #define FASTNOISE_GEN_ARGS 1
 #define FASTNOISE_GEN_SEED4_WHOLE 1
+#elif FASTSIMD_CURRENT_ARCH_IS( WASM )
+#define FASTNOISE_GEN_ARGS 1
+#define FASTNOISE_GEN_SEED4_WHOLE 0
 #elif defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX512F__ )
 #define FASTNOISE_GEN_ARGS 2
 #define FASTNOISE_GEN_SEED4_WHOLE 0
@@ -93,6 +97,19 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_GEN_FN_CALL( gen, seed, ... ) FASTNOISE_GEN_CALL( GenFn, gen, seed, __VA_ARGS__ )
 #define FASTNOISE_IMPL_GEN_FN_WHOLE( GENFUNC )
 #endif
+
+// Stores the generator's value at the positions to DST in the block functions of FASTNOISE_IMPL_GEN_FN. wasm32 returns
+// GenResult through memory, there the generator is evaluated inline instead of calling GenFn
+#define FASTNOISE_GEN_BLOCK_STORE( GENFUNC, DST, ... )\
+    if constexpr( SIMD & FastSIMD::FeatureFlag::WASM )\
+    {\
+        FS::Store( DST, static_cast<const DispatchClass*>( gen )->GENFUNC( seed, __VA_ARGS__ ) );\
+    }\
+    else\
+    {\
+        GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, __VA_ARGS__ );\
+        FS::Store( DST, float32v( result.v0, result.v1 ) );\
+    }
 
 #if FASTNOISE_GEN_SEED4_WHOLE
 #define FASTNOISE_GEN_PARAM_SEED4( name ) int32v name
@@ -296,8 +313,7 @@ public:
         }\
         for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
         {\
-            GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... );\
-            FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+            FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... )\
         }\
         return true;\
     }\
@@ -308,8 +324,7 @@ public:
         {\
             for( intptr_t i = 0; i < xCount; i += int32v::ElementCount )\
             {\
-                GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos + DIM * int32v::ElementCount )... );\
-                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+                FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos + DIM * int32v::ElementCount )... )\
             }\
         }\
     }\
@@ -319,8 +334,7 @@ public:
         {\
             for( intptr_t i = 0; i < xSize; i += int32v::ElementCount )\
             {\
-                GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) );\
-                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+                FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) )\
             }\
         }\
     }\
@@ -332,8 +346,7 @@ public:
             float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };\
             if constexpr( DispatchClass<Generator, SIMD>::kInlinePlanarBlock )\
             {\
-                GenResultT result = FASTNOISE_GEN_FN_CALL( gen, seed, pos[DIM]... );\
-                FS::Store( out + i, float32v( result.v0, result.v1 ) );\
+                FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, pos[DIM]... )\
             }\
             else\
             {\
