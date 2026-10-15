@@ -145,7 +145,7 @@ namespace FastNoise
         struct MemberNodeLookup : Member
         {
             /** @brief Connect a source generator to this input.
-             *  @return true if both the target generator and source node are the correct types.
+             *  @return true if both the target generator and source node are the correct types and use the same SIMD feature set.
              */
             std::function<bool( Generator*, SmartNodeArg<> )> setFunc;
         };
@@ -167,7 +167,7 @@ namespace FastNoise
             std::function<bool( Generator*, float )> setValueFunc;
 
             /** @brief Connect a generator node as the source (overrides constant value).
-             *  @return true if both the generator and source node are the correct types.
+             *  @return true if both the generator and source node are the correct types and use the same SIMD feature set.
              */
             std::function<bool( Generator*, SmartNodeArg<> )> setNodeFunc;
         };

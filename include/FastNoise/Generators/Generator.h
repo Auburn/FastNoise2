@@ -635,7 +635,7 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
             {
-                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
+                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
                 {
                     if( U* gRealType = dynamic_cast<U*>( g ) )
                     {
@@ -665,7 +665,7 @@ namespace FastNoise
 
                 member.setFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
+                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
                     {
                         if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                         {
@@ -693,7 +693,7 @@ namespace FastNoise
 
             member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
-                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
+                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
                 {
                     if( U* gRealType = dynamic_cast<U*>( g ) )
                     {
@@ -735,7 +735,7 @@ namespace FastNoise
 
                 member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
+                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
                     {
                         if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
                         {
@@ -762,6 +762,12 @@ namespace FastNoise
         }
 
     private:
+        // A node can only use sources with the same SIMD feature set, otherwise its SIMD source pointer would be null
+        static bool SourceFeatureSetMatches( const Generator* g, const Generator* source )
+        {
+            return g->GetActiveFeatureSet() == source->GetActiveFeatureSet();
+        }
+
         template<typename F, typename Ret, typename... Args>
         static std::tuple<Args...> GetArg_Helper( Ret( F::* )(Args...) const );
 
