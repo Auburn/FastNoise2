@@ -65,7 +65,12 @@ protected:
         float32v gain = self.GetSourceValue( self.mGain, seed, pos... );
         float32v lacunarity( self.mLacunarity );
 
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC: the virtual Warp() is faster here than the static WarpFn (DW fractal 2D rows 3-12%; clang: WarpFn up to 12% faster)
+        float32v strength = warp->Warp( seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos[I]... );
+#else
         float32v strength = warp->CallWarp( warp, seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos );
+#endif
 
         // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
         bool isWeighted = self.mWeightedStrength.simdGeneratorPtr || self.mWeightedStrength.constant != 0.0f;
@@ -83,7 +88,11 @@ protected:
             {
                 amp *= gain;
             }
+#if defined( _MSC_VER ) && !defined( __clang__ )
+            strength = warp->Warp( seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos[I]... );
+#else
             strength = warp->CallWarp( warp, seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos );
+#endif
         }
     }
 };
