@@ -63,8 +63,8 @@ namespace FastNoise
 
             /** @brief Evaluate the program on the CPU, one sample at a time.
              *
-             *  Reference implementation of the generated code, matches FastNoise2's non relaxed (FASTNOISE2_STRICT_FP)
-             *  SIMD output exactly, except for sin/cos/pow which use the C++ standard library.
+             *  Reference implementation of the generated code. With Options::fastMath off it matches the values of
+             *  FastNoise2's non relaxed (FASTNOISE2_STRICT_FP) SIMD output exactly, with it on they only differ where -0, inf or NaN occur.
              *  @param positions  Array of Options::dimensions positions.
              */
             float Evaluate( const float* positions, int seed ) const;
@@ -75,8 +75,8 @@ namespace FastNoise
 
         private:
             struct Impl;
-            explicit Program( std::unique_ptr<Impl> impl );
-            std::unique_ptr<Impl> mImpl;
+            explicit Program( Impl* impl );
+            Impl* mImpl; // Not a std::unique_ptr, STL members of exported classes cause C4251 in DLL builds
         };
 
         /** @brief Shorthand to trace and emit an encoded node tree.

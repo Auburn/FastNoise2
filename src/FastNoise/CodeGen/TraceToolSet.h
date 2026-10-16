@@ -22,6 +22,9 @@ namespace FastSIMD
     // the value doesn't match any real feature set so DispatchClass<T, kTraceFeatureSet> never collides with a real one
     static constexpr FeatureSet kTraceFeatureSet = static_cast<FeatureSet>( 1u << 31 );
 
+    // Also without feature flags, instantiates the generic implementation of helpers that are specialised for kTraceFeatureSet
+    static constexpr FeatureSet kTraceGenericFeatureSet = static_cast<FeatureSet>( 1u << 30 );
+
     template<FeatureSet SIMD = kTraceFeatureSet>
     static constexpr FeatureSet FeatureSetDefault()
     {
@@ -52,6 +55,8 @@ namespace FS
     {
     };
 
+    // Registers are literal types (constexpr constructor from an id) like FastSIMD's, node code has constexpr lambdas taking them by value
+
     struct TraceMask32
     {
         static constexpr std::size_t ElementCount = 1;
@@ -60,7 +65,7 @@ namespace FS
         CG::ValueId id;
 
         TraceMask32() : id( CG::Builder::Current().Undef( CG::Type::Bool ) ) { }
-        TraceMask32( CG::ValueId v, TraceIdTag ) : id( v ) { }
+        constexpr TraceMask32( CG::ValueId v, TraceIdTag ) : id( v ) { }
 
         TraceMask32& operator&=( const TraceMask32& rhs ) { id = CG::Builder::Current().Emit( CG::Op::BAnd, id, rhs.id ); return *this; }
         TraceMask32& operator|=( const TraceMask32& rhs ) { id = CG::Builder::Current().Emit( CG::Op::BOr, id, rhs.id ); return *this; }
@@ -84,7 +89,7 @@ namespace FS
 
         TraceFloat32() : id( CG::Builder::Current().Undef( CG::Type::F32 ) ) { }
         TraceFloat32( float v ) : id( CG::Builder::Current().ConstF( v ) ) { }
-        TraceFloat32( CG::ValueId v, TraceIdTag ) : id( v ) { }
+        constexpr TraceFloat32( CG::ValueId v, TraceIdTag ) : id( v ) { }
 
         TraceFloat32& operator+=( const TraceFloat32& rhs ) { id = CG::Builder::Current().Emit( CG::Op::FAdd, id, rhs.id ); return *this; }
         TraceFloat32& operator-=( const TraceFloat32& rhs ) { id = CG::Builder::Current().Emit( CG::Op::FSub, id, rhs.id ); return *this; }
@@ -136,7 +141,7 @@ namespace FS
 
         TraceInt32() : id( CG::Builder::Current().Undef( CG::Type::I32 ) ) { }
         TraceInt32( std::int32_t v ) : id( CG::Builder::Current().ConstI( v ) ) { }
-        TraceInt32( CG::ValueId v, TraceIdTag ) : id( v ) { }
+        constexpr TraceInt32( CG::ValueId v, TraceIdTag ) : id( v ) { }
 
         TraceInt32& operator+=( const TraceInt32& rhs ) { id = CG::Builder::Current().Emit( CG::Op::IAdd, id, rhs.id ); return *this; }
         TraceInt32& operator-=( const TraceInt32& rhs ) { id = CG::Builder::Current().Emit( CG::Op::ISub, id, rhs.id ); return *this; }

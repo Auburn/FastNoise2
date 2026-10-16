@@ -738,7 +738,7 @@ void FastNoise::CodeGen::IR::Compact( Program& program )
     std::vector<int> remapFunction( program.functions.size(), -1 );
     std::vector<int> order;
 
-    // Breadth first from the entry point keeps callers before callees
+    // Breadth first from the entry point, unreachable functions are dropped
     remapFunction[0] = 0;
     order.push_back( 0 );
 
@@ -767,8 +767,9 @@ void FastNoise::CodeGen::IR::Compact( Program& program )
         Function& dest = compacted[o];
         std::vector<ValueId> remapValue( source.code.size(), kNoValue );
 
-        dest.nodeName = std::move( source.nodeName );
-        dest.dimensions = source.dimensions;
+        dest.name = std::move( source.name );
+        dest.native = std::move( source.native );
+        dest.params = std::move( source.params );
 
         for( size_t i = 0; i < source.code.size(); i++ )
         {
@@ -840,9 +841,9 @@ float FastNoise::CodeGen::IR::Evaluate( const Program& program, int32_t seed, co
     Scalar params[kMaxArgs];
     params[0].i = seed;
 
-    for( int i = 0; i < program.functions[0].dimensions; i++ )
+    for( size_t i = 1; i < program.functions[0].params.size(); i++ )
     {
-        params[i + 1].f = positions[i];
+        params[i].f = positions[i - 1];
     }
 
     return EvaluateFunction( program, 0, params ).f;

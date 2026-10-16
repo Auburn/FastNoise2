@@ -23,6 +23,19 @@ Constant folding and the reference interpreter (`Program::Evaluate()`) share `Ev
 
 `Emit.cpp` writes the program in each language, single use expressions are written inline and everything else into a variable.
 
+### Feature set specific code in C++ output
+
+C++ output is compiled per feature set like the node code, so it should use the same feature set specific paths:
+
+- The `Utils.inl` gradient helpers have AVX2/AVX512 permute implementations. `Trace.cpp` specialises them for the trace feature set
+  so each call is recorded as a helper function, traced from the generic implementation (`kTraceGenericFeatureSet`).
+  Shader output gets the helper as a function, C++ output calls `FastNoise::GetGradientDot*()` directly.
+  Another single result helper template can be hooked the same way, without one it is traced inline.
+- Selects against zero that feed an add or subtract are written as the `FS::Masked*()` function they were traced from,
+  these compile to a single `and`/`sub` on SSE instead of a blend.
+
+Feature set specific code inside node implementations (`DomainWarpSimplex`) still uses the generic path in C++ output.
+
 ## Rules for node implementations
 
 New nodes registered in `FastSIMD_Build.inl` are traced automatically. Tracing only sees values that flow through the register types, so:
@@ -41,6 +54,9 @@ New nodes registered in `FastSIMD_Build.inl` are traced automatically. Tracing o
   Fast math C++ compilers and GPU drivers don't preserve signed zero through float selects.
 - GPU output uses native `sqrt`, `inversesqrt`, `sin`, `cos` and `pow`, so float results differ slightly from the CPU.
   Discontinuous nodes (cellular value, white noise) can amplify this near edges.
+- Tracing always takes the non relaxed paths. In relaxed builds FastSIMD's `FS::Reciprocal`/`FS::InvSqrt` are approximations
+  (`rcp`/`rsqrt`, with different precision per feature set), generated C++ still calls them but values folded to constants are exact.
+  Trees that amplify rounding (Minkowski distance into `PingPong`) can differ as much as the runtime feature sets differ from each other.
 
 ## Validation
 
@@ -50,7 +66,11 @@ New nodes registered in `FastSIMD_Build.inl` are traced automatically. Tracing o
 - `CodeGenGpuCheck.py` runs the cases exported by `FastNoiseCodeGenTest --export cases.jsonl` as GLSL, WGSL and HLSL compute shaders on a GPU.
   Mesa's llvmpipe (OpenGL) and lavapipe (Vulkan) work headless.
 - `FastNoiseCodeGenBenchmark` compiles generated C++ for a set of node trees into a dispatch library and benchmarks it against the runtime trees.
+  It first prints how closely the outputs agree, in a `FASTNOISE2_STRICT_FP` build they match exactly on every feature set.
+  Single nodes run at the same speed as at runtime, the benchmarked trees run 1.0x to 2.9x faster: the more (and lighter) the nodes, the bigger the gain.
 
 Some feature sets already disagree with each other, which the tests account for:
 the AVX512 4D gradient dot products sum in a different order to the generic path (1 ulp, even with `FASTNOISE2_STRICT_FP`),
-and SSE2 `FS::Round` returns +0 for inputs in (-0.5, 0) where SSE4.1 returns -0.
+SSE2 `FS::Round` returns +0 for inputs in (-0.5, 0) where SSE4.1 returns -0,
+and `CellularValue`/`CellularLookup` read uninitialised registers (`valueHash`, `cellX`/`cellY`) when every candidate distance is inf or NaN,
+which a Minkowski P close to 0 causes. Tracing treats uninitialised registers as undefined and picks the other side of a select.

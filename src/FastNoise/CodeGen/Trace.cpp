@@ -6,6 +6,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <FastNoise/FastNoise.h>
@@ -30,6 +31,9 @@ namespace FastNoise
 
         template<typename... P>
         float32v TraceSourceCall( const TraceNode* node, int32v seed, P... pos );
+
+        template<typename GENERIC, typename... P>
+        float32v TraceNativeHelper( const char* native, const GENERIC& generic, int32v hash, P... pos );
     }
 }
 
@@ -41,7 +45,7 @@ class FastSIMD::DispatchClass<FastNoise::Generator, FastSIMD::kTraceFeatureSet> 
 public:
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
     virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const { return Gen( seed, x, y, z ); }
+    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v /*w*/ ) const { return Gen( seed, x, y, z ); }
 
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
     {
@@ -199,11 +203,47 @@ namespace FastNoise
                 }
 
                 int index = (int)mFunctions.size();
-                mFunctions.emplace_back();
-                mFunctions.back().nodeName = node->GetMetadata().name;
-                mFunctions.back().dimensions = dimensions;
+                IR::Function& function = mFunctions.emplace_back();
                 mFunctionNodes.push_back( node );
                 mFunctionLookup.emplace( key, index );
+
+                function.name = node->GetMetadata().name;
+                function.params.push_back( { IR::Type::I32, "seed" } );
+                for( int i = 0; i < dimensions; i++ )
+                {
+                    function.params.push_back( { IR::Type::F32, std::string( 1, "xyzw"[i] ) } );
+                }
+                return index;
+            }
+
+            // Helpers get their own function, traced when first called in each pass
+            template<typename GENERIC, typename... P>
+            int GetHelper( const char* native, const GENERIC& generic )
+            {
+                std::string key = native + std::to_string( sizeof...( P ) );
+                auto find = mHelperLookup.find( key );
+
+                if( find != mHelperLookup.end() )
+                {
+                    return find->second;
+                }
+
+                int index = (int)mFunctions.size();
+                IR::Function& function = mFunctions.emplace_back();
+                mFunctionNodes.push_back( nullptr );
+                mHelperLookup.emplace( key, index );
+
+                const char* name = std::strrchr( native, ':' );
+                function.name = name ? name + 1 : native;
+                function.native = native;
+                function.params.push_back( { IR::Type::I32, "hash" } );
+                for( size_t i = 0; i < sizeof...( P ); i++ )
+                {
+                    function.params.push_back( { IR::Type::F32, std::string( 1, "xyzw"[i] ) } );
+                }
+
+                IR::Builder builder( function, mOptions.fastMath );
+                TraceHelper<P...>( function, builder, generic, std::index_sequence_for<P...>() );
                 return index;
             }
 
@@ -324,13 +364,18 @@ namespace FastNoise
                 mFunctions.clear();
                 mFunctionNodes.clear();
                 mFunctionLookup.clear();
+                mHelperLookup.clear();
 
                 GetFunction( root, mOptions.dimensions );
 
                 // Calls append functions while tracing, deque keeps references stable
                 for( size_t i = 0; i < mFunctions.size(); i++ )
                 {
-                    TraceFunction( (int)i );
+                    // Helpers are already traced
+                    if( mFunctionNodes[i] )
+                    {
+                        TraceFunction( (int)i );
+                    }
                 }
             }
 
@@ -345,7 +390,7 @@ namespace FastNoise
                 float32v x( builder.Param( 1, IR::Type::F32 ), {} );
                 float32v y( builder.Param( 2, IR::Type::F32 ), {} );
 
-                switch( function.dimensions )
+                switch( function.params.size() - 1 )
                 {
                 case 2:
                     function.result = node->Gen( seed, x, y ).id;
@@ -359,7 +404,16 @@ namespace FastNoise
                 }
             }
 
-            // Inline functions with a single call site in the final program, or that are small enough
+            template<typename... P, typename GENERIC, size_t... I>
+            static void TraceHelper( IR::Function& function, IR::Builder& builder, const GENERIC& generic, std::index_sequence<I...> )
+            {
+                int32v hash( builder.Param( 0, IR::Type::I32 ), {} );
+                IR::ValueId pos[] = { builder.Param( (int)I + 1, IR::Type::F32 )... };
+
+                function.result = generic( hash, P( pos[I], {} )... ).id;
+            }
+
+            // Inline node functions with a single call site in the final program, or that are small enough
             void DecideInlining()
             {
                 size_t count = mFunctions.size();
@@ -404,12 +458,19 @@ namespace FastNoise
                 for( size_t o = order.size(); o-- > 0; )
                 {
                     int f = order[o];
+
+                    // Helpers stay functions so C++ output can call the native implementation
+                    if( !mFunctionNodes[f] )
+                    {
+                        continue;
+                    }
+
                     bool inlined = f != 0 && ( callSites[f] <= 1 || ops[f] <= kSmallFunctionOps );
                     int bodies = inlined ? callSites[f] : 1;
 
                     if( inlined )
                     {
-                        mInline.insert( { mFunctionNodes[f], mFunctions[f].dimensions } );
+                        mInline.insert( { mFunctionNodes[f], (int)mFunctions[f].params.size() - 1 } );
                     }
 
                     for( const auto& call : calls[f] )
@@ -426,8 +487,9 @@ namespace FastNoise
             std::vector<Generator*> mPostOrder;
 
             std::deque<IR::Function> mFunctions;
-            std::vector<const TraceNode*> mFunctionNodes;
+            std::vector<const TraceNode*> mFunctionNodes; // nullptr for helpers
             std::map<std::pair<const TraceNode*, int>, int> mFunctionLookup;
+            std::unordered_map<std::string, int> mHelperLookup;
             std::set<std::pair<const TraceNode*, int>> mInline;
         };
 
@@ -446,6 +508,43 @@ namespace FastNoise
 
             return float32v( IR::Builder::Current().EmitCall( session.GetFunction( node, kDimensions ), args, kDimensions + 1 ), {} );
         }
+
+        // Records a call to a helper instead of tracing it inline, generic is the helper's generic implementation
+        template<typename GENERIC, typename... P>
+        float32v TraceNativeHelper( const char* native, const GENERIC& generic, int32v hash, P... pos )
+        {
+            static_assert( ( std::is_same_v<P, float32v> && ... ), "Helpers take a hash followed by positions" );
+
+            int function = TraceSession::Current().GetHelper<GENERIC, P...>( native, generic );
+            IR::ValueId args[] = { hash.id, pos.id... };
+
+            return float32v( IR::Builder::Current().EmitCall( function, args, (int)sizeof...( P ) + 1 ), {} );
+        }
+    }
+}
+
+// Helpers with feature set specific implementations (AVX2/AVX512 permutes),
+// C++ output calls these natively instead of the generic path that is traced for other languages
+#include <FastNoise/Generators/Utils.inl>
+
+namespace FastNoise
+{
+    template<>
+    float32v GetGradientDotPerlin<FastSIMD::kTraceFeatureSet>( int32v hash, float32v fX, float32v fY )
+    {
+        return CodeGen::TraceNativeHelper( "FastNoise::GetGradientDotPerlin", []( auto... args ) { return GetGradientDotPerlin<FastSIMD::kTraceGenericFeatureSet>( args... ); }, hash, fX, fY );
+    }
+
+    template<>
+    float32v GetGradientDotPerlin<FastSIMD::kTraceFeatureSet>( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW )
+    {
+        return CodeGen::TraceNativeHelper( "FastNoise::GetGradientDotPerlin", []( auto... args ) { return GetGradientDotPerlin<FastSIMD::kTraceGenericFeatureSet>( args... ); }, hash, fX, fY, fZ, fW );
+    }
+
+    template<>
+    float32v GetGradientDotCommon<FastSIMD::kTraceFeatureSet>( int32v hash, float32v fX, float32v fY, float32v fZ )
+    {
+        return CodeGen::TraceNativeHelper( "FastNoise::GetGradientDotCommon", []( auto... args ) { return GetGradientDotCommon<FastSIMD::kTraceGenericFeatureSet>( args... ); }, hash, fX, fY, fZ );
     }
 }
 
@@ -464,10 +563,13 @@ namespace FastNoise
             IR::Program program;
         };
 
-        Program::Program( std::unique_ptr<Impl> impl ) :
-            mImpl( std::move( impl ) ) { }
+        Program::Program( Impl* impl ) :
+            mImpl( impl ) { }
 
-        Program::~Program() = default;
+        Program::~Program()
+        {
+            delete mImpl;
+        }
 
         std::unique_ptr<Program> Program::FromEncodedNodeTree( const char* encodedNodeTree, const Options& options, std::string* error )
         {
@@ -504,7 +606,7 @@ namespace FastNoise
                     impl->options = options;
                     session.Run( root, impl->program );
 
-                    return std::unique_ptr<Program>( new Program( std::move( impl ) ) );
+                    return std::unique_ptr<Program>( new Program( impl.release() ) );
                 }
             }
 

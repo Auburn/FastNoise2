@@ -72,6 +72,8 @@ if(NOT CMAKE_CROSSCOMPILING AND NOT (WIN32 AND BUILD_SHARED_LIBS))
     # Match the FastSIMD_FastNoise dispatch library options
     if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         target_compile_options(FastNoiseCodeGenBenchmarkSIMD PRIVATE /GL- /GS- /wd4251 /permissive-)
+    elseif(MSVC)
+        target_compile_options(FastNoiseCodeGenBenchmarkSIMD PRIVATE /GS-)
     else()
         target_compile_options(FastNoiseCodeGenBenchmarkSIMD PRIVATE -fno-stack-protector -Wno-nan-infinity-disabled)
     endif()

@@ -23,7 +23,7 @@ namespace FastNoise
 
             enum class Op : uint8_t
             {
-                Param, // imm = parameter index, 0 is the seed followed by positions
+                Param, // imm = parameter index
                 Const, // imm = value bits
                 Undef, // Uninitialised register, folded away by Select
 
@@ -98,7 +98,7 @@ namespace FastNoise
                 BitcastI2F,
                 B2I, // true = -1, false = 0
 
-                Call, // imm = function index, args = seed, positions...
+                Call, // imm = function index, args = function parameters
 
                 Count
             };
@@ -118,17 +118,25 @@ namespace FastNoise
                 bool operator==( const Instr& rhs ) const;
             };
 
+            struct Parameter
+            {
+                Type type;
+                std::string name;
+            };
+
+            // A node traced for a dimension count, or a helper function
             struct Function
             {
-                std::string nodeName;
-                int dimensions = 0; // Parameter count excluding seed
+                std::string name; // Node or helper name
+                std::string native; // Helpers only: C++ function with feature set specific implementations, called by C++ output in place of the traced body
+                std::vector<Parameter> params; // Node functions take the seed followed by positions
                 std::vector<Instr> code; // Operands always precede their users
                 ValueId result = kNoValue;
             };
 
             struct Program
             {
-                std::vector<Function> functions; // functions[0] is the entry point, callees have higher indices than callers
+                std::vector<Function> functions; // functions[0] is the entry point
             };
 
             union Scalar
@@ -198,7 +206,7 @@ namespace FastNoise
             // Count of live instructions, excluding params and constants
             size_t CountOps( const Function& function );
 
-            // Reference interpreter, args = seed followed by positions
+            // Reference interpreter for the entry point
             float Evaluate( const Program& program, int32_t seed, const float* positions );
         }
     }

@@ -83,7 +83,7 @@ std::string glsl = FastNoise::CodeGen::Generate( encodedNodeTree, FastNoise::Cod
 
 All node settings are baked into the generated code as constants. GLSL output targets GLSL 3.30 and GLSL ES 3.00 (WebGL 2), HLSL output targets Shader Model 4+.
 
-C++ output is written against FastSIMD registers, include it in a FastSIMD dispatch compilation unit after `FastNoise/Generators/Generator.inl` to evaluate the whole tree as one inlined function (see `tests/CodeGenBenchmarkNodes.inl`).
+C++ output is written against FastSIMD registers, include it in a FastSIMD dispatch compilation unit after `FastNoise/Generators/Generator.inl` to evaluate the whole tree as one inlined function (see `tests/CodeGenBenchmarkNodes.inl`). Without the per node virtual calls, trees of many light nodes generate up to ~3x faster (`FastNoiseCodeGenBenchmark`).
 
 ## FastNoise2 vs FastNoise Lite
 
