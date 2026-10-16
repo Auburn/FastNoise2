@@ -50,6 +50,11 @@ add_library(FastNoise
 
 add_library(FastNoise2 ALIAS FastNoise)
 
+# CodeGen constant folding and reference evaluation must round every op separately, like FastSIMD's non relaxed mode
+if(NOT MSVC)
+    set_source_files_properties("FastNoise/CodeGen/IR.cpp" PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()
+
 target_include_directories(FastNoise PUBLIC 
     $<BUILD_INTERFACE:${FastNoise2_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>

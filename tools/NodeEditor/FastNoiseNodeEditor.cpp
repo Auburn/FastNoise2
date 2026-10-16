@@ -19,6 +19,7 @@
 #include "util/ImGuiExtra.h"
 #include "util/DemoNodeTrees.inl"
 #include "FastNoiseNodeEditor.h"
+#include "FastNoise/CodeGen.h"
 #include "NodeEditorApp.h"
 
 #ifndef __EMSCRIPTEN__
@@ -1131,6 +1132,36 @@ void FastNoiseNodeEditor::DoNodes()
             {
                 ImGui::SetClipboardText( node.second.serialised.c_str() );
                 Debug{} << node.second.serialised.c_str();
+            }
+
+            if( ImGui::BeginMenu( "Copy Generated Code", !node.second.serialised.empty() ) )
+            {
+                static constexpr std::pair<const char*, FastNoise::CodeGen::Language> kLanguages[] = {
+                    { "GLSL", FastNoise::CodeGen::Language::GLSL },
+                    { "HLSL", FastNoise::CodeGen::Language::HLSL },
+                    { "WGSL", FastNoise::CodeGen::Language::WGSL },
+                    { "C++ (FastSIMD)", FastNoise::CodeGen::Language::CPP },
+                };
+
+                for( const auto& language : kLanguages )
+                {
+                    if( ImGui::BeginMenu( language.first ) )
+                    {
+                        for( int dimensions = 2; dimensions <= 4; dimensions++ )
+                        {
+                            if( ImGui::MenuItem( ( std::to_string( dimensions ) + "D" ).c_str() ) )
+                            {
+                                FastNoise::CodeGen::Options options;
+                                options.dimensions = dimensions;
+
+                                std::string code = FastNoise::CodeGen::Generate( node.second.serialised.c_str(), language.second, options );
+                                ImGui::SetClipboardText( code.c_str() );
+                            }
+                        }
+                        ImGui::EndMenu();
+                    }
+                }
+                ImGui::EndMenu();
             }
 
             ImGui::Separator();

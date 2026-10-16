@@ -49,6 +49,11 @@ The traditional approach of generating noise types separately and combining them
 - Write code once and it automatically compiles for all supported SIMD architectures
 - Custom nodes work in the Node Editor, serialisation and other language bindings with minimal effort thanks to node metadata
 
+**Code Generation**
+- Generate GLSL, HLSL or WGSL from any node tree to run it on the GPU
+- Generate C++ to compile a fixed node tree into a single SIMD function, without per node overhead
+- Generated code is derived from the node implementations themselves, so every node is supported and integer hashing matches exactly
+
 ## Node Editor
 
 The FastNoise2 Node Editor tool provides a node graph editor to create trees of FastNoise2 nodes. Node trees can be exported as serialised strings and loaded into the FastNoise2 library in your own code. Node Editor has 2D texture/heightmap and 3D mesh previews for the node graph output, generation is infinite in all dimensions. See screenshots below for examples.
@@ -60,6 +65,25 @@ Check the [Releases](https://github.com/Auburn/FastNoise2/releases/latest) for c
 ![Node Editor Mountain Terrain](https://github.com/user-attachments/assets/acda59bd-1245-40dd-8f0e-06fa8a17c60d)
 
 ![Node Editor Crazy Terrain](https://github.com/user-attachments/assets/22bb2052-b17d-415e-897d-999869991fa9)
+
+## Code Generation
+
+`FastNoise::CodeGen` converts a node tree into standalone source code. In the Node Editor right click a node title and use "Copy Generated Code", or in code:
+
+```cpp
+#include <FastNoise/CodeGen.h>
+
+FastNoise::CodeGen::Options options;
+options.dimensions = 3;
+options.functionName = "terrain";
+
+// float terrain( vec3 pos, int seed )
+std::string glsl = FastNoise::CodeGen::Generate( encodedNodeTree, FastNoise::CodeGen::Language::GLSL, options );
+```
+
+All node settings are baked into the generated code as constants. GLSL output targets GLSL 3.30 and GLSL ES 3.00 (WebGL 2), HLSL output targets Shader Model 4+.
+
+C++ output is written against FastSIMD registers, include it in a FastSIMD dispatch compilation unit after `FastNoise/Generators/Generator.inl` to evaluate the whole tree as one inlined function (see `tests/CodeGenBenchmarkNodes.inl`).
 
 ## FastNoise2 vs FastNoise Lite
 
