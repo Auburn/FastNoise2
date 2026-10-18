@@ -1248,7 +1248,7 @@ void FastNoiseNodeEditor::DoNodes()
             {
             case FastNoise::Metadata::MemberVariable::EFloat:
             {
-                if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, nodeVar.valueUiDragSpeed, nodeVar.valueMin.f, nodeVar.valueMax.f ) )
+                if( ImGui::DragFloat( formatName.c_str(), &nodeData->variables[i].f, nodeVar.valueUiDragSpeed, nodeVar.valueMin.f, nodeVar.valueMax.f, "%.3f", ImGuiSliderFlags_AlwaysClamp ) )
                 {
                     node.second.GeneratePreview();
                 }
@@ -1256,7 +1256,7 @@ void FastNoiseNodeEditor::DoNodes()
             break;
             case FastNoise::Metadata::MemberVariable::EInt:
             {
-                if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, nodeVar.valueUiDragSpeed, nodeVar.valueMin.i, nodeVar.valueMax.i ) )
+                if( ImGui::DragInt( formatName.c_str(), &nodeData->variables[i].i, nodeVar.valueUiDragSpeed, nodeVar.valueMin.i, nodeVar.valueMax.i, "%d", ImGuiSliderFlags_AlwaysClamp ) )
                 {
                     node.second.GeneratePreview();
                 }

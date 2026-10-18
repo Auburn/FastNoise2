@@ -15,6 +15,8 @@ namespace FastNoise
         void SetOctaveCount( int value ) { mOctaves = value; }
         void SetLacunarity( float value ) { mLacunarity = value; } 
 
+        int GetOctaveCount() const { return mOctaves; }
+
     protected:
         GeneratorSourceT<T> mSource;
         HybridSource mGain = 0.5f;

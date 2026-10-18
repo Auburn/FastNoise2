@@ -233,6 +233,7 @@ namespace FastNoise
          *  @param serialisedBase64NodeData  Encoded string previously created by SerialiseNodeData().
          *  @param[out] nodeDataOut          Vector that receives ownership of all allocated NodeData objects.
          *  @return Pointer to the root NodeData in the tree, or nullptr on failure.
+         *          Trees more than 64 levels deep (counting nodes reached through links to the same node) fail.
          */
         static NodeData* DeserialiseNodeData( const char* serialisedBase64NodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut );
 
