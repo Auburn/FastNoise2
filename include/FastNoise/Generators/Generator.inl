@@ -1,4 +1,5 @@
 #include <cassert>
+#include <climits>
 #include <cstring>
 #include <utility>
 
@@ -79,7 +80,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( xCount <= 0 || yCount <= 0 )
+        if( !IsValidAxisCount( xCount ) || !IsValidAxisCount( yCount ) )
         {
             return {};
         }
@@ -133,7 +134,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const final
     {
-        if( xCount <= 0 || yCount <= 0 || zCount <= 0 )
+        if( !IsValidAxisCount( xCount ) || !IsValidAxisCount( yCount ) || !IsValidAxisCount( zCount ) )
         {
             return {};
         }
@@ -196,7 +197,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const final
     {
-        if( xCount <= 0 || yCount <= 0 || zCount <= 0 || wCount <= 0 )
+        if( !IsValidAxisCount( xCount ) || !IsValidAxisCount( yCount ) || !IsValidAxisCount( zCount ) || !IsValidAxisCount( wCount ) )
         {
             return {};
         }
@@ -391,7 +392,7 @@ public:
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( xSize <= 0 || ySize <= 0 )
+        if( !IsValidAxisCount( xSize ) || !IsValidAxisCount( ySize ) )
         {
             return {};
         }
@@ -459,6 +460,12 @@ public:
     }
 
 private:
+    // Axis indices are int32 and step a whole register at a time, so they would wrap past INT_MAX on counts close to it
+    static FS_FORCEINLINE bool IsValidAxisCount( int count )
+    {
+        return count > 0 && count <= INT_MAX - 64;
+    }
+
     template<bool INITIAL>
     static FS_FORCEINLINE void AxisReset( int32v& aIdx, int32v& bIdx, int32v aMax, int32v aSize, size_t aStep )
     {
