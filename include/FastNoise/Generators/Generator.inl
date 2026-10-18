@@ -80,11 +80,16 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xCount, yCount > 1 ) || !IsValidAxisCount( yCount ) )
+        if( !IsValidGridSize( xCount, yCount ) )
         {
             return {};
         }
 
+        return GenUniformGrid2DValid( noiseOut, xOffset, yOffset, xCount, yCount, xStepSize, yStepSize, seed );
+    }
+
+    FS_NEVERINLINE FastNoise::OutputMinMax GenUniformGrid2DValid( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const
+    {
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -134,11 +139,16 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xCount, yCount > 1 || zCount > 1 ) || !IsValidAxisCount( yCount, zCount > 1 ) || !IsValidAxisCount( zCount ) )
+        if( !IsValidGridSize( xCount, yCount, zCount ) )
         {
             return {};
         }
 
+        return GenUniformGrid3DValid( noiseOut, xOffset, yOffset, zOffset, xCount, yCount, zCount, xStepSize, yStepSize, zStepSize, seed );
+    }
+
+    FS_NEVERINLINE FastNoise::OutputMinMax GenUniformGrid3DValid( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const
+    {
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -197,12 +207,16 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xCount, yCount > 1 || zCount > 1 || wCount > 1 ) || !IsValidAxisCount( yCount, zCount > 1 || wCount > 1 ) ||
-            !IsValidAxisCount( zCount, wCount > 1 ) || !IsValidAxisCount( wCount ) )
+        if( !IsValidGridSize( xCount, yCount, zCount, wCount ) )
         {
             return {};
         }
 
+        return GenUniformGrid4DValid( noiseOut, xOffset, yOffset, zOffset, wOffset, xCount, yCount, zCount, wCount, xStepSize, yStepSize, zStepSize, wStepSize, seed );
+    }
+
+    FS_NEVERINLINE FastNoise::OutputMinMax GenUniformGrid4DValid( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const
+    {
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -393,11 +407,16 @@ public:
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xSize, ySize > 1 ) || !IsValidAxisCount( ySize ) )
+        if( !IsValidGridSize( xSize, ySize ) )
         {
             return {};
         }
 
+        return GenTileable2DValid( noiseOut, xSize, ySize, xStepSize, yStepSize, seed );
+    }
+
+    FS_NEVERINLINE FastNoise::OutputMinMax GenTileable2DValid( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const
+    {
         float32v min( kInfinity );
         float32v max( -kInfinity );
 
@@ -461,11 +480,21 @@ public:
     }
 
 private:
-    // Axis indices are int32 and step a whole register at a time. An axis that carries into a later axis with more
-    // than one row would wrap past INT_MAX before being reset if its count is close to INT_MAX
-    static FS_FORCEINLINE bool IsValidAxisCount( int count, bool carriesIntoLaterAxis = false )
+    // Counts must be > 0. Axis indices are int32 and step a whole register at a time, so an axis that carries into a
+    // later axis with a count above 1 would wrap past INT_MAX before being reset if its count is close to INT_MAX
+    // Checked before calling the *Valid functions, so the check doesn't affect code generation of their loops
+    static FS_FORCEINLINE bool IsValidGridSize( int x, int y, int z = 1, int w = 1 )
     {
-        return count > 0 && ( !carriesIntoLaterAxis || count <= INT_MAX - 64 );
+        if( x <= 0 || y <= 0 || z <= 0 || w <= 0 )
+        {
+            return false;
+        }
+
+        constexpr int kMaxCarryingCount = INT_MAX - 64;
+
+        return ( x <= kMaxCarryingCount || ( y == 1 && z == 1 && w == 1 ) ) &&
+               ( y <= kMaxCarryingCount || ( z == 1 && w == 1 ) ) &&
+               ( z <= kMaxCarryingCount || w == 1 );
     }
 
     template<bool INITIAL>
