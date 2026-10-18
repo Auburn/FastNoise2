@@ -61,8 +61,8 @@ namespace FastNoise
      *  Decoded variables are clamped to their metadata range. Trees more than 64 levels deep,
      *  or costing more than 65536 node generations per sample (a node used through several
      *  links counts every time, a fractal's source counts once per octave), are rejected.
-     *  Generation recurses through the tree and can use up to ~3KB of stack per level (AVX512),
-     *  so generating a tree at the depth limit can need ~200KB of stack.
+     *  Generation recurses through the tree and can use up to ~6KB of stack per level
+     *  (CellularLookup, AVX512 4D), so generating a tree at the depth limit can need ~400KB of stack.
      *
      *  @param  encodedNodeTreeString  Encoded node tree string.
      *  @param  maxFeatureSet          Maximum SIMD feature set to use. Defaults to auto-detect.
