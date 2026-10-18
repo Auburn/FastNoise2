@@ -35,11 +35,11 @@ namespace FastNoise
                     }
                     else if( consecutiveAs >= std::size( kEncodingTable ) + 2 )
                     {
+                        // Max run length, the "@/" includes this 'A' so start a new run from the next one
                         ret[ret.length() - 2] = '@';
                         ret[ret.length() - 1] = kEncodingTable[consecutiveAs - 3];
 
-                        ret += 'A';
-                        consecutiveAs = 1;
+                        consecutiveAs = 0;
                     }
                 }
                 else
@@ -60,7 +60,7 @@ namespace FastNoise
 
             size_t i;
 
-            for( i = 0; i < inLen - 2; i += 3 )
+            for( i = 0; i + 2 < inLen; i += 3 )
             {
                 appendChar( kEncodingTable[( data[i] >> 2 ) & 0x3F] );
                 appendChar( kEncodingTable[( ( data[i] & 0x3 ) << 4 ) | ( ( data[i + 1] & 0xF0 ) >> 4 )] );
