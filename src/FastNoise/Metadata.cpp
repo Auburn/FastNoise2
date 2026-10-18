@@ -356,7 +356,7 @@ bool GetFromDataStream<MemberLookup>( const DataStream& dataStream, MemberLookup
 }
 
 // Limits on decoded node trees, so a corrupt or malicious encoded string can't create a node tree that overflows the stack or takes forever to generate
-// Generation recurses through the node tree and can use a few KB of stack per level
+// Generation recurses through the node tree and can use a few KB of stack per level, referenced nodes count towards the depth of every node using them
 static constexpr int kMaxNodeTreeDepth = 64;
 // Number of node generations per sample, a referenced node counts every time it is used and a fractal's source counts once per octave
 static constexpr uint64_t kMaxNodeTreeGenCost = 1 << 16;
@@ -385,18 +385,25 @@ static Metadata::MemberVariable::ValueUnion ClampToMetadataRange( const Metadata
     return v;
 }
 
-// referenceNodes holds each decoded node with its gen cost
-static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNodeData, std::vector<std::pair<SmartNode<>, uint64_t>>& referenceNodes, FastSIMD::FeatureSet level, int depth, uint64_t& genCost )
+struct DecodedNode
+{
+    SmartNode<> node;
+    uint64_t genCost = 0; // Node generations per sample for this node and its sources
+    int height = 0;       // Levels from this node to its deepest source, including itself
+};
+
+// depth is the decoder's own recursion depth, height (below) is what generation will recurse through
+static DecodedNode DeserialiseSmartNodeInternal( const DataStream& serialisedNodeData, std::vector<DecodedNode>& referenceNodes, FastSIMD::FeatureSet level, int depth )
 {
     if( depth >= kMaxNodeTreeDepth )
     {
-        return nullptr;
+        return {};
     }
 
     Metadata::node_id nodeId;
     if( !GetFromDataStream( serialisedNodeData, nodeId ) )
     {
-        return nullptr;
+        return {};
     }
 
     // UINT8_MAX indicates a reference node
@@ -405,16 +412,15 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
         uint16_t referenceId;
         if( !GetFromDataStream( serialisedNodeData, referenceId ) )
         {
-            return nullptr;
+            return {};
         }
 
         if( referenceId >= referenceNodes.size() )
         {
-            return nullptr;            
+            return {};            
         }
 
-        genCost = referenceNodes[referenceId].second;
-        return referenceNodes[referenceId].first;
+        return referenceNodes[referenceId];
     }
 
     // Create node from nodeId
@@ -422,29 +428,30 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
 
     if( !metadata )
     {
-        return nullptr;
+        return {};
     }
 
     SmartNode<> generator = metadata->CreateNode( level );
 
     if( !generator )
     {
-        return nullptr;
+        return {};
     }
 
-    genCost = 1;
+    DecodedNode decoded = { generator, 1, 1 };
 
-    // Returns false if the node tree is now too costly to generate
-    auto addGenCost = [&genCost]( uint64_t sourceGenCost )
+    // Returns false if the node tree is now too costly to generate or too deep
+    auto addSource = [&decoded]( const DecodedNode& source, uint64_t genCount )
     {
-        genCost += sourceGenCost;
-        return genCost <= kMaxNodeTreeGenCost;
+        decoded.genCost += source.genCost * genCount;
+        decoded.height = std::max( decoded.height, source.height + 1 );
+        return decoded.genCost <= kMaxNodeTreeGenCost && decoded.height <= kMaxNodeTreeDepth;
     };
 
     MemberLookup memberLookup;
     if( !GetFromDataStream( serialisedNodeData, memberLookup ) )
     {
-        return nullptr;
+        return {};
     }
 
     // Member variables
@@ -454,7 +461,7 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
 
         if( !GetFromDataStream( serialisedNodeData, v.i ) )
         {
-            return nullptr;
+            return {};
         }
 
         if( memberLookup.member.index < metadata->memberVariables.size() )
@@ -466,7 +473,7 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
 
         if( !GetFromDataStream( serialisedNodeData, memberLookup ) )
         {
-            return nullptr;
+            return {};
         }
     }
 
@@ -485,36 +492,36 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
     {
         for( ; nodeLookupIdx < std::min<size_t>( memberLookup.member.index, metadata->memberNodeLookups.size() ); nodeLookupIdx++ )
         {
-            uint64_t nodeGenCost;
-            SmartNode<> nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, referenceNodes, level, depth + 1, nodeGenCost );
+            DecodedNode nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, referenceNodes, level, depth + 1 );
 
-            if( !nodeGen || !metadata->memberNodeLookups[nodeLookupIdx].setFunc( generator.get(), nodeGen ) || !addGenCost( nodeGenCost * nodeLookupGenCount ) )
+            if( !nodeGen.node || !metadata->memberNodeLookups[nodeLookupIdx].setFunc( generator.get(), nodeGen.node ) || !addSource( nodeGen, nodeLookupGenCount ) )
             {
-                return nullptr;
+                return {};
             }
         }
         for( size_t i = nodeLookupIdx; i < memberLookup.member.index; i++ )
         {
             // Still need to deserialise this even if there is no where to put it
-            uint64_t nodeGenCost;
-            if( !DeserialiseSmartNodeInternal( serialisedNodeData, referenceNodes, level, depth + 1, nodeGenCost ) )
+            if( !DeserialiseSmartNodeInternal( serialisedNodeData, referenceNodes, level, depth + 1 ).node )
             {
-                return nullptr;
+                return {};
             }
         }
 
         if( !GetFromDataStream( serialisedNodeData, memberLookup ) )
         {
-            return nullptr;
+            return {};
         }
     }
 
     // Node lookups must always be set, attempt to use a dummy node to fill any missing from the encoded data
     for( ; nodeLookupIdx < metadata->memberNodeLookups.size(); nodeLookupIdx++ )
     {
-        if( !metadata->memberNodeLookups[nodeLookupIdx].setFunc( generator.get(), FastNoise::New<FastNoise::Constant>( level ) ) || !addGenCost( nodeLookupGenCount ) )
+        SmartNode<> dummyNode = FastNoise::New<FastNoise::Constant>( level );
+
+        if( !metadata->memberNodeLookups[nodeLookupIdx].setFunc( generator.get(), dummyNode ) || !addSource( { dummyNode, 1, 1 }, nodeLookupGenCount ) )
         {
-            return nullptr;
+            return {};
         }
     }
 
@@ -523,14 +530,19 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
     {
         if( memberLookup.member.type == MemberLookup::TypeHybridLookup )
         {
-            uint64_t nodeGenCost;
-            SmartNode<> nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, referenceNodes, level, depth + 1, nodeGenCost );
+            DecodedNode nodeGen = DeserialiseSmartNodeInternal( serialisedNodeData, referenceNodes, level, depth + 1 );
+
+            // Fail even if there is no where to put it, the rest of the stream can't be read after a failed node
+            if( !nodeGen.node )
+            {
+                return {};
+            }
 
             if( memberLookup.member.index < metadata->memberHybrids.size() )
             {
-                if( !nodeGen || !metadata->memberHybrids[memberLookup.member.index].setNodeFunc( generator.get(), nodeGen ) || !addGenCost( nodeGenCost ) )
+                if( !metadata->memberHybrids[memberLookup.member.index].setNodeFunc( generator.get(), nodeGen.node ) || !addSource( nodeGen, 1 ) )
                 {
-                    return nullptr;
+                    return {};
                 }
             }
         }
@@ -540,7 +552,7 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
 
             if( !GetFromDataStream( serialisedNodeData, v ) )
             {
-                return nullptr;
+                return {};
             }
 
             if( memberLookup.member.index < metadata->memberHybrids.size() )
@@ -551,29 +563,30 @@ static SmartNode<> DeserialiseSmartNodeInternal( const DataStream& serialisedNod
 
         if( !GetFromDataStream( serialisedNodeData, memberLookup ) )
         {
-            return nullptr;
+            return {};
         }
     }
 
-    referenceNodes.emplace_back( generator, genCost );
+    referenceNodes.push_back( decoded );
 
-    return generator;
+    return decoded;
 }
 
 SmartNode<> FastNoise::NewFromEncodedNodeTree( const char* serialisedBase64NodeData, FastSIMD::FeatureSet level )
 {
     DataStream dataStream = { Base64::Decode( serialisedBase64NodeData ) };
 
-    std::vector<std::pair<SmartNode<>, uint64_t>> referenceNodes;
-    uint64_t genCost;
+    std::vector<DecodedNode> referenceNodes;
 
-    return DeserialiseSmartNodeInternal( dataStream, referenceNodes, level, 0, genCost );
+    return DeserialiseSmartNodeInternal( dataStream, referenceNodes, level, 0 ).node;
 }
 
-static NodeData* DeserialiseNodeDataInternal( const DataStream& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, int depth )
+// A node past kMaxNodeTreeDepth sets tooDeep and fails the whole decode, its data is left unread so parents can't keep decoding
+static NodeData* DeserialiseNodeDataInternal( const DataStream& serialisedNodeData, std::vector<std::unique_ptr<NodeData>>& nodeDataOut, int depth, bool& tooDeep )
 {
     if( depth >= kMaxNodeTreeDepth )
     {
+        tooDeep = true;
         return nullptr;
     }
 
@@ -644,12 +657,22 @@ static NodeData* DeserialiseNodeDataInternal( const DataStream& serialisedNodeDa
         size_t i = 0;
         for( ; i < std::min<size_t>( memberLookup.member.index, metadata->memberNodeLookups.size() ); i++ )
         {
-            nodeData->nodeLookups[i] = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, depth + 1 );
+            nodeData->nodeLookups[i] = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, depth + 1, tooDeep );
+
+            if( tooDeep )
+            {
+                return nullptr;
+            }
         }
         for( ; i < memberLookup.member.index; i++ )
         {
             // Still need to deserialise this even if there is no where to put it
-            DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, depth + 1 );
+            DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, depth + 1, tooDeep );
+
+            if( tooDeep )
+            {
+                return nullptr;
+            }
         }
 
         if( !GetFromDataStream( serialisedNodeData, memberLookup ) )
@@ -663,7 +686,12 @@ static NodeData* DeserialiseNodeDataInternal( const DataStream& serialisedNodeDa
     {
         if( memberLookup.member.type == MemberLookup::TypeHybridLookup )
         {
-            NodeData* node = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, depth + 1 );
+            NodeData* node = DeserialiseNodeDataInternal( serialisedNodeData, nodeDataOut, depth + 1, tooDeep );
+
+            if( tooDeep )
+            {
+                return nullptr;
+            }
 
             if( memberLookup.member.index < metadata->memberHybrids.size() )
             {
@@ -698,7 +726,9 @@ NodeData* Metadata::DeserialiseNodeData( const char* serialisedBase64NodeData, s
 {
     DataStream dataStream = { Base64::Decode( serialisedBase64NodeData ) };
 
-    return DeserialiseNodeDataInternal( dataStream, nodeDataOut, 0 );
+    bool tooDeep = false;
+
+    return DeserialiseNodeDataInternal( dataStream, nodeDataOut, 0, tooDeep );
 }
 
 std::string Metadata::FormatMetadataNodeName( const Metadata* metadata, bool removeGroups )
