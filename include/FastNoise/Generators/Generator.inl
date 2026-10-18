@@ -80,7 +80,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid2D( float* noiseOut, float xOffset, float yOffset, int xCount, int yCount, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xCount ) || !IsValidAxisCount( yCount ) )
+        if( !IsValidAxisCount( xCount, yCount > 1 ) || !IsValidAxisCount( yCount ) )
         {
             return {};
         }
@@ -134,7 +134,7 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid3D( float* noiseOut, float xOffset, float yOffset, float zOffset, int xCount, int yCount, int zCount, float xStepSize, float yStepSize, float zStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xCount ) || !IsValidAxisCount( yCount ) || !IsValidAxisCount( zCount ) )
+        if( !IsValidAxisCount( xCount, yCount > 1 || zCount > 1 ) || !IsValidAxisCount( yCount, zCount > 1 ) || !IsValidAxisCount( zCount ) )
         {
             return {};
         }
@@ -197,7 +197,8 @@ public:
 
     FastNoise::OutputMinMax GenUniformGrid4D( float* noiseOut, float xOffset, float yOffset, float zOffset, float wOffset, int xCount, int yCount, int zCount, int wCount, float xStepSize, float yStepSize, float zStepSize, float wStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xCount ) || !IsValidAxisCount( yCount ) || !IsValidAxisCount( zCount ) || !IsValidAxisCount( wCount ) )
+        if( !IsValidAxisCount( xCount, yCount > 1 || zCount > 1 || wCount > 1 ) || !IsValidAxisCount( yCount, zCount > 1 || wCount > 1 ) ||
+            !IsValidAxisCount( zCount, wCount > 1 ) || !IsValidAxisCount( wCount ) )
         {
             return {};
         }
@@ -392,7 +393,7 @@ public:
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
     {
-        if( !IsValidAxisCount( xSize ) || !IsValidAxisCount( ySize ) )
+        if( !IsValidAxisCount( xSize, ySize > 1 ) || !IsValidAxisCount( ySize ) )
         {
             return {};
         }
@@ -460,10 +461,11 @@ public:
     }
 
 private:
-    // Axis indices are int32 and step a whole register at a time, so they would wrap past INT_MAX on counts close to it
-    static FS_FORCEINLINE bool IsValidAxisCount( int count )
+    // Axis indices are int32 and step a whole register at a time. An axis that carries into a later axis with more
+    // than one row would wrap past INT_MAX before being reset if its count is close to INT_MAX
+    static FS_FORCEINLINE bool IsValidAxisCount( int count, bool carriesIntoLaterAxis = false )
     {
-        return count > 0 && count <= INT_MAX - 64;
+        return count > 0 && ( !carriesIntoLaterAxis || count <= INT_MAX - 64 );
     }
 
     template<bool INITIAL>
