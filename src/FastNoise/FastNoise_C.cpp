@@ -436,6 +436,32 @@ float fnGetMetadataVariableMaxFloat( int id, int variableIndex )
     return 0;
 }
 
+int fnGetMetadataVariableMinInt( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+    {
+        if( (size_t)variableIndex < m->memberVariables.size() )
+        {
+            return m->memberVariables[variableIndex].valueMin.i;
+        }
+        return 0;
+    }
+    return 0;
+}
+
+int fnGetMetadataVariableMaxInt( int id, int variableIndex )
+{
+    if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
+    {
+        if( (size_t)variableIndex < m->memberVariables.size() )
+        {
+            return m->memberVariables[variableIndex].valueMax.i;
+        }
+        return 0;
+    }
+    return 0;
+}
+
 const char* fnGetMetadataNodeLookupDescription( int id, int nodeLookupIndex )
 {
     if( const auto* m = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
