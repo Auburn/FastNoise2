@@ -635,9 +635,9 @@ namespace FastNoise
 
             member.setFunc = [func]( Generator* g, SmartNodeArg<> s )
             {
-                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
+                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                 {
-                    if( U* gRealType = dynamic_cast<U*>( g ) )
+                    if( U* gRealType = dynamic_cast<U*>( g ); gRealType && SourceFeatureSetMatches( gRealType, sUpCast ) )
                     {
                         SmartNode<const T> source( s, sUpCast ); 
                         (gRealType->*func)( source );
@@ -665,9 +665,9 @@ namespace FastNoise
 
                 member.setFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
+                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                     {
-                        if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
+                        if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ); gRealType && SourceFeatureSetMatches( gRealType, sUpCast ) )
                         {
                             SmartNode<const T> source( s, sUpCast ); 
                             g->SetSourceMemberVariable( func( gRealType ).get()[idx], source );
@@ -693,9 +693,9 @@ namespace FastNoise
 
             member.setNodeFunc = [funcNode]( Generator* g, SmartNodeArg<> s )
             {
-                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
+                if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                 {
-                    if( U* gRealType = dynamic_cast<U*>( g ) )
+                    if( U* gRealType = dynamic_cast<U*>( g ); gRealType && SourceFeatureSetMatches( gRealType, sUpCast ) )
                     {
                         SmartNode<const T> source( s, sUpCast ); 
                         (gRealType->*funcNode)( source );
@@ -735,9 +735,9 @@ namespace FastNoise
 
                 member.setNodeFunc = [func, idx]( Generator* g, SmartNodeArg<> s )
                 {
-                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ); sUpCast && SourceFeatureSetMatches( g, sUpCast ) )
+                    if( const T* sUpCast = dynamic_cast<const T*>( s.get() ) )
                     {
-                        if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ) )
+                        if( auto* gRealType = dynamic_cast<GetArg<U, 0>>( g ); gRealType && SourceFeatureSetMatches( gRealType, sUpCast ) )
                         {
                             SmartNode<const T> source( s, sUpCast ); 
                             g->SetSourceMemberVariable( func( gRealType ).get()[idx], source );
