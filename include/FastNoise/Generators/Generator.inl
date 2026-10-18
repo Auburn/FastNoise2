@@ -430,7 +430,16 @@ private:
         for( size_t resetLoop = INITIAL ? aStep : 0; resetLoop < int32v::ElementCount; resetLoop += aStep )
         {
             mask32v aReset = aIdx > aMax;
-            bIdx = FS::MaskedIncrement( aReset, bIdx );
+
+            if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+            {
+                // AVX512 MaskedIncrement is the generic a - Masked( mask, -1 ), MaskedSub is a single merge-masked sub
+                bIdx = FS::MaskedSub( aReset, bIdx, int32v( -1 ) );
+            }
+            else
+            {
+                bIdx = FS::MaskedIncrement( aReset, bIdx );
+            }
             aIdx = FS::MaskedSub( aReset, aIdx, aSize );
         }
     }
