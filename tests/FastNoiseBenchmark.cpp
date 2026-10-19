@@ -135,6 +135,12 @@ int main( int argc, char** argv )
     
     for( auto level : FastSIMD::FastSIMD_FastNoise::CompiledFeatureSets::AsArray )
     {
+        // Feature sets the CPU doesn't support would hit illegal instructions
+        if( level > FastSIMD::DetectCpuMaxFeatureSet() )
+        {
+            continue;
+        }
+
         for( const FastNoise::Metadata* metadata : FastNoise::Metadata::GetAll() )
         {
             const char* groupName = "Misc";

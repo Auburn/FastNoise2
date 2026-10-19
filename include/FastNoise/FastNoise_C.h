@@ -357,7 +357,8 @@ FASTNOISE_API const char* fnGetMetadataVariableName( int id, int variableIndex )
  *  The type determines which setter function to use:
  *  - 0 (EFloat): Use fnSetVariableFloat(). Has min/max bounds from
  *    fnGetMetadataVariableMinFloat() / fnGetMetadataVariableMaxFloat().
- *  - 1 (EInt): Use fnSetVariableIntEnum().
+ *  - 1 (EInt): Use fnSetVariableIntEnum(). Has min/max bounds from
+ *    fnGetMetadataVariableMinInt() / fnGetMetadataVariableMaxInt().
  *  - 2 (EEnum): Use fnSetVariableIntEnum(). Enum option names can be queried
  *    with fnGetMetadataEnumCount() and fnGetMetadataEnumName().
  *
@@ -580,7 +581,7 @@ FASTNOISE_API const char* fnGetMetadataVariableDescription( int id, int variable
 /** @brief Get the default float value of a variable on a node type.
  *
  *  Only meaningful for variables of type EFloat (see fnGetMetadataVariableType()).
- *  For int/enum variables, use fnGetMetadataVariableDefaultInt() instead.
+ *  For int/enum variables, use fnGetMetadataVariableDefaultIntEnum() instead.
  *
  *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param variableIndex  Index into the variables list (0-based).
@@ -603,6 +604,8 @@ FASTNOISE_API int         fnGetMetadataVariableDefaultIntEnum( int id, int varia
  *
  *  Returns the lower bound for float variables, used for UI clamping and validation.
  *  Only meaningful for variables of type EFloat (see fnGetMetadataVariableType()).
+ *  For int variables, use fnGetMetadataVariableMinInt() instead.
+ *  The variable only has a range if min < max, otherwise (e.g. both 0) it is unbounded.
  *
  *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param variableIndex  Index into the variables list (0-based).
@@ -614,12 +617,40 @@ FASTNOISE_API float       fnGetMetadataVariableMinFloat( int id, int variableInd
  *
  *  Returns the upper bound for float variables, used for UI clamping and validation.
  *  Only meaningful for variables of type EFloat (see fnGetMetadataVariableType()).
+ *  For int variables, use fnGetMetadataVariableMaxInt() instead.
+ *  The variable only has a range if min < max, otherwise (e.g. both 0) it is unbounded.
  *
  *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
  *  @param variableIndex  Index into the variables list (0-based).
  *  @return Maximum float value, or 0 if either index is invalid.
  */
 FASTNOISE_API float       fnGetMetadataVariableMaxFloat( int id, int variableIndex );
+
+/** @brief Get the minimum allowed int value of a variable on a node type.
+ *
+ *  Returns the lower bound for int variables, used for UI clamping and validation.
+ *  Only meaningful for variables of type EInt (see fnGetMetadataVariableType()).
+ *  For float variables, use fnGetMetadataVariableMinFloat() instead.
+ *  The variable only has a range if min < max, otherwise (e.g. both 0) it is unbounded.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Minimum int value, or 0 if either index is invalid.
+ */
+FASTNOISE_API int         fnGetMetadataVariableMinInt( int id, int variableIndex );
+
+/** @brief Get the maximum allowed int value of a variable on a node type.
+ *
+ *  Returns the upper bound for int variables, used for UI clamping and validation.
+ *  Only meaningful for variables of type EInt (see fnGetMetadataVariableType()).
+ *  For float variables, use fnGetMetadataVariableMaxFloat() instead.
+ *  The variable only has a range if min < max, otherwise (e.g. both 0) it is unbounded.
+ *
+ *  @param id             Metadata ID (0 to fnGetMetadataCount()-1).
+ *  @param variableIndex  Index into the variables list (0-based).
+ *  @return Maximum int value, or 0 if either index is invalid.
+ */
+FASTNOISE_API int         fnGetMetadataVariableMaxInt( int id, int variableIndex );
 
 /** @brief Get the human-readable description of a node lookup input on a node type.
  *
