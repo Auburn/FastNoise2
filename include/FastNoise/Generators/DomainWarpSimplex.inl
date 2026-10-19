@@ -296,452 +296,100 @@ namespace FastNoise
         }
     }
 
-    template<FastSIMD::FeatureSet SIMD, typename I, typename F>
-    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductCommonImpl( I hash31, F fX, F fY, F fZ, F multiplier, F& valueX, F& valueY, F& valueZ )
+    // Hashed orthogonal matrices built as S * P * M: M is a hashed choice between identity and a fixed orthogonal matrix
+    // with no zero entries that is cheap to apply (with one input sign optionally flipped, so its rows cover more
+    // directions), P a hashed axis permutation and S hashed per axis sign flips. The outer signed permutations act
+    // irreducibly, so the warp covariance is isotropic like with a general random rotation, while the inner choice
+    // keeps the matrix rows from all being axis aligned. Only selects, sign flips and a few adds, no table lookups.
+    // HashPrimes() leaves bit 31 clear, the usable bits are 0-30
+
+    template<typename F, typename I>
+    FS_FORCEINLINE static F FlipSign( F value, I hash31, int bit )
     {
-        constexpr float kComponentA = 2.224744871391589f;
-        constexpr float kComponentB = -0.224744871391589f;
-        constexpr float kComponentC = -1.0f;
-        constexpr float kComponentsDE = 1.0f;
-        constexpr float kComponentF = 2.0f;
+        return value ^ FS::Cast<float>( ( hash31 << ( 31 - bit ) ) & I( 1 << 31 ) );
+    }
 
-        I hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
-        I indexFacetBasisWithPermute2 = hashShifted * I( 0xAAAAAAAB ); // [0,3) in the highest two bits, [0,8) in the lowest three bits // ( -4LL << 30 ) / 3
-        I indexPermutation2HighBit = ( indexFacetBasisWithPermute2 << 29 ); // & I( 1 << 31 ); // [0,1) in the most significant bit
-        I indexPermutation3 = FS::BitShiftRightZeroExtend( hashShifted * I( 3 ), 30 ); // [0,3)
-        F finalSign = FS::Cast<float>( hash31 << 31 );
+    // M = ( 2, 2, -1 ) / 3 row permutations: ( 2/3 sum - z, 2/3 sum - y, 2/3 sum - x ). P: cyclic axis rotation [0,3)
+    template<typename F, typename I>
+    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProductImpl( I hash31, F fX, F fY, F fZ, F multiplier, F& valueX, F& valueY, F& valueZ )
+    {
+        fZ ^= FS::Cast<float>( hash31 << 31 ); // ( 2, 2, -1 ) and ( 2, 2, 1 ) row variants
 
-        F valueAB, valueBA, valueC;
+        I useMix = hash31 << ( 31 - 4 );
+        F sum = ( fX + fY + fZ ) * F( 2.0f / 3.0f );
+        F mX = FS::SelectHighBit( useMix, sum - fZ, fX );
+        F mY = FS::SelectHighBit( useMix, sum - fY, fY );
+        F mZ = FS::SelectHighBit( useMix, sum - fX, fZ );
 
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
-        {
-            indexFacetBasisWithPermute2 = FS::NativeExec<I>( []( auto a ){ return _mm512_rol_epi32( a, 2 ); }, indexFacetBasisWithPermute2 );
+        I rotate = hash31 >> 1;
+        I rotate2 = rotate + ( rotate << 1 ); // * 3 without a multiply. Sign bit set for rotation 2, bit 30 for rotation 1
+        I rotate1 = rotate2 << 1;
 
-            const auto tableA_gX = FS::Constant<float>( kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC, kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC );
-            const auto tableA_gY = FS::Constant<float>( kComponentC, kComponentB, kComponentA, kComponentA, kComponentC, kComponentB, -kComponentA, -kComponentA, kComponentC, -kComponentB, kComponentA, kComponentA, kComponentC, -kComponentB, -kComponentA, -kComponentA );
-            const auto tableA_gZ = FS::Constant<float>( kComponentB, kComponentC, kComponentB, kComponentB, kComponentB, kComponentC, kComponentB, kComponentB, -kComponentB, kComponentC, -kComponentB, -kComponentB, -kComponentB, kComponentC, -kComponentB, -kComponentB );
+        F pX = FS::SelectHighBit( rotate2, mZ, FS::SelectHighBit( rotate1, mY, mX ) );
+        F pY = FS::SelectHighBit( rotate2, mX, FS::SelectHighBit( rotate1, mZ, mY ) );
+        F pZ = FS::SelectHighBit( rotate2, mY, FS::SelectHighBit( rotate1, mX, mZ ) );
 
-            const auto tableB_gX = FS::Constant<float>( kComponentB, kComponentB, kComponentC, kComponentC, -kComponentB, -kComponentB, kComponentC, kComponentC, kComponentB, kComponentB, kComponentC, kComponentC, -kComponentB, -kComponentB, kComponentC, kComponentC );
-            const auto tableB_gY = FS::Constant<float>( kComponentC, kComponentA, kComponentB, kComponentB, kComponentC, kComponentA, -kComponentB, -kComponentB, kComponentC, -kComponentA, kComponentB, kComponentB, kComponentC, -kComponentA, -kComponentB, -kComponentB );
-            const auto tableB_gZ = FS::Constant<float>( kComponentA, kComponentC, kComponentA, kComponentA, kComponentA, kComponentC, kComponentA, kComponentA, -kComponentA, kComponentC, -kComponentA, -kComponentA, -kComponentA, kComponentC, -kComponentA, -kComponentA );
+        valueX = FN_FMulAdd( FlipSign( multiplier, hash31, 1 ), pX, valueX );
+        valueY = FN_FMulAdd( FlipSign( multiplier, hash31, 2 ), pY, valueY );
+        valueZ = FN_FMulAdd( FlipSign( multiplier, hash31, 3 ), pZ, valueZ );
+    }
 
-            const auto tableC_gX = FS::Constant<float>( kComponentsDE, kComponentsDE, kComponentF, kComponentF, kComponentC, kComponentC, kComponentF, kComponentF, kComponentsDE, kComponentsDE, kComponentF, kComponentF, kComponentC, kComponentC, kComponentF, kComponentF );
-            const auto tableC_gY = FS::Constant<float>( kComponentF, kComponentsDE, kComponentsDE, kComponentsDE, kComponentF, kComponentsDE, kComponentC, kComponentC, kComponentF, kComponentC, kComponentsDE, kComponentsDE, kComponentF, kComponentC, kComponentC, kComponentC );
-            const auto tableC_gZ = FS::Constant<float>( kComponentsDE, kComponentF, kComponentsDE, kComponentsDE, kComponentsDE, kComponentF, kComponentsDE, kComponentsDE, kComponentC, kComponentF, kComponentC, kComponentC, kComponentC, kComponentF, kComponentC, kComponentC );
+    // M = 4x4 Hadamard / 2. P: Klein four-group axis permutation ( pair swaps )
+    template<typename F, typename I>
+    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProductImpl( I hash31, F fX, F fY, F fZ, F fW, F multiplier, F& valueX, F& valueY, F& valueZ, F& valueW )
+    {
+        fW ^= FS::Cast<float>( hash31 << 31 ); // Hadamard rows with an even or odd number of negative entries
 
-            F valueAB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gX, indexFacetBasisWithPermute2, tableB_gX );
-            F valueAB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gY, indexFacetBasisWithPermute2, tableB_gY );
-            F valueAB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gZ, indexFacetBasisWithPermute2, tableB_gZ );
-            valueAB = FN_FMulAdd( valueAB_gZ, fZ, FN_FMulAdd( fY, valueAB_gY, fX * valueAB_gX ) );
+        I useMix = hash31 << ( 31 - 5 );
+        F sumXY = fX + fY, diffXY = fX - fY;
+        F sumZW = fZ + fW, diffZW = fZ - fW;
+        F mX = FS::SelectHighBit( useMix, sumXY + sumZW, fX );
+        F mY = FS::SelectHighBit( useMix, diffXY + diffZW, fY );
+        F mZ = FS::SelectHighBit( useMix, sumXY - sumZW, fZ );
+        F mW = FS::SelectHighBit( useMix, diffXY - diffZW, fW );
+        multiplier *= FS::SelectHighBit( useMix, F( 0.5f ), F( 1.0f ) );
 
-            F valueBA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gX, indexFacetBasisWithPermute2, tableA_gX );
-            F valueBA_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gY, indexFacetBasisWithPermute2, tableA_gY );
-            F valueBA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gZ, indexFacetBasisWithPermute2, tableA_gZ );
-            valueBA = FN_FMulAdd( valueBA_gZ, fZ, FN_FMulAdd( fY, valueBA_gY, fX * valueBA_gX ) );
+        I swapAdjacent = hash31 << 1;
+        F aX = FS::SelectHighBit( swapAdjacent, mY, mX );
+        F aY = FS::SelectHighBit( swapAdjacent, mX, mY );
+        F aZ = FS::SelectHighBit( swapAdjacent, mW, mZ );
+        F aW = FS::SelectHighBit( swapAdjacent, mZ, mW );
 
-            F valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gX );
-            F valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gY );
-            F valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gZ );
-            valueC = FN_FMulAdd( valueC_gZ, fZ, FN_FMulAdd( fY, valueC_gY, fX * valueC_gX ) );
-        }
-        else
-        {
-            F sign0 = FS::Cast<float>( indexFacetBasisWithPermute2 << 31 );
-            F sign1 = FS::Cast<float>( ( indexFacetBasisWithPermute2 << 30 ) & I( 1 << 31 ) );
+        I swapPairs = hash31 << 2;
+        F pX = FS::SelectHighBit( swapPairs, aZ, aX );
+        F pY = FS::SelectHighBit( swapPairs, aW, aY );
+        F pZ = FS::SelectHighBit( swapPairs, aX, aZ );
+        F pW = FS::SelectHighBit( swapPairs, aY, aW );
 
-            auto notYZ = indexFacetBasisWithPermute2;
-            auto notXY = indexFacetBasisWithPermute2 << 1;
-
-            // The facet permutes which axis gets which gradient component: ( A, C, B ), ( A, B, C ) with notXY, ( C, A, B ) with notYZ
-            // ( never both, hash31 has a clear sign bit so the top two bits are [0,3) ). Apply that permutation to f once instead of
-            // selecting every component of the three gradients
-            F fA = FS::SelectHighBit( notYZ, fY, fX );
-            F fB = FS::SelectHighBit( notXY, fY, fZ );
-            F fC = FS::SelectHighBit( notYZ, fX, FS::SelectHighBit( notXY, fZ, fY ) );
-            F productC = fC * F( kComponentC );
-
-            F valueA = FN_FMulAdd( F( kComponentA ) ^ sign0, fA, FN_FMulAdd( F( kComponentB ) ^ sign1, fB, productC ) );
-            F valueB = FN_FMulAdd( F( kComponentB ) ^ sign0, fA, FN_FMulAdd( F( kComponentA ) ^ sign1, fB, productC ) );
-            valueC = FN_FMulAdd( F( kComponentsDE ) ^ sign0, fA, FN_FMulAdd( F( kComponentsDE ) ^ sign1, fB, fC * F( kComponentF ) ) );
-
-            valueAB = FS::SelectHighBit( indexPermutation2HighBit, valueB, valueA );
-            valueBA = FS::SelectHighBit( indexPermutation2HighBit, valueA, valueB );
-        }
-
-        multiplier ^= finalSign;
-        valueX = FN_FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 0 ), valueC, valueAB ), valueX );
-        valueY = FN_FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 1 ), valueC, FS::Select( indexPermutation3 == I( 2 ), valueBA, valueAB ) ), valueY );
-        valueZ = FN_FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 2 ), valueC, valueBA ), valueZ );
+        valueX = FN_FMulAdd( FlipSign( multiplier, hash31, 1 ), pX, valueX );
+        valueY = FN_FMulAdd( FlipSign( multiplier, hash31, 2 ), pY, valueY );
+        valueZ = FN_FMulAdd( FlipSign( multiplier, hash31, 3 ), pZ, valueZ );
+        valueW = FN_FMulAdd( FlipSign( multiplier, hash31, 4 ), pW, valueW );
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FN_WARP_HELPER ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    FS_FORCEINLINE static void ApplyOrthogonalMatrixVectorProduct( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
-        ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
+        ApplyOrthogonalMatrixVectorProductImpl( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
     }
 
-    template<FastSIMD::FeatureSet SIMD, typename I, typename F>
-    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductSimplexImpl( I hash31, F fX, F fY, F fZ, F fW, F multiplier, F& valueX, F& valueY, F& valueZ, F& valueW )
+    // 4D below AVX512: process each native register half separately, skipping halves with no contribution
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FN_WARP_HELPER_4D ApplyOrthogonalMatrixVectorProduct( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
-        constexpr float kComponentPairwiseIndexedNegativeAB = -0.375999676691291f;
-        constexpr float kComponentPairwiseUnindexedFillerAB = 0.222726847849776f;
-        constexpr float kComponentPairwiseIndexedPositiveD = -kSkew4f;
-        constexpr float kComponentPairwiseUnindexedD = kSkew4f;
-
-        constexpr float kDeltaPairwiseToSingleAB = -0.124000323308709f;
-        constexpr float kDeltaPairwiseToSingleD = 0.190983005625053f;
-        constexpr float kDeltaSingleToExtra = kSkew4f;
-        constexpr float kDeltaPairwiseABToC = 0.437016024448821f;
-        constexpr float kDeltaUnindexedFillerToDiagonal = -kRoot2f;
-
-        constexpr float kDeltaPairwiseToSingleExtraAB = kDeltaPairwiseToSingleAB + kDeltaSingleToExtra;
-        constexpr float kDeltaPairwiseToSingleExtraD = kDeltaPairwiseToSingleD + kDeltaSingleToExtra;
-
-        constexpr float sIdxABC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseToSingleAB;
-        constexpr float sDiagABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleAB + kDeltaUnindexedFillerToDiagonal;
-        constexpr float sFillABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleAB;
-        constexpr float sIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleD - 1;
-        constexpr float sFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleD;
-
-        constexpr float pIdxPosAB = kComponentPairwiseIndexedNegativeAB + 1;
-        constexpr float pIdxNegAB = kComponentPairwiseIndexedNegativeAB;
-        constexpr float pFillAB = kComponentPairwiseUnindexedFillerAB;
-        constexpr float pDiagAB = kComponentPairwiseUnindexedFillerAB + kDeltaUnindexedFillerToDiagonal;
-        constexpr float pIdxPosC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseABToC + 1;
-        constexpr float pIdxNegC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseABToC;
-        constexpr float pFillC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseABToC;
-        constexpr float pIdxPosD = kComponentPairwiseIndexedPositiveD;
-        constexpr float pIdxNegD = kComponentPairwiseIndexedPositiveD - 1;
-        constexpr float pFillD = kComponentPairwiseUnindexedD;
-
-        constexpr float eIdxABC = kComponentPairwiseIndexedNegativeAB + kDeltaPairwiseToSingleExtraAB + 1;
-        constexpr float eDiagABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleExtraAB + kDeltaUnindexedFillerToDiagonal;
-        constexpr float eFillABC = kComponentPairwiseUnindexedFillerAB + kDeltaPairwiseToSingleExtraAB;
-        constexpr float eIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleExtraD;
-        constexpr float eFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleExtraD;
-
-        I hashShifted = FS::BitShiftRightZeroExtend( hash31, 2 );
-        I indexBasis = hashShifted * I( 20 >> 2 ); // [0,20) << 27
-        I indexPermutation3 = ( hashShifted * I( 0xD5555556 ) ) >> 29; // [0,3] // ( -4LL << 29 ) / 3
-        I indexPermutation8 = indexBasis >> 24; // & I( 0x07 );
-        F finalSign = FS::Cast<float>( hash31 << 31 );
-
-        F valueA, valueB, valueC, valueD;
-        F valueA_gX, valueB_gX, valueC_gX, valueD_gX;
-        F valueA_gY, valueB_gY, valueC_gY, valueD_gY;
-        F valueA_gZ, valueB_gZ, valueC_gZ, valueD_gZ;
-        F valueA_gW, valueB_gW, valueC_gW, valueD_gW;
-
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            indexBasis >>= 27;
-
-            valueA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sIdxABC, sDiagABC, sDiagABC, sDiagABC, pIdxPosAB, pIdxNegAB, pDiagAB, pDiagAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pDiagAB, pDiagAB, pIdxNegAB ), indexBasis,
-                FS::Constant<float>( eIdxABC, eDiagABC, eDiagABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sIdxABC, sFillABC, sFillABC, sFillABC, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB ), indexBasis,
-                FS::Constant<float>( eIdxABC, eFillABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sIdxABC, sFillABC, sFillABC, sFillABC, pIdxPosC, pIdxNegC, pFillC, pFillC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pFillC, pFillC, pIdxNegC ), indexBasis,
-                FS::Constant<float>( eIdxABC, eFillABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueD_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sIdxD, sFillD, sFillD, sFillD, pIdxPosD, pIdxNegD, pFillD, pFillD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pFillD, pFillD, pIdxNegD ), indexBasis,
-                FS::Constant<float>( eIdxD, eFillD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-
-            valueA = valueA_gX * fX;
-            valueB = valueB_gX * fX;
-            valueC = valueC_gX * fX;
-            valueD = valueD_gX * fX;
-
-            valueA_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sDiagABC, sIdxABC, sFillABC, sFillABC, pIdxNegAB, pIdxPosAB, pFillAB, pFillAB, pDiagAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pIdxNegAB, pDiagAB ), indexBasis,
-                FS::Constant<float>( eDiagABC, eIdxABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillABC, sIdxABC, sDiagABC, sDiagABC, pIdxNegAB, pIdxPosAB, pDiagAB, pDiagAB, pFillAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB ), indexBasis,
-                FS::Constant<float>( eFillABC, eIdxABC, eDiagABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillABC, sIdxABC, sFillABC, sFillABC, pIdxNegC, pIdxPosC, pFillC, pFillC, pFillC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pIdxNegC, pFillC ), indexBasis,
-                FS::Constant<float>( eFillABC, eIdxABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueD_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillD, sIdxD, sFillD, sFillD, pIdxNegD, pIdxPosD, pFillD, pFillD, pFillD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pIdxNegD, pFillD ), indexBasis,
-                FS::Constant<float>( eFillD, eIdxD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-
-            valueA = FN_FMulAdd( valueA_gY, fY, valueA );
-            valueB = FN_FMulAdd( valueB_gY, fY, valueB );
-            valueC = FN_FMulAdd( valueC_gY, fY, valueC );
-            valueD = FN_FMulAdd( valueD_gY, fY, valueD );
-
-            valueA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sFillABC, pDiagAB, pDiagAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB ), indexBasis,
-                FS::Constant<float>( eFillABC, eFillABC, eIdxABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sDiagABC, sDiagABC, sIdxABC, sFillABC, pFillAB, pFillAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pDiagAB, pIdxPosAB, pDiagAB, pDiagAB, pIdxNegAB, pIdxPosAB, pDiagAB ), indexBasis,
-                FS::Constant<float>( eDiagABC, eDiagABC, eIdxABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sDiagABC, pFillC, pFillC, pIdxPosC, pIdxNegC, pIdxNegC, pFillC, pIdxPosC, pFillC, pFillC, pIdxNegC, pIdxPosC, pFillC ), indexBasis,
-                FS::Constant<float>( eFillABC, eFillABC, eIdxABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueD_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillD, sFillD, sIdxD, sFillD, pFillD, pFillD, pIdxPosD, pIdxNegD, pIdxNegD, pFillD, pIdxPosD, pFillD, pFillD, pIdxNegD, pIdxPosD, pFillD ), indexBasis,
-                FS::Constant<float>( eFillD, eFillD, eIdxD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-
-            valueA = FN_FMulAdd( valueA_gZ, fZ, valueA );
-            valueB = FN_FMulAdd( valueB_gZ, fZ, valueB );
-            valueC = FN_FMulAdd( valueC_gZ, fZ, valueC );
-            valueD = FN_FMulAdd( valueD_gZ, fZ, valueD );
-
-            valueA_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB ), indexBasis,
-                FS::Constant<float>( eFillABC, eFillABC, eFillABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueB_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pDiagAB, pDiagAB, pIdxNegAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pIdxNegAB, pDiagAB, pDiagAB, pIdxPosAB ), indexBasis,
-                FS::Constant<float>( eFillABC, eFillABC, eFillABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueC_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sDiagABC, sDiagABC, sDiagABC, sIdxABC, pFillC, pFillC, pIdxNegC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pIdxNegC, pFillC, pFillC, pIdxPosC ), indexBasis,
-                FS::Constant<float>( eDiagABC, eDiagABC, eDiagABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-            valueD_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
-                FS::Constant<float>( sFillD, sFillD, sFillD, sIdxD, pFillD, pFillD, pIdxNegD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pIdxNegD, pFillD, pFillD, pIdxPosD ), indexBasis,
-                FS::Constant<float>( eFillD, eFillD, eFillD, eIdxD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
-            );
-
-            valueA = FN_FMulAdd( valueA_gW, fW, valueA );
-            valueB = FN_FMulAdd( valueB_gW, fW, valueB );
-            valueC = FN_FMulAdd( valueC_gW, fW, valueC );
-            valueD = FN_FMulAdd( valueD_gW, fW, valueD );
-        }
-        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) || kLatticeBlockTbl<SIMD> )
-        {
-            // Every basis gives the axes four roles: the ( positive ) indexed axis, the first and second unindexed axes and
-            // either the negative indexed axis ( pairwise ) or the third unindexed axis ( single/extra ). With f gathered in
-            // role order the gradients only depend on that case, A and B add the diagonal delta on the first/second unindexed axis.
-            // The role axes are a 16 entry table ( [16,20) use the same axes as [0,4) ) packed in the top byte, two bits per role
-            I roleAxes;
-            if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
-            {
-                I permuteIndex = FS::BitShiftRightZeroExtend( indexBasis, 27 );
-                roleAxes = FS::Select( indexBasis > I( 0x3FFFFFFF ), // [8,16) << 27
-                    FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1E000000, 0x4B000000, 0x9C000000, 0xC9000000, 0x1B000000, 0x4E000000, 0x8D000000, 0xD8000000 ), permuteIndex ),
-                    FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1B000000, 0x4B000000, 0x87000000, 0xC6000000, 0x2D000000, 0x6C000000, 0x87000000, 0xC6000000 ), permuteIndex ) );
-            }
-            else // Byte shuffle the table into the top byte, the other bytes of the shuffle index have the high bit set and become 0
-            {
-                I shuffleIndex = ( FS::BitShiftRightZeroExtend( indexBasis, 3 ) & I( 0x0F000000 ) ) | I( 0x00808080 );
-                auto table = FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B );
-
-                if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
-                {
-                    roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), table, shuffleIndex );
-                }
-#if FN_AARCH64_TBL
-                else // AArch64 TBL: indices >= 16 also become 0
-                {
-                    roleAxes = FS::NativeExec<I>( []( int32x4_t t, int32x4_t idx ) { return vreinterpretq_s32_u8( vqtbl1q_u8( vreinterpretq_u8_s32( t ), vreinterpretq_u8_s32( idx ) ) ); }, table, shuffleIndex );
-                }
-#endif
-            }
-
-            auto gatherRole = [&]( I axisBits )
-            {
-                I lowBit = axisBits << 1;
-                return FS::SelectHighBit( axisBits, FS::SelectHighBit( lowBit, fW, fZ ), FS::SelectHighBit( lowBit, fY, fX ) );
-            };
-
-            F f0 = gatherRole( roleAxes );
-            F f1 = gatherRole( roleAxes << 2 );
-            F f2 = gatherRole( roleAxes << 4 );
-            F f3 = gatherRole( roleAxes << 6 );
-            F f12 = f1 + f2;
-
-            // Single or extra ( [0,4) << 27, or [16,20) << 27 which is negative )
-            auto singleLayout = indexBasis < I( 4 << 27 );
-
-            auto caseConstant = [&]( float pairwise, float single, float extra )
-            {
-                if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
-                {
-                    // Low 3 bits: 0 pairwise, 7 single, 6 extra
-                    I caseIndex = FS::Cast<std::int32_t>( singleLayout ) + FS::Cast<std::int32_t>( indexBasis < I( 0 ) );
-                    return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pairwise, 0, 0, 0, 0, 0, extra, single ), caseIndex );
-                }
-                else
-                {
-                    return FS::Select( singleLayout, FS::SelectHighBit( indexBasis, F( extra ), F( single ) ), F( pairwise ) );
-                }
-            };
-
-            F valueAB = FN_FMulAdd( caseConstant( pIdxNegAB, sFillABC, eFillABC ), f3, FN_FMulAdd( caseConstant( pFillAB, sFillABC, eFillABC ), f12, caseConstant( pIdxPosAB, sIdxABC, eIdxABC ) * f0 ) );
-            valueA = FN_FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f1, valueAB );
-            valueB = FN_FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f2, valueAB );
-            valueC = FN_FMulAdd( caseConstant( pIdxNegC, sDiagABC, eDiagABC ), f3, FN_FMulAdd( caseConstant( pFillC, sFillABC, eFillABC ), f12, caseConstant( pIdxPosC, sIdxABC, eIdxABC ) * f0 ) );
-            valueD = FN_FMulAdd( caseConstant( pIdxNegD, sFillD, eFillD ), f3, FN_FMulAdd( caseConstant( pFillD, sFillD, eFillD ), f12, caseConstant( pIdxPosD, sIdxD, eIdxD ) * f0 ) );
+            ApplyOrthogonalMatrixVectorProductImpl( hash31, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
         }
         else
-        {
-            I indexPositive = indexBasis & I( 0x03 << 27 );
-            I indexNegative = ( indexBasis >> 2 ) & I( 0x03 << 27 );
-            indexNegative ^= indexPositive;
-
-            auto extraCase = ( indexBasis < I( 0 ) ); // [16,20) << 27 sets the sign bit
-            auto singleCase = ( indexPositive == indexNegative );
-            auto singleNonExtraCase = FS::BitwiseAndNot( singleCase, extraCase );
-            indexPositive |= FS::Cast<int32_t>( singleNonExtraCase ); // Force indexPositive checks to fail
-
-            F singleOffsetAB = FS::MaskedAdd( extraCase, F( kDeltaPairwiseToSingleAB ), F( kDeltaSingleToExtra ) );
-            F componentIndexedNegativeAB = FS::MaskedAdd( singleCase, F( kComponentPairwiseIndexedNegativeAB ), singleOffsetAB );
-            F componentUnindexedFillerAB = FS::MaskedAdd( singleCase, F( kComponentPairwiseUnindexedFillerAB ), singleOffsetAB );
-
-            F componentIndexedNegativeC = FS::InvMaskedAdd( singleCase, componentIndexedNegativeAB, F( kDeltaPairwiseABToC ) );
-            F componentUnindexedFillerC = FS::InvMaskedAdd( singleCase, componentUnindexedFillerAB, F( kDeltaPairwiseABToC ) );
-
-            F singleOffsetD = FS::MaskedAdd( extraCase, F( kDeltaPairwiseToSingleD ), F( kDeltaSingleToExtra ) );
-            F componentIndexedPositiveD = FS::MaskedAdd( singleCase, F( kComponentPairwiseIndexedPositiveD ), singleOffsetD );
-            F componentUnindexedD = FS::MaskedAdd( singleCase, F( kComponentPairwiseUnindexedD ), singleOffsetD );
-
-            I indexedCounter( -1 );
-
-            {
-                auto indexedPositive = ( indexPositive == I( 0 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 0 << 27 ) );
-
-                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
-
-                F unindexedComponentA = componentUnindexedFillerAB + F( kDeltaUnindexedFillerToDiagonal );
-                F unindexedComponentB = componentUnindexedFillerAB;
-                F unindexedComponentC = componentUnindexedFillerC;
-
-                valueA_gX = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
-                valueB_gX = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
-                valueC_gX = FS::Select( indexed, indexedComponentC,  unindexedComponentC );
-                valueD_gX = FS::Select( indexed, indexedComponentD,  componentUnindexedD );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = valueA_gX * fX;
-            valueB = valueB_gX * fX;
-            valueC = valueC_gX * fX;
-            valueD = valueD_gX * fX;
-
-            {
-                auto indexedPositive = ( indexPositive == I( 1 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 1 << 27 ) );
-
-                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
-
-                F unindexedComponentA = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
-                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -1 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
-                F unindexedComponentC = componentUnindexedFillerC;
-
-                valueA_gY = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
-                valueB_gY = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
-                valueC_gY = FS::Select( indexed, indexedComponentC,  unindexedComponentC );
-                valueD_gY = FS::Select( indexed, indexedComponentD,  componentUnindexedD );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = FN_FMulAdd( valueA_gY, fY, valueA );
-            valueB = FN_FMulAdd( valueB_gY, fY, valueB );
-            valueC = FN_FMulAdd( valueC_gY, fY, valueC );
-            valueD = FN_FMulAdd( valueD_gY, fY, valueD );
-
-            {
-                auto indexedPositive = ( indexPositive == I( 2 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 2 << 27 ) );
-
-                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
-
-                F unindexedComponentA = FS::MaskedAdd( indexedCounter == I( -3 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
-                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
-                F unindexedComponentC = FS::MaskedAdd( indexedCounter == I( -1 ), componentUnindexedFillerC,  F( kDeltaUnindexedFillerToDiagonal ) );
-
-                valueA_gZ = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
-                valueB_gZ = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
-                valueC_gZ = FS::Select( indexed, indexedComponentC,  unindexedComponentC );
-                valueD_gZ = FS::Select( indexed, indexedComponentD,  componentUnindexedD );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = FN_FMulAdd( valueA_gZ, fZ, valueA );
-            valueB = FN_FMulAdd( valueB_gZ, fZ, valueB );
-            valueC = FN_FMulAdd( valueC_gZ, fZ, valueC );
-            valueD = FN_FMulAdd( valueD_gZ, fZ, valueD );
-
-            {
-                auto indexedPositive = ( indexPositive == I( 3 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == I( 3 << 27 ) );
-
-                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
-
-                F unindexedComponentA = componentUnindexedFillerAB;
-                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -3 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
-                F unindexedComponentC = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerC,  F( kDeltaUnindexedFillerToDiagonal ) );
-
-                valueA_gW = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
-                valueB_gW = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
-                valueC_gW = FS::Select( indexed, indexedComponentC,  unindexedComponentC );
-                valueD_gW = FS::Select( indexed, indexedComponentD,  componentUnindexedD );
-            }
-
-            valueA = FN_FMulAdd( valueA_gW, fW, valueA );
-            valueB = FN_FMulAdd( valueB_gW, fW, valueB );
-            valueC = FN_FMulAdd( valueC_gW, fW, valueC );
-            valueD = FN_FMulAdd( valueD_gW, fW, valueD );
-        }
-
-        I valueIndexX = ( indexPermutation8 >> 1 ); // & I( 0x3 );
-        I valueIndexY = ( FS::Increment( valueIndexX ) + indexPermutation3 ); // & I( 0x3 );
-        I valueIndexZ = indexPermutation8 & I( 0x1 );
-        valueIndexZ = ( FS::Increment( valueIndexX ) + FS::MaskedIncrement( valueIndexZ >= indexPermutation3, valueIndexZ ) ); // & I( 0x3 );
-        I valueIndexSumXYZ = valueIndexX + valueIndexY + valueIndexZ;
-
-        multiplier ^= finalSign;
-        valueX = FN_FMulAdd( multiplier, FS::SelectHighBit( valueIndexX << 31, FS::SelectHighBit( valueIndexX << 30, valueD, valueB ), FS::SelectHighBit( valueIndexX << 30, valueC, valueA ) ), valueX );
-        valueY = FN_FMulAdd( multiplier, FS::SelectHighBit( valueIndexY << 31, FS::SelectHighBit( valueIndexY << 30, valueD, valueB ), FS::SelectHighBit( valueIndexY << 30, valueC, valueA ) ), valueY );
-        valueZ = FN_FMulAdd( multiplier, FS::SelectHighBit( valueIndexZ << 31, FS::SelectHighBit( valueIndexZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexZ << 30, valueC, valueA ) ), valueZ );
-        valueW = FN_FMulAdd( multiplier, FS::SelectHighBit( valueIndexSumXYZ << 31, FS::SelectHighBit( valueIndexSumXYZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexSumXYZ << 30, valueA, valueC ) ), valueW );
-    }
-
-    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FN_ALIGN_STACK FN_WARP_HELPER_4D ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
-    {
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
-        {
-            ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
-        }
-        else // Process each native register half separately, skipping halves with no contribution
         {
             if( FS::AnyMask( multiplier.v0 != float32v::DoubledType( 0 ) ) )
             {
-                ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
+                ApplyOrthogonalMatrixVectorProductImpl( hash31.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
             }
             if( FS::AnyMask( multiplier.v1 != float32v::DoubledType( 0 ) ) )
             {
-                ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
+                ApplyOrthogonalMatrixVectorProductImpl( hash31.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
             }
         }
     }
@@ -760,7 +408,7 @@ namespace FastNoise
     FS_FORCEINLINE static void ApplyVectorContributionCommon( int32v hash, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ ) {
         switch( Scheme ) {
             case VectorizationScheme::OrthogonalGradientMatrix:
-                return ApplyOrthogonalGradientMatrixVectorProductCommon( hash, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
+                return ApplyOrthogonalMatrixVectorProduct( hash, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
             case VectorizationScheme::GradientOuterProduct:
                 return ApplyGradientOuterProductVectorProductCommon( hash, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
         }
@@ -770,7 +418,7 @@ namespace FastNoise
     FS_FORCEINLINE static void ApplyVectorContributionSimplex( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW ) {
         switch( Scheme ) {
             case VectorizationScheme::OrthogonalGradientMatrix:
-                return ApplyOrthogonalGradientMatrixVectorProductSimplex( hash, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
+                return ApplyOrthogonalMatrixVectorProduct( hash, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
             case VectorizationScheme::GradientOuterProduct:
                 return ApplyGradientOuterProductVectorProductSimplex( hash, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
         }
@@ -993,7 +641,7 @@ protected:
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(32.69428253173828125 / 1.4142135623730951) :
-            16.281631889139874f );
+            39.8816903f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
@@ -1125,7 +773,7 @@ protected:
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(33.653125584827855 / 1.4142135623730951) :
-            30.88161777516092f );
+            43.6732089f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
@@ -1577,7 +1225,7 @@ protected:
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(144.736422163332608 / 1.4142135623730951) :
-            37.63698669623629f );
+            184.384454f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
@@ -2020,7 +1668,7 @@ protected:
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(115.21625311930542 / 1.4142135623730951) :
-            48.80058117543753f );
+            138.028888f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
