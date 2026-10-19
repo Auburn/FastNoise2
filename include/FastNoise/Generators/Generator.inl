@@ -13,19 +13,104 @@ using float32v = FS::Register<float, kRegisterSize>;
 using int32v = FS::Register<std::int32_t, kRegisterSize>;
 using mask32v = typename float32v::MaskType;
 
+// Attributes for the static Gen functions: disable tail calls, clang restores the callee saved xmm8-15 before a FS_VECTORCALL
+// tail call even when they hold 4D arguments. The AVX sources keep frame pointers (src/CMakeLists.txt), so clang aligns
+// AVX spills by realigning the stack only in functions that spill
+#if defined( __clang__ )
+#define FASTNOISE_GEN_FN_ATTRIBUTES __attribute__(( disable_tail_calls ))
+#else
+#define FASTNOISE_GEN_FN_ATTRIBUTES
+#endif
+
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Generator, SIMD> : public virtual Generator
 {
 public:
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const { return Gen( seed, x, y, z ); }
+    // Gen() is dispatched through function pointers to static functions instead of virtual member functions:
+    // clang-cl returns float32v through a hidden pointer (always from member functions, and from any function since float32v
+    // has user-provided constructors), a plain aggregate returned from a static function stays in registers
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    // MSVC copies FastSIMD registers returned in zmm registers through the stack in 256 bit halves, use the native types
+    struct GenResult
+    {
+        typename float32v::DoubledType::NativeType v0, v1;
+    };
 
-#define FASTNOISE_IMPL_GEN_T\
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const override { return GenT( seed, x, y ); }\
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }\
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const override { return GenT( seed, x, y, z, w ); }
+    static FS_FORCEINLINE GenResult ToGenResult( const float32v& v )
+    {
+        return { v.v0.GetNative(), v.v1.GetNative() };
+    }
+#else
+    struct GenResult
+    {
+        typename float32v::DoubledType v0, v1;
+    };
 
+    static FS_FORCEINLINE GenResult ToGenResult( const float32v& v )
+    {
+        return { v.v0, v.v1 };
+    }
+#endif
+
+    using GenFn2D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v seed, float32v x, float32v y );
+    using GenFn3D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v seed, float32v x, float32v y, float32v z );
+    using GenFn4D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v seed, float32v x, float32v y, float32v z, float32v w );
+
+    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y )
+    {
+        assert( gen->mGenFn2D );
+        GenResult result = gen->mGenFn2D( gen, seed, x, y );
+        return float32v( result.v0, result.v1 );
+    }
+
+    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z )
+    {
+        assert( gen->mGenFn3D );
+        GenResult result = gen->mGenFn3D( gen, seed, x, y, z );
+        return float32v( result.v0, result.v1 );
+    }
+
+    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )
+    {
+        assert( gen->mGenFn4D );
+        GenResult result = gen->mGenFn4D( gen, seed, x, y, z, w );
+        return float32v( result.v0, result.v1 );
+    }
+
+// Defines the static Gen functions of a generator and points the function pointers at them,
+// GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
+#define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
+    using GenResultT = typename DispatchClass<Generator, SIMD>::GenResult;\
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y ) );\
+    }\
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y, float32v z )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z ) );\
+    }\
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )\
+    {\
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z, w ) );\
+    }\
+public:\
+    DispatchClass()\
+    {\
+        this->mGenFn2D = &GenFn;\
+        this->mGenFn3D = &GenFn;\
+        this->mGenFn4D = &GenFn;\
+    }\
+private:
+
+#define FASTNOISE_IMPL_GEN_T FASTNOISE_IMPL_GEN_FN( GenT )
+
+protected:
+    // Set by the constructor FASTNOISE_IMPL_GEN_T/FASTNOISE_IMPL_GEN_FN adds to each generator
+    GenFn2D mGenFn2D = nullptr;
+    GenFn3D mGenFn3D = nullptr;
+    GenFn4D mGenFn4D = nullptr;
+
+public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
     {
         return FastSIMD::FeatureSetDefault();
@@ -53,7 +138,7 @@ public:
         {
             auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-            return simdGen->Gen( seed, pos... );
+            return CallGen( simdGen, seed, pos... );
         }
         return float32v( memberVariable.constant );
     }
@@ -64,7 +149,7 @@ public:
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        return simdGen->Gen( seed, pos... );
+        return CallGen( simdGen, seed, pos... );
     }
 
     template<typename T>
@@ -104,7 +189,7 @@ public:
             float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
             float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -121,7 +206,7 @@ public:
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
         float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -160,7 +245,7 @@ public:
             float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
             float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -179,7 +264,7 @@ public:
         float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
         float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -225,7 +310,7 @@ public:
             float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
             float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -246,7 +331,7 @@ public:
         float32v zPos = FS::FMulAdd( FS::Convert<float>( zIdx ), zScale, zOffsetV );
         float32v wPos = FS::FMulAdd( FS::Convert<float>( wIdx ), wScale, wOffsetV );
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -262,7 +347,7 @@ public:
             float32v xPos = float32v( xOffset ) + FS::Load<float32v>( &xPosArray[index] );
             float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -275,7 +360,7 @@ public:
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
 
         return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
@@ -292,7 +377,7 @@ public:
             float32v yPos = float32v( yOffset ) + FS::Load<float32v>( &yPosArray[index] );
             float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -306,7 +391,7 @@ public:
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
         float32v zPos = float32v( zOffset ) + LoadRemaining( zPosArray, count, index );
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
 
         return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
@@ -324,7 +409,7 @@ public:
             float32v zPos = float32v( zOffset ) + FS::Load<float32v>( &zPosArray[index] );
             float32v wPos = float32v( wOffset ) + FS::Load<float32v>( &wPosArray[index] );
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -339,24 +424,24 @@ public:
         float32v zPos = float32v( zOffset ) + LoadRemaining( zPosArray, count, index );
         float32v wPos = float32v( wOffset ) + LoadRemaining( wPosArray, count, index );
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
 
         return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
 
     float GenSingle2D( float x, float y, int seed ) const final
     {
-        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ) ) );
+        return FS::Extract0( CallGen( this, int32v( seed ), float32v( x ), float32v( y ) ) );
     }
 
     float GenSingle3D( float x, float y, float z, int seed ) const final
     {
-        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
+        return FS::Extract0( CallGen( this, int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
     }
 
     float GenSingle4D( float x, float y, float z, float w, int seed ) const final
     {
-        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
+        return FS::Extract0( CallGen( this, int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
     }
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
@@ -396,7 +481,7 @@ public:
             float32v zPos = FS::Sin( xF ) * xFreq;
             float32v wPos = FS::Sin( yF ) * yFreq;
 
-            float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+            float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
             FS::Store( &noiseOut[index], gen );
 
 #if FASTNOISE_CALC_MIN_MAX
@@ -418,7 +503,7 @@ public:
         float32v zPos = FS::Sin( xF ) * xFreq;
         float32v wPos = FS::Sin( yF ) * yFreq;
 
-        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
+        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
