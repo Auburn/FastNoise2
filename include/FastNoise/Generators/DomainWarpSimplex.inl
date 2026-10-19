@@ -632,7 +632,7 @@ protected:
         if constexpr( Scheme != VectorizationScheme::OrthogonalGradientMatrix )
         {
             // Match gradient orientation.
-            constexpr double kReflect3D = -2.0 / 2.0;
+            constexpr double kReflect3D = -2.0 / 3.0; // Reflection through the plane normal to ( 1, 1, 1 )
             float32v valueTransformDelta = float32v( kReflect3D ) * ( valueX + valueY + valueZ );
             valueX += valueTransformDelta;
             valueY += valueTransformDelta;
