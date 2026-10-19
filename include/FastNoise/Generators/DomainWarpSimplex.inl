@@ -252,48 +252,43 @@ namespace FastNoise
         }
     }
 
+    // Rotation by a multiple of 45 degrees ( 3 hash bits into an 8 entry cos/sin table ) and a hashed reflection: the dihedral group D8
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FN_ALIGN_STACK FN_WARP_HELPER ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
-        int32v index = FS::BitShiftRightZeroExtend( hash31, 1 ) * int32v( 12 >> 2 ); // [0,12) in the upper four bits
+        constexpr float kR = 0.7071067811865476f;
+        float32v cos, sin;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            index = FS::BitShiftRightZeroExtend( index, 28 );
+            int32v index = hash31 >> 28;
 
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( kSkew2f, -kSkew2f, kSkew2f, -kSkew2f, kSkew2f + 1, -kSkew2f - 1, kSkew2f + 1, -kSkew2f - 1, 1, -1, 1, -1, 0, 0, 0, 0 ) );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( kSkew2f + 1, kSkew2f + 1, -kSkew2f - 1, -kSkew2f - 1, kSkew2f, kSkew2f, -kSkew2f, -kSkew2f, 1, 1, -1, -1, 0, 0, 0, 0 ) );
-
-            valueX = FN_FMulAdd( multiplier, FN_FMulAdd( fY, gY, fX * gX ), valueX );
-            multiplier ^= FS::Cast<float>( hash31 << 31 );
-            valueY = FN_FMulAdd( multiplier, FN_FMulSub( fY, gX, fX * gY ), valueY );
+            cos = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 1, kR, 0, -kR, -1, -kR, 0, kR, 0, 0, 0, 0, 0, 0, 0, 0 ) );
+            sin = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), index, FS::Constant<float>( 0, kR, 1, kR, 0, -kR, -1, -kR, 0, 0, 0, 0, 0, 0, 0, 0 ) );
         }
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
-            float32v signX = FS::Cast<float>( ( index >> 28 ) << 31 );
-            index = FS::BitShiftRightZeroExtend( index, 29 );
+            int32v index = hash31 >> 28; // [0,8), hash31 has a clear sign bit
 
-            float32v gX = FN_PermuteTable8( FS::Constant<float>( kSkew2f, kSkew2f, kSkew2f + 1, kSkew2f + 1, 1, 1, 0, 0 ), index ) ^ signX;
-            float32v gY = FN_PermuteTable8( FS::Constant<float>( kSkew2f + 1, -kSkew2f - 1, kSkew2f, -kSkew2f, 1, -1, 0, 0 ), index );
-
-            valueX = FN_FMulAdd( multiplier, FN_FMulAdd( fY, gY, fX * gX ), valueX );
-            multiplier ^= FS::Cast<float>( hash31 << 31 );
-            valueY = FN_FMulAdd( multiplier, FN_FMulSub( fY, gX, fX * gY ), valueY );
+            cos = FN_PermuteTable8( FS::Constant<float>( 1, kR, 0, -kR, -1, -kR, 0, kR ), index );
+            sin = FN_PermuteTable8( FS::Constant<float>( 0, kR, 1, kR, 0, -kR, -1, -kR ), index );
         }
         else
         {
-            int32v ofThree = FS::BitShiftRightZeroExtend( index, 30 );
-            float32v signX = FS::Cast<float>( ( index >> 28 ) << 31 );
-            float32v signY = FS::Cast<float>( ( index >> 29 ) << 31 );
+            // Bit 28: diagonal, bit 29: rotate by 90, bit 30: rotate by 180
+            int32v diagonal = hash31 << 3;
+            float32v baseCos = FS::SelectHighBit( diagonal, float32v( kR ), float32v( 1 ) );
+            float32v baseSin = FS::SelectHighBit( diagonal, float32v( kR ), float32v( 0 ) );
 
-            float32v masked = FS::Masked( index >= int32v( 0 ), float32v( kSkew2f ) );
-            float32v gX = FS::MaskedIncrement( ofThree != int32v( 0 ), masked ) ^ signX;
-            float32v gY = FS::MaskedIncrement( ofThree != int32v( 1 ), masked ) ^ signY;
-
-            valueX = FN_FMulAdd( multiplier, FN_FMulAdd( fY, gY, fX * gX ), valueX );
-            multiplier ^= FS::Cast<float>( hash31 << 31 );
-            valueY = FN_FMulAdd( multiplier, FN_FMulSub( fY, gX, fX * gY ), valueY );
+            int32v rotate90 = hash31 << 2;
+            float32v flip = FS::Cast<float>( ( hash31 << 1 ) & int32v( 1 << 31 ) );
+            cos = FS::SelectHighBit( rotate90, float32v( 0 ) - baseSin, baseCos ) ^ flip;
+            sin = FS::SelectHighBit( rotate90, baseCos, baseSin ) ^ flip;
         }
+
+        valueX = FN_FMulAdd( multiplier, FN_FNMulAdd( fY, sin, fX * cos ), valueX );
+        multiplier ^= FS::Cast<float>( hash31 << 31 );
+        valueY = FN_FMulAdd( multiplier, FN_FMulAdd( fY, cos, fX * sin ), valueY );
     }
 
     // Hashed orthogonal matrices built as S * P * M: M is a hashed choice between identity and a fixed orthogonal matrix
@@ -534,7 +529,7 @@ protected:
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(49.918426513671875 / 2.0) :
-            70.1480577066486f );
+            99.2043346f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
@@ -969,7 +964,7 @@ protected:
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(9.28993664146183 / 2.0) :
-            12.814453124999995f );
+            18.2335248f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
         valueY *= float32v( kBounding * this->mAxisScale[1] );
