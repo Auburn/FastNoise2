@@ -1,10 +1,11 @@
 #include "DomainWarpSimplex.h"
 #include "Utils.inl"
 
-// The vector contribution helpers are force inlined where the compiler would call them out of line and pass their float32v
-// arguments through memory. GCC doesn't inline them by itself (not declared inline, above its auto-inline limit). MSVC AVX512
-// passes float32v by reference to a copy (FastSIMD's 512 bit registers have a copy constructor on MSVC), there only the 2D/3D
-// ones are inlined: inlining the 4D ones makes SuperSimplex 4D too large for MSVC's inliner. Clang inlines them already
+// The 3D gradient outer product helper is force inlined where the compiler would call it out of line and pass its float32v
+// arguments through memory. GCC doesn't inline it by itself (not declared inline, above its auto-inline limit). MSVC AVX512
+// passes float32v by reference to a copy (FastSIMD's 512 bit registers have a copy constructor on MSVC). Clang inlines it
+// already. The 2D/3D orthogonal matrix and 2D gradient outer product helpers are small and always force inlined, the 4D
+// ones everywhere except MSVC AVX512: inlining them makes SuperSimplex 4D too large for MSVC's inliner (2-3x slower)
 #if defined( __GNUC__ ) && !defined( __clang__ )
 #define FN_WARP_HELPER FS_FORCEINLINE static void FS_VECTORCALL
 #define FN_WARP_HELPER_4D FS_FORCEINLINE static void FS_VECTORCALL
@@ -13,7 +14,7 @@
 #define FN_WARP_HELPER_4D static void FS_VECTORCALL
 #else
 #define FN_WARP_HELPER static void FS_VECTORCALL
-#define FN_WARP_HELPER_4D static void FS_VECTORCALL
+#define FN_WARP_HELPER_4D FS_FORCEINLINE static void
 #endif
 
 namespace FastNoise
@@ -131,119 +132,41 @@ namespace FastNoise
         }
     }
 
+    // Gradient and outer vector both from the 32 vectors ( 0, +-1, +-1, +-1 ) and permutations ( as 4D Perlin ): the
+    // gradient from hash bits 0-4 ( GetGradientDotPerlin ), the outer vector from bits 5-9 with the same layout
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
     FN_WARP_HELPER_4D ApplyGradientOuterProductVectorProductSimplex( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
-        int32v hashShifted = FS::BitShiftRightZeroExtend( hash, 2 );
-        int32v indexGradient = hashShifted * int32v( 20 >> 2 ); // [0,20) in the upper five bits
-        int32v indexOuterVector = hashShifted * int32v( 0xCCCCCCCD ); // ( -8LL << 29 ) / 5
-        indexOuterVector = ( indexOuterVector & int32v( 0xE0000003 ) ) * int32v( 3 | ( 1 << 27 ) ); // [0,20) in the upper five bits, independently of the above
+        multiplier *= GetGradientDotPerlin( hash, fX, fY, fZ, fW );
+
+        int32v hashOuter = hash >> 5;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            indexGradient = FS::BitShiftRightZeroExtend( indexGradient, 27 );
-            indexOuterVector = FS::BitShiftRightZeroExtend( indexOuterVector, 27 );
+            float32v vX, vY, vZ, vW;
+            GetGradientPerlin4DAVX512( hashOuter, vX, vY, vZ, vW );
 
-            const auto tableX = FS::Constant<float>( kSkew4f + 1, kSkew4f, kSkew4f, kSkew4f, -1, 1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 1 );
-            const auto tableY = FS::Constant<float>( kSkew4f, kSkew4f + 1, kSkew4f, kSkew4f, 1, -1, 0, 0, 0, -1, 0, 1, 0, -1, 1, 0 );
-            const auto tableZ = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f + 1, kSkew4f, 0, 0, -1, 1, 1, 0, -1, 0, 0, 1, -1, 0 );
-            const auto tableW = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f, kSkew4f + 1, 0, 0, 1, -1, 0, 1, 0, -1, 1, 0, 0, -1 );
-
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableX, indexGradient, -tableX );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableY, indexGradient, -tableY );
-            float32v gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexGradient, -tableZ );
-            float32v gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexGradient, -tableW );
-
-            multiplier *= FN_FMulAdd( gW, fW, FN_FMulAdd( gZ, fZ, FN_FMulAdd( gY, fY, gX * fX ) ) );
-
-            valueX = FN_FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableX, indexOuterVector, -tableX ), valueX );
-            valueY = FN_FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableY, indexOuterVector, -tableY ), valueY );
-            valueZ = FN_FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexOuterVector, -tableZ ), valueZ );
-            valueW = FN_FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexOuterVector, -tableW ), valueW );
-        }
-        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
-        {
-            // Same table as AVX512 split into two 8 entry halves, entries [16,20) are entries [0,4) negated.
-            // The hash has a clear sign bit so the index is [0,20) << 27, which makes the high half ( [8,16) << 27 ) a signed
-            // compare. Testing bit 30 with index << 1 instead gets folded into an extra vpmulld by clang
-            auto lookup = []( int32v index, const auto& tableLow, const auto& tableHigh )
-            {
-                int32v permuteIndex = FS::BitShiftRightZeroExtend( index, 27 );
-                if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
-                {
-                    permuteIndex &= int32v( 7 ); // vpermps only reads the low 3 bits, AArch64 TBL reads 0 past the table
-                }
-                float32v low = FN_PermuteTable8( tableLow, permuteIndex );
-                float32v high = FN_PermuteTable8( tableHigh, permuteIndex );
-
-                return FS::Select( index > int32v( 0x3FFFFFFF ), high, low );
-            };
-
-            const auto tableLowX = FS::Constant<float>( kSkew4f + 1, kSkew4f, kSkew4f, kSkew4f, -1, 1, 0, 0 );
-            const auto tableLowY = FS::Constant<float>( kSkew4f, kSkew4f + 1, kSkew4f, kSkew4f, 1, -1, 0, 0 );
-            const auto tableLowZ = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f + 1, kSkew4f, 0, 0, -1, 1 );
-            const auto tableLowW = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f, kSkew4f + 1, 0, 0, 1, -1 );
-            const auto tableHighX = FS::Constant<float>( -1, 0, 1, 0, -1, 0, 0, 1 );
-            const auto tableHighY = FS::Constant<float>( 0, -1, 0, 1, 0, -1, 1, 0 );
-            const auto tableHighZ = FS::Constant<float>( 1, 0, -1, 0, 0, 1, -1, 0 );
-            const auto tableHighW = FS::Constant<float>( 0, 1, 0, -1, 1, 0, 0, -1 );
-
-            float32v gX = lookup( indexGradient, tableLowX, tableHighX );
-            float32v gY = lookup( indexGradient, tableLowY, tableHighY );
-            float32v gZ = lookup( indexGradient, tableLowZ, tableHighZ );
-            float32v gW = lookup( indexGradient, tableLowW, tableHighW );
-
-            // The negated entries flip every component, so apply their sign to the dot product and the multiplier instead
-            multiplier *= FN_FMulAdd( gW, fW, FN_FMulAdd( gZ, fZ, FN_FMulAdd( gY, fY, gX * fX ) ) ) ^ FS::Cast<float>( indexGradient & int32v( 1 << 31 ) );
-            multiplier ^= FS::Cast<float>( indexOuterVector & int32v( 1 << 31 ) );
-
-            valueX = FN_FMulAdd( multiplier, lookup( indexOuterVector, tableLowX, tableHighX ), valueX );
-            valueY = FN_FMulAdd( multiplier, lookup( indexOuterVector, tableLowY, tableHighY ), valueY );
-            valueZ = FN_FMulAdd( multiplier, lookup( indexOuterVector, tableLowZ, tableHighZ ), valueZ );
-            valueW = FN_FMulAdd( multiplier, lookup( indexOuterVector, tableLowW, tableHighW ), valueW );
+            valueX = FN_FMulAdd( multiplier, vX, valueX );
+            valueY = FN_FMulAdd( multiplier, vY, valueY );
+            valueZ = FN_FMulAdd( multiplier, vZ, valueZ );
+            valueW = FN_FMulAdd( multiplier, vW, valueW );
         }
         else
         {
-            {
-                int32v indexA = indexGradient & int32v( 0x03 << 27 );
-                int32v indexB = ( indexGradient >> 2 ) & int32v( 0x07 << 27 );
-                indexB ^= indexA; // Simplifies the AVX512_F case.
+            // Bits 3/4 pick the zero component: 0 -> x, 1 -> y, 2 -> z, 3 -> w. Bits 0/1/2 are the signs of the others in order
+            float32v signedA = multiplier ^ FS::Cast<float>( hashOuter << 31 );
+            float32v signedB = multiplier ^ FS::Cast<float>( ( hashOuter << 30 ) & int32v( 1 << 31 ) );
+            float32v signedC = multiplier ^ FS::Cast<float>( ( hashOuter << 29 ) & int32v( 1 << 31 ) );
 
-                mask32v extra = indexB >= int32v( 0x04 << 27 );
-                mask32v equal = ( indexA == indexB );
-                indexA |= FS::Cast<int32_t>( equal ); // Forces decrement conditions to fail.
+            int32v zeroAxis = hashOuter & int32v( 3 << 3 );
+            mask32v notZeroX = zeroAxis != int32v( 0 );
+            mask32v zeroW = zeroAxis == int32v( 3 << 3 );
+            int32v zeroZOrW = hashOuter << 27;
 
-                float32v neutral = FS::Masked( equal | extra, FS::MaskedMul( extra, float32v( kSkew4f ), float32v( -1.0f ) ) );
-
-                float32v gX = FS::MaskedIncrement( indexB == int32v( 0 << 27 ), FS::MaskedDecrement( indexA == int32v( 0 << 27 ), neutral ) );
-                float32v gY = FS::MaskedIncrement( indexB == int32v( 1 << 27 ), FS::MaskedDecrement( indexA == int32v( 1 << 27 ), neutral ) );
-                float32v gZ = FS::MaskedIncrement( indexB == int32v( 2 << 27 ), FS::MaskedDecrement( indexA == int32v( 2 << 27 ), neutral ) );
-                float32v gW = FS::MaskedIncrement( indexB == int32v( 3 << 27 ), FS::MaskedDecrement( indexA == int32v( 3 << 27 ), neutral ) );
-
-                multiplier *= FN_FMulAdd( gW, fW, FN_FMulAdd( gZ, fZ, FN_FMulAdd( gY, fY, gX * fX ) ) );
-            }
-
-            {
-                int32v indexA = indexOuterVector & int32v( 0x03 << 27 );
-                int32v indexB = ( indexOuterVector >> 2 ) & int32v( 0x07 << 27 );
-                indexB ^= indexA; // Simplifies the AVX512_F case.
-
-                mask32v extra = indexB >= int32v( 0x04 << 27 );
-                mask32v equal = ( indexA == indexB );
-                indexA |= FS::Cast<int32_t>( equal ); // Forces decrement conditions to fail.
-
-                float32v neutral = FS::Masked( equal | extra, FS::MaskedMul( extra, float32v( kSkew4f ), float32v( -1.0f ) ) );
-
-                float32v gX = FS::MaskedIncrement( indexB == int32v( 0 << 27 ), FS::MaskedDecrement( indexA == int32v( 0 << 27 ), neutral ) );
-                float32v gY = FS::MaskedIncrement( indexB == int32v( 1 << 27 ), FS::MaskedDecrement( indexA == int32v( 1 << 27 ), neutral ) );
-                float32v gZ = FS::MaskedIncrement( indexB == int32v( 2 << 27 ), FS::MaskedDecrement( indexA == int32v( 2 << 27 ), neutral ) );
-                float32v gW = FS::MaskedIncrement( indexB == int32v( 3 << 27 ), FS::MaskedDecrement( indexA == int32v( 3 << 27 ), neutral ) );
-
-                valueX = FN_FMulAdd( multiplier, gX, valueX );
-                valueY = FN_FMulAdd( multiplier, gY, valueY );
-                valueZ = FN_FMulAdd( multiplier, gZ, valueZ );
-                valueW = FN_FMulAdd( multiplier, gW, valueW );
-            }
+            valueX = FS::MaskedAdd( notZeroX, valueX, signedA );
+            valueY += FS::SelectHighBit( zeroZOrW, signedB, FS::InvMasked( notZeroX, signedA ) );
+            valueZ += FS::SelectHighBit( zeroZOrW, FS::Masked( zeroW, signedC ), signedB );
+            valueW = FS::InvMaskedAdd( zeroW, valueW, signedC );
         }
     }
 
@@ -762,7 +685,7 @@ protected:
         }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
-            (float)(33.653125584827855 / 1.4142135623730951) :
+            15.7187556f :
             43.6732089f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
@@ -1657,7 +1580,7 @@ protected:
         }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
-            (float)(115.21625311930542 / 1.4142135623730951) :
+            51.0465794f :
             138.028888f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
