@@ -823,21 +823,21 @@ namespace FastNoise
 
         if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::x86 ) && !( I::FeatureFlags & FastSIMD::FeatureFlag::SSE41 ) )
         {
-            // SSE2 has no 32 bit multiply, each one is emulated with pmuludq on the even and odd lanes plus a repack.
-            // pmuludq only reads the low half of each 64 bit lane, so both multiplies can run before a single repack
-            hash = FS::NativeExec<I>( []( auto h, auto a )
+            // SSE2 has no 32 bit multiply: square the even and odd lanes with pmuludq (it only reads the low half of each
+            // 64 bit lane) and repack once
+            hash = FS::NativeExec<I>( []( auto h )
             {
                 auto hOdd = _mm_srli_epi64( h, 32 );
-                auto even = _mm_mul_epu32( _mm_mul_epu32( h, h ), a );
-                auto odd = _mm_mul_epu32( _mm_mul_epu32( hOdd, hOdd ), a );
+                auto even = _mm_mul_epu32( h, h );
+                auto odd = _mm_mul_epu32( hOdd, hOdd );
 
                 // [ e0, e2, o1, o3 ] -> [ e0, o1, e2, o3 ]
                 return _mm_shuffle_epi32( _mm_castps_si128( _mm_shuffle_ps( _mm_castsi128_ps( even ), _mm_castsi128_ps( odd ), 0x88 ) ), 0xD8 );
-            }, hash, I( HashMultiplier::A ) );
+            }, hash );
         }
         else
         {
-            hash *= hash * I( HashMultiplier::A );
+            hash *= hash;
         }
         return FS::Convert<float>( hash );
     }
