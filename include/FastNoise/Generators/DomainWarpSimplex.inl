@@ -18,66 +18,61 @@
 
 namespace FastNoise
 {
+    // Unit gradient ( bits 28-30 ) and unit outer vector ( bits 25-27 ) each from 8 directions at 22.5 + 45k degrees.
+    // 3 bit indices need no remapping and fit 8 entry tables
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    FN_WARP_HELPER ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FS_FORCEINLINE static void ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
-        int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
-        int32v indexGradient = hashShifted * int32v( 12 >> 2 ); // [0,12) in the upper four bits
-        int32v indexOuterVector = ( hashShifted * int32v( 0xAAAAAAAB ) ) & int32v( 0xC0000003 ); // [0,12) in bits 0,1,30,31 // ( -4LL << 30 ) / 3 )
+        constexpr float kA = 0.9238795325112867f; // cos( 22.5 )
+        constexpr float kB = 0.3826834323650898f; // sin( 22.5 )
+        float32v gX, gY, vX, vY;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            indexGradient >>= 28;
-            indexOuterVector |= indexOuterVector >> 28;
+            int32v indexGradient = hash31 >> 28;
+            int32v indexOuterVector = hash31 >> 25; // permutexvar reads 4 bits, the tables repeat after 8
 
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( kRoot3f, -kRoot3f, 1, -1, kRoot3f, -kRoot3f, -1, 1, 2, -2, 0, 0, 0, 0, 0, 0 ) );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( 1, -1, kRoot3f, -kRoot3f, -1, 1, kRoot3f, -kRoot3f, 0, 0, 2, -2, 0, 0, 0, 0 ) );
-
-            multiplier *= FN_FMulAdd( fY, gY, fX * gX );
-
-            valueX = FN_FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( kRoot3f, -kRoot3f, 1, -1, kRoot3f, -kRoot3f, -1, 1, 2, -2, 0, 0, 0, 0, 0, 0 ) ), valueX );
-            valueY = FN_FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, -1, kRoot3f, -kRoot3f, -1, 1, kRoot3f, -kRoot3f, 0, 0, 2, -2, 0, 0, 0, 0 ) ), valueY );
+            gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( kA, kB, -kB, -kA, -kA, -kB, kB, kA, kA, kB, -kB, -kA, -kA, -kB, kB, kA ) );
+            gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexGradient, FS::Constant<float>( kB, kA, kA, kB, -kB, -kA, -kA, -kB, kB, kA, kA, kB, -kB, -kA, -kA, -kB ) );
+            vX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( kA, kB, -kB, -kA, -kA, -kB, kB, kA, kA, kB, -kB, -kA, -kA, -kB, kB, kA ) );
+            vY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( kB, kA, kA, kB, -kB, -kA, -kA, -kB, kB, kA, kA, kB, -kB, -kA, -kA, -kB ) );
         }
-        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
-            float32v finalSign = FS::Cast<float>( ( ( indexGradient >> 28 ) ^ indexOuterVector ) << 31 );
-            indexGradient >>= 29;
-            indexOuterVector = ( indexOuterVector >> 1 ) | ( indexOuterVector >> 29 );
-            if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX ) )
+            int32v indexGradient = hash31 >> 28;
+            int32v indexOuterVector = hash31 >> 25; // vpermps only reads the low 3 bits
+            if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
             {
-                // vpermps only reads the low 3 bits (the shifts above are arithmetic), AArch64 TBL reads 0 past the table
-                indexGradient &= int32v( 7 );
-                indexOuterVector &= int32v( 7 );
+                indexOuterVector &= int32v( 7 ); // AArch64 TBL reads 0 past the table
             }
 
-            float32v gX = FN_PermuteTable8( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexGradient );
-            float32v gY = FN_PermuteTable8( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexGradient );
-
-            multiplier *= FN_FMulAdd( fY, gY, fX * gX ) ^ finalSign;
-
-            valueX = FN_FMulAdd( multiplier, FN_PermuteTable8( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexOuterVector ), valueX );
-            valueY = FN_FMulAdd( multiplier, FN_PermuteTable8( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexOuterVector ), valueY );
+            gX = FN_PermuteTable8( FS::Constant<float>( kA, kB, -kB, -kA, -kA, -kB, kB, kA ), indexGradient );
+            gY = FN_PermuteTable8( FS::Constant<float>( kB, kA, kA, kB, -kB, -kA, -kA, -kB ), indexGradient );
+            vX = FN_PermuteTable8( FS::Constant<float>( kA, kB, -kB, -kA, -kA, -kB, kB, kA ), indexOuterVector );
+            vY = FN_PermuteTable8( FS::Constant<float>( kB, kA, kA, kB, -kB, -kA, -kA, -kB ), indexOuterVector );
         }
         else
         {
+            // Index bit 0: odd base direction, bit 1: rotate by 90, bit 2: rotate by 180
+            auto rotate = []( int32v bits, float32v baseX, float32v baseY, float32v& outX, float32v& outY )
             {
-                float32v u = FS::SelectHighBit( indexGradient << 2, fY, fX );
-                float32v v = FS::SelectHighBit( indexGradient << 2, fX, fY );
+                float32v flip = FS::Cast<float>( ( bits << 1 ) & int32v( 1 << 31 ) );
+                outX = FS::SelectHighBit( bits << 2, float32v( 0 ) - baseY, baseX ) ^ flip;
+                outY = FS::SelectHighBit( bits << 2, baseX, baseY ) ^ flip;
+            };
 
-                float32v a = u * FS::SelectHighBit( indexGradient, float32v( 2 ), float32v( kRoot3f ) );
-                float32v b = v ^ FS::Cast<float>( ( indexGradient >> 30 ) << 31 );
+            int32v oddGradient = hash31 << 3;
+            rotate( hash31, FS::SelectHighBit( oddGradient, float32v( kB ), float32v( kA ) ), FS::SelectHighBit( oddGradient, float32v( kA ), float32v( kB ) ), gX, gY );
 
-                multiplier *= FS::MaskedAdd( indexGradient >= int32v( 0 ), a, b ) ^ FS::Cast<float>( ( ( indexGradient >> 28 ) ^ indexOuterVector ) << 31 );
-            }
-
-            {
-                float32v a = multiplier * FS::SelectHighBit( indexOuterVector, float32v( 2 ), float32v( kRoot3f ) );
-                float32v b = FS::Masked( indexOuterVector >= int32v( 0 ), multiplier ) ^ FS::Cast<float>( ( indexOuterVector >> 30 ) << 31 );
-
-                valueX += FS::SelectHighBit( indexOuterVector << 30, b, a );
-                valueY += FS::SelectHighBit( indexOuterVector << 30, a, b );
-            }
+            int32v outerBits = hash31 << 3; // bits 25-27 -> 28-30
+            int32v oddOuter = outerBits << 3;
+            rotate( outerBits, FS::SelectHighBit( oddOuter, float32v( kB ), float32v( kA ) ), FS::SelectHighBit( oddOuter, float32v( kA ), float32v( kB ) ), vX, vY );
         }
+
+        multiplier *= FN_FMulAdd( fY, gY, fX * gX );
+
+        valueX = FN_FMulAdd( multiplier, vX, valueX );
+        valueY = FN_FMulAdd( multiplier, vY, valueY );
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
@@ -528,7 +523,7 @@ protected:
         ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2, falloff2, valueX, valueY );
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
-            (float)(49.918426513671875 / 2.0) :
+            100.040101f :
             99.2043346f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
@@ -963,7 +958,7 @@ protected:
         }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
-            (float)(9.28993664146183 / 2.0) :
+            18.5526678f :
             18.2335248f );
 
         valueX *= float32v( kBounding * this->mAxisScale[0] );
