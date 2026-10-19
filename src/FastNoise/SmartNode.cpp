@@ -15,8 +15,8 @@ namespace FastNoise
     class SmartNodeManagerPool
     {
     public:
-        SmartNodeManagerPool( uint32_t size ) :
-            mAllocState( 0 ), mNextPool( nullptr ), mPoolSize( std::min<uint32_t>( size, INT32_MAX ) )
+        SmartNodeManagerPool( size_t size ) :
+            mAllocState( 0 ), mNextPool( nullptr ), mPoolSize( (uint32_t)std::min<size_t>( size, INT32_MAX ) )
         { }
 
         SmartNodeManagerPool( const SmartNodeManagerPool& ) = delete;
@@ -55,8 +55,9 @@ namespace FastNoise
                 activeAllocs++;
 
                 newAllocState = (uint64_t)activeAllocs | ( (uint64_t)nextFreeIndex << 32 );
-                                
-            } while( !mAllocState.compare_exchange_weak( allocState, newAllocState, std::memory_order_relaxed ) );
+
+                // Acquire pairs with the release in Free(), so a slot reused after a reset is done with by its previous node
+            } while( !mAllocState.compare_exchange_weak( allocState, newAllocState, std::memory_order_acquire, std::memory_order_relaxed ) );
 
             return startSlot;
         }
@@ -65,7 +66,7 @@ namespace FastNoise
         {
             if( Contains( ptr ) )
             {
-                uint64_t allocState = mAllocState.fetch_sub( 1, std::memory_order_relaxed );
+                uint64_t allocState = mAllocState.fetch_sub( 1, std::memory_order_release );
 
                 assert( (uint32_t)allocState != 0 );
                 return (int32_t)allocState - 1;
@@ -76,21 +77,8 @@ namespace FastNoise
 
         int32_t AllocCount() const
         {
-            return (int32_t)mAllocState.load( std::memory_order_relaxed );
-        }
-
-        bool MarkForRemoval()
-        {
-            uint64_t allocState = mAllocState.load( std::memory_order_relaxed );
-
-            if( (uint32_t)allocState != 0 )
-            {
-                return false;
-            }
-
-            uint64_t newAllocState = ( (uint64_t)mPoolSize << 32 ) + 1; // Set as full
-
-            return mAllocState.compare_exchange_strong( allocState, newAllocState, std::memory_order_relaxed );
+            // Acquire pairs with the release in Free(), so freed nodes are done with the pool before it is released
+            return (int32_t)mAllocState.load( std::memory_order_acquire );
         }
 
         uint8_t* GetPool() const
@@ -106,43 +94,42 @@ namespace FastNoise
     class SmartNodeMemoryAllocator
     {
     public:
-        static inline uint32_t sNewPoolSize = 64 * 1024;
+        static inline std::atomic<uint32_t> sNewPoolSize = 64 * 1024;
 
         void* Alloc( size_t size, size_t align ) 
         {
+            if( void* ptr = AllocFromPools( size, align ) )
+            {
+                return ptr;
+            }
+
             std::lock_guard lock( mMutex );
 
+            // Another thread may have added a pool while this one waited for the lock
             if( void* ptr = AllocFromPools( size, align ) )
             {
                 return ptr;
             }
 
             // New pool must at least fit its header and this alloc, even if the pool size is set smaller
-            size_t newPoolSize = std::max<size_t>( sNewPoolSize, sizeof( SmartNodeManagerPool ) + size + align );
+            size_t newPoolSize = std::max<size_t>( sNewPoolSize.load( std::memory_order_relaxed ), sizeof( SmartNodeManagerPool ) + size + align );
       
             if( void* poolAlloc = std::malloc( newPoolSize ) )
             {        
-                SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( (uint32_t)std::min<size_t>( newPoolSize - sizeof( SmartNodeManagerPool ), UINT32_MAX ) );
+                SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( newPoolSize - sizeof( SmartNodeManagerPool ) );
 
                 void* alloc = newPool->TryAlloc( size, align );
                 assert( alloc ); // New pool is sized to always fit the alloc
 
-                if( mPools )
-                {
-                    SmartNodeManagerPool* pool = mPools;
+                std::atomic<SmartNodeManagerPool*>* tail = &mPools;
 
-                    while( SmartNodeManagerPool* nextPool = pool->mNextPool.load( std::memory_order_relaxed ) )
-                    {
-                        pool = nextPool;
-                    }  
-
-                    pool->mNextPool.store( newPool, std::memory_order_release );
-                }
-                else
+                while( SmartNodeManagerPool* pool = tail->load( std::memory_order_acquire ) )
                 {
-                    mPools = newPool;
+                    tail = &pool->mNextPool;
                 }
 
+                // Release so lock-free walks of the list see the pool initialised
+                tail->store( newPool, std::memory_order_release );
                 return alloc;
             } 
 
@@ -151,89 +138,69 @@ namespace FastNoise
 
         void Free( const void* ptr )
         {
-            std::lock_guard lock( mMutex );
-
-            SmartNodeManagerPool* pool = mPools;
-
-            while( pool )
+            for( SmartNodeManagerPool* pool = mPools.load( std::memory_order_acquire ); pool; pool = pool->mNextPool.load( std::memory_order_acquire ) )
             {
-                int32_t allocCount = pool->Free( ptr );
-
-                if( allocCount >= 0 )
+                if( pool->Free( ptr ) >= 0 )
                 {
-                    if( allocCount == 0 )
-                    {
-                        RemoveEmptyPool();
-                    }
                     return;
                 }
-
-                pool = pool->mNextPool;
             }
 
             assert( 0 ); // Pointer not in any of the pools
         }
-        
+
+        // Caller guarantees no other thread is in Alloc() or Free(), they walk the list without the lock
+        void ReleaseEmptyPools()
+        {
+            std::lock_guard lock( mMutex );
+
+            std::atomic<SmartNodeManagerPool*>* link = &mPools;
+
+            while( SmartNodeManagerPool* pool = link->load( std::memory_order_acquire ) )
+            {
+                if( pool->AllocCount() == 0 )
+                {
+                    link->store( pool->mNextPool.load( std::memory_order_acquire ), std::memory_order_release );
+
+                    pool->~SmartNodeManagerPool();
+                    std::free( pool );
+                }
+                else
+                {
+                    link = &pool->mNextPool;
+                }
+            }
+        }
+
     private:
         void* AllocFromPools( size_t size, size_t align )
         {
-            SmartNodeManagerPool* pool = mPools;
-
-            while( pool )
+            for( SmartNodeManagerPool* pool = mPools.load( std::memory_order_acquire ); pool; pool = pool->mNextPool.load( std::memory_order_acquire ) )
             {
                 if( void* ptr = pool->TryAlloc( size, align ) )
                 {
                     return ptr;
                 }
-
-                pool = pool->mNextPool;
             }
             return nullptr;
         }
 
-        void RemoveEmptyPool()
-        {
-            SmartNodeManagerPool* pool = mPools;
-            SmartNodeManagerPool* emptyPool = mPools->AllocCount() > 0 ? nullptr : mPools;
-
-            while( SmartNodeManagerPool* nextPool = pool->mNextPool.load( std::memory_order_relaxed ) )
-            {
-                int32_t allocCount = nextPool->AllocCount();
-
-                if( allocCount == 0 )
-                {
-                    if( emptyPool ) // Only remove a pool if we have 2 empty pools
-                    {
-                        SmartNodeManagerPool* toRemove = nextPool;
-
-                        if( toRemove->MarkForRemoval() )
-                        {
-                            pool->mNextPool.store( toRemove->mNextPool.load( std::memory_order_relaxed ) );
-
-                            toRemove->~SmartNodeManagerPool();
-
-                            std::free( toRemove );
-                        }
-
-                        return;
-                    }
-
-                    emptyPool = nextPool;                    
-                }
-
-                pool = nextPool;
-            }
-        }
-        
-        SmartNodeManagerPool* mPools = nullptr;
-        mutable std::mutex mMutex; // Held while traversing or modifying mPools, since RemoveEmptyPool() frees pools
+        // Alloc() and Free() walk the list without the lock, so pools are only freed by ReleaseEmptyPools()
+        // Empty pools reset and get reused until then
+        std::atomic<SmartNodeManagerPool*> mPools = nullptr;
+        std::mutex mMutex; // Serialises adding and removing pools
     };
 
     static SmartNodeMemoryAllocator gMemoryAllocator;
 
     void SmartNodeManager::SetMemoryPoolSize( uint32_t size )
     {
-        SmartNodeMemoryAllocator::sNewPoolSize = size;
+        SmartNodeMemoryAllocator::sNewPoolSize.store( size, std::memory_order_relaxed );
+    }
+
+    void SmartNodeManager::ReleaseEmptyPools()
+    {
+        gMemoryAllocator.ReleaseEmptyPools();
     }
 
     void* SmartNodeManager::Allocate( size_t size, size_t align )

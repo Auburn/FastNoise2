@@ -15,6 +15,8 @@ namespace FastNoise
      *  All FastNoise generator nodes are allocated from an internal memory pool for
      *  cache-friendly layout and fast allocation. This class is not directly instantiated;
      *  use SetMemoryPoolSize() before creating nodes if you need to adjust the pool.
+     *  Pools are kept once allocated and reused when all their nodes have been freed,
+     *  use ReleaseEmptyPools() to free them.
      */
     class FASTNOISE_API SmartNodeManager
     {
@@ -29,6 +31,14 @@ namespace FastNoise
          *  @param size  Pool size in bytes.
          */
         static void SetMemoryPoolSize( uint32_t size );
+
+        /** @brief Free memory pools that have no live nodes in them.
+         *
+         *  Pools are otherwise kept for reuse, so memory stays at its peak after many nodes are freed.
+         *  Not thread safe: no other thread may create nodes or release the last reference to a node
+         *  during this call. Generating from existing nodes on other threads is fine.
+         */
+        static void ReleaseEmptyPools();
 
     private:
         template<typename>
