@@ -44,7 +44,10 @@ class FastSIMD::DispatchClass<Divide, SIMD> final : public virtual Divide, publi
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) / this->GetSourceValue( mRHS, seed, pos... );
+        // LHS first: a constant RHS read before the LHS call lets block loops compute lhs * ( 1 / constant ), which changes the output
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
+
+        return lhs / this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
