@@ -85,6 +85,28 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}"
     else()
         target_compile_options(FastSIMD_FastNoise PRIVATE -fno-stack-protector -Wno-nan-infinity-disabled)
     endif()
+
+    if(NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+        # Clang only aligns ymm/zmm spill slots in functions that realign the stack (see FN_ALIGN_STACK), unless the frame
+        # pointer is reserved: keep frame pointers in the AVX sources, so functions with spills realign the stack and
+        # cheap generators without spills don't pay for a realignment. GCC realigns when it needs to
+        get_target_property(FastNoise_avx_sources FastSIMD_FastNoise SOURCES)
+        list(FILTER FastNoise_avx_sources INCLUDE REGEX "_AVX(2|512)\\.cpp$")
+        if(MSVC)
+            set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS /clang:-fno-omit-frame-pointer)
+        else()
+            set_property(SOURCE ${FastNoise_avx_sources} APPEND PROPERTY COMPILE_OPTIONS -fno-omit-frame-pointer)
+        endif()
+
+        # LLVM bug: a __regcall (FS_VECTORCALL) sibling call can pass arguments in ymm/zmm8+ and still restore the callee
+        # saved xmm8-15 before the jump, corrupting them. Tail calls don't gain anything measurable here. Also for clang-cl:
+        # the static Gen functions return their result in registers, so a hidden return pointer no longer blocks such calls
+        if(MSVC)
+            target_compile_options(FastSIMD_FastNoise PRIVATE /clang:-fno-optimize-sibling-calls)
+        else()
+            target_compile_options(FastSIMD_FastNoise PRIVATE -fno-optimize-sibling-calls)
+        endif()
+    endif()
 endif()
 
 if(NOT FASTNOISE2_STRICT_FP)
