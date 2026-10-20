@@ -38,19 +38,25 @@ namespace FastNoise
             valueX = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( kRoot3f, -kRoot3f, 1, -1, kRoot3f, -kRoot3f, -1, 1, 2, -2, 0, 0, 0, 0, 0, 0 ) ), valueX );
             valueY = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexOuterVector, FS::Constant<float>( 1, -1, kRoot3f, -kRoot3f, -1, 1, kRoot3f, -kRoot3f, 0, 0, 2, -2, 0, 0, 0, 0 ) ), valueY );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX )
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
             float32v finalSign = FS::Cast<float>( ( ( indexGradient >> 28 ) ^ indexOuterVector ) << 31 );
             indexGradient >>= 29;
             indexOuterVector = ( indexOuterVector >> 1 ) | ( indexOuterVector >> 29 );
+            if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX ) )
+            {
+                // vpermps only reads the low 3 bits (the shifts above are arithmetic), AArch64 TBL reads 0 past the table
+                indexGradient &= int32v( 7 );
+                indexOuterVector &= int32v( 7 );
+            }
 
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexGradient );
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexGradient );
+            float32v gX = FN_PermuteTable8( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexGradient );
+            float32v gY = FN_PermuteTable8( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexGradient );
 
             multiplier *= FS::FMulAdd( fY, gY, fX * gX ) ^ finalSign;
 
-            valueX = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexOuterVector ), valueX );
-            valueY = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexOuterVector ), valueY );
+            valueX = FS::FMulAdd( multiplier, FN_PermuteTable8( FS::Constant<float>( kRoot3f, 1, kRoot3f, -1, 2, 0, 0, 0 ), indexOuterVector ), valueX );
+            valueY = FS::FMulAdd( multiplier, FN_PermuteTable8( FS::Constant<float>( 1, kRoot3f, -1, kRoot3f, 0, 2, 0, 0 ), indexOuterVector ), valueY );
         }
         else
         {
@@ -160,7 +166,7 @@ namespace FastNoise
             valueZ = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexOuterVector, -tableZ ), valueZ );
             valueW = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexOuterVector, -tableW ), valueW );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
         {
             // Same table as AVX512 split into two 8 entry halves, entries [16,20) are entries [0,4) negated.
             // The hash has a clear sign bit so the index is [0,20) << 27, which makes the high half ( [8,16) << 27 ) a signed
@@ -168,8 +174,12 @@ namespace FastNoise
             auto lookup = []( int32v index, const auto& tableLow, const auto& tableHigh )
             {
                 int32v permuteIndex = FS::BitShiftRightZeroExtend( index, 27 );
-                float32v low = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableLow, permuteIndex );
-                float32v high = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableHigh, permuteIndex );
+                if constexpr( !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
+                {
+                    permuteIndex &= int32v( 7 ); // vpermps only reads the low 3 bits, AArch64 TBL reads 0 past the table
+                }
+                float32v low = FN_PermuteTable8( tableLow, permuteIndex );
+                float32v high = FN_PermuteTable8( tableHigh, permuteIndex );
 
                 return FS::Select( index > int32v( 0x3FFFFFFF ), high, low );
             };
@@ -258,13 +268,13 @@ namespace FastNoise
             multiplier ^= FS::Cast<float>( hash31 << 31 );
             valueY = FS::FMulAdd( multiplier, FS::FMulSub( fY, gX, fX * gY ), valueY );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> ) // 8 entry table lookups: vpermps / AArch64 TBL
         {
             float32v signX = FS::Cast<float>( ( index >> 28 ) << 31 );
             index = FS::BitShiftRightZeroExtend( index, 29 );
 
-            float32v gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( kSkew2f, kSkew2f, kSkew2f + 1, kSkew2f + 1, 1, 1, 0, 0 ), index ) ^ signX;
-            float32v gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( kSkew2f + 1, -kSkew2f - 1, kSkew2f, -kSkew2f, 1, -1, 0, 0 ), index );
+            float32v gX = FN_PermuteTable8( FS::Constant<float>( kSkew2f, kSkew2f, kSkew2f + 1, kSkew2f + 1, 1, 1, 0, 0 ), index ) ^ signX;
+            float32v gY = FN_PermuteTable8( FS::Constant<float>( kSkew2f + 1, -kSkew2f - 1, kSkew2f, -kSkew2f, 1, -1, 0, 0 ), index );
 
             valueX = FS::FMulAdd( multiplier, FS::FMulAdd( fY, gY, fX * gX ), valueX );
             multiplier ^= FS::Cast<float>( hash31 << 31 );
@@ -514,7 +524,7 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gW, fW, valueC );
             valueD = FS::FMulAdd( valueD_gW, fW, valueD );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) || kLatticeBlockTbl<SIMD> )
         {
             // Every basis gives the axes four roles: the ( positive ) indexed axis, the first and second unindexed axes and
             // either the negative indexed axis ( pairwise ) or the third unindexed axis ( single/extra ). With f gathered in
@@ -531,7 +541,18 @@ namespace FastNoise
             else // Byte shuffle the table into the top byte, the other bytes of the shuffle index have the high bit set and become 0
             {
                 I shuffleIndex = ( FS::BitShiftRightZeroExtend( indexBasis, 3 ) & I( 0x0F000000 ) ) | I( 0x00808080 );
-                roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B ), shuffleIndex );
+                auto table = FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B );
+
+                if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
+                {
+                    roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), table, shuffleIndex );
+                }
+#if FN_AARCH64_TBL
+                else // AArch64 TBL: indices >= 16 also become 0
+                {
+                    roleAxes = FS::NativeExec<I>( []( int32x4_t t, int32x4_t idx ) { return vreinterpretq_s32_u8( vqtbl1q_u8( vreinterpretq_u8_s32( t ), vreinterpretq_u8_s32( idx ) ) ); }, table, shuffleIndex );
+                }
+#endif
             }
 
             auto gatherRole = [&]( I axisBits )
