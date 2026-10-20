@@ -389,18 +389,21 @@ private:
 
         F normalise( 1.0f / (0xff / 2.0f) );
 
+    // x and y from the squared hash, its top bits depend on every hash bit; z and w from the top of the hash itself
     #define GRADIENT_COORD( _x, _y, _z, _w )\
-        I hash##_x##_y##_z##_w = HashPrimesFolded( seed, x##_x, y##_y, z##_z, w##_w );\
+        I hash##_x##_y##_z##_w = HashPrimesHB( seed, x##_x, y##_y, z##_z, w##_w );\
+        I hashSq##_x##_y##_z##_w = hash##_x##_y##_z##_w * hash##_x##_y##_z##_w;\
         F contrib##_x##_y##_z##_w = xs##_x * ys##_y * zs##_z * ws##_w;\
-        xWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & I( 0xff ) ), xWarp );\
-        yWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & I( 0xff ) ), yWarp );\
+        xWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq##_x##_y##_z##_w, 24 ) ), xWarp );\
+        yWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hashSq##_x##_y##_z##_w >> 16) & I( 0xff ) ), yWarp );\
         zWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & I( 0xff ) ), zWarp );\
         wWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
 
-        I hash0000 = HashPrimesFolded( seed, x0, y0, z0, w0 );
+        I hash0000 = HashPrimesHB( seed, x0, y0, z0, w0 );
+        I hashSq0000 = hash0000 * hash0000;
         F contrib0000 = xs0 * ys0 * zs0 * ws0;
-        F xWarp = contrib0000 * FS::Convert<float>( hash0000 & I( 0xff ) );
-        F yWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 8) & I( 0xff ) );
+        F xWarp = contrib0000 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq0000, 24 ) );
+        F yWarp = contrib0000 * FS::Convert<float>( (hashSq0000 >> 16) & I( 0xff ) );
         F zWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 16) & I( 0xff ) );
         F wWarp = contrib0000 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash0000, 24 ) );
 
