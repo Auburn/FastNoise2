@@ -212,11 +212,11 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
         if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
         {
             float fromMin = mFromMin.constant;
-            float fromMax = mFromMax.constant;
+            float scale = ConstantRemapScale();
             float toMin = mToMin.constant;
             float toMax = mToMax.constant;
 
-            return Remap( this->GetSourceValue( mSource, seed, pos... ), float32v( fromMin ), float32v( fromMax ), float32v( toMin ), float32v( toMax ) );
+            return RemapConstant( this->GetSourceValue( mSource, seed, pos... ), fromMin, scale, toMin, toMax );
         }
 
         float32v source = this->GetSourceValue( mSource, seed, pos... );
@@ -237,6 +237,27 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
         {
             result = FS::Max( result, toMin );
             result = FS::Min( result, toMax );
+        }
+
+        return result;
+    }
+
+    // ( to max - to min ) / ( from max - from min ) for constant ranges: one scale for the whole remap, computed once per call
+    FS_FORCEINLINE float ConstantRemapScale() const
+    {
+        return ( mToMax.constant - mToMin.constant ) / ( mFromMax.constant - mFromMin.constant );
+    }
+
+    // Remap with constant ranges: one multiply-add with the precomputed scale instead of a division and a multiply per point,
+    // within an ulp of Remap
+    FS_FORCEINLINE float32v RemapConstant( float32v source, float fromMin, float scale, float toMin, float toMax ) const
+    {
+        float32v result = FS::FMulAdd( source - float32v( fromMin ), float32v( scale ), float32v( toMin ) );
+
+        if( mClampOutput == Boolean::True )
+        {
+            result = FS::Max( result, float32v( toMin ) );
+            result = FS::Min( result, float32v( toMax ) );
         }
 
         return result;
@@ -263,12 +284,12 @@ public:
         {
             // As in GenT, so the constant maths compiles the same way
             float fromMin = mFromMin.constant;
-            float fromMax = mFromMax.constant;
+            float scale = ConstantRemapScale();
             float toMin = mToMin.constant;
             float toMax = mToMax.constant;
 
             this->template CombineSourceBlocks<DIMS>( [=]( float32v source ) {
-                return Remap( source, float32v( fromMin ), float32v( fromMax ), float32v( toMin ), float32v( toMax ) );
+                return RemapConstant( source, fromMin, scale, toMin, toMax );
             }, seed, pos, out, count, mSource );
 
             return true;
