@@ -763,7 +763,7 @@ class FastSIMD::DispatchClass<DomainWarpSimplex, SIMD> final : public virtual Do
     FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
 
 public:
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         seed += int32v( mSeedOffset );
         switch( mVectorizationScheme )
@@ -804,7 +804,7 @@ public:
 
 protected:
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    FS_FORCEINLINE float32v Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -868,7 +868,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -906,6 +906,17 @@ protected:
         mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
         mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
         mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
+
+        // AVX512 orthogonal matrix scheme: masked compares build each vertex mask in one instruction, a and( not ) of two compares
+        // is a compare under the other mask (the k logic above is then dead code). Fewer live k masks, it spilled them. The other
+        // scheme does not spill and the extra compares compete with its FMAs
+        if constexpr( kUseMaskedGreater && ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && Scheme == VectorizationScheme::OrthogonalGradientMatrix )
+        {
+            maskX1 = MaskedGreater<true>( xGreaterEqualY, dxSkewed, dzSkewed );
+            maskY1 = MaskedGreater<false>( yGreaterEqualZ, dySkewed, dxSkewed );
+            nMaskY2 = MaskedGreater<false>( xGreaterEqualY, dzSkewed, dySkewed );
+            nMaskZ2 = MaskedGreater<true>( xGreaterEqualZ, dySkewed, dzSkewed );
+        }
 
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dy3 = dy0 - float32v( kReflectUnskew3 * 3 + 1 );
@@ -966,7 +977,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -1028,82 +1039,60 @@ protected:
         rankZ = FS::MaskedIncrement( zGreaterEqualW, rankZ );
         rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
 
-        mask32v maskX1 = rankX > int32v( 2 );
-        mask32v maskY1 = rankY > int32v( 2 );
-        mask32v maskZ1 = rankZ > int32v( 2 );
-        mask32v maskW1 = rankW > int32v( 2 );
-
-        mask32v maskX2 = rankX > int32v( 1 );
-        mask32v maskY2 = rankY > int32v( 1 );
-        mask32v maskZ2 = rankZ > int32v( 1 );
-        mask32v maskW2 = rankW > int32v( 1 );
-
-        mask32v maskX3 = rankX > int32v( 0 );
-        mask32v maskY3 = rankY > int32v( 0 );
-        mask32v maskZ3 = rankZ > int32v( 0 );
-        mask32v maskW3 = rankW > int32v( 0 );
-
-        float32v dx1 = FS::MaskedSub( maskX1, dx0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dy1 = FS::MaskedSub( maskY1, dy0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dw1 = FS::MaskedSub( maskW1, dw0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dx2 = FS::MaskedSub( maskX2, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dy2 = FS::MaskedSub( maskY2, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dz2 = FS::MaskedSub( maskZ2, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dw2 = FS::MaskedSub( maskW2, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dx3 = FS::MaskedSub( maskX3, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dy3 = FS::MaskedSub( maskY3, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dz3 = FS::MaskedSub( maskZ3, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dw3 = FS::MaskedSub( maskW3, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dx4 = dx0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dy4 = dy0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dz4 = dz0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dw4 = dw0 - float32v( kUnskew4 * 4 + 1 );
-
-        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff1 = FS::FNMulAdd( dw1, dw1, FS::FNMulAdd( dz1, dz1, FS::FNMulAdd( dy1, dy1, FS::FNMulAdd( dx1, dx1, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff2 = FS::FNMulAdd( dw2, dw2, FS::FNMulAdd( dz2, dz2, FS::FNMulAdd( dy2, dy2, FS::FNMulAdd( dx2, dx2, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff3 = FS::FNMulAdd( dw3, dw3, FS::FNMulAdd( dz3, dz3, FS::FNMulAdd( dy3, dy3, FS::FNMulAdd( dx3, dx3, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
-            float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
-            float32v( -4.0 / 5.0 ) );
-
-        falloff0 = FS::Max( falloff0, float32v( 0 ) );
-        falloff1 = FS::Max( falloff1, float32v( 0 ) );
-        falloff2 = FS::Max( falloff2, float32v( 0 ) );
-        falloff3 = FS::Max( falloff3, float32v( 0 ) );
-        falloff4 = FS::Max( falloff4, float32v( 0 ) );
-
-        falloff0 *= falloff0; falloff0 *= falloff0;
-        falloff1 *= falloff1; falloff1 *= falloff1;
-        falloff2 *= falloff2; falloff2 *= falloff2;
-        falloff3 *= falloff3; falloff3 *= falloff3;
-        falloff4 *= falloff4; falloff4 *= falloff4;
-
         float32v valueX( 0 );
         float32v valueY( 0 );
         float32v valueZ( 0 );
         float32v valueW( 0 );
 
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff0, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW1, wPrimedBase, int32v( Primes::W ) ) ), dx1, dy1, dz1, dw1, falloff1, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX2, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY2, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ2, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW2, wPrimedBase, int32v( Primes::W ) ) ), dx2, dy2, dz2, dw2, falloff2, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX3, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY3, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ3, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW3, wPrimedBase, int32v( Primes::W ) ) ), dx3, dy3, dz3, dw3, falloff3, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
-            dx4, dy4, dz4, dw4, falloff4, valueX, valueY, valueZ, valueW );
+        // Each vertex is computed right before its contribution so fewer values stay live across the contribution calls
+        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
+        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
+            float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
+            float32v( -4.0 / 5.0 ) );
+        {
+            float32v falloff = FS::Max( falloff0, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff, valueX, valueY, valueZ, valueW );
+        }
+
+        // Vertex i (1 to 3) steps along the axes ranked above 3 - i
+        auto applyRankedVertex = [&]( int rankThreshold, float unskewOffset )
+        {
+            mask32v maskX = rankX > int32v( rankThreshold );
+            mask32v maskY = rankY > int32v( rankThreshold );
+            mask32v maskZ = rankZ > int32v( rankThreshold );
+            mask32v maskW = rankW > int32v( rankThreshold );
+
+            float32v dx = FS::MaskedSub( maskX, dx0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dy = FS::MaskedSub( maskY, dy0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dz = FS::MaskedSub( maskZ, dz0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dw = FS::MaskedSub( maskW, dw0, float32v( 1 ) ) - float32v( unskewOffset );
+
+            float32v falloff = FS::FNMulAdd( dw, dw, FS::FNMulAdd( dz, dz, FS::FNMulAdd( dy, dy, FS::FNMulAdd( dx, dx, float32v( kFalloffRadiusSquared ) ) ) ) );
+            falloff = FS::Max( falloff, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+                FS::MaskedAdd( maskX, xPrimedBase, int32v( Primes::X ) ),
+                FS::MaskedAdd( maskY, yPrimedBase, int32v( Primes::Y ) ),
+                FS::MaskedAdd( maskZ, zPrimedBase, int32v( Primes::Z ) ),
+                FS::MaskedAdd( maskW, wPrimedBase, int32v( Primes::W ) ) ), dx, dy, dz, dw, falloff, valueX, valueY, valueZ, valueW );
+        };
+
+        applyRankedVertex( 2, float( kUnskew4 ) );
+        applyRankedVertex( 1, float( kUnskew4 * 2 ) );
+        applyRankedVertex( 0, float( kUnskew4 * 3 ) );
+
+        {
+            float32v falloff = FS::Max( falloff4, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+                xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
+                dx0 - float32v( kUnskew4 * 4 + 1 ), dy0 - float32v( kUnskew4 * 4 + 1 ), dz0 - float32v( kUnskew4 * 4 + 1 ), dw0 - float32v( kUnskew4 * 4 + 1 ),
+                falloff, valueX, valueY, valueZ, valueW );
+        }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(33.653125584827855 / 1.4142135623730951) :
@@ -1128,7 +1117,7 @@ class FastSIMD::DispatchClass<DomainWarpSuperSimplex, SIMD> final : public virtu
     FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
 
 public:
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         seed += int32v( mSeedOffset );
         switch( mVectorizationScheme )
@@ -1168,8 +1157,55 @@ public:
     }
 
 protected:
+    // Vertex direction is chosen by the sign bit of signValue, blendv only reads the high bit so no compare is needed
+    template<typename T>
+    FS_FORCEINLINE static T SelectSign( float32v signValue, T ifNegative, T ifPositive )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::Select( signValue < float32v( 0 ), ifNegative, ifPositive );
+        }
+        else
+        {
+            return FS::SelectHighBit( signValue, ifNegative, ifPositive );
+        }
+    }
+
+    FS_FORCEINLINE static float32v SignBit( float32v signValue )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::Masked( signValue < float32v( 0 ), float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+        }
+        else
+        {
+            return signValue & FS::Cast<float>( int32v( 1 << 31 ) );
+        }
+    }
+
+    // True if any lane of the clamped falloff is in range. Out of range lanes are exactly +0, so on SSE4.1/AVX2 OR the
+    // halves and test for any set bit instead of compare + movemask per half
+    template<typename F>
+    FS_FORCEINLINE static bool AnyInRange( F falloffBase )
+    {
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            auto bits = _mm256_castps_si256( _mm256_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            return !_mm256_testz_si256( bits, bits );
+        }
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) && !( SIMD & FastSIMD::FeatureFlag::AVX ) )
+        {
+            auto bits = _mm_castps_si128( _mm_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            return !_mm_testz_si128( bits, bits );
+        }
+        else
+        {
+            return FS::AnyMask( falloffBase != F( 0 ) );
+        }
+    }
+
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    FS_FORCEINLINE float32v Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -1258,7 +1294,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -1323,6 +1359,15 @@ protected:
         int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
         int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
 
+        // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
+        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase;
+        int32v xPrimedDeltaPos = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+        int32v xPrimedDeltaNeg = xPrimedBase ^ ( xPrimedBase - int32v( Primes::X ) );
+        int32v yPrimedDeltaPos = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+        int32v yPrimedDeltaNeg = yPrimedBase ^ ( yPrimedBase - int32v( Primes::Y ) );
+        int32v zPrimedDeltaPos = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
+        int32v zPrimedDeltaNeg = zPrimedBase ^ ( zPrimedBase - int32v( Primes::Z ) );
+
         float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed;
         float32v twiceUnskewDelta = float32v( kTwiceUnskew3 ) * skewedCoordinateSum;
         float32v xNormal = dxSkewed + twiceUnskewDelta;
@@ -1353,112 +1398,133 @@ protected:
 
         // Vertex <1, 1, 1> or <-1, -1, -1>
         {
-            mask32v signMask = xyzNormal < float32v( 0 );
+            float32v signValue = xyzNormal;
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset = float32v( 3 * kReflectUnskew3 + 1 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed ), dxBase - offset, dyBase - offset, dzBase - offset,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 1, 0> or <-1, -1, 0>
         {
-            mask32v signMask = xyzNormal < zNormal;
+            float32v signValue = xyzNormal - zNormal; // Sign bit set when xyzNormal < zNormal
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v falloffBase = FS::Min( ( sign ^ dzBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase ), dxBase, dyBase, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 0, 1> or <-1, 0, -1>
         {
-            mask32v signMask = xyzNormal < yNormal;
+            float32v signValue = xyzNormal - yNormal; // Sign bit set when xyzNormal < yNormal
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v falloffBase = FS::Min( ( sign ^ dyBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed ), dxBase, dyBase - offset0, dzBase,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 1, 1> or <0, -1, -1>
         {
-            mask32v signMask = xyzNormal < xNormal;
+            float32v signValue = xyzNormal - xNormal; // Sign bit set when xyzNormal < xNormal
 
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v falloffBase = FS::Min( ( sign ^ dxBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed ), dxBase - offset0, dyBase, dzBase,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 0, 0> or <-1, 0, 0>
         {
-            mask32v signMask = xNormal < float32v( 0 );
+            float32v signValue = xNormal;
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 1, 0> or <0, -1, 0>
         {
-            mask32v signMask = yNormal < float32v( 0 );
+            float32v signValue = yNormal;
 
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 0, 1> or <0, 0, -1>
         {
-            mask32v signMask = zNormal < float32v( 0 );
+            float32v signValue = zNormal;
 
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         if constexpr( Scheme != VectorizationScheme::OrthogonalGradientMatrix )
@@ -1486,7 +1552,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -1571,6 +1637,17 @@ protected:
         int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
         int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
 
+        // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
+        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase ^ wPrimedBase;
+        int32v xPrimedDeltaPos = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+        int32v xPrimedDeltaNeg = xPrimedBase ^ ( xPrimedBase - int32v( Primes::X ) );
+        int32v yPrimedDeltaPos = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+        int32v yPrimedDeltaNeg = yPrimedBase ^ ( yPrimedBase - int32v( Primes::Y ) );
+        int32v zPrimedDeltaPos = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
+        int32v zPrimedDeltaNeg = zPrimedBase ^ ( zPrimedBase - int32v( Primes::Z ) );
+        int32v wPrimedDeltaPos = wPrimedBase ^ ( wPrimedBase + int32v( Primes::W ) );
+        int32v wPrimedDeltaNeg = wPrimedBase ^ ( wPrimedBase - int32v( Primes::W ) );
+
         float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed + dwSkewed;
         float32v twiceUnskewDelta = float32v( kTwiceUnskew4 ) * skewedCoordinateSum;
         float32v xNormal = dxSkewed + twiceUnskewDelta;
@@ -1604,258 +1681,303 @@ protected:
 
         // Vertex <1, 1, 1, 1> or <-1, -1, -1, -1>
         {
-            mask32v signMask = xyzwNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset = float32v( 4 * kUnskew4 + 1 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimed ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 1, 0> or <-1, -1, -1, 0>
         {
-            mask32v signMask = xyzwNormal < wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = xyzwNormal - wNormal; // Sign bit set when xyzwNormal < wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 0, 1> or <-1, -1, 0, -1>
         {
-            mask32v signMask = xyzwNormal < zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal - zNormal; // Sign bit set when xyzwNormal < zNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 1, 1> or <-1, 0, -1, -1>
         {
-            mask32v signMask = xyzwNormal < yNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal - yNormal; // Sign bit set when xyzwNormal < yNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 1, 1> or <0, -1, -1, -1>
         {
-            mask32v signMask = xyzwNormal < xNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal - xNormal; // Sign bit set when xyzwNormal < xNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 0, 0> or <-1, 0, 0, 0>
         {
-            mask32v signMask = xNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
+            float32v signValue = xNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 0, 0> or <-1, -1, 0, 0>
         {
-            mask32v signMask = xNormal < -yNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
+            float32v signValue = xNormal - -yNormal; // Sign bit set when xNormal < -yNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 1, 0> or <-1, 0, -1, 0>
         {
-            mask32v signMask = xNormal < -zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = xNormal - -zNormal; // Sign bit set when xNormal < -zNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 0, 1> or <-1, 0, 0, -1>
         {
-            mask32v signMask = xNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xNormal - -wNormal; // Sign bit set when xNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 0, 0> or <0, -1, 0, 0>
         {
-            mask32v signMask = yNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
+            float32v signValue = yNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 1, 0> or <0, -1, -1, 0>
         {
-            mask32v signMask = yNormal < -zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = yNormal - -zNormal; // Sign bit set when yNormal < -zNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 0, 1> or <0, -1, 0, -1>
         {
-            mask32v signMask = yNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = yNormal - -wNormal; // Sign bit set when yNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 1, 0> or <0, 0, -1, 0>
         {
-            mask32v signMask = zNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = zNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 1, 1> or <0, 0, -1, -1>
         {
-            mask32v signMask = zNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = zNormal - -wNormal; // Sign bit set when zNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 0, 1> or <0, 0, 0, -1>
         {
-            mask32v signMask = wNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = wNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
