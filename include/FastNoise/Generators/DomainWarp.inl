@@ -31,6 +31,66 @@ protected:
     }
 
 public:
+    using GenResultT = typename DispatchClass<Generator, SIMD>::GenResult;
+
+    // Warp() of the final class through a static function, DomainWarpFractal calls it per octave: no virtual call, the strength
+    // is returned in registers instead of through a hidden pointer and the positions are updated through one pointer
+    static FS_FORCEINLINE float32v CallWarp( const DispatchClass* warp, int32v seed, float32v warpAmp, float32v x, float32v y, float32v* out )
+    {
+        GenResultT result = warp->mWarpFn2D( warp, seed, warpAmp, x, y, out );
+        return float32v( result.v0, result.v1 );
+    }
+
+    static FS_FORCEINLINE float32v CallWarp( const DispatchClass* warp, int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v* out )
+    {
+        GenResultT result = warp->mWarpFn3D( warp, seed, warpAmp, x, y, z, out );
+        return float32v( result.v0, result.v1 );
+    }
+
+    static FS_FORCEINLINE float32v CallWarp( const DispatchClass* warp, int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v* out )
+    {
+        GenResultT result = warp->mWarpFn4D( warp, seed, warpAmp, x, y, z, w, out );
+        return float32v( result.v0, result.v1 );
+    }
+
+protected:
+    // Called by the constructor of the final class (FASTNOISE_IMPL_GEN_FN)
+    template<typename WarpT>
+    void InitDispatchFns()
+    {
+        mWarpFn2D = &WarpFn<WarpT>;
+        mWarpFn3D = &WarpFn<WarpT>;
+        mWarpFn4D = &WarpFn<WarpT>;
+    }
+
+private:
+    using WarpFn2D = GenResultT( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v* );
+    using WarpFn3D = GenResultT( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v, float32v* );
+    using WarpFn4D = GenResultT( FS_VECTORCALL* )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v, float32v, float32v* );
+
+    template<typename WarpT>
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL WarpFn( const DispatchClass* warp, int32v seed, float32v warpAmp, float32v x, float32v y, float32v* out )
+    {
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const WarpT*>( warp )->WarpT::Warp( seed, warpAmp, x, y, out[0], out[1] ) );
+    }
+
+    template<typename WarpT>
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL WarpFn( const DispatchClass* warp, int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v* out )
+    {
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const WarpT*>( warp )->WarpT::Warp( seed, warpAmp, x, y, z, out[0], out[1], out[2] ) );
+    }
+
+    template<typename WarpT>
+    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL WarpFn( const DispatchClass* warp, int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v* out )
+    {
+        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const WarpT*>( warp )->WarpT::Warp( seed, warpAmp, x, y, z, w, out[0], out[1], out[2], out[3] ) );
+    }
+
+    WarpFn2D mWarpFn2D = nullptr;
+    WarpFn3D mWarpFn3D = nullptr;
+    WarpFn4D mWarpFn4D = nullptr;
+
+public:
     float GetWarpFrequency() const { return this->mFrequency; }
     const FastNoise::HybridSource& GetWarpAmplitude() const { return mWarpAmplitude; }
     const FastNoise::GeneratorSource& GetWarpSource() const { return mSource; }
