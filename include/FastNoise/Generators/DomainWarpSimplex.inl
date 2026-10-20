@@ -743,6 +743,8 @@ namespace FastNoise
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpSimplex, SIMD> final : public virtual DomainWarpSimplex, public DispatchClass<DomainWarp, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
@@ -1106,6 +1108,8 @@ protected:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpSuperSimplex, SIMD> final : public virtual DomainWarpSuperSimplex, public DispatchClass<DomainWarp, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {

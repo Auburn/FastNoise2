@@ -4,15 +4,30 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarp, SIMD> : public virtual DomainWarp, public DispatchClass<Seeded<ScalableGenerator>, SIMD>
 {
-    FASTNOISE_IMPL_GEN_T;
-
-    template<typename... P>
-    FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
+protected:
+    // Gen of the final warp classes: FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> ), so Warp() is not a virtual call.
+    // Members are read through the final class, at fixed offsets instead of through the virtual base table
+    template<typename WarpT, typename... P>
+    FS_FORCEINLINE float32v WarpGenT( int32v seed, P... pos ) const
     {
-        // Seed offset is applied inside Warp() so it also applies when called from DomainWarpFractal
-        Warp( seed, this->GetSourceValue( mWarpAmplitude, seed, pos... ), ( pos * float32v( this->mFrequency ) )..., pos... );
+        const WarpT& self = static_cast<const WarpT&>( *this );
+        float32v warpAmp = float32v( self.mWarpAmplitude.constant );
 
-        return this->GetSourceValue( mSource, seed, pos...);
+        if( self.mWarpAmplitude.simdGeneratorPtr )
+        {
+            warpAmp = self.GetSourceValue( self.mWarpAmplitude, seed, pos... );
+
+            // Warping by 0 doesn't move the position, skip it if the amplitude is 0 in every lane (e.g. masked regions)
+            if( !FS::AnyMask( warpAmp != float32v( 0 ) ) )
+            {
+                return self.GetSourceValue( self.mSource, seed, pos... );
+            }
+        }
+
+        // Seed offset is applied inside Warp() so it also applies when called from DomainWarpFractal
+        self.Warp( seed, warpAmp, ( pos * float32v( self.mFrequency ) )..., pos... );
+
+        return self.GetSourceValue( self.mSource, seed, pos...);
     }
 
 public:
@@ -28,6 +43,8 @@ public:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpGradient, SIMD> final : public virtual DomainWarpGradient, public DispatchClass<DomainWarp, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
 public:
     float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
