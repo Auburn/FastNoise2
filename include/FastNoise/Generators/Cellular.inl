@@ -644,37 +644,46 @@ protected:
     }
 
     // Jittered feature point offset from its cell centre (on a sphere of radius |jitter|) + base
+    // Each axis' hash bit field is shifted to the top of a signed int, so it converts already centred on 0; the bits below the field only
+    // add tiny noise. Bit fields: 2D x 0-10, y 21-31 (size jitter uses 11-20), 3D x 0-9, y 11-20, z 22-31, 4D 8 bits per axis. x gets
+    // half a step (the bit below its field), so it is never 0 and neither is the length. Same expressions as the 3^D searches and the
+    // cell blocks, so every path rounds the feature point the same. Locals, not offset[] stores: MSVC copied each converted value into
+    // the array through general purpose registers (store forwarding stalls)
     template<int D>
     FS_FORCEINLINE static void FeaturePointOffset( int32v hash, float32v jitter, const float32v* base, float32v* offset )
     {
         if constexpr( D == 2 )
         {
-            offset[0] = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-            offset[1] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 21 ) | int32v( 1 << 20 ) );
+            float32v yd = FS::Convert<float>( hash );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
+            offset[0] = FS::FMulAdd( xd, invMag, base[0] );
+            offset[1] = FS::FMulAdd( yd, invMag, base[1] );
         }
         else if constexpr( D == 3 )
         {
-            offset[0] = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            offset[1] = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            offset[2] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 22 ) | int32v( 1 << 21 ) );
+            float32v yd = FS::Convert<float>( hash << 11 );
+            float32v zd = FS::Convert<float>( hash );
+
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
+            offset[0] = FS::FMulAdd( xd, invMag, base[0] );
+            offset[1] = FS::FMulAdd( yd, invMag, base[1] );
+            offset[2] = FS::FMulAdd( zd, invMag, base[2] );
         }
         else
         {
-            offset[0] = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            offset[1] = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            offset[2] = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            offset[3] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
-        }
+            float32v xd = FS::Convert<float>( ( hash << 24 ) | int32v( 1 << 23 ) );
+            float32v yd = FS::Convert<float>( hash << 16 );
+            float32v zd = FS::Convert<float>( hash << 8 );
+            float32v wd = FS::Convert<float>( hash );
 
-        float32v magSqr = offset[0] * offset[0];
-        for( int d = 1; d < D; d++ )
-        {
-            magSqr = FS::FMulAdd( offset[d], offset[d], magSqr );
-        }
-        float32v invMag = jitter * FS::InvSqrt( magSqr );
-        for( int d = 0; d < D; d++ )
-        {
-            offset[d] = FS::FMulAdd( offset[d], invMag, base[d] );
+            float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
+            offset[0] = FS::FMulAdd( xd, invMag, base[0] );
+            offset[1] = FS::FMulAdd( yd, invMag, base[1] );
+            offset[2] = FS::FMulAdd( zd, invMag, base[2] );
+            offset[3] = FS::FMulAdd( wd, invMag, base[3] );
         }
     }
 
@@ -1316,22 +1325,17 @@ protected:
 
         if constexpr( D == 2 )
         {
-            offset[0] = FS::Convert<float>( hash & IN( 0x7ff ) ) - FN( 0x7ff / 2.0f );
-            offset[1] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - FN( 0x7ff / 2.0f );
+            offset[0] = FS::Convert<float>( ( hash << 21 ) | IN( 1 << 20 ) );
+            offset[1] = FS::Convert<float>( hash );
+            return FS::InvSqrt( FS::FMulAdd( offset[0], offset[0], offset[1] * offset[1] ) );
         }
         else
         {
-            offset[0] = FS::Convert<float>( hash & IN( 0x3ff ) ) - FN( 0x3ff / 2.0f );
-            offset[1] = FS::Convert<float>( ( hash >> 11 ) & IN( 0x3ff ) ) - FN( 0x3ff / 2.0f );
-            offset[2] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - FN( 0x3ff / 2.0f );
+            offset[0] = FS::Convert<float>( ( hash << 22 ) | IN( 1 << 21 ) );
+            offset[1] = FS::Convert<float>( hash << 11 );
+            offset[2] = FS::Convert<float>( hash );
+            return FS::InvSqrt( FS::FMulAdd( offset[0], offset[0], FS::FMulAdd( offset[1], offset[1], offset[2] * offset[2] ) ) );
         }
-
-        FN magSqr = offset[0] * offset[0];
-        for( int d = 1; d < D; d++ )
-        {
-            magSqr = FS::FMulAdd( offset[d], offset[d], magSqr );
-        }
-        return FS::InvSqrt( magSqr );
     }
 
     // Block tables of the feature points, see FloorCellsBlock()
@@ -1520,8 +1524,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         while( const int8_t* o = cells.Next( distance[valueIndex] ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-            float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 21 ) | int32v( 1 << 20 ) );
+            float32v yd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
             xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
@@ -1655,8 +1659,8 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             for( int yi = 0; yi < 3; yi++ )
             {
                 int32v hash = HashPrimesHB( seed, xc, yc );
-                float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-                float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+                float32v xd = FS::Convert<float>( ( hash << 21 ) | int32v( 1 << 20 ) );
+                float32v yd = FS::Convert<float>( hash );
 
                 float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
                 xd = FS::FMulAdd( xd, invMag, xcf );
@@ -1719,9 +1723,9 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 22 ) | int32v( 1 << 21 ) );
+            float32v yd = FS::Convert<float>( hash << 11 );
+            float32v zd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
             xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
@@ -1966,10 +1970,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 24 ) | int32v( 1 << 23 ) );
+            float32v yd = FS::Convert<float>( hash << 16 );
+            float32v zd = FS::Convert<float>( hash << 8 );
+            float32v wd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
             xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
@@ -2033,8 +2037,8 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
                                      const float32v& sizeJitter, int32v seed, int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset ) const
     {
         int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
-        float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-        float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+        float32v xd = FS::Convert<float>( ( hash << 21 ) | int32v( 1 << 20 ) );
+        float32v yd = FS::Convert<float>( hash );
 
         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
         xd = FS::FMulAdd( xd, invMag, xOffset );
@@ -2248,9 +2252,9 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 22 ) | int32v( 1 << 21 ) );
+            float32v yd = FS::Convert<float>( hash << 11 );
+            float32v zd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
             xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
@@ -2467,10 +2471,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 24 ) | int32v( 1 << 23 ) );
+            float32v yd = FS::Convert<float>( hash << 16 );
+            float32v zd = FS::Convert<float>( hash << 8 );
+            float32v wd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
             xd = FS::FMulAdd( xd, invMag, cellOffset[0][o[0]] );
@@ -2563,8 +2567,8 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
                                      const float32v& sizeJitter, int32v seed, float32v x, float32v y, int32v xPrimed, int32v yPrimed, float32v xCell, float32v yCell ) const
     {
         int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
-        float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
-        float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
+        float32v xd = FS::Convert<float>( ( hash << 21 ) | int32v( 1 << 20 ) );
+        float32v yd = FS::Convert<float>( hash );
 
         float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, yd * yd ) );
         float32v localCellX = FS::FMulAdd( xd, invMag, xCell );
@@ -2767,9 +2771,9 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         while( const int8_t* o = cells.Next( distance ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
-            float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 22 ) | int32v( 1 << 21 ) );
+            float32v yd = FS::Convert<float>( hash << 11 );
+            float32v zd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, zd * zd ) ) );
             float32v localCellX = FS::FMulAdd( xd, invMag, cellPos[0][o[0]] );
@@ -2959,10 +2963,10 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         while( const int8_t* o = cells.Next( distance ) )
         {
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v xd = FS::Convert<float>( ( hash << 24 ) | int32v( 1 << 23 ) );
+            float32v yd = FS::Convert<float>( hash << 16 );
+            float32v zd = FS::Convert<float>( hash << 8 );
+            float32v wd = FS::Convert<float>( hash );
 
             float32v invMag = jitter * FS::InvSqrt( FS::FMulAdd( xd, xd, FS::FMulAdd( yd, yd, FS::FMulAdd( zd, zd, wd * wd ) ) ) );
             float32v localCellX = FS::FMulAdd( xd, invMag, cellPos[0][o[0]] );
