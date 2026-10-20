@@ -18,6 +18,34 @@ protected:
         return self.GetSourceValue( warp->GetWarpSource(), seed, warpPos[I]... );
     }
 
+    // Block version: the warped positions are computed per vector, then the warp source is evaluated for the whole block
+    template<bool Progressive, size_t DIMS, typename Self>
+    static FS_FORCEINLINE bool GenWarpFractalBlock( const Self& self, int32v seed, const float* pos, float* out, intptr_t count )
+    {
+        auto* warp = self.GetSourceSIMD( self.mSource );
+
+        if( !self.SourceHasGenBlock( warp->GetWarpSource() ) )
+        {
+            return false;
+        }
+
+        self.template GetSourceBlockAt<DIMS, DIMS>( warp->GetWarpSource(), seed, pos, out, count, [&]( float* dst, intptr_t, auto... p ) {
+            StoreWarpFractal<Progressive>( self, warp, std::make_index_sequence<DIMS>(), seed, dst, p... );
+        } );
+
+        return true;
+    }
+
+    template<bool Progressive, typename Self, typename Warp, size_t... I, typename... P>
+    static FS_FORCEINLINE void StoreWarpFractal( const Self& self, const Warp* warp, std::index_sequence<I...> seq, int32v seed, float* dst, P... pos )
+    {
+        float32v warpPos[] = { pos... };
+
+        WarpFractal<Progressive>( self, warp, seq, seed, warpPos, pos... );
+
+        self.StoreBlockVector( dst, warpPos[I]... );
+    }
+
     // Warps warpPos (initially pos) through the octaves
     template<bool Progressive, typename Self, typename Warp, size_t... I, typename... P>
     static FS_FORCEINLINE void WarpFractal( const Self& self, const Warp* warp, std::index_sequence<I...>, int32v seed, float32v* warpPos, P... pos )
@@ -79,6 +107,15 @@ class FastSIMD::DispatchClass<DomainWarpFractalProgressive, SIMD> final : public
     {
         return this->template GenWarpFractal<true>( *this, std::index_sequence_for<P...>(), seed, pos... );
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template GenWarpFractalBlock<true, DIMS>( *this, seed, pos, out, count );
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -90,5 +127,14 @@ class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->template GenWarpFractal<false>( *this, std::index_sequence_for<P...>(), seed, pos... );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template GenWarpFractalBlock<false, DIMS>( *this, seed, pos, out, count );
     }
 };
