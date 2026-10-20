@@ -431,18 +431,6 @@ namespace FastNoise
         return FS::NativeExec<M>( []( auto m, auto fa, auto fb ) { return _mm512_mask_cmp_ps_mask( m, fa, fb, kPredicate ); }, mask, a, b );
     }
 
-    // TBL table of a 16 entry gradient component table with values 0/+-1: the 3rd and 4th byte of each float (the rest are 0)
-    static constexpr std::array<std::uint8_t, 32> GradientBytePlanes( const int ( &g )[16] )
-    {
-        std::array<std::uint8_t, 32> b{};
-        for( int i = 0; i < 16; i++ )
-        {
-            b[i] = g[i] ? 0x80 : 0;
-            b[i + 16] = g[i] > 0 ? 0x3F : g[i] < 0 ? 0xBF : 0;
-        }
-        return b;
-    }
-
     // TBL table of a 32 entry gradient component table with values 0/+-1, stored as 0/+-2: only the 4th byte of each float is set
     static constexpr std::array<std::uint8_t, 32> GradientBytePlaneDoubled( const int ( &g )[32] )
     {
@@ -542,87 +530,50 @@ namespace FastNoise
         }
     }
 
+    // 3D gradient dot product from a HashPrimesHB hash. Cube corner gradients ( +-1, +-1, +-1 ): the signs come straight from the
+    // top three hash bits (29, 30, 31), so it needs no xorshift and no component selects. Every path rounds x + ( y + z )
     template<typename F, typename I>
-    FS_FORCEINLINE static F GetGradientDotCommon( I hash, F fX, F fY, F fZ )
+    FS_FORCEINLINE static F GetGradientDot3( I hashHB, F fX, F fY, F fZ )
     {
+        F signMask = FS::Cast<float>( I( 1 << 31 ) );
+        F zSigned = fZ ^ ( FS::Cast<float>( hashHB ) & signMask );
+
         if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F )
         {
-            F gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 ) );
-            F gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 ) );
-            F gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), hash, FS::Constant<float>( 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 ) );
-
-            return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, fZ * gZ ));
+            I index = hashHB >> 29;
+            F gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutevar_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 ), index );
+            F gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutevar_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 ), index );
+            return FS::FMulAdd( gX, fX, FS::FMulAdd( gY, fY, zSigned ) );
         }
-#if FN_AARCH64_TBL
-        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
         {
-            // The AVX512 tables through TBL. Every component is 0 or +-1, so only the top two bytes of the float are set: one 32 byte
-            // table per axis holds those two byte planes and the low bytes read 0 past the table. Byte index { -, -, h, h + 16 }
-            static constexpr int kGX[16] = { 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 };
-            static constexpr int kGY[16] = { 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 };
-            static constexpr int kGZ[16] = { 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 };
-            alignas( 16 ) static constexpr auto kPlanesX = GradientBytePlanes( kGX );
-            alignas( 16 ) static constexpr auto kPlanesY = GradientBytePlanes( kGY );
-            alignas( 16 ) static constexpr auto kPlanesZ = GradientBytePlanes( kGZ );
-
-            uint8x16x2_t tableX = { { vld1q_u8( kPlanesX.data() ), vld1q_u8( kPlanesX.data() + 16 ) } };
-            uint8x16x2_t tableY = { { vld1q_u8( kPlanesY.data() ), vld1q_u8( kPlanesY.data() + 16 ) } };
-            uint8x16x2_t tableZ = { { vld1q_u8( kPlanesZ.data() ), vld1q_u8( kPlanesZ.data() + 16 ) } };
-
-            auto byteIndex = []( int32x4_t h )
-            {
-                return vreinterpretq_u8_u32( vmlaq_n_u32( vdupq_n_u32( 0x1000FFFF ), vandq_u32( vreinterpretq_u32_s32( h ), vdupq_n_u32( 15 ) ), 0x01010000 ) );
-            };
-            uint8x16_t index0 = byteIndex( hash.v0.GetNative() );
-            uint8x16_t index1 = byteIndex( hash.v1.GetNative() );
-
-            auto lookup = [&]( const uint8x16x2_t& table )
-            {
-                using H = typename F::DoubledType;
-                return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
-            };
-
-            return FN_FMulAdd( lookup( tableX ), fX, FN_FMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
+            // In lane permutes look up the x/y signs from bits 29/30 as +-1, applied with FMA
+            I index = hashHB >> 29;
+            F gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1 ), index );
+            F gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1 ), index );
+            return FS::FMulAdd( gX, fX, FS::FMulAdd( gY, fY, zSigned ) );
         }
-#endif
         else
         {
-            I hasha13 = hash & I( 13 );
-
-            // if h > 7 then y, else x
-            typename F::MaskType gt7;
-            if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::SSE41 )
-            {
-                gt7 = FS::Cast<FS::Mask<32>>( hash << 28 );
-            }
-            else
-            {
-                gt7 = hasha13 > I( 7 );
-            }
-            F u = FS::Select( gt7, fY, fX );
-
-            // if h < 4 then y else if h is 12 or 14 then x else z
-            F v = FS::Select( hasha13 == I( 12 ), fX, fZ );
-            v = FS::Select( hasha13 < I( 2 ), fY, v );
-
-            if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AVX2 )
-            {
-                // Look up the sign bits as +/-1 and apply them with mul/FMA
-                F h1 = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, -1, 1, -1, 1, -1, 1, -1 ), hash );
-                F h2 = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar_ps ), FS::Constant<float>( 1, 1, -1, -1, 1, 1, -1, -1 ), hash );
-
-                return FS::FMulAdd( v, h2, u * h1 );
-            }
-            else
-            {
-                // if h1 then -u else u
-                // if h2 then -v else v
-                F h1 = FS::Cast<float>( hash << 31 );
-                F h2 = FS::Cast<float>( ( hash >> 1 ) << 31 );
-                // then add them
-                return ( u ^ h1 ) + ( v ^ h2 );
-            }
+            F xSigned = fX ^ ( FS::Cast<float>( hashHB << 2 ) & signMask );
+            F ySigned = fY ^ ( FS::Cast<float>( hashHB << 1 ) & signMask );
+            return xSigned + ( ySigned + zSigned );
         }
+    }
+
+    // GetGradientDot3 split for the lattice block paths: the x gradient ( +-1 ) and the y/z part of the dot product.
+    // gX * fX + dotYZ, as one FMA or as an exact multiply and an add, rounds the same as GetGradientDot3
+    template<typename F, typename I>
+    FS_FORCEINLINE static F GetGradient3X( I hashHB )
+    {
+        return F( 1 ) ^ ( FS::Cast<float>( hashHB << 2 ) & FS::Cast<float>( I( 1 << 31 ) ) );
+    }
+
+    template<typename F, typename I>
+    FS_FORCEINLINE static F GetGradientDot3YZ( I hashHB, F fY, F fZ )
+    {
+        F signMask = FS::Cast<float>( I( 1 << 31 ) );
+        return ( fY ^ ( FS::Cast<float>( hashHB << 1 ) & signMask ) ) + ( fZ ^ ( FS::Cast<float>( hashHB ) & signMask ) );
     }
 
     template<typename F, typename I>
