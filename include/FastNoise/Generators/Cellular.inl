@@ -825,7 +825,17 @@ protected:
         }
     }
 
-    // Jittered feature point offset from its cell centre (on a sphere of radius |jitter|) + base: the table direction times jitter,
+    // The jitter times a per cell radius in ( 1 - 2^-5, 1 ] from hash bits 0-19. With 16 / 32 / 64 directions two cells often get offsets
+    // with exactly the same coordinates, so the distances to two cells would tie exactly (MaxAxis and Manhattan anywhere, every distance
+    // function on grids commensurate with the cells) and the cell visit order, which differs between the search paths, would pick the
+    // closest cell. The small radius dither makes exact ties as rare as with the old normalised random offsets
+    template<typename I, typename F>
+    FS_FORCEINLINE static F JitterRadius( I hash, F jitter )
+    {
+        return FS::FNMulAdd( FS::Convert<float>( hash & I( 0xfffff ) ), jitter * F( 1.f / ( 1 << 25 ) ), jitter );
+    }
+
+    // Jittered feature point offset from its cell centre (within radius |jitter|) + base: the table direction times the dithered jitter,
     // the same expressions as the 3^D searches and the cell blocks
     template<int D>
     FS_FORCEINLINE static void FeaturePointOffset( int32v hash, float32v jitter, const float32v* base, float32v* offset )
@@ -834,25 +844,28 @@ protected:
         {
             float32v xd, yd;
             JitterDirection2D( hash, xd, yd );
-            offset[0] = FS::FMulAdd( xd, jitter, base[0] );
-            offset[1] = FS::FMulAdd( yd, jitter, base[1] );
+            float32v jitterR = JitterRadius( hash, jitter );
+            offset[0] = FS::FMulAdd( xd, jitterR, base[0] );
+            offset[1] = FS::FMulAdd( yd, jitterR, base[1] );
         }
         else if constexpr( D == 3 )
         {
             float32v xd, yd, zd;
             JitterDirection3D( hash, xd, yd, zd );
-            offset[0] = FS::FMulAdd( xd, jitter, base[0] );
-            offset[1] = FS::FMulAdd( yd, jitter, base[1] );
-            offset[2] = FS::FMulAdd( zd, jitter, base[2] );
+            float32v jitterR = JitterRadius( hash, jitter );
+            offset[0] = FS::FMulAdd( xd, jitterR, base[0] );
+            offset[1] = FS::FMulAdd( yd, jitterR, base[1] );
+            offset[2] = FS::FMulAdd( zd, jitterR, base[2] );
         }
         else
         {
             float32v xd, yd, zd, wd;
             JitterDirection4D( hash, xd, yd, zd, wd );
-            offset[0] = FS::FMulAdd( xd, jitter, base[0] );
-            offset[1] = FS::FMulAdd( yd, jitter, base[1] );
-            offset[2] = FS::FMulAdd( zd, jitter, base[2] );
-            offset[3] = FS::FMulAdd( wd, jitter, base[3] );
+            float32v jitterR = JitterRadius( hash, jitter );
+            offset[0] = FS::FMulAdd( xd, jitterR, base[0] );
+            offset[1] = FS::FMulAdd( yd, jitterR, base[1] );
+            offset[2] = FS::FMulAdd( zd, jitterR, base[2] );
+            offset[3] = FS::FMulAdd( wd, jitterR, base[3] );
         }
     }
 
@@ -1478,9 +1491,9 @@ protected:
         return FS::Constant<int32_t, IN::FeatureFlags>( (int32_t)( (uint32_t)( AXIS == 0 ? ( TABLE * N + (int)L ) % W : ( ( TABLE * N + (int)L ) / ( ( W << AXIS ) / 2 ) ) & 1 ) * (uint32_t)Primes::Lookup[AXIS] )... );
     }
 
-    // Feature point directions of the block cells in native register TABLE (as FeaturePointOffset())
+    // Feature point directions and radius bits of the block cells in native register TABLE (as FeaturePointOffset() and JitterRadius())
     template<int D, int TABLE, typename IN, typename FN>
-    FS_FORCEINLINE static void CellBlockFeaturePoints( const IN& seed, const IN& x0, const int32v* cell, IN& hash, FN* direction )
+    FS_FORCEINLINE static void CellBlockFeaturePoints( const IN& seed, const IN& x0, const int32v* cell, IN& hash, FN* direction, FN& radiusBits )
     {
         constexpr auto lanes = std::make_index_sequence<IN::ElementCount>{};
 
@@ -1500,6 +1513,7 @@ protected:
         {
             JitterDirection3D( hash, direction[0], direction[1], direction[2] );
         }
+        radiusBits = FS::Convert<float>( hash & IN( 0xfffff ) );
     }
 
     // Block tables of the feature points, see FloorCellsBlock()
@@ -1508,6 +1522,7 @@ protected:
     {
         IN hash[TABLES];
         FN direction[TABLES][D];
+        FN radiusBits[TABLES];
     };
 
     // The 2^D cells around the position with all lanes in one cell block (see IsCellBlock()), in the 3^D loops' order (axis 0 slowest)
@@ -1524,10 +1539,10 @@ protected:
         // All lanes share lane 0's seed and cells on the axes above x
         IN x0 = LatticeBlockBroadcast( cell[0] );
         CellBlockTables<D, kTables, IN, FN> tables;
-        CellBlockFeaturePoints<D, 0>( seed.v0, x0, cell, tables.hash[0], tables.direction[0] );
+        CellBlockFeaturePoints<D, 0>( seed.v0, x0, cell, tables.hash[0], tables.direction[0], tables.radiusBits[0] );
         if constexpr( kTables > 1 )
         {
-            CellBlockFeaturePoints<D, 1>( seed.v0, x0, cell, tables.hash[1], tables.direction[1] );
+            CellBlockFeaturePoints<D, 1>( seed.v0, x0, cell, tables.hash[1], tables.direction[1], tables.radiusBits[1] );
         }
 
         // With HASH the closest cell's block index is kept instead (-1: none), its hash is looked up once at the end
@@ -1581,10 +1596,12 @@ protected:
                                                          int32v xOffset, float32v& distance, int32v* closestIndex, float32v* closestCell )
     {
         int32v index = xOffset + int32v( CellBlockIndex<D>( c ) );
+        // As JitterRadius()
+        float32v jitterR = FS::FNMulAdd( LatticeBlockPermute<float32v>( tables.radiusBits[TABLE], index ), jitter * float32v( 1.f / ( 1 << 25 ) ), jitter );
         float32v point[D];
         for( int d = 0; d < D; d++ )
         {
-            point[d] = FS::FMulAdd( LatticeBlockPermute<float32v>( tables.direction[TABLE][d], index ), jitter, cellOffset[d][( c >> ( D - 1 - d ) ) & 1] );
+            point[d] = FS::FMulAdd( LatticeBlockPermute<float32v>( tables.direction[TABLE][d], index ), jitterR, cellOffset[d][( c >> ( D - 1 - d ) ) & 1] );
         }
         KeepCloser<D, HASH, CELL>( distFunc, index, point, pos, distance, closestIndex, closestCell );
     }
@@ -1688,8 +1705,9 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
             float32v xd, yd;
             this->JitterDirection2D( hash, xd, yd );
-            xd = FS::FMulAdd( xd, jitter, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, jitter, cellOffset[1][o[1]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            xd = FS::FMulAdd( xd, jitterR, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, jitterR, cellOffset[1][o[1]] );
 
             int32v newCellValueHash = hash;
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
@@ -1821,8 +1839,9 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 int32v hash = HashPrimesHB( seed, xc, yc );
                 float32v xd, yd;
                 this->JitterDirection2D( hash, xd, yd );
-                xd = FS::FMulAdd( xd, jitter, xcf );
-                yd = FS::FMulAdd( yd, jitter, ycf );
+                float32v jitterR = this->JitterRadius( hash, jitter );
+                xd = FS::FMulAdd( xd, jitterR, xcf );
+                yd = FS::FMulAdd( yd, jitterR, ycf );
 
                 int32v newCellValueHash = hash;
                 float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
@@ -1883,9 +1902,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd, yd, zd;
             this->JitterDirection3D( hash, xd, yd, zd );
-            xd = FS::FMulAdd( xd, jitter, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, jitter, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, jitter, cellOffset[2][o[2]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            xd = FS::FMulAdd( xd, jitterR, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, jitterR, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, jitterR, cellOffset[2][o[2]] );
 
             int32v newCellValueHash = hash;
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
@@ -2127,10 +2147,11 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
             float32v xd, yd, zd, wd;
             this->JitterDirection4D( hash, xd, yd, zd, wd );
-            xd = FS::FMulAdd( xd, jitter, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, jitter, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, jitter, cellOffset[2][o[2]] );
-            wd = FS::FMulAdd( wd, jitter, cellOffset[3][o[3]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            xd = FS::FMulAdd( xd, jitterR, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, jitterR, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, jitterR, cellOffset[2][o[2]] );
+            wd = FS::FMulAdd( wd, jitterR, cellOffset[3][o[3]] );
 
             int32v newCellValueHash = hash;
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
@@ -2190,8 +2211,9 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
         float32v xd, yd;
         this->JitterDirection2D( hash, xd, yd );
-        xd = FS::FMulAdd( xd, jitter, xOffset );
-        yd = FS::FMulAdd( yd, jitter, yOffset );
+        float32v jitterR = this->JitterRadius( hash, jitter );
+        xd = FS::FMulAdd( xd, jitterR, xOffset );
+        yd = FS::FMulAdd( yd, jitterR, yOffset );
 
         float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
         if( sizeJitterActive )
@@ -2403,9 +2425,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd, yd, zd;
             this->JitterDirection3D( hash, xd, yd, zd );
-            xd = FS::FMulAdd( xd, jitter, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, jitter, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, jitter, cellOffset[2][o[2]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            xd = FS::FMulAdd( xd, jitterR, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, jitterR, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, jitterR, cellOffset[2][o[2]] );
 
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
             if( sizeJitterActive )
@@ -2619,10 +2642,11 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
             float32v xd, yd, zd, wd;
             this->JitterDirection4D( hash, xd, yd, zd, wd );
-            xd = FS::FMulAdd( xd, jitter, cellOffset[0][o[0]] );
-            yd = FS::FMulAdd( yd, jitter, cellOffset[1][o[1]] );
-            zd = FS::FMulAdd( zd, jitter, cellOffset[2][o[2]] );
-            wd = FS::FMulAdd( wd, jitter, cellOffset[3][o[3]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            xd = FS::FMulAdd( xd, jitterR, cellOffset[0][o[0]] );
+            yd = FS::FMulAdd( yd, jitterR, cellOffset[1][o[1]] );
+            zd = FS::FMulAdd( zd, jitterR, cellOffset[2][o[2]] );
+            wd = FS::FMulAdd( wd, jitterR, cellOffset[3][o[3]] );
 
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
             if( sizeJitterActive )
@@ -2711,8 +2735,9 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
         float32v xd, yd;
         this->JitterDirection2D( hash, xd, yd );
-        float32v localCellX = FS::FMulAdd( xd, jitter, xCell );
-        float32v localCellY = FS::FMulAdd( yd, jitter, yCell );
+        float32v jitterR = this->JitterRadius( hash, jitter );
+        float32v localCellX = FS::FMulAdd( xd, jitterR, xCell );
+        float32v localCellY = FS::FMulAdd( yd, jitterR, yCell );
         xd = localCellX - x;
         yd = localCellY - y;
 
@@ -2913,9 +2938,10 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd, yd, zd;
             this->JitterDirection3D( hash, xd, yd, zd );
-            float32v localCellX = FS::FMulAdd( xd, jitter, cellPos[0][o[0]] );
-            float32v localCellY = FS::FMulAdd( yd, jitter, cellPos[1][o[1]] );
-            float32v localCellZ = FS::FMulAdd( zd, jitter, cellPos[2][o[2]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            float32v localCellX = FS::FMulAdd( xd, jitterR, cellPos[0][o[0]] );
+            float32v localCellY = FS::FMulAdd( yd, jitterR, cellPos[1][o[1]] );
+            float32v localCellZ = FS::FMulAdd( zd, jitterR, cellPos[2][o[2]] );
             xd = localCellX - x;
             yd = localCellY - y;
             zd = localCellZ - z;
@@ -3102,10 +3128,11 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
             float32v xd, yd, zd, wd;
             this->JitterDirection4D( hash, xd, yd, zd, wd );
-            float32v localCellX = FS::FMulAdd( xd, jitter, cellPos[0][o[0]] );
-            float32v localCellY = FS::FMulAdd( yd, jitter, cellPos[1][o[1]] );
-            float32v localCellZ = FS::FMulAdd( zd, jitter, cellPos[2][o[2]] );
-            float32v localCellW = FS::FMulAdd( wd, jitter, cellPos[3][o[3]] );
+            float32v jitterR = this->JitterRadius( hash, jitter );
+            float32v localCellX = FS::FMulAdd( xd, jitterR, cellPos[0][o[0]] );
+            float32v localCellY = FS::FMulAdd( yd, jitterR, cellPos[1][o[1]] );
+            float32v localCellZ = FS::FMulAdd( zd, jitterR, cellPos[2][o[2]] );
+            float32v localCellW = FS::FMulAdd( wd, jitterR, cellPos[3][o[3]] );
             xd = localCellX - x;
             yd = localCellY - y;
             zd = localCellZ - z;
