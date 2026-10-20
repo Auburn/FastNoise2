@@ -236,6 +236,18 @@ protected:
         return kPruneNone;
     }
 
+    // N infinite distances. Not std::array::fill(): MSVC calls an out of line std::fill_n for it
+    template<size_t N>
+    FS_FORCEINLINE static std::array<float32v, N> InfiniteDistances()
+    {
+        std::array<float32v, N> distance;
+        for( size_t i = 0; i < N; i++ )
+        {
+            distance[i] = float32v( kInfinity );
+        }
+        return distance;
+    }
+
     // Constant indices only, so distance/hash arrays can stay in registers
     template<typename T, size_t N>
     FS_FORCEINLINE static T DistanceAt( const std::array<T, N>& distance, int index )
@@ -1384,8 +1396,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y );
 
@@ -1460,6 +1471,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
+        // std::array::fill here: with InfiniteDistances() MSVC 14.51 ran CellularValue_idx2 2D 1.05 (SSE2) to 1.13 (AVX2) times slower
         std::array<float32v, COUNT> distance;
         distance.fill( float32v( kInfinity ) );
 
@@ -1695,8 +1707,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z );
 
@@ -1829,8 +1840,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z, w );
 
@@ -1950,8 +1960,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y );
 
         float32v pos[] = { x, y };
-        std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, kMaxDistanceCount> distance = this->template InfiniteDistances<kMaxDistanceCount>();
         distance[0] = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
 
         return GetReturn( distance, 1 + this->kJitter2D );
@@ -1994,8 +2003,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y );
 
@@ -2170,8 +2178,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y, z );
 
         float32v pos[] = { x, y, z };
-        std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, kMaxDistanceCount> distance = this->template InfiniteDistances<kMaxDistanceCount>();
         distance[0] = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
 
         return GetReturn( distance, 1 + this->kJitter3D );
@@ -2214,8 +2221,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z );
 
@@ -2328,8 +2334,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z, w );
 
