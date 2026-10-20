@@ -14,8 +14,8 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
 
-        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( Primes::X );
-        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( Primes::Y );
+        int32v x0 = FloorToInt( x, xs ) * int32v( Primes::X );
+        int32v y0 = FloorToInt( y, ys ) * int32v( Primes::Y );
         int32v x1 = x0 + int32v( Primes::X );
         int32v y1 = y0 + int32v( Primes::Y );
 
@@ -37,16 +37,20 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         float32v ys = FS::Floor( y );
         float32v zs = FS::Floor( z );
 
-        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( Primes::X );
-        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( Primes::Y );
-        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( Primes::Z );
-        int32v x1 = x0 + int32v( Primes::X );
-        int32v y1 = y0 + int32v( Primes::Y );
-        int32v z1 = z0 + int32v( Primes::Z );
+        int32v xi = FloorToInt( x, xs );
+        int32v yi = FloorToInt( y, ys );
+        int32v zi = FloorToInt( z, zs );
 
         xs = InterpHermite( x - xs );
         ys = InterpHermite( y - ys );
         zs = InterpHermite( z - zs );
+
+        int32v x0 = xi * int32v( Primes::X );
+        int32v y0 = yi * int32v( Primes::Y );
+        int32v z0 = zi * int32v( Primes::Z );
+        int32v x1 = x0 + int32v( Primes::X );
+        int32v y1 = y0 + int32v( Primes::Y );
+        int32v z1 = z0 + int32v( Primes::Z );
 
         return this->ScaleOutput( this, Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0 ), GetValueCoord( seed, x1, y0, z0 ), xs ),
@@ -67,19 +71,24 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         float32v zs = FS::Floor( z );
         float32v ws = FS::Floor( w );
 
-        int32v x0 = FS::Convert<int32_t>( xs ) * int32v( Primes::X );
-        int32v y0 = FS::Convert<int32_t>( ys ) * int32v( Primes::Y );
-        int32v z0 = FS::Convert<int32_t>( zs ) * int32v( Primes::Z );
-        int32v w0 = FS::Convert<int32_t>( ws ) * int32v( Primes::W );
-        int32v x1 = x0 + int32v( Primes::X );
-        int32v y1 = y0 + int32v( Primes::Y );
-        int32v z1 = z0 + int32v( Primes::Z );
-        int32v w1 = w0 + int32v( Primes::W );
+        int32v xi = FloorToInt( x, xs );
+        int32v yi = FloorToInt( y, ys );
+        int32v zi = FloorToInt( z, zs );
+        int32v wi = FloorToInt( w, ws );
 
         xs = InterpHermite( x - xs );
         ys = InterpHermite( y - ys );
         zs = InterpHermite( z - zs );
         ws = InterpHermite( w - ws );
+
+        int32v x0 = xi * int32v( Primes::X );
+        int32v y0 = yi * int32v( Primes::Y );
+        int32v z0 = zi * int32v( Primes::Z );
+        int32v w0 = wi * int32v( Primes::W );
+        int32v x1 = x0 + int32v( Primes::X );
+        int32v y1 = y0 + int32v( Primes::Y );
+        int32v z1 = z0 + int32v( Primes::Z );
+        int32v w1 = w0 + int32v( Primes::W );
 
         return this->ScaleOutput( this, Lerp( Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0, w0 ), GetValueCoord( seed, x1, y0, z0, w0 ), xs ),
