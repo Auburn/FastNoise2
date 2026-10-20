@@ -339,40 +339,82 @@ class FastSIMD::DispatchClass<GeneratorCache, SIMD> final : public virtual Gener
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        thread_local static const void* CachedGenerator = nullptr;
-        thread_local static std::int32_t CachedSeed[int32v::ElementCount];
-        thread_local static float CachedPos[sizeof...(P)][int32v::ElementCount];
-        thread_local static float CachedValue[int32v::ElementCount];
+        static constexpr size_t kCacheAlign = 64;
+        static constexpr std::uint32_t kSlotCount = 4;
+        static constexpr size_t kCacheFloats = ( sizeof...(P) + 1 + kSlotCount ) * int32v::ElementCount;
+
+        // One key (seed + pos) with several value slots, each tagged with the source generator it holds,
+        // so different cache nodes evaluated at the same positions (e.g. two cached nodes both used twice) don't evict each other.
+        // A slot is tagged before its source is evaluated. A nested cache can't have the same source so never reads it early,
+        // if a nested cache takes the slot or replaces the key the value isn't stored (or lands beyond slotsUsed, where it is ignored)
+        struct ThreadCache
+        {
+            const void* generators[kSlotCount];
+            std::uint32_t slotsUsed;
+            float storage[kCacheFloats + kCacheAlign / sizeof( float )];
+        };
+        thread_local static ThreadCache Cache;
+
         // TLS is not always aligned (compiler bug), need to avoid using SIMD types
-        
+        // Manually align so cached vectors don't split cache lines (breaks store forwarding on the hit path)
+        float* cache = reinterpret_cast<float*>( ( reinterpret_cast<uintptr_t>( Cache.storage ) + ( kCacheAlign - 1 ) ) & ~uintptr_t( kCacheAlign - 1 ) );
+        std::int32_t* cachedSeed = reinterpret_cast<std::int32_t*>( cache );
+        float* cachedPos = cache + int32v::ElementCount;
+        float* cachedValues = cache + ( sizeof...(P) + 1 ) * int32v::ElementCount;
+
+        const void* source = mSource.simdGeneratorPtr;
         const float32v arrayPos[] = { pos... };
 
-        bool isSame = (CachedGenerator == mSource.simdGeneratorPtr);
-        isSame &= !FS::AnyMask( seed != FS::Load<int32v>( CachedSeed ) );
+        bool isSameKey = !FS::AnyMask( seed != FS::Load<int32v>( cachedSeed ) );
 
         for( size_t i = 0; i < sizeof...( P ); i++ )
         {
-            isSame &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( CachedPos[i] ) );
+            isSameKey &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( cachedPos + i * int32v::ElementCount ) );
         }
 
-        if( !isSame )
+        std::uint32_t slot = 0;
+
+        if( isSameKey )
         {
-            CachedGenerator = mSource.simdGeneratorPtr;
+            // Slot 0 belongs to the cache that stored the key, the only one used unless several cache nodes share positions
+            if( Cache.generators[0] == source )
+            {
+                return FS::Load<float32v>( cachedValues );
+            }
 
-            float32v value = this->GetSourceValue( mSource, seed, pos... );
+            for( std::uint32_t i = 1; i < Cache.slotsUsed; i++ )
+            {
+                if( Cache.generators[i] == source )
+                {
+                    return FS::Load<float32v>( cachedValues + i * int32v::ElementCount );
+                }
+            }
 
-            FS::Store( CachedValue, value );
-            FS::Store( CachedSeed, seed );
+            // Use the next slot, replace the last one if all are in use
+            slot = std::min( Cache.slotsUsed, kSlotCount - 1 );
+        }
+        else
+        {
+            // Store the key before evaluating the source so seed/pos don't need preserving across the call
+            FS::Store( cachedSeed, seed );
 
             for( size_t i = 0; i < sizeof...(P); i++ )
             {
-                FS::Store( CachedPos[i], arrayPos[i] );
+                FS::Store( cachedPos + i * int32v::ElementCount, arrayPos[i] );
             }
-
-            return value;
         }
 
-        return FS::Load<float32v>( CachedValue );
+        Cache.slotsUsed = slot + 1;
+        Cache.generators[slot] = source;
+
+        float32v value = this->GetSourceValue( mSource, seed, pos... );
+
+        if( Cache.generators[slot] == source )
+        {
+            FS::Store( cachedValues + slot * int32v::ElementCount, value );
+        }
+
+        return value;
     }
 };
 
