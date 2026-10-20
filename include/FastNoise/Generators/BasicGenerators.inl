@@ -123,6 +123,18 @@ class FastSIMD::DispatchClass<DistanceToPoint, SIMD> final : public virtual Dist
     template<size_t... I, typename... P>
     FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
     {
+        // With constant point (and Minkowski P) values no source is called, so the positions don't need preserving across calls
+        bool hasSource = mMinkowskiP.simdGeneratorPtr && mDistanceFunction == DistanceFunction::Minkowski;
+        ((hasSource |= mPoint[I].simdGeneratorPtr != nullptr), ...);
+
+        if( !hasSource )
+        {
+            // Subtract in order before the call, see the braced init below
+            ((pos -= float32v( mPoint[I].constant )), ...);
+
+            return CalcDistance( mDistanceFunction, float32v( mMinkowskiP.constant ), pos... );
+        }
+
         float32v minkowskiP = GetMinkowskiP( mDistanceFunction, mMinkowskiP, seed, pos... );
 
         // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output

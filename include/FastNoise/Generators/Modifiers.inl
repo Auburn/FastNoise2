@@ -26,6 +26,14 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
     template<size_t... I, typename... P>
     FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
     {
+        // With constant offsets the positions are only used by the source call, see CombineSourceValues
+        if( ( !mOffset[I].simdGeneratorPtr && ... ) )
+        {
+            ((pos += float32v( mOffset[I].constant )), ...);
+
+            return this->GetSourceValue( mSource, seed, pos... );
+        }
+
         // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output
         float32v offsetPos[] = { ( pos + this->GetSourceValue( mOffset[I], seed, pos... ) )... };
 
@@ -85,6 +93,17 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        // With constant ranges the positions are only used by the source call, see CombineSourceValues
+        if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
+        {
+            float fromMin = mFromMin.constant;
+            float fromMax = mFromMax.constant;
+            float toMin = mToMin.constant;
+            float toMax = mToMax.constant;
+
+            return Remap( this->GetSourceValue( mSource, seed, pos... ), float32v( fromMin ), float32v( fromMax ), float32v( toMin ), float32v( toMax ) );
+        }
+
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
         float32v fromMin = this->GetSourceValue( mFromMin, seed, pos... );
@@ -92,6 +111,11 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
         float32v toMin = this->GetSourceValue( mToMin, seed, pos... );
         float32v toMax = this->GetSourceValue( mToMax, seed, pos... );
 
+        return Remap( source, fromMin, fromMax, toMin, toMax );
+    }
+
+    FS_FORCEINLINE float32v Remap( float32v source, float32v fromMin, float32v fromMax, float32v toMin, float32v toMax ) const
+    {
         float32v result = toMin + ( ( source - fromMin ) / ( fromMax - fromMin ) * ( toMax - toMin ) );
 
         if( mClampOutput == Boolean::True )
@@ -139,15 +163,40 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        // With constant smoothness the positions are only used by the source call, see CombineSourceValues
+        if( mSmoothness.simdGeneratorPtr )
+        {
+            return GenTerrace<true>( seed, pos... );
+        }
+        return GenTerrace<false>( seed, pos... );
+    }
+
+    template<bool DYNAMIC_SMOOTHNESS, typename... P>
+    FS_FORCEINLINE float32v GenTerrace( int32v seed, P... pos ) const
+    {
+        bool constantSmoothness = !DYNAMIC_SMOOTHNESS && mSmoothness.constant != 0.0f; // Read before the source call, see CombineSourceValues
+
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
+        if constexpr( DYNAMIC_SMOOTHNESS )
+        {
+            return TerraceValue<true>( source, false, this->GetSourceValue( mSmoothness, seed, pos... ) );
+        }
+        else
+        {
+            return TerraceValue<false>( source, constantSmoothness, float32v( 0 ) );
+        }
+    }
+
+    template<bool DYNAMIC_SMOOTHNESS>
+    FS_FORCEINLINE float32v TerraceValue( float32v source, bool constantSmoothness, float32v smoothness ) const
+    {
         source *= float32v( mStepCount );
         float32v rounded = FS::Round( source );
 
-        if( mSmoothness.simdGeneratorPtr )
+        if constexpr( DYNAMIC_SMOOTHNESS )
         {
             // Dynamic smoothness from generator
-            float32v smoothness = this->GetSourceValue( mSmoothness, seed, pos... );
             mask32v smoothnessMask = smoothness != float32v( 0.0f );
 
             if( FS::AnyMask( smoothnessMask ) )
@@ -166,7 +215,7 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
                 rounded = FS::Select( smoothnessMask, rounded + diff, rounded );
             }
         }
-        else if( mSmoothness.constant != 0.0f )
+        else if( constantSmoothness )
         {
             // Constant smoothness, use precomputed reciprocal
             float32v diff = rounded - source;
