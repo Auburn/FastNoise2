@@ -123,11 +123,71 @@ namespace FastNoise
         }
     }
 
+#if defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX512F__ )
+    // MSVC copies 64 byte FastSIMD registers through the stack in 256 bit halves (store forwarding stalls on the gate's dependency
+    // chain, Perlin AVX512 3D measured 4% slower than the 2 x cell gate): AVX512 two register gate on raw __m512i values
+    FS_FORCEINLINE static __m512i LatticeBlockBroadcastAVX512( __m512i a )
+    {
+        return _mm512_permutexvar_epi32( _mm512_setzero_si512(), a );
+    }
+
+    template<typename I>
+    FS_FORCEINLINE static __m512i LatticeBlockDiffAVX512( const I& a )
+    {
+        __m512i b = LatticeBlockBroadcastAVX512( a.v0.GetNative() );
+        return _mm512_or_si512( _mm512_xor_si512( a.v0.GetNative(), b ), _mm512_xor_si512( a.v1.GetNative(), b ) );
+    }
+#endif
+#if defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX2__ )
+    template<typename I>
+    FS_FORCEINLINE static __m256i LatticeBlockDiffAVX2( const I& a )
+    {
+        __m256i b = _mm256_permutevar8x32_epi32( a.v0.GetNative(), _mm256_setzero_si256() );
+        return _mm256_or_si256( _mm256_xor_si256( a.v0.GetNative(), b ), _mm256_xor_si256( a.v1.GetNative(), b ) );
+    }
+#endif
+
     // True if all lanes share lane 0's seed and floored y/z/w and their floored x is in lane 0's x + [0, XW - 2], xOffset = x - lane 0's x
     // (XW = x width of the block, power of 2: every lane's x and x + 1 corners are in the block)
     template<int XW = 4, typename I, typename... P>
     FS_FORCEINLINE static bool IsLatticeBlock( I& xOffset, const I& seed, const I& x, const P&... pos )
     {
+#if defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX512F__ )
+        if constexpr( !FS::IsNativeV<I> && ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            __m512i x0 = LatticeBlockBroadcastAVX512( x.v0.GetNative() );
+            __m512i xOffset0 = _mm512_sub_epi32( x.v0.GetNative(), x0 );
+            __m512i xOffset1 = _mm512_sub_epi32( x.v1.GetNative(), x0 );
+            xOffset = I( xOffset0, xOffset1 );
+
+            __m512i outside = LatticeBlockDiffAVX512( seed );
+            ( ( outside = _mm512_or_si512( outside, LatticeBlockDiffAVX512( pos ) ) ), ... );
+
+            // xOffset in [0, XW - 2] for both halves: unsigned max of the halves <= XW - 2 (negative offsets are huge)
+            __mmask16 xOutside = _mm512_cmpgt_epu32_mask( _mm512_max_epu32( xOffset0, xOffset1 ), _mm512_set1_epi32( XW - 2 ) );
+
+            return ( xOutside | _mm512_test_epi32_mask( outside, outside ) ) == 0;
+        }
+        else
+#endif
+#if defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX2__ )
+        if constexpr( !FS::IsNativeV<I> && ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) && !( I::FeatureFlags & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            // Same as the AVX512 version above on raw __m256i values, the final test with vptest
+            __m256i x0 = _mm256_permutevar8x32_epi32( x.v0.GetNative(), _mm256_setzero_si256() );
+            __m256i xOffset0 = _mm256_sub_epi32( x.v0.GetNative(), x0 );
+            __m256i xOffset1 = _mm256_sub_epi32( x.v1.GetNative(), x0 );
+            xOffset = I( xOffset0, xOffset1 );
+
+            __m256i xMax = _mm256_max_epu32( xOffset0, xOffset1 );
+            __m256i outside = _mm256_and_si256( _mm256_or_si256( xMax, _mm256_add_epi32( xMax, _mm256_set1_epi32( 1 ) ) ), _mm256_set1_epi32( ~( XW - 1 ) ) );
+            outside = _mm256_or_si256( outside, LatticeBlockDiffAVX2( seed ) );
+            ( ( outside = _mm256_or_si256( outside, LatticeBlockDiffAVX2( pos ) ) ), ... );
+
+            return _mm256_testz_si256( outside, outside );
+        }
+        else
+#endif
         if constexpr( FS::IsNativeV<I> && ( I::FeatureFlags & FastSIMD::FeatureFlag::AVX2 ) )
         {
             xOffset = x - LatticeBlockBroadcast( x );
