@@ -762,6 +762,15 @@ class FastSIMD::DispatchClass<DomainWarpSimplex, SIMD> final : public virtual Do
     FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
 
 public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template WarpGenBlock<DispatchClass, DIMS>( seed, pos, out, count );
+    }
+
+public:
     FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         seed += int32v( mSeedOffset );
@@ -1114,6 +1123,15 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpSuperSimplex, SIMD> final : public virtual DomainWarpSuperSimplex, public DispatchClass<DomainWarp, SIMD>
 {
     FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template WarpGenBlock<DispatchClass, DIMS>( seed, pos, out, count );
+    }
 
 public:
     FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
