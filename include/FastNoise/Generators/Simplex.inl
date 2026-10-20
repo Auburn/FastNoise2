@@ -159,6 +159,16 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
         mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
 
+        if constexpr( kUseMaskedGreater && ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            // Masked compares build each vertex mask in one instruction, a and( not ) of two compares is a compare under the other mask
+            // (the k logic above is then dead code)
+            maskX1 = MaskedGreater<true>( xGreaterEqualY, dxSkewed, dzSkewed );
+            maskY1 = MaskedGreater<false>( yGreaterEqualZ, dySkewed, dxSkewed );
+            nMaskY2 = MaskedGreater<false>( xGreaterEqualY, dzSkewed, dySkewed );
+            nMaskZ2 = MaskedGreater<true>( xGreaterEqualZ, dySkewed, dzSkewed );
+        }
+
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dy3 = dy0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dz3 = dz0 - float32v( kReflectUnskew3 * 3 + 1 );
