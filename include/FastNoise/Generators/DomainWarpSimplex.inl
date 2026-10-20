@@ -3,12 +3,11 @@
 
 // The vector contribution helpers are force inlined where the compiler would call them out of line and pass their float32v
 // arguments through memory. GCC doesn't inline them by itself (not declared inline, above its auto-inline limit). MSVC AVX512
-// passes float32v by reference to a copy (FastSIMD's 512 bit registers have a copy constructor on MSVC). Only the 2D/3D ones
-// are inlined: the 4D ones inlined into every vertex of the 4D warps spill heavily with GCC on SSE/AVX2 (up to 1.5x slower)
-// and make SuperSimplex 4D too large for MSVC's inliner. Clang inlines them already
+// passes float32v by reference to a copy (FastSIMD's 512 bit registers have a copy constructor on MSVC), there only the 2D/3D
+// ones are inlined: inlining the 4D ones makes SuperSimplex 4D too large for MSVC's inliner. Clang inlines them already
 #if defined( __GNUC__ ) && !defined( __clang__ )
 #define FN_WARP_HELPER FS_FORCEINLINE static void FS_VECTORCALL
-#define FN_WARP_HELPER_4D static void FS_VECTORCALL
+#define FN_WARP_HELPER_4D FS_FORCEINLINE static void FS_VECTORCALL
 #elif defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX512F__ )
 #define FN_WARP_HELPER FS_FORCEINLINE static void
 #define FN_WARP_HELPER_4D static void FS_VECTORCALL
