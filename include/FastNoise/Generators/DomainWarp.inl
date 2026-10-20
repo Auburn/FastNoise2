@@ -268,11 +268,11 @@ public:
     {
         seed += int32v( mSeedOffset );
 
-        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || !( SIMD & FastSIMD::FeatureFlag::AVX2 ) )
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || !( SIMD & ( FastSIMD::FeatureFlag::AVX2 | FastSIMD::FeatureFlag::ARM ) ) )
         {
             return WarpImpl( seed, warpAmp, x, y, z, w, xOut, yOut, zOut, wOut );
         }
-        else // Process each native register half separately, too many live values to fit in registers otherwise (AVX2)
+        else // Process each native register half separately, too many live values to fit in registers otherwise (AVX2, NEON)
         {
             auto value0 = WarpImpl( seed.v0, warpAmp.v0, x.v0, y.v0, z.v0, w.v0, xOut.v0, yOut.v0, zOut.v0, wOut.v0 );
             auto value1 = WarpImpl( seed.v1, warpAmp.v1, x.v1, y.v1, z.v1, w.v1, xOut.v1, yOut.v1, zOut.v1, wOut.v1 );

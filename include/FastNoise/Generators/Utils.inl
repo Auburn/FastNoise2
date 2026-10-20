@@ -780,6 +780,14 @@ namespace FastNoise
         {
             return FS::NativeExec<I>( []( auto a ) { return _mm512_cvt_roundps_epi32( a, 0x09 ); }, value ); // _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC
         }
+#if FN_AARCH64_TBL && !defined( __clang__ )
+        // AArch64 FCVTMS converts rounding down. Clang already folds Convert( Floor ) into it (writing it as the intrinsic changes
+        // how its fast-math reassociates the rest, 1 ulp), GCC and MSVC do not
+        else if constexpr( F::FeatureFlags & FastSIMD::FeatureFlag::AARCH64 )
+        {
+            return FS::NativeExec<I>( []( float32x4_t a ) { return vcvtmq_s32_f32( a ); }, value );
+        }
+#endif
         else
         {
             return FS::Convert<std::int32_t>( floored );
