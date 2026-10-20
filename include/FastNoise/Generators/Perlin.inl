@@ -6,7 +6,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 {
     FASTNOISE_IMPL_GEN_FN( Gen );
 
-    // AVX2/AVX512 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
+    // AVX2/AVX512/AArch64 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
     // doesn't always inline lambdas)
     template<typename T>
     FS_FORCEINLINE static float32v LatticeBlockDot( const T& gX, const T& dotRest, const int32v& index, const float32v& fX )
@@ -108,10 +108,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr double kBounding = 1.0363423824310302734375;
 
-        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512): all lanes share y and z, hash the lattice block and decode
+        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512/AArch64): all lanes share y and z, hash the lattice block and decode
         // its gradients once, fold the y/z terms of the dot products into the block and permute them per lane. Gradients have two +-1
         // components so the dot product rounds the same as GetGradientDotCommon
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
         {
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ) ) )

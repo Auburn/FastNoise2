@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <climits>
 
 // Realign the stack on entry: clang otherwise spills AVX registers to slots that are only 16 byte aligned (x86-64 ABI),
@@ -41,9 +42,19 @@ namespace FastNoise
     static constexpr float kSkew2f = kSkew2;
     static constexpr float kSkew4f = kSkew4;
 
-    // Lattice blocks (SSE4.1/AVX2/AVX512): on uniform grids all lanes of a vector usually share one lattice row, so their corners
+    // Lattice blocks (SSE4.1/AVX2/AVX512, AArch64): on uniform grids all lanes of a vector usually share one lattice row, so their corners
     // are a subset of a 4 x 2 (x 2 x 2) block of lattice points. The block is hashed once per vector with lane = corner index
-    // dx + 4 * dy + 8 * dz + 16 * dw (split over several native registers when needed) and each lane permutes its corners out of it
+    // dx + 4 * dy + 8 * dz + 16 * dw (split over several native registers when needed) and each lane permutes its corners out of it.
+    // AArch64 has 4 lane native registers: a table there is a whole int32v/float32v (the 8 corners of one z/w layer), looked up with
+    // TBL over both halves
+#if defined( __aarch64__ ) || defined( _M_ARM64 )
+#define FN_AARCH64_TBL 1
+#else
+#define FN_AARCH64_TBL 0
+#endif
+
+    template<FastSIMD::FeatureSet SIMD>
+    static constexpr bool kLatticeBlockTbl = FN_AARCH64_TBL && ( SIMD & FastSIMD::FeatureFlag::AARCH64 );
 
     // First native register of a (a itself if it is a native register)
     template<typename I>
@@ -77,17 +88,31 @@ namespace FastNoise
         {
             return FS::NativeExec<N>( []( auto v ) { return _mm_shuffle_epi32( v, 0 ); }, LatticeBlockNative( a ) );
         }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            return FS::NativeExec<N>( []( auto v ) { return vdupq_laneq_s32( v, 0 ); }, LatticeBlockNative( a ) );
+        }
+#endif
         else
         {
             return a;
         }
     }
 
-    // Lane 0 broadcast to a block table register (a native register)
+    // Lane 0 broadcast to a block table register (a native register, the whole int32v on AArch64)
     template<typename I>
     FS_FORCEINLINE static auto LatticeBlockSplat( const I& a )
     {
-        return LatticeBlockBroadcast( a );
+        if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            auto b = LatticeBlockBroadcast( a );
+            return I( b, b );
+        }
+        else
+        {
+            return LatticeBlockBroadcast( a );
+        }
     }
 
     // a ^ lane 0 of a (static functions instead of lambdas, MSVC doesn't always inline lambdas)
@@ -218,6 +243,17 @@ namespace FastNoise
                 return _mm_testz_si128( outsideNative, outsideNative );
             }
         }
+        else if constexpr( kLatticeBlockTbl<I::FeatureFlags> )
+        {
+            // AArch64 keeps the 2 x cell gate, xOffset in { 0, 1 } (the 3 x cell gate measured 1.7% slower on Perlin 3D, Apple M1)
+            auto x0 = LatticeBlockBroadcast( x );
+            xOffset = x - I( x0, x0 );
+
+            I outside = ( xOffset & I( ~1 ) ) | LatticeBlockDiff( seed ) | ( LatticeBlockDiff( pos ) | ... );
+            auto outsideN = outside.v0 | outside.v1;
+
+            return !FS::AnyMask( outsideN != decltype( outsideN )( 0 ) );
+        }
         else
         {
             return false;
@@ -228,7 +264,7 @@ namespace FastNoise
     template<int AXIS, int TABLE = 0, typename I>
     FS_FORCEINLINE static auto LatticeBlockPrimed( const I& pos, int prime )
     {
-        if constexpr( I::FeatureFlags & FastSIMD::FeatureFlag::SSE41 )
+        if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::SSE41 ) || kLatticeBlockTbl<I::FeatureFlags> )
         {
             using N = decltype( LatticeBlockSplat( pos ) );
 
@@ -278,6 +314,24 @@ namespace FastNoise
         {
             return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), table, index );
         }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> )
+        {
+            auto t = FS::Cast<std::int32_t>( table );
+            uint8x16x2_t bytes = { { vreinterpretq_u8_s32( t.v0.GetNative() ), vreinterpretq_u8_s32( t.v1.GetNative() ) } };
+
+            auto lookup = [&bytes]( int32x4_t idx )
+            {
+                // Byte index = 4 * index + { 0, 1, 2, 3 }, indices past the table read 0
+                uint32x4_t byteIdx = vmlaq_n_u32( vdupq_n_u32( 0x03020100 ), vreinterpretq_u32_s32( idx ), 0x04040404 );
+                return vreinterpretq_s32_u8( vqtbl2q_u8( bytes, vreinterpretq_u8_u32( byteIdx ) ) );
+            };
+
+            using IT = decltype( t );
+            IT result( typename IT::DoubledType( lookup( index.v0.GetNative() ) ), typename IT::DoubledType( lookup( index.v1.GetNative() ) ) );
+            return FS::Cast<typename F::ElementType>( result );
+        }
+#endif
         else
         {
             return F( 0 );
@@ -298,6 +352,14 @@ namespace FastNoise
         return xOffset * I( 0x04040404 ) + I( 0x03020100 );
     }
 
+    // 8 entry float table lookup in DomainWarpSimplex: AArch64 TBL, elsewhere the AVX2 vpermps call token for token (going
+    // through LatticeBlockPermute there made MSVC 14.51's AVX2 DomainWarpSimplex 2D 5-9% slower)
+#if FN_AARCH64_TBL
+#define FN_PermuteTable8( table, index ) LatticeBlockPermute<float32v>( table, index )
+#else
+#define FN_PermuteTable8( table, index ) FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), table, index )
+#endif
+
     // The hash, gradient and interpolation helpers are templated on the register type so they also work on the native
     // halves of float32v (.v0/.v1), for generators that evaluate each half separately to reduce register pressure
 
@@ -314,6 +376,29 @@ namespace FastNoise
     {
         constexpr int kPredicate = OR_EQUAL ? 0x1D : 0x1E; // _CMP_GE_OQ : _CMP_GT_OQ, not defined in the SSE TUs
         return FS::NativeExec<M>( []( auto m, auto fa, auto fb ) { return _mm512_mask_cmp_ps_mask( m, fa, fb, kPredicate ); }, mask, a, b );
+    }
+
+    // TBL table of a 16 entry gradient component table with values 0/+-1: the 3rd and 4th byte of each float (the rest are 0)
+    static constexpr std::array<std::uint8_t, 32> GradientBytePlanes( const int ( &g )[16] )
+    {
+        std::array<std::uint8_t, 32> b{};
+        for( int i = 0; i < 16; i++ )
+        {
+            b[i] = g[i] ? 0x80 : 0;
+            b[i + 16] = g[i] > 0 ? 0x3F : g[i] < 0 ? 0xBF : 0;
+        }
+        return b;
+    }
+
+    // TBL table of a 32 entry gradient component table with values 0/+-1, stored as 0/+-2: only the 4th byte of each float is set
+    static constexpr std::array<std::uint8_t, 32> GradientBytePlaneDoubled( const int ( &g )[32] )
+    {
+        std::array<std::uint8_t, 32> b{};
+        for( int i = 0; i < 32; i++ )
+        {
+            b[i] = g[i] > 0 ? 0x40 : g[i] < 0 ? 0xC0 : 0;
+        }
+        return b;
     }
 
     template<typename F, typename I>
@@ -415,6 +500,38 @@ namespace FastNoise
 
             return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, fZ * gZ ));
         }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        {
+            // The AVX512 tables through TBL. Every component is 0 or +-1, so only the top two bytes of the float are set: one 32 byte
+            // table per axis holds those two byte planes and the low bytes read 0 past the table. Byte index { -, -, h, h + 16 }
+            static constexpr int kGX[16] = { 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 1, 0, -1, 0 };
+            static constexpr int kGY[16] = { 1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1 };
+            static constexpr int kGZ[16] = { 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 0, 1, 0, -1 };
+            alignas( 16 ) static constexpr auto kPlanesX = GradientBytePlanes( kGX );
+            alignas( 16 ) static constexpr auto kPlanesY = GradientBytePlanes( kGY );
+            alignas( 16 ) static constexpr auto kPlanesZ = GradientBytePlanes( kGZ );
+
+            uint8x16x2_t tableX = { { vld1q_u8( kPlanesX.data() ), vld1q_u8( kPlanesX.data() + 16 ) } };
+            uint8x16x2_t tableY = { { vld1q_u8( kPlanesY.data() ), vld1q_u8( kPlanesY.data() + 16 ) } };
+            uint8x16x2_t tableZ = { { vld1q_u8( kPlanesZ.data() ), vld1q_u8( kPlanesZ.data() + 16 ) } };
+
+            auto byteIndex = []( int32x4_t h )
+            {
+                return vreinterpretq_u8_u32( vmlaq_n_u32( vdupq_n_u32( 0x1000FFFF ), vandq_u32( vreinterpretq_u32_s32( h ), vdupq_n_u32( 15 ) ), 0x01010000 ) );
+            };
+            uint8x16_t index0 = byteIndex( hash.v0.GetNative() );
+            uint8x16_t index1 = byteIndex( hash.v1.GetNative() );
+
+            auto lookup = [&]( const uint8x16x2_t& table )
+            {
+                using H = typename F::DoubledType;
+                return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
+            };
+
+            return FS::FMulAdd( lookup( tableX ), fX, FS::FMulAdd( fY, lookup( tableY ), fZ * lookup( tableZ ) ) );
+        }
+#endif
         else
         {
             I hasha13 = hash & I( 13 );
@@ -475,6 +592,15 @@ namespace FastNoise
 
             return FS::FMulAdd( gX, fX, fY * gY );
         }
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        {
+            // Same tables as AVX2 through AArch64 TBL, which reads 0 past the table instead of using the low 3 bits
+            I index = hash & I( 7 );
+            F gX = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1 + kRoot2f, -1 - kRoot2f, 1 + kRoot2f, -1 - kRoot2f, 1, -1, 1, -1 ), index );
+            F gY = LatticeBlockPermute<F>( FS::Constant<float, F::FeatureFlags>( 1, 1, -1, -1, 1 + kRoot2f, 1 + kRoot2f, -1 - kRoot2f, -1 - kRoot2f ), index );
+
+            return FS::FMulAdd( gX, fX, fY * gY );
+        }
         else
         {
             fX ^= FS::Cast<float>( hash << 31 );
@@ -519,6 +645,39 @@ namespace FastNoise
 
             return FS::FMulAdd( gX, fX, FS::FMulAdd( fY, gY, FS::FMulAdd( fZ, gZ, fW * gW ) ));
         }
+#if FN_AARCH64_TBL
+        else if constexpr( kLatticeBlockTbl<F::FeatureFlags> && !FS::IsNativeV<F> )
+        {
+            // The AVX512 tables through TBL, indexed by hash & 31 (gZ/gW repeat each entry, they ignore bit 0). The components are
+            // stored doubled: +-2.0f only has its top byte set, so each axis is one 32 byte table and the other bytes read 0 past
+            // it. Halving the doubled dot product is exact
+            static constexpr int kGX[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1 };
+            static constexpr int kGY[32] = { 1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1 };
+            static constexpr int kGZ[32] = { 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, -1, -1, -1, -1 };
+            static constexpr int kGW[32] = { 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1, 0, 0, 0, 0, 0, 0, 0, 0 };
+            alignas( 16 ) static constexpr auto kPlaneX = GradientBytePlaneDoubled( kGX );
+            alignas( 16 ) static constexpr auto kPlaneY = GradientBytePlaneDoubled( kGY );
+            alignas( 16 ) static constexpr auto kPlaneZ = GradientBytePlaneDoubled( kGZ );
+            alignas( 16 ) static constexpr auto kPlaneW = GradientBytePlaneDoubled( kGW );
+
+            // Byte index { -, -, -, h }
+            auto byteIndex = []( int32x4_t h )
+            {
+                return vreinterpretq_u8_u32( vmlaq_n_u32( vdupq_n_u32( 0x00FFFFFF ), vandq_u32( vreinterpretq_u32_s32( h ), vdupq_n_u32( 31 ) ), 0x01000000 ) );
+            };
+            uint8x16_t index0 = byteIndex( hash.v0.GetNative() );
+            uint8x16_t index1 = byteIndex( hash.v1.GetNative() );
+
+            auto lookup = [&]( const std::array<std::uint8_t, 32>& plane )
+            {
+                using H = typename F::DoubledType;
+                uint8x16x2_t table = { { vld1q_u8( plane.data() ), vld1q_u8( plane.data() + 16 ) } };
+                return F( H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index0 ) ) ), H( vreinterpretq_f32_u8( vqtbl2q_u8( table, index1 ) ) ) );
+            };
+
+            return FS::FMulAdd( lookup( kPlaneX ), fX, FS::FMulAdd( fY, lookup( kPlaneY ), FS::FMulAdd( fZ, lookup( kPlaneZ ), fW * lookup( kPlaneW ) ) ) ) * F( 0.5f );
+        }
+#endif
         else
         {
             I p = hash & I( 3 << 3 );
