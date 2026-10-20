@@ -167,16 +167,19 @@ public:
 
         float32v normalise( 1.0f / (0xffff / 2.0f) );
 
+    // x from the folded hash (see FoldHash()), its high half is y: the shift is shared
     #define GRADIENT_COORD( _x, _y )\
-        int32v hash##_x##_y = HashPrimesHB(seed, x##_x, y##_y );\
+        int32v hash##_x##_y = HashPrimesHB( seed, x##_x, y##_y );\
+        int32v hashHi##_x##_y = FS::BitShiftRightZeroExtend( hash##_x##_y, 16 );\
         float32v contrib##_x##_y = xs##_x * ys##_y;\
-        xWarp = FN_FMulAdd( contrib##_x##_y, FS::Convert<float>( hash##_x##_y & int32v( 0xffff ) ), xWarp );\
-        yWarp = FN_FMulAdd( contrib##_x##_y, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y, 16 ) ), yWarp )
+        xWarp = FN_FMulAdd( contrib##_x##_y, FS::Convert<float>( ( hash##_x##_y ^ hashHi##_x##_y ) & int32v( 0xffff ) ), xWarp );\
+        yWarp = FN_FMulAdd( contrib##_x##_y, FS::Convert<float>( hashHi##_x##_y ), yWarp )
 
-        int32v hash00 = HashPrimesHB(seed, x0, y0 );
+        int32v hash00 = HashPrimesHB( seed, x0, y0 );
+        int32v hashHi00 = FS::BitShiftRightZeroExtend( hash00, 16 );
         float32v contrib00 = xs0 * ys0;
-        float32v xWarp = contrib00 * FS::Convert<float>( hash00 & int32v( 0xffff ) );
-        float32v yWarp = contrib00 * FS::Convert<float>( FS::BitShiftRightZeroExtend( hash00, 16 ) );
+        float32v xWarp = contrib00 * FS::Convert<float>( ( hash00 ^ hashHi00 ) & int32v( 0xffff ) );
+        float32v yWarp = contrib00 * FS::Convert<float>( hashHi00 );
 
         GRADIENT_COORD( 1, 0 );
         GRADIENT_COORD( 0, 1 );
@@ -231,13 +234,13 @@ public:
         float32v normalise( 1.0f / (0x3ff / 2.0f) );
 
     #define GRADIENT_COORD( _x, _y, _z )\
-        int32v hash##_x##_y##_z = HashPrimesHB( seed, x##_x, y##_y, z##_z );\
+        int32v hash##_x##_y##_z = HashPrimesFolded( seed, x##_x, y##_y, z##_z );\
         float32v contrib##_x##_y##_z = xs##_x * ys##_y * zs##_z;\
         xWarp = FN_FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( hash##_x##_y##_z & int32v( 0x3ff ) ), xWarp );\
         yWarp = FN_FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( (hash##_x##_y##_z >> 11) & int32v( 0x3ff ) ), yWarp );\
         zWarp = FN_FMulAdd( contrib##_x##_y##_z, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z, 22 ) ), zWarp )
 
-        int32v hash000 = HashPrimesHB( seed, x0, y0, z0 );
+        int32v hash000 = HashPrimesFolded( seed, x0, y0, z0 );
         float32v contrib000 = xs0 * ys0 * zs0;
         float32v xWarp = contrib000 * FS::Convert<float>( hash000 & int32v( 0x3ff ) );
         float32v yWarp = contrib000 * FS::Convert<float>( (hash000 >> 11) & int32v( 0x3ff ) );
@@ -306,7 +309,7 @@ private:
         auto seedB = LatticeBlockBroadcast( seed );
         auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
         auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
-        auto hashZ0 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
+        auto hashZ0 = HashPrimesFolded( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
         auto hashZ1 = hashZ0;
         int32v xOffsetZ1 = xOffset + int32v( 8 );
 
@@ -314,7 +317,7 @@ private:
         using N = decltype( hashZ0 );
         if constexpr( N::ElementCount < 16 )
         {
-            hashZ1 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+            hashZ1 = HashPrimesFolded( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
             xOffsetZ1 = xOffset;
         }
 
@@ -351,21 +354,11 @@ private:
         return FS::FMulAdd( xWarp, xWarp, FS::FMulAdd( yWarp, yWarp, zWarp * zWarp ) );
     }
 
-    // Width generic copies of InterpHermite/HashPrimesHB from Utils.inl, used on native register halves
+    // Width generic copy of InterpHermite from Utils.inl, used on native register halves
     template<typename F>
     FS_FORCEINLINE static F InterpHermiteHalf( F t )
     {
         return t * t * FN_FNMulAdd( t, F( 2 ), F( 3 ) );
-    }
-
-    template<typename I, typename... P>
-    FS_FORCEINLINE static I HashPrimesHBHalf( I seed, P... primedPos )
-    {
-        I hash = seed;
-        hash ^= ( primedPos ^ ... );
-
-        hash *= I( HashMultiplier::A );
-        return hash;
     }
 
     template<typename I, typename F>
@@ -397,14 +390,14 @@ private:
         F normalise( 1.0f / (0xff / 2.0f) );
 
     #define GRADIENT_COORD( _x, _y, _z, _w )\
-        I hash##_x##_y##_z##_w = HashPrimesHBHalf( seed, x##_x, y##_y, z##_z, w##_w );\
+        I hash##_x##_y##_z##_w = HashPrimesFolded( seed, x##_x, y##_y, z##_z, w##_w );\
         F contrib##_x##_y##_z##_w = xs##_x * ys##_y * zs##_z * ws##_w;\
         xWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( hash##_x##_y##_z##_w & I( 0xff ) ), xWarp );\
         yWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 8) & I( 0xff ) ), yWarp );\
         zWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( (hash##_x##_y##_z##_w >> 16) & I( 0xff ) ), zWarp );\
         wWarp = FN_FMulAdd( contrib##_x##_y##_z##_w, FS::Convert<float>( FS::BitShiftRightZeroExtend( hash##_x##_y##_z##_w, 24 ) ), wWarp )
 
-        I hash0000 = HashPrimesHBHalf( seed, x0, y0, z0, w0 );
+        I hash0000 = HashPrimesFolded( seed, x0, y0, z0, w0 );
         F contrib0000 = xs0 * ys0 * zs0 * ws0;
         F xWarp = contrib0000 * FS::Convert<float>( hash0000 & I( 0xff ) );
         F yWarp = contrib0000 * FS::Convert<float>( (hash0000 >> 8) & I( 0xff ) );
