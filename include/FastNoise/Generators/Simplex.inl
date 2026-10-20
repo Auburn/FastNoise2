@@ -46,16 +46,17 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( this, x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
         constexpr double kUnskew2 = -1.0 / ( kRoot3 + 3.0 );
         constexpr double kFalloffRadiusSquared = 0.5;
 
-        float32v skewDelta = float32v( kSkew2 ) * ( x + y );
-        float32v xSkewed = x + skewDelta;
-        float32v ySkewed = y + skewDelta;
+        // Frequency folded into the skew instead of scaling the positions first
+        float32v frequency( mFrequency );
+        float32v skewDelta = float32v( mFrequency * (float)kSkew2 ) * ( x + y );
+        float32v xSkewed = FN_FMulAdd( x, frequency, skewDelta );
+        float32v ySkewed = FN_FMulAdd( y, frequency, skewDelta );
 
         float32v xSkewedBase = FS::Floor( xSkewed );
         float32v ySkewedBase = FS::Floor( ySkewed );
@@ -120,16 +121,17 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( this, x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
         constexpr double kFalloffRadiusSquared = 0.6;
 
-        float32v skewDelta = float32v( kSkew3 ) * SkewSum( x, y, z );
-        float32v xSkewed = x + skewDelta;
-        float32v ySkewed = y + skewDelta;
-        float32v zSkewed = z + skewDelta;
+        // Frequency folded into the skew instead of scaling the positions first
+        float32v frequency( mFrequency );
+        float32v skewDelta = SkewDelta( float32v( mFrequency * (float)kSkew3 ), x, y, z );
+        float32v xSkewed = FN_FMulAdd( x, frequency, skewDelta );
+        float32v ySkewed = FN_FMulAdd( y, frequency, skewDelta );
+        float32v zSkewed = FN_FMulAdd( z, frequency, skewDelta );
 
         float32v xSkewedBase = FS::Floor( xSkewed );
         float32v ySkewedBase = FS::Floor( ySkewed );
@@ -221,18 +223,19 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( this, x, y, z, w );
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
         constexpr double kUnskew4 = -1.0 / ( kRoot5 + 5.0 );
         constexpr double kFalloffRadiusSquared = 0.6;
 
-        float32v skewDelta = float32v( kSkew4 ) * ( x + y + z + w );
-        float32v xSkewed = x + skewDelta;
-        float32v ySkewed = y + skewDelta;
-        float32v zSkewed = z + skewDelta;
-        float32v wSkewed = w + skewDelta;
+        // Frequency folded into the skew instead of scaling the positions first
+        float32v frequency( mFrequency );
+        float32v skewDelta = SkewDelta( float32v( mFrequency * (float)kSkew4 ), x, y, z, w );
+        float32v xSkewed = FN_FMulAdd( x, frequency, skewDelta );
+        float32v ySkewed = FN_FMulAdd( y, frequency, skewDelta );
+        float32v zSkewed = FN_FMulAdd( z, frequency, skewDelta );
+        float32v wSkewed = FN_FMulAdd( w, frequency, skewDelta );
 
         float32v xSkewedBase = FS::Floor( xSkewed );
         float32v ySkewedBase = FS::Floor( ySkewed );
@@ -406,16 +409,17 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( this, x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
         constexpr double kUnskew2 = -1.0 / ( kRoot3 + 3.0 );
         constexpr double kFalloffRadiusSquared = 2.0 / 3.0;
 
-        float32v skewDelta = float32v( kSkew2 ) * ( x + y );
-        float32v xSkewed = x + skewDelta;
-        float32v ySkewed = y + skewDelta;
+        // Frequency folded into the skew instead of scaling the positions first
+        float32v frequency( mFrequency );
+        float32v skewDelta = float32v( mFrequency * (float)kSkew2 ) * ( x + y );
+        float32v xSkewed = FN_FMulAdd( x, frequency, skewDelta );
+        float32v ySkewed = FN_FMulAdd( y, frequency, skewDelta );
         float32v xSkewedBase = FS::Floor( xSkewed );
         float32v ySkewedBase = FS::Floor( ySkewed );
         float32v dxSkewed = xSkewed - xSkewedBase;
@@ -492,7 +496,6 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( this, x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -502,11 +505,13 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         constexpr double kDistanceSquaredB = 1.0;
         constexpr double kFalloffRadiusSquared = kDistanceSquaredA;
 
-        float32v skewDelta = float32v( kSkew3 ) * SkewSum( x, y, z );
+        // Frequency folded into the skew instead of scaling the positions first
+        float32v frequency( mFrequency );
+        float32v skewDelta = SkewDelta( float32v( mFrequency * (float)kSkew3 ), x, y, z );
 
-        float32v xSkewed = x + skewDelta;
-        float32v ySkewed = y + skewDelta;
-        float32v zSkewed = z + skewDelta;
+        float32v xSkewed = FN_FMulAdd( x, frequency, skewDelta );
+        float32v ySkewed = FN_FMulAdd( y, frequency, skewDelta );
+        float32v zSkewed = FN_FMulAdd( z, frequency, skewDelta );
         float32v xSkewedBase = FS::Floor( xSkewed );
         float32v ySkewedBase = FS::Floor( ySkewed );
         float32v zSkewedBase = FS::Floor( zSkewed );
