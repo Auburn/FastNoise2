@@ -791,19 +791,32 @@ protected:
     FS_FORCEINLINE static float32v FloorCellsClosest( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, int32v* closestHash, float32v* closestCell,
                                                       const float32v* sizeJitter = nullptr )
     {
-        int32v primed[D][2];
+        int32v cell[D], primed[D][2];
         float32v cellOffset[D][2];
 
         for( int d = 0; d < D; d++ )
         {
             float32v floored = FS::Floor( pos[d] );
-            primed[d][0] = FloorToInt( pos[d], floored ) * int32v( Primes::Lookup[d] );
+            cell[d] = FloorToInt( pos[d], floored );
+            primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
             primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
             cellOffset[d][0] = CELL ? floored : floored - pos[d];
             cellOffset[d][1] = cellOffset[d][0] + float32v( 1 );
         }
 
         float32v distance = FloorCellsInit<D, HASH, CELL>( closestHash, closestCell );
+
+        if constexpr( kCellBlockD<D, false, HASH, CELL> )
+        {
+            // Not with size jitter: the block path doesn't scale the distances. Not for 2D Hybrid on AVX512: measured 4% slower there
+            constexpr bool kAvx512 = SIMD & FastSIMD::FeatureFlag::AVX512_F;
+            int32v xOffset;
+            if( !sizeJitter && !( D == 2 && kAvx512 && distFunc == DistanceFunction::Hybrid ) && IsCellBlock<D>( xOffset, seed, cell ) )
+            {
+                FloorCellsBlock<D, HASH, CELL>( distFunc, seed, jitter, pos, cell, cellOffset, xOffset, distance, closestHash, closestCell );
+                return distance;
+            }
+        }
 
 #if defined( _MSC_VER ) && !defined( __clang__ )
         // MSVC miscompiled the computed cell indexing below for AVX512, explicit loops instead (~5% slower with clang)
@@ -1000,6 +1013,13 @@ protected:
         return !FS::AnyMask( closer );
     }
 
+    // Primed coordinates of the cells at floor and floor + 1 on axis d
+    FS_FORCEINLINE static void PrimeFloorCells( int32v cell, int d, int32v* primed )
+    {
+        primed[0] = cell * int32v( Primes::Lookup[d] );
+        primed[1] = primed[0] + int32v( Primes::Lookup[d] );
+    }
+
     // 2D closest point for EuclideanSquared/Manhattan, same result as the 3x3 cell search when the jitter radius is at most kJitter2D
     // (see Closest2DActive()): the 2x2 cells around the position first, the 4 cells beyond them only if a lane could have a closer point
     // there (~6% of 16 lane batches on a uniform grid at grid jitter 1). The 3x3's far corner never can.
@@ -1016,21 +1036,50 @@ protected:
             floored[d] = FS::Floor( pos[d] );
             t[d] = pos[d] - floored[d];
             cell[d] = FloorToInt( pos[d], floored[d] );
-            primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
-            primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            if constexpr( !kCellBlockD<2, true, HASH, CELL> )
+            {
+                primed[d][0] = cell[d] * int32v( Primes::Lookup[d] );
+                primed[d][1] = primed[d][0] + int32v( Primes::Lookup[d] );
+            }
             edge[d] = FS::Min( t[d], float32v( 1 ) - t[d] );
         }
 
         float32v distance = FloorCellsInit<2, HASH, CELL>( closestHash, closestCell );
-        for( int xi = 0; xi < 2; xi++ )
+        bool block = false;
+        if constexpr( kCellBlockD<2, true, HASH, CELL> )
         {
-            int32v seedX = seed ^ primed[0][xi];
-            for( int yi = 0; yi < 2; yi++ )
+            int32v xOffset;
+            if( IsCellBlock<2>( xOffset, seed, cell ) )
             {
-                float32v base[2];
-                base[0] = CELL ? floored[0] + float32v( (float)xi ) : float32v( (float)xi ) - t[0];
-                base[1] = CELL ? floored[1] + float32v( (float)yi ) : float32v( (float)yi ) - t[1];
-                VisitFloorCell<2, HASH, CELL>( distFunc, seedX ^ primed[1][yi], jitter, base, pos, distance, closestHash, closestCell );
+                float32v cellOffset[2][2];
+                for( int d = 0; d < 2; d++ )
+                {
+                    for( int i = 0; i < 2; i++ )
+                    {
+                        cellOffset[d][i] = CELL ? floored[d] + float32v( (float)i ) : float32v( (float)i ) - t[d];
+                    }
+                }
+                block = true;
+                FloorCellsBlock<2, HASH, CELL>( distFunc, seed, jitter, pos, cell, cellOffset, xOffset, distance, closestHash, closestCell );
+            }
+        }
+        if( !block )
+        {
+            if constexpr( kCellBlockD<2, true, HASH, CELL> ) // Not up front: they would stay live across the cell block path
+            {
+                PrimeFloorCells( cell[0], 0, primed[0] );
+                PrimeFloorCells( cell[1], 1, primed[1] );
+            }
+            for( int xi = 0; xi < 2; xi++ )
+            {
+                int32v seedX = seed ^ primed[0][xi];
+                for( int yi = 0; yi < 2; yi++ )
+                {
+                    float32v base[2];
+                    base[0] = CELL ? floored[0] + float32v( (float)xi ) : float32v( (float)xi ) - t[0];
+                    base[1] = CELL ? floored[1] + float32v( (float)yi ) : float32v( (float)yi ) - t[1];
+                    VisitFloorCell<2, HASH, CELL>( distFunc, seedX ^ primed[1][yi], jitter, base, pos, distance, closestHash, closestCell );
+                }
             }
         }
 
@@ -1062,6 +1111,14 @@ protected:
 
         if( FS::AnyMask( visit ) )
         {
+            if constexpr( kCellBlockD<2, true, HASH, CELL> )
+            {
+                if( block )
+                {
+                    PrimeFloorCells( cell[0], 0, primed[0] );
+                    PrimeFloorCells( cell[1], 1, primed[1] );
+                }
+            }
             for( int d = 0; d < 2; d++ )
             {
                 // Far side cell on axis d, matches the 3x3 search's round half to even at t == 0.5
@@ -1078,6 +1135,174 @@ protected:
             }
         }
         return distance;
+    }
+
+    // Cell blocks (AVX2/AVX512): on uniform grids the lanes of a vector usually share a cell row, so the 2^D cells around each lane are
+    // in a W x 2 ( x 2 ) block of cells. Its feature points are decoded once per vector and each lane permutes its cells out of the block
+    // tables (block cell dx + W * dy + 2 * W * dz, split over native registers of N lanes): the same instructions per lane as VisitFloorCell()
+    static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
+
+    // Cell block path per call site: dimensions, Closest2D() (else FloorCellsClosest()) and what it tracks (HASH, CELL)
+    template<int D, bool CLOSEST_2D, bool HASH, bool CELL>
+    static constexpr bool kCellBlockD = kCellBlock;
+
+    // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
+    template<int D>
+    static constexpr int kCellBlockWidth = D == 2 ? (int)float32v::ElementCount / 4 : 4;
+
+    // True if all lanes share lane 0's seed and cells on the axes above x, and their cell x is lane 0's + [0, W - 2]. xOffset = cell x - lane 0's
+    // I32 (= int32v) keeps the body dependent: clang outside MS mode checks non-dependent code at definition and rejects it on SSE
+    template<int D, typename I32>
+    FS_FORCEINLINE static bool IsCellBlock( I32& xOffset, I32 seed, const I32* cell )
+    {
+        using IN = decltype( seed.v0 );
+        constexpr int W = kCellBlockWidth<D>;
+
+        IN x0 = LatticeBlockBroadcast( cell[0] );
+        IN seed0 = LatticeBlockBroadcast( seed );
+        xOffset = cell[0] - int32v( x0, x0 );
+
+        int32v outside = ( ( xOffset | ( xOffset + int32v( 1 ) ) ) & int32v( ~( W - 1 ) ) ) | ( seed ^ int32v( seed0, seed0 ) );
+        for( int d = 1; d < D; d++ )
+        {
+            IN cell0 = LatticeBlockBroadcast( cell[d] );
+            outside |= cell[d] ^ int32v( cell0, cell0 );
+        }
+        IN outsideN = outside.v0 | outside.v1;
+
+        return !FS::AnyMask( outsideN != IN( 0 ) );
+    }
+
+    // Cell offsets on AXIS times its prime, for the block cells in native register TABLE
+    template<typename IN, int D, int AXIS, int TABLE, size_t... L>
+    FS_FORCEINLINE static IN CellBlockPrimedOffsets( std::index_sequence<L...> )
+    {
+        constexpr int W = kCellBlockWidth<D>;
+        constexpr int N = (int)sizeof...( L );
+        return FS::Constant<int32_t, IN::FeatureFlags>( (int32_t)( (uint32_t)( AXIS == 0 ? ( TABLE * N + (int)L ) % W : ( ( TABLE * N + (int)L ) / ( ( W << AXIS ) / 2 ) ) & 1 ) * (uint32_t)Primes::Lookup[AXIS] )... );
+    }
+
+    // Feature point offsets of the block cells in native register TABLE (as FeaturePointOffset()), returns 1 / their length
+    template<int D, int TABLE, typename IN, typename FN>
+    FS_FORCEINLINE static FN CellBlockFeaturePoints( const IN& seed, const IN& x0, const int32v* cell, IN& hash, FN* offset )
+    {
+        constexpr auto lanes = std::make_index_sequence<IN::ElementCount>{};
+
+        hash = seed ^ ( x0 * IN( Primes::X ) + CellBlockPrimedOffsets<IN, D, 0, TABLE>( lanes ) );
+        hash ^= cell[1].v0 * IN( Primes::Y ) + CellBlockPrimedOffsets<IN, D, 1, TABLE>( lanes );
+        if constexpr( D == 3 )
+        {
+            hash ^= cell[2].v0 * IN( Primes::Z ) + CellBlockPrimedOffsets<IN, D, 2, TABLE>( lanes );
+        }
+        hash *= IN( HashMultiplier::A );
+
+        if constexpr( D == 2 )
+        {
+            offset[0] = FS::Convert<float>( hash & IN( 0x7ff ) ) - FN( 0x7ff / 2.0f );
+            offset[1] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - FN( 0x7ff / 2.0f );
+        }
+        else
+        {
+            offset[0] = FS::Convert<float>( hash & IN( 0x3ff ) ) - FN( 0x3ff / 2.0f );
+            offset[1] = FS::Convert<float>( ( hash >> 11 ) & IN( 0x3ff ) ) - FN( 0x3ff / 2.0f );
+            offset[2] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - FN( 0x3ff / 2.0f );
+        }
+
+        FN magSqr = offset[0] * offset[0];
+        for( int d = 1; d < D; d++ )
+        {
+            magSqr = FS::FMulAdd( offset[d], offset[d], magSqr );
+        }
+        return FS::InvSqrt( magSqr );
+    }
+
+    // Block tables of the feature points, see FloorCellsBlock()
+    template<int D, int TABLES, typename IN, typename FN>
+    struct CellBlockTables
+    {
+        IN hash[TABLES];
+        FN offset[TABLES][D];
+        FN invSqrt[TABLES];
+    };
+
+    // The 2^D cells around the position with all lanes in one cell block (see IsCellBlock()), in the 3^D loops' order (axis 0 slowest)
+    // cellOffset[d][i]: cell i's offset from the position on axis d (absolute position with CELL), as VisitFloorCell()'s base
+    template<int D, bool HASH, bool CELL, typename I32>
+    FS_FORCEINLINE static void FloorCellsBlock( DistanceFunction distFunc, int32v seed, float32v jitter, const float32v* pos, const I32* cell, const float32v ( *cellOffset )[2],
+                                                int32v xOffset, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        using IN = decltype( seed.v0 );
+        using FN = decltype( jitter.v0 );
+        constexpr int kTables = ( kCellBlockWidth<D> << ( D - 1 ) ) / (int)IN::ElementCount;
+        static_assert( kTables == 1 || kTables == 2 );
+
+        // All lanes share lane 0's seed and cells on the axes above x
+        IN x0 = LatticeBlockBroadcast( cell[0] );
+        CellBlockTables<D, kTables, IN, FN> tables;
+        tables.invSqrt[0] = CellBlockFeaturePoints<D, 0>( seed.v0, x0, cell, tables.hash[0], tables.offset[0] );
+        if constexpr( kTables > 1 )
+        {
+            tables.invSqrt[1] = CellBlockFeaturePoints<D, 1>( seed.v0, x0, cell, tables.hash[1], tables.offset[1] );
+        }
+
+        // With HASH the closest cell's block index is kept instead (-1: none), its hash is looked up once at the end
+        int32v closestIndex( -1 );
+
+        if constexpr( kTables > 1 )
+        {
+            // Compile time cell indices pick the table register per cell
+            FloorCellsBlockVisit<D, HASH, CELL>( std::make_index_sequence<1 << D>{}, distFunc, tables, jitter, pos, cellOffset, xOffset, distance, &closestIndex, closestCell );
+        }
+        else
+        {
+            // A loop measured faster with one table register: fewer registers live
+            for( int c = 0; c < ( 1 << D ); c++ )
+            {
+                FloorCellsBlockVisitCell<D, HASH, CELL, 0>( c, distFunc, tables, jitter, pos, cellOffset, xOffset, distance, &closestIndex, closestCell );
+            }
+        }
+
+        if constexpr( HASH )
+        {
+            // Permutes only use the index bits within a table register
+            int32v hash = FS::Cast<int32_t>( LatticeBlockPermute<float32v>( FS::Cast<float>( tables.hash[0] ), closestIndex ) );
+            if constexpr( kTables > 1 )
+            {
+                int32v hash1 = FS::Cast<int32_t>( LatticeBlockPermute<float32v>( FS::Cast<float>( tables.hash[1] ), closestIndex ) );
+                hash = FS::Select( ( closestIndex & int32v( (int)IN::ElementCount ) ) != int32v( 0 ), hash1, hash );
+            }
+            *closestHash = FS::Select( closestIndex != int32v( -1 ), hash, *closestHash );
+        }
+    }
+
+    // Cell c's index in the cell block, see FloorCellsBlock()
+    template<int D>
+    static constexpr int CellBlockIndex( int c )
+    {
+        return ( ( c >> ( D - 1 ) ) & 1 ) + kCellBlockWidth<D> * ( ( c >> ( D - 2 ) ) & 1 ) + ( D == 3 ? 2 * kCellBlockWidth<D> * ( c & 1 ) : 0 );
+    }
+
+    template<int D, bool HASH, bool CELL, size_t... C, typename TABLES>
+    FS_FORCEINLINE static void FloorCellsBlockVisit( std::index_sequence<C...>, DistanceFunction distFunc, const TABLES& tables, float32v jitter, const float32v* pos, const float32v ( *cellOffset )[2],
+                                                     int32v xOffset, float32v& distance, int32v* closestIndex, float32v* closestCell )
+    {
+        constexpr int N = (int)decltype( xOffset.v0 )::ElementCount;
+        ( FloorCellsBlockVisitCell<D, HASH, CELL, CellBlockIndex<D>( (int)C ) / N>( (int)C, distFunc, tables, jitter, pos, cellOffset, xOffset, distance, closestIndex, closestCell ), ... );
+    }
+
+    // Cell c of the block: the table register holding it is TABLE, the permutes only use the index bits within it
+    template<int D, bool HASH, bool CELL, int TABLE, typename TABLES>
+    FS_FORCEINLINE static void FloorCellsBlockVisitCell( int c, DistanceFunction distFunc, const TABLES& tables, float32v jitter, const float32v* pos, const float32v ( *cellOffset )[2],
+                                                         int32v xOffset, float32v& distance, int32v* closestIndex, float32v* closestCell )
+    {
+        int32v index = xOffset + int32v( CellBlockIndex<D>( c ) );
+        float32v invMag = jitter * LatticeBlockPermute<float32v>( tables.invSqrt[TABLE], index );
+        float32v point[D];
+        for( int d = 0; d < D; d++ )
+        {
+            point[d] = FS::FMulAdd( LatticeBlockPermute<float32v>( tables.offset[TABLE][d], index ), invMag, cellOffset[d][( c >> ( D - 1 - d ) ) & 1] );
+        }
+        KeepCloser<D, HASH, CELL>( distFunc, index, point, pos, distance, closestIndex, closestCell );
     }
 };
 
