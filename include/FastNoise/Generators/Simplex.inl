@@ -6,6 +6,43 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 {
     FASTNOISE_IMPL_GEN_FN( Gen );
 
+    // d - ( moved ? unskew + 1 : unskew ). Selecting between the two constants is a single blend, SSE2 has no blendv so
+    // it masks the 1 instead
+    FS_FORCEINLINE static float32v OffsetFromVertex( mask32v moved, float32v d, double unskew )
+    {
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::x86 ) && !( SIMD & FastSIMD::FeatureFlag::SSE41 ) )
+        {
+            return FS::MaskedSub( moved, d, float32v( 1 ) ) - float32v( (float)unskew );
+        }
+        else
+        {
+            return d - FS::Select( moved, float32v( (float)( unskew + 1 ) ), float32v( (float)unskew ) );
+        }
+    }
+
+    // Offsets, falloff and gradient of one 4D vertex. Evaluating each vertex in one go keeps fewer offsets and masks live
+    // at once, mostly helps SSE where float32v only has 8 registers. (As a lambda MSVC miscompiled it for AVX512)
+    FS_FORCEINLINE static float32v VertexGradientRampValue( float32v& falloff, double unskew, mask32v maskX, mask32v maskY, mask32v maskZ, mask32v maskW,
+        float32v dx0, float32v dy0, float32v dz0, float32v dw0, int32v hashBase, int32v xPrimedDelta, int32v yPrimedDelta, int32v zPrimedDelta, int32v wPrimedDelta )
+    {
+        constexpr double kFalloffRadiusSquared = 0.6;
+
+        float32v dx = OffsetFromVertex( maskX, dx0, unskew );
+        float32v dy = OffsetFromVertex( maskY, dy0, unskew );
+        float32v dz = OffsetFromVertex( maskZ, dz0, unskew );
+        float32v dw = OffsetFromVertex( maskW, dw0, unskew );
+
+        falloff = FS::FNMulAdd( dw, dw, FS::FNMulAdd( dz, dz, FS::FNMulAdd( dy, dy, FS::FNMulAdd( dx, dx, float32v( kFalloffRadiusSquared ) ) ) ) );
+        falloff = FS::Max( falloff, float32v( 0 ) );
+        falloff *= falloff; falloff *= falloff;
+
+        return GetGradientDotPerlin( HashPrimes( hashBase,
+            FS::Masked( maskX, xPrimedDelta ),
+            FS::Masked( maskY, yPrimedDelta ),
+            FS::Masked( maskZ, zPrimedDelta ),
+            FS::Masked( maskW, wPrimedDelta ) ), dx, dy, dz, dw );
+    }
+
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
@@ -25,8 +62,8 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dxSkewed = xSkewed - xSkewedBase;
         float32v dySkewed = ySkewed - ySkewedBase;
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
 
         mask32v xGreaterEqualY = dxSkewed >= dySkewed;
         
@@ -54,8 +91,24 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff2 *= falloff2; falloff2 *= falloff2;
 
         float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase ), dx0, dy0 );
-        float32v gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1 );
-        float32v gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2 );
+        float32v gradientRampValue1, gradientRampValue2;
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            // Masked adds are single instructions and the xors fuse into vpternlogd
+            gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed, FS::MaskedAdd( xGreaterEqualY, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( xGreaterEqualY, yPrimedBase, int32v( Primes::Y ) ) ), dx1, dy1 );
+            gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ) ), dx2, dy2 );
+        }
+        else
+        {
+            // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis.
+            // Vertex 1 moves exactly one axis
+            int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase;
+            int32v xPrimedDelta = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+            int32v yPrimedDelta = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+
+            gradientRampValue1 = GetGradientDotPerlin( HashPrimes( hashBase, FS::Select( xGreaterEqualY, xPrimedDelta, yPrimedDelta ) ), dx1, dy1 );
+            gradientRampValue2 = GetGradientDotPerlin( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta ), dx2, dy2 );
+        }
 
         float32v value = FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue2 * falloff2 ) );
 
@@ -85,9 +138,9 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dySkewed = ySkewed - ySkewedBase;
         float32v dzSkewed = zSkewed - zSkewedBase;
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
-        int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
+        int32v zPrimedBase = FloorToInt( zSkewed, zSkewedBase ) * int32v( Primes::Z );
 
         mask32v xGreaterEqualY = dxSkewed >= dySkewed;
         mask32v yGreaterEqualZ = dySkewed >= dzSkewed;
@@ -132,9 +185,21 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff3 *= falloff3; falloff3 *= falloff3;
 
         float32v gradientRampValue0 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
-        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ), FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ) ), dx1, dy1, dz1 );
-        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( seed, FS::MaskedAdd( nMaskX2, xPrimedBase, int32v( Primes::X ) ), FS::InvMaskedAdd( nMaskY2, yPrimedBase, int32v( Primes::Y ) ), FS::InvMaskedAdd( nMaskZ2, zPrimedBase, int32v( Primes::Z ) ) ), dx2, dy2, dz2 );
-        float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ) ), dx3, dy3, dz3 );
+
+        // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis.
+        // Vertex 1 moves only the largest axis, vertex 2 all but the smallest. On AVX512 this also measured faster than
+        // masked prime adds, it needs fewer (inverted) k masks
+        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase;
+        int32v xPrimedDelta = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+        int32v yPrimedDelta = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+        int32v zPrimedDelta = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
+
+        int32v largestPrimedDelta = FS::Select( maskX1, xPrimedDelta, FS::Select( maskY1, yPrimedDelta, zPrimedDelta ) );
+        int32v smallestPrimedDelta = FS::Select( nMaskY2, yPrimedDelta, FS::Select( nMaskZ2, zPrimedDelta, xPrimedDelta ) );
+
+        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( hashBase, largestPrimedDelta ), dx1, dy1, dz1 );
+        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, smallestPrimedDelta ), dx2, dy2, dz2 );
+        float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta ), dx3, dy3, dz3 );
 
         float32v value = FS::FMulAdd( gradientRampValue3, falloff3, FS::FMulAdd( gradientRampValue2, falloff2, FS::FMulAdd( gradientRampValue1, falloff1, gradientRampValue0 * falloff0 ) ) );
 
@@ -168,10 +233,10 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         float32v dzSkewed = zSkewed - zSkewedBase;
         float32v dwSkewed = wSkewed - wSkewedBase;
 
-        int32v xPrimedBase = FS::Convert<int32_t>( xSkewedBase ) * int32v( Primes::X );
-        int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
-        int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
-        int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
+        int32v xPrimedBase = FloorToInt( xSkewed, xSkewedBase ) * int32v( Primes::X );
+        int32v yPrimedBase = FloorToInt( ySkewed, ySkewedBase ) * int32v( Primes::Y );
+        int32v zPrimedBase = FloorToInt( zSkewed, zSkewedBase ) * int32v( Primes::Z );
+        int32v wPrimedBase = FloorToInt( wSkewed, wSkewedBase ) * int32v( Primes::W );
 
         float32v unskewDelta = float32v( kUnskew4 ) * ( dxSkewed + dySkewed + dzSkewed + dwSkewed );
         float32v dx0 = dxSkewed + unskewDelta;
@@ -184,101 +249,79 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         int32v rankZ( 0 );
         int32v rankW( 0 );
 
-        mask32v xGreaterEqualY = dx0 >= dy0;
-        rankX = FS::MaskedIncrement(  xGreaterEqualY, rankX );
-        rankY = FS::MaskedIncrement( ~xGreaterEqualY, rankY );
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            // Masked increments need a mask to vector conversion each and the inverted comparisons on AVX512. Use the
+            // comparisons as -1/0 integers instead, each one adds to one rank and subtracts from the other
+            int32v xGreaterEqualY = FS::Masked( dx0 >= dy0, int32v( -1 ) );
+            int32v xGreaterEqualZ = FS::Masked( dx0 >= dz0, int32v( -1 ) );
+            int32v xGreaterEqualW = FS::Masked( dx0 >= dw0, int32v( -1 ) );
+            int32v yGreaterEqualZ = FS::Masked( dy0 >= dz0, int32v( -1 ) );
+            int32v yGreaterEqualW = FS::Masked( dy0 >= dw0, int32v( -1 ) );
+            int32v zGreaterEqualW = FS::Masked( dz0 >= dw0, int32v( -1 ) );
 
-        mask32v xGreaterEqualZ = dx0 >= dz0;
-        rankX = FS::MaskedIncrement(  xGreaterEqualZ, rankX );
-        rankZ = FS::MaskedIncrement( ~xGreaterEqualZ, rankZ );
+            rankX = rankX - xGreaterEqualY - xGreaterEqualZ - xGreaterEqualW;
+            rankY = int32v( 1 ) + xGreaterEqualY - yGreaterEqualZ - yGreaterEqualW;
+            rankZ = int32v( 2 ) + xGreaterEqualZ + yGreaterEqualZ - zGreaterEqualW;
+            rankW = int32v( 3 ) + xGreaterEqualW + yGreaterEqualW + zGreaterEqualW;
+        }
+        else
+        {
+            mask32v xGreaterEqualY = dx0 >= dy0;
+            rankX = FS::MaskedIncrement(  xGreaterEqualY, rankX );
+            rankY = FS::MaskedIncrement( ~xGreaterEqualY, rankY );
 
-        mask32v xGreaterEqualW = dx0 >= dw0;
-        rankX = FS::MaskedIncrement(  xGreaterEqualW, rankX );
-        rankW = FS::MaskedIncrement( ~xGreaterEqualW, rankW );
+            mask32v xGreaterEqualZ = dx0 >= dz0;
+            rankX = FS::MaskedIncrement(  xGreaterEqualZ, rankX );
+            rankZ = FS::MaskedIncrement( ~xGreaterEqualZ, rankZ );
 
-        mask32v yGreaterEqualZ = dy0 >= dz0;
-        rankY = FS::MaskedIncrement(  yGreaterEqualZ, rankY );
-        rankZ = FS::MaskedIncrement( ~yGreaterEqualZ, rankZ );
+            mask32v xGreaterEqualW = dx0 >= dw0;
+            rankX = FS::MaskedIncrement(  xGreaterEqualW, rankX );
+            rankW = FS::MaskedIncrement( ~xGreaterEqualW, rankW );
 
-        mask32v yGreaterEqualW = dy0 >= dw0;
-        rankY = FS::MaskedIncrement(  yGreaterEqualW, rankY );
-        rankW = FS::MaskedIncrement( ~yGreaterEqualW, rankW );
+            mask32v yGreaterEqualZ = dy0 >= dz0;
+            rankY = FS::MaskedIncrement(  yGreaterEqualZ, rankY );
+            rankZ = FS::MaskedIncrement( ~yGreaterEqualZ, rankZ );
 
-        mask32v zGreaterEqualW = dz0 >= dw0;
-        rankZ = FS::MaskedIncrement(  zGreaterEqualW, rankZ );
-        rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
+            mask32v yGreaterEqualW = dy0 >= dw0;
+            rankY = FS::MaskedIncrement(  yGreaterEqualW, rankY );
+            rankW = FS::MaskedIncrement( ~yGreaterEqualW, rankW );
 
-        mask32v maskX1 = rankX > int32v( 2 );
-        mask32v maskY1 = rankY > int32v( 2 );
-        mask32v maskZ1 = rankZ > int32v( 2 );
-        mask32v maskW1 = rankW > int32v( 2 );
-
-        mask32v maskX2 = rankX > int32v( 1 );
-        mask32v maskY2 = rankY > int32v( 1 );
-        mask32v maskZ2 = rankZ > int32v( 1 );
-        mask32v maskW2 = rankW > int32v( 1 );
-
-        mask32v maskX3 = rankX > int32v( 0 );
-        mask32v maskY3 = rankY > int32v( 0 );
-        mask32v maskZ3 = rankZ > int32v( 0 );
-        mask32v maskW3 = rankW > int32v( 0 );
-
-        float32v dx1 = FS::MaskedSub( maskX1, dx0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dy1 = FS::MaskedSub( maskY1, dy0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dw1 = FS::MaskedSub( maskW1, dw0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dx2 = FS::MaskedSub( maskX2, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dy2 = FS::MaskedSub( maskY2, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dz2 = FS::MaskedSub( maskZ2, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dw2 = FS::MaskedSub( maskW2, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dx3 = FS::MaskedSub( maskX3, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dy3 = FS::MaskedSub( maskY3, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dz3 = FS::MaskedSub( maskZ3, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dw3 = FS::MaskedSub( maskW3, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dx4 = dx0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dy4 = dy0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dz4 = dz0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dw4 = dw0 - float32v( kUnskew4 * 4 + 1 );
+            mask32v zGreaterEqualW = dz0 >= dw0;
+            rankZ = FS::MaskedIncrement(  zGreaterEqualW, rankZ );
+            rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
+        }
 
         float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff1 = FS::FNMulAdd( dw1, dw1, FS::FNMulAdd( dz1, dz1, FS::FNMulAdd( dy1, dy1, FS::FNMulAdd( dx1, dx1, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff2 = FS::FNMulAdd( dw2, dw2, FS::FNMulAdd( dz2, dz2, FS::FNMulAdd( dy2, dy2, FS::FNMulAdd( dx2, dx2, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff3 = FS::FNMulAdd( dw3, dw3, FS::FNMulAdd( dz3, dz3, FS::FNMulAdd( dy3, dy3, FS::FNMulAdd( dx3, dx3, float32v( kFalloffRadiusSquared ) ) ) ) );
+
+        // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis
+        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase ^ wPrimedBase;
+        int32v xPrimedDelta = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+        int32v yPrimedDelta = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+        int32v zPrimedDelta = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
+        int32v wPrimedDelta = wPrimedBase ^ ( wPrimedBase + int32v( Primes::W ) );
+
         float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
             float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
             float32v( -4.0 / 5.0 ) );
 
         falloff0 = FS::Max( falloff0, float32v( 0 ) );
-        falloff1 = FS::Max( falloff1, float32v( 0 ) );
-        falloff2 = FS::Max( falloff2, float32v( 0 ) );
-        falloff3 = FS::Max( falloff3, float32v( 0 ) );
         falloff4 = FS::Max( falloff4, float32v( 0 ) );
 
         falloff0 *= falloff0; falloff0 *= falloff0;
-        falloff1 *= falloff1; falloff1 *= falloff1;
-        falloff2 *= falloff2; falloff2 *= falloff2;
-        falloff3 *= falloff3; falloff3 *= falloff3;
         falloff4 *= falloff4; falloff4 *= falloff4;
 
         float32v gradientRampValue0 = GetGradientDotPerlin( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0 );
-        float32v gradientRampValue1 = GetGradientDotPerlin( HashPrimes( seed,
-            FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW1, wPrimedBase, int32v( Primes::W ) ) ), dx1, dy1, dz1, dw1 );
-        float32v gradientRampValue2 = GetGradientDotPerlin( HashPrimes( seed,
-            FS::MaskedAdd( maskX2, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY2, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ2, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW2, wPrimedBase, int32v( Primes::W ) ) ), dx2, dy2, dz2, dw2 );
-        float32v gradientRampValue3 = GetGradientDotPerlin( HashPrimes( seed,
-            FS::MaskedAdd( maskX3, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY3, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ3, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW3, wPrimedBase, int32v( Primes::W ) ) ), dx3, dy3, dz3, dw3 );
-        float32v gradientRampValue4 = GetGradientDotPerlin( HashPrimes( seed,
-            xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
-            dx4, dy4, dz4, dw4 );
+        float32v gradientRampValue4 = GetGradientDotPerlin( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, wPrimedDelta ),
+            dx0 - float32v( kUnskew4 * 4 + 1 ), dy0 - float32v( kUnskew4 * 4 + 1 ), dz0 - float32v( kUnskew4 * 4 + 1 ), dw0 - float32v( kUnskew4 * 4 + 1 ) );
+
+        float32v falloff1, falloff2, falloff3;
+        float32v gradientRampValue1 = VertexGradientRampValue( falloff1, kUnskew4, rankX > int32v( 2 ), rankY > int32v( 2 ), rankZ > int32v( 2 ), rankW > int32v( 2 ),
+            dx0, dy0, dz0, dw0, hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, wPrimedDelta );
+        float32v gradientRampValue2 = VertexGradientRampValue( falloff2, kUnskew4 * 2, rankX > int32v( 1 ), rankY > int32v( 1 ), rankZ > int32v( 1 ), rankW > int32v( 1 ),
+            dx0, dy0, dz0, dw0, hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, wPrimedDelta );
+        float32v gradientRampValue3 = VertexGradientRampValue( falloff3, kUnskew4 * 3, rankX > int32v( 0 ), rankY > int32v( 0 ), rankZ > int32v( 0 ), rankW > int32v( 0 ),
+            dx0, dy0, dz0, dw0, hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, wPrimedDelta );
 
         float32v value = FS::FMulAdd( gradientRampValue0, falloff0, FS::FMulAdd( gradientRampValue1, falloff1, FS::FMulAdd( gradientRampValue2, falloff2, FS::FMulAdd( gradientRampValue3, falloff3, gradientRampValue4 * falloff4 ) ) ) );
 
