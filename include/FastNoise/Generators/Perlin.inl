@@ -11,7 +11,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
     template<typename T>
     FS_FORCEINLINE static float32v LatticeBlockDot( const T& gX, const T& dotRest, const int32v& index, const float32v& fX )
     {
-        return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
+        return FN_FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
     }
 
     // SSE4.1 lattice blocks: gX * fX + the rest of the dot product, both looked up from one x row of 4 corners
@@ -145,8 +145,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 // x gradient and y/z part of the dot product: FMulAdd( gX, fX, FMulAdd( fY, gY, fZ * gZ ) )
                 NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
                 NF gXZ1 = GetGradientDotCommon( hashZ1, one, zero, zero );
-                NF dotYZZ0 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
-                NF dotYZZ1 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
+                NF dotYZZ0 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
+                NF dotYZZ1 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
 
                 float32v value = Lerp( Lerp(
                     Lerp( LatticeBlockDot( gXZ0, dotYZZ0, xOffset, xf0 ), LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
