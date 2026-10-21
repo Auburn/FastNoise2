@@ -489,19 +489,20 @@ private:
         return minMax;
     }
 
-    int32_t ReferencesFetchAdd( int32_t add ) const noexcept final
+    void IncReferenceCount() const noexcept final
     {
-        if( add > 0 )
-        {
-            return mReferences.fetch_add( add, std::memory_order_relaxed );
-        }
-        if( add < 0 )
-        {
-            // Release so this thread's accesses to the node happen before another thread destroys it
-            // Acquire so the thread that destroys the node sees all other threads' accesses
-            return mReferences.fetch_add( add, std::memory_order_acq_rel );
-        }
+        mReferences.fetch_add( 1, std::memory_order_relaxed );
+    }
 
+    uint32_t DecReferenceCount() const noexcept final
+    {
+        // Release so this thread's accesses to the node happen before another thread destroys it
+        // Acquire so the thread that destroys the node sees all other threads' accesses
+        return mReferences.fetch_sub( 1, std::memory_order_acq_rel );
+    }
+
+    uint32_t GetReferenceCount() const noexcept final
+    {
         return mReferences.load( std::memory_order_relaxed );
     }
     

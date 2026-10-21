@@ -2,6 +2,7 @@
 #include <FastNoise/Metadata.h>
 
 #include <iostream>
+#include <unordered_set>
 
 int main()
 {
@@ -44,4 +45,14 @@ int main()
 
         std::cout << ( simplex ? "valid" : "nullptr" ) << std::endl;
     }
+
+    // SmartNode as a hash container key
+    {
+        std::unordered_set<FastNoise::SmartNode<>> nodes{ node, node, FastNoise::New<FastNoise::Simplex>() };
+
+        std::cout << nodes.size() << " unique nodes" << std::endl;
+    }
+
+    // Free memory pools left empty by destroyed nodes
+    FastNoise::SmartNodeManager::ReleaseEmptyPools();
 }

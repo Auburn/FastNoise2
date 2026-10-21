@@ -10,13 +10,12 @@
 
 namespace FastNoise
 {
-    /** @brief Manages the memory pool used by SmartNode for allocating generator nodes.
+    /** @brief Manages the memory pools used by SmartNode for allocating generator nodes.
      *
-     *  All FastNoise generator nodes are allocated from an internal memory pool for
-     *  cache-friendly layout and fast allocation. This class is not directly instantiated;
-     *  use SetMemoryPoolSize() before creating nodes if you need to adjust the pool.
-     *  Pools are kept once allocated and reused when all their nodes have been freed,
-     *  use ReleaseEmptyPools() to free them.
+     *  All FastNoise generator nodes are allocated from internal memory pools for
+     *  cache-friendly layout and fast allocation. This class is not directly instantiated.
+     *  Pools are kept once allocated and reused when all their nodes have been freed.
+     *  Use ReleaseEmptyPools() to free them, and SetMemoryPoolSize() to change the size of new pools.
      */
     class FASTNOISE_API SmartNodeManager
     {
@@ -25,18 +24,21 @@ namespace FastNoise
 
         SmartNodeManager() = delete;
 
-        /** @brief Set the size of the node memory pool in bytes.
+        /** @brief Set the size of memory pools allocated from now on.
          *
-         *  Call this before creating any nodes if the default pool size is insufficient.
-         *  @param size  Pool size in bytes.
+         *  Can be called at any time, existing pools keep their size. Larger pools mean fewer pool
+         *  allocations, smaller pools let ReleaseEmptyPools() free memory in smaller pieces.
+         *  A node too large for the pool size gets a pool big enough for it.
+         *  @param size  Pool size in bytes, including a small header. Default is 64 KB.
          */
         static void SetMemoryPoolSize( uint32_t size );
 
         /** @brief Free memory pools that have no live nodes in them.
          *
          *  Pools are otherwise kept for reuse, so memory stays at its peak after many nodes are freed.
-         *  Not thread safe: no other thread may create nodes or release the last reference to a node
-         *  during this call. Generating from existing nodes on other threads is fine.
+         *  Not thread safe: call only when no other thread is creating nodes or dropping SmartNodes
+         *  (destroying, reassigning or resetting one, or setting a node's source).
+         *  Other threads may keep generating from nodes they already hold.
          */
         static void ReleaseEmptyPools();
 
@@ -201,25 +203,25 @@ namespace FastNoise
 
         const T& operator*() const noexcept
         {
-            assert( mPtr->ReferencesFetchAdd() );
+            assert( mPtr->GetReferenceCount() );
             return *mPtr;
         }
 
         T& operator*() noexcept
         {
-            assert( mPtr->ReferencesFetchAdd() );
+            assert( mPtr->GetReferenceCount() );
             return *mPtr;
         }
 
         const T* operator->() const noexcept
         {
-            assert( mPtr->ReferencesFetchAdd() );
+            assert( mPtr->GetReferenceCount() );
             return mPtr;
         }
 
         T* operator->() noexcept
         {
-            assert( mPtr->ReferencesFetchAdd() );
+            assert( mPtr->GetReferenceCount() );
             return mPtr;
         }
 
@@ -260,7 +262,7 @@ namespace FastNoise
         {
             if( mPtr )
             {
-                return mPtr->ReferencesFetchAdd();
+                return (long)mPtr->GetReferenceCount();
             }
 
             return 0;
@@ -298,7 +300,7 @@ namespace FastNoise
 
             if( mPtr )
             {
-                int32_t previousRefCount = mPtr->ReferencesFetchAdd( -1 );
+                uint32_t previousRefCount = mPtr->DecReferenceCount();
 
                 assert( previousRefCount );
 
@@ -318,7 +320,7 @@ namespace FastNoise
         {
             if( ptr )
             {
-                ptr->ReferencesFetchAdd( 1 );
+                ptr->IncReferenceCount();
             }
         }
         

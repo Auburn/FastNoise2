@@ -96,9 +96,11 @@ namespace FastNoise
     public:
         static inline std::atomic<uint32_t> sNewPoolSize = 64 * 1024;
 
-        void* Alloc( size_t size, size_t align ) 
+        void* Alloc( size_t size, size_t align )
         {
-            if( void* ptr = AllocFromPools( size, align ) )
+            std::atomic<SmartNodeManagerPool*>* tail;
+
+            if( void* ptr = AllocFromPools( size, align, tail ) )
             {
                 return ptr;
             }
@@ -106,34 +108,30 @@ namespace FastNoise
             std::lock_guard lock( mMutex );
 
             // Another thread may have added a pool while this one waited for the lock
-            if( void* ptr = AllocFromPools( size, align ) )
+            if( void* ptr = AllocFromPools( size, align, tail ) )
             {
                 return ptr;
             }
 
             // New pool must at least fit its header and this alloc, even if the pool size is set smaller
             size_t newPoolSize = std::max<size_t>( sNewPoolSize.load( std::memory_order_relaxed ), sizeof( SmartNodeManagerPool ) + size + align );
-      
-            if( void* poolAlloc = std::malloc( newPoolSize ) )
-            {        
-                SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( newPoolSize - sizeof( SmartNodeManagerPool ) );
 
-                void* alloc = newPool->TryAlloc( size, align );
-                assert( alloc ); // New pool is sized to always fit the alloc
+            void* poolAlloc = std::malloc( newPoolSize );
 
-                std::atomic<SmartNodeManagerPool*>* tail = &mPools;
+            if( !poolAlloc )
+            {
+                return nullptr;
+            }
 
-                while( SmartNodeManagerPool* pool = tail->load( std::memory_order_acquire ) )
-                {
-                    tail = &pool->mNextPool;
-                }
+            SmartNodeManagerPool* newPool = new( poolAlloc ) SmartNodeManagerPool( newPoolSize - sizeof( SmartNodeManagerPool ) );
 
-                // Release so lock-free walks of the list see the pool initialised
-                tail->store( newPool, std::memory_order_release );
-                return alloc;
-            } 
+            void* alloc = newPool->TryAlloc( size, align );
+            assert( alloc ); // New pool is sized to always fit the alloc
 
-            return nullptr;
+            // Only lock holders append, so tail is still the end of the list
+            // Release so lock-free walks of the list see the pool initialised
+            tail->store( newPool, std::memory_order_release );
+            return alloc;
         }
 
         void Free( const void* ptr )
@@ -173,9 +171,10 @@ namespace FastNoise
         }
 
     private:
-        void* AllocFromPools( size_t size, size_t align )
+        // Allocs from the first pool with room, otherwise returns null with tail at the end of the list
+        void* AllocFromPools( size_t size, size_t align, std::atomic<SmartNodeManagerPool*>*& tail )
         {
-            for( SmartNodeManagerPool* pool = mPools.load( std::memory_order_acquire ); pool; pool = pool->mNextPool.load( std::memory_order_acquire ) )
+            for( tail = &mPools; SmartNodeManagerPool* pool = tail->load( std::memory_order_acquire ); tail = &pool->mNextPool )
             {
                 if( void* ptr = pool->TryAlloc( size, align ) )
                 {
