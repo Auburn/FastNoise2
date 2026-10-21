@@ -468,7 +468,8 @@ FASTNOISE_API int fnGetMetadataNodeLookupDimensionIdx( int id, int nodeLookupInd
  *  @param node             Target node handle.
  *  @param nodeLookupIndex  Index of the node lookup to set (0-based, up to fnGetMetadataNodeLookupCount()-1).
  *  @param nodeLookup       Source node handle to connect.
- *  @return true on success, false if the index is out of range or the types are incompatible.
+ *  @return true on success, false if the index is out of range, the types are incompatible
+ *          or the nodes have different SIMD feature sets (see fnGetActiveFeatureSet()).
  */
 FASTNOISE_API bool fnSetNodeLookup( void* node, int nodeLookupIndex, const void* nodeLookup );
 
@@ -517,7 +518,8 @@ FASTNOISE_API int fnGetMetadataHybridDimensionIdx( int id, int hybridIndex );
  *  @param node         Target node handle.
  *  @param hybridIndex  Index of the hybrid input (0-based, up to fnGetMetadataHybridCount()-1).
  *  @param nodeLookup   Source node handle to connect.
- *  @return true on success, false if the index is out of range or the types are incompatible.
+ *  @return true on success, false if the index is out of range, the types are incompatible
+ *          or the nodes have different SIMD feature sets (see fnGetActiveFeatureSet()).
  */
 FASTNOISE_API bool fnSetHybridNodeLookup( void* node, int hybridIndex, const void* nodeLookup );
 
