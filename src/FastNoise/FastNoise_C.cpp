@@ -4,18 +4,18 @@
 
 namespace FastNoise::Internal
 {
-    // Manually bump the reference count on a raw Generator pointer. Avoids
-    // needing to keep a SmartNode around for nodes created in the C API
-    void BumpNodeRefences( const Generator* ptr, bool up )
+    // Hands the node's reference to the C API caller, like unique_ptr::release()
+    void* ToHandle( SmartNode<> node )
     {
-        if( up )
-        {
-            ptr->IncReferenceCount();
-        }
-        else
-        {
-            ptr->DecReferenceCount();
-        }
+        return std::exchange( node.mPtr, nullptr );
+    }
+
+    // Takes the C API caller's reference back, without adding one
+    SmartNode<> FromHandle( void* handle )
+    {
+        SmartNode<> node;
+        node.mPtr = static_cast<Generator*>( handle );
+        return node;
     }
 
     // Setting node sources requires a SmartNode argument, this SmartNode friend function
@@ -47,23 +47,13 @@ void StoreMinMax( float* floatArray2, FastNoise::OutputMinMax minMax )
 
 void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned simdLevel )
 {
-    if( FastNoise::SmartNode<> node = FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::FeatureSet)simdLevel ) )
-    {
-        FastNoise::Internal::BumpNodeRefences( node.get(), true );
-
-        return node.get();
-    }
-    return nullptr;
+    return FastNoise::Internal::ToHandle( FastNoise::NewFromEncodedNodeTree( encodedString, (FastSIMD::FeatureSet)simdLevel ) );
 }
 
 void fnDeleteNodeRef( void* node )
 {
-    if( node )
-    {
-        // Move the C API reference into a SmartNode, so the node is destroyed when this was its last reference
-        FastNoise::SmartNode<> smartNode = FastNoise::Internal::ToSmartNode( node );
-        FastNoise::Internal::BumpNodeRefences( ToGen( node ), false );
-    }
+    // Dropping the SmartNode releases the handle's reference, destroying the node if it was the last
+    FastNoise::Internal::FromHandle( node );
 }
 
 unsigned fnGetActiveFeatureSet( const void* node )
@@ -144,12 +134,7 @@ void* fnNewFromMetadata( int id, unsigned simdLevel )
 {
     if( const FastNoise::Metadata* metadata = FastNoise::Metadata::GetFromId( (FastNoise::Metadata::node_id)id ) )
     {
-        if( FastNoise::SmartNode<> node = metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel ) )
-        {
-            FastNoise::Internal::BumpNodeRefences( node.get(), true );
-
-            return node.get();
-        }
+        return FastNoise::Internal::ToHandle( metadata->CreateNode( (FastSIMD::FeatureSet)simdLevel ) );
     }
     return nullptr;
 }
