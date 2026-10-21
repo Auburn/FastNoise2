@@ -32,6 +32,7 @@ namespace FastNoise
      *  @param  maxFeatureSet  Maximum SIMD feature set to use. Defaults to auto-detecting
      *                         the best available on the current CPU.
      *  @return A SmartNode<T> owning the new node. null if the maxFeatureSet is below the min compiled SIMD feature set
+     *          or above what the CPU supports
      */
     template<typename T>
     SmartNode<T> New( FastSIMD::FeatureSet maxFeatureSet /*= FastSIMD::FeatureSet::Max*/ )
@@ -60,7 +61,7 @@ namespace FastNoise
      *
      *  @param  encodedNodeTreeString  Encoded node tree string.
      *  @param  maxFeatureSet          Maximum SIMD feature set to use. Defaults to auto-detect.
-     *  @return Root node of the deserialised tree, or nullptr if the string is invalid.
+     *  @return Root node of the deserialised tree, or nullptr if the string is invalid or the CPU doesn't support maxFeatureSet.
      */
     FASTNOISE_API SmartNode<> NewFromEncodedNodeTree( const char* encodedNodeTreeString, FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max );
 }

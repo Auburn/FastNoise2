@@ -22,7 +22,7 @@ extern "C" {
  *
  *  @param encodedString  Encoded node tree string (e.g. from the Node Editor).
  *  @param maxFeatureSet  Maximum auto-detected SIMD feature set. Pass ~0u (uint32_max) for no limit.
- *  @return Opaque node handle, or NULL on failure.
+ *  @return Opaque node handle, or NULL if the string is invalid or the CPU doesn't support maxFeatureSet.
  */
 FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigned /*FastSIMD::FeatureSet*/ maxFeatureSet );
 
@@ -327,7 +327,7 @@ FASTNOISE_API const char* fnGetMetadataName( int id );
  *
  *  @param id         Metadata ID identifying the node type (0 to fnGetMetadataCount()-1).
  *  @param maxFeatureSet  Maximum auto-detected SIMD feature set. Pass ~0u (uint32_max) for no limit.
- *  @return Opaque node handle, or NULL if the ID is invalid. Must be freed with fnDeleteNodeRef().
+ *  @return Opaque node handle, or NULL if the ID is invalid or the CPU doesn't support maxFeatureSet. Must be freed with fnDeleteNodeRef().
  */
 FASTNOISE_API void* fnNewFromMetadata( int id, unsigned /*FastSIMD::FeatureSet*/ maxFeatureSet );
 

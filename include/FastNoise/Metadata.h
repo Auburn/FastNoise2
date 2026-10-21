@@ -267,7 +267,8 @@ namespace FastNoise
          *  @endcode
          *
          *  @param maxFeatureSet  Maximum SIMD feature set to use. Defaults to auto-detect.
-         *  @return A SmartNode owning the new generator, or null if maxFeatureSet is below the min compiled SIMD feature set.
+         *  @return A SmartNode owning the new generator, or null if maxFeatureSet is below the min compiled SIMD feature set
+         *          or above what the CPU supports.
          */
         virtual SmartNode<> CreateNode( FastSIMD::FeatureSet maxFeatureSet = FastSIMD::FeatureSet::Max ) const = 0;
 
