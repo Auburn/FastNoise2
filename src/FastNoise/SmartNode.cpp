@@ -98,9 +98,7 @@ namespace FastNoise
 
         void* Alloc( size_t size, size_t align )
         {
-            std::atomic<SmartNodeManagerPool*>* tail;
-
-            if( void* ptr = AllocFromPools( size, align, tail ) )
+            if( void* ptr = AllocFromPools( size, align ) )
             {
                 return ptr;
             }
@@ -108,7 +106,7 @@ namespace FastNoise
             std::lock_guard lock( mMutex );
 
             // Another thread may have added a pool while this one waited for the lock
-            if( void* ptr = AllocFromPools( size, align, tail ) )
+            if( void* ptr = AllocFromPools( size, align ) )
             {
                 return ptr;
             }
@@ -128,9 +126,11 @@ namespace FastNoise
             void* alloc = newPool->TryAlloc( size, align );
             assert( alloc ); // New pool is sized to always fit the alloc
 
-            // Only lock holders append, so tail is still the end of the list
+            // New pools go at the head, so the next allocs try them first instead of walking past full pools
+            // Lock-free walks already in progress started below the new head, so they just miss this pool
             // Release so lock-free walks of the list see the pool initialised
-            tail->store( newPool, std::memory_order_release );
+            newPool->mNextPool.store( mPools.load( std::memory_order_relaxed ), std::memory_order_relaxed );
+            mPools.store( newPool, std::memory_order_release );
             return alloc;
         }
 
@@ -171,10 +171,10 @@ namespace FastNoise
         }
 
     private:
-        // Allocs from the first pool with room, otherwise returns null with tail at the end of the list
-        void* AllocFromPools( size_t size, size_t align, std::atomic<SmartNodeManagerPool*>*& tail )
+        // Allocs from the first pool with room
+        void* AllocFromPools( size_t size, size_t align )
         {
-            for( tail = &mPools; SmartNodeManagerPool* pool = tail->load( std::memory_order_acquire ); tail = &pool->mNextPool )
+            for( SmartNodeManagerPool* pool = mPools.load( std::memory_order_acquire ); pool; pool = pool->mNextPool.load( std::memory_order_acquire ) )
             {
                 if( void* ptr = pool->TryAlloc( size, align ) )
                 {
