@@ -8,7 +8,14 @@ namespace FastNoise::Internal
     // needing to keep a SmartNode around for nodes created in the C API
     void BumpNodeRefences( const Generator* ptr, bool up )
     {
-        ptr->ReferencesFetchAdd( up ? 1 : -1 );
+        if( up )
+        {
+            ptr->IncReferenceCount();
+        }
+        else
+        {
+            ptr->DecReferenceCount();
+        }
     }
 
     // Setting node sources requires a SmartNode argument, this SmartNode friend function

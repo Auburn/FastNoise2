@@ -442,7 +442,9 @@ namespace FastNoise
 
     private:
         virtual void SetSourceSIMDPtr( const Generator* base, const void** simdPtr ) = 0;
-        virtual int32_t ReferencesFetchAdd( int32_t add = 0 ) const noexcept = 0;
+        virtual void IncReferenceCount() const noexcept = 0;
+        virtual uint32_t DecReferenceCount() const noexcept = 0; // Returns the count before the decrement
+        virtual uint32_t GetReferenceCount() const noexcept = 0;
 
         template<typename>
         friend class SmartNode;
