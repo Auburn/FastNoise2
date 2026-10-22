@@ -31,6 +31,30 @@ FASTNOISE_API void* fnNewFromEncodedNodeTree( const char* encodedString, unsigne
  */
 FASTNOISE_API void fnDeleteNodeRef( void* node );
 
+/** @brief Set the size of node memory pools allocated from now on.
+ *
+ *  Equivalent to FastNoise::SmartNodeManager::SetMemoryPoolSize() in the C++ API.
+ *  Can be called at any time from any thread, existing pools keep their size. Larger pools mean fewer pool
+ *  allocations, smaller pools let fnReleaseEmptyPools() free memory in smaller pieces.
+ *  A node too large for the pool size gets a pool big enough for it.
+ *
+ *  @param size  Pool size in bytes, including a small header. Default is 64 KB.
+ */
+FASTNOISE_API void fnSetMemoryPoolSize( unsigned size );
+
+/** @brief Free node memory pools that have no live nodes in them.
+ *
+ *  Equivalent to FastNoise::SmartNodeManager::ReleaseEmptyPools() in the C++ API.
+ *  Deleted nodes go back to their pool and pools are kept for reuse, so memory stays at its peak until this is called.
+ *
+ *  Not thread safe: no other thread may create nodes or release node references during this call. That means
+ *  fnNewFromEncodedNodeTree(), fnNewFromMetadata(), fnDeleteNodeRef(), and fnSetNodeLookup(), fnSetHybridNodeLookup()
+ *  and fnSetHybridFloat(), which release the source they replace. Other threads may keep generating from nodes they
+ *  already hold. A binding that deletes nodes from a finalizer or garbage collector thread must stop those deletes
+ *  during this call.
+ */
+FASTNOISE_API void fnReleaseEmptyPools();
+
 /** @brief Get the SIMD feature set level active for this node.
  *  @param node  Node handle.
  *  @return FastSIMD::FeatureSet value as a uint.

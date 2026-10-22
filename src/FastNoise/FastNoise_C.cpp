@@ -56,6 +56,16 @@ void fnDeleteNodeRef( void* node )
     FastNoise::Internal::FromHandle( node );
 }
 
+void fnSetMemoryPoolSize( unsigned size )
+{
+    FastNoise::SmartNodeManager::SetMemoryPoolSize( size );
+}
+
+void fnReleaseEmptyPools()
+{
+    FastNoise::SmartNodeManager::ReleaseEmptyPools();
+}
+
 unsigned fnGetActiveFeatureSet( const void* node )
 {
     return (unsigned)ToGen( node )->GetActiveFeatureSet();
