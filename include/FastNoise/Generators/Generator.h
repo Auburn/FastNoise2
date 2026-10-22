@@ -147,11 +147,6 @@ namespace FastNoise
         constexpr HybridSourceT( float f = 0.0f ) : constant( f ) { }
     };
 
-    namespace Internal
-    {
-        void BumpNodeRefences( const Generator*, bool );
-    }
-
     /** @brief Abstract base class for all FastNoise2 noise generator nodes.
      *
      *  Generator is the root of the node class hierarchy. All noise types (Simplex, Perlin,
@@ -448,7 +443,6 @@ namespace FastNoise
 
         template<typename>
         friend class SmartNode;
-        friend void Internal::BumpNodeRefences( const Generator*, bool );
     };
 
     using GeneratorSource = GeneratorSourceT<Generator>; ///< Shorthand for a required generator source input.

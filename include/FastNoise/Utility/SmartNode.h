@@ -59,6 +59,9 @@ namespace FastNoise
 
     namespace Internal
     {
+        // C API handles are raw node pointers that each own one reference
+        void* ToHandle( SmartNode<> );
+        SmartNode<> FromHandle( void* );
         SmartNode<> ToSmartNode( const void* );
     }
 
@@ -284,6 +287,8 @@ namespace FastNoise
         template<typename U>
         friend class SmartNode;
 
+        friend void* Internal::ToHandle( SmartNode<> );
+        friend SmartNode<> Internal::FromHandle( void* );
         friend SmartNode<> Internal::ToSmartNode( const void* );
 
         friend T;
