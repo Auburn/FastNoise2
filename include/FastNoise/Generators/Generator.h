@@ -192,6 +192,9 @@ namespace FastNoise
          *  Output values are written in row-major order with X as the inner loop:
          *  `out[y * xCount + x]`
          *
+         *  Nothing is generated, and an empty range is returned, if any count is <= 0,
+         *  or if a count is above INT_MAX - 64 and a later count is above 1.
+         *
          *  @param[out] out        Pre-allocated output array. Must hold at least `xCount * yCount` floats.
          *  @param      xOffset    Starting X position in world space.
          *  @param      yOffset    Starting Y position in world space.
@@ -220,6 +223,9 @@ namespace FastNoise
          *
          *  Output values are written with X as the innermost loop, then Y, then Z:
          *  `out[(z * yCount + y) * xCount + x]`
+         *
+         *  Nothing is generated, and an empty range is returned, if any count is <= 0,
+         *  or if a count is above INT_MAX - 64 and a later count is above 1.
          *
          *  @param[out] out        Pre-allocated output array. Must hold at least `xCount * yCount * zCount` floats.
          *  @param      xOffset    Starting X position in world space.
@@ -252,6 +258,9 @@ namespace FastNoise
          *  Output values are written with X as the innermost loop, then Y, Z, W:
          *  `out[((w * zCount + z) * yCount + y) * xCount + x]`
          *
+         *  Nothing is generated, and an empty range is returned, if any count is <= 0,
+         *  or if a count is above INT_MAX - 64 and a later count is above 1.
+         *
          *  @param[out] out        Pre-allocated output array. Must hold at least `xCount * yCount * zCount * wCount` floats.
          *  @param      xOffset    Starting X position in world space.
          *  @param      yOffset    Starting Y position in world space.
@@ -282,6 +291,9 @@ namespace FastNoise
          *
          *  Output is written in row-major order: `out[y * xSize + x]`
          *
+         *  Nothing is generated, and an empty range is returned, if either size is <= 0,
+         *  or if xSize is above INT_MAX - 64 and ySize is above 1.
+         *
          *  @param[out] out        Pre-allocated output array. Must hold at least `xSize * ySize` floats.
          *  @param      xSize      Number of samples (and tile width) along the X axis.
          *  @param      ySize      Number of samples (and tile height) along the Y axis.
@@ -310,7 +322,7 @@ namespace FastNoise
          *  The offset parameters allow you to shift all positions without modifying the arrays.
          *
          *  @param[out] out        Pre-allocated output array. Must hold at least @p count floats.
-         *  @param      count      Number of positions to generate.
+         *  @param      count      Number of positions to generate. Nothing is generated if <= 0.
          *  @param      xPosArray  Array of X coordinates in world space (length >= @p count).
          *  @param      yPosArray  Array of Y coordinates in world space (length >= @p count).
          *  @param      xOffset    Constant offset added to all X positions.
@@ -337,7 +349,7 @@ namespace FastNoise
          *  The offset parameters allow you to shift all positions without modifying the arrays.
          *
          *  @param[out] out        Pre-allocated output array. Must hold at least @p count floats.
-         *  @param      count      Number of positions to generate.
+         *  @param      count      Number of positions to generate. Nothing is generated if <= 0.
          *  @param      xPosArray  Array of X coordinates in world space (length >= @p count).
          *  @param      yPosArray  Array of Y coordinates in world space (length >= @p count).
          *  @param      zPosArray  Array of Z coordinates in world space (length >= @p count).
@@ -365,7 +377,7 @@ namespace FastNoise
          *  The offset parameters allow you to shift all positions without modifying the arrays.
          *
          *  @param[out] out        Pre-allocated output array. Must hold at least @p count floats.
-         *  @param      count      Number of positions to generate.
+         *  @param      count      Number of positions to generate. Nothing is generated if <= 0.
          *  @param      xPosArray  Array of X coordinates in world space (length >= @p count).
          *  @param      yPosArray  Array of Y coordinates in world space (length >= @p count).
          *  @param      zPosArray  Array of Z coordinates in world space (length >= @p count).
