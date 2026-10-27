@@ -214,7 +214,54 @@ class FastSIMD::DispatchClass<PowFloat, SIMD> final : public virtual PowFloat, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        // Constant exponent with a closed form, read before the source call (see CombineSourceValues)
+        float powConstant = mPow.constant;
+        if( !mPow.simdGeneratorPtr && HasClosedForm( powConstant ) )
+        {
+            return PowClosedForm( FS::Abs( this->GetSourceValue( mValue, seed, pos... ) ), powConstant );
+        }
+
         return this->CombineSourceValues( mValue, mPow, []( float32v value, float32v pow ) { return Pow( FS::Abs( value ), pow ); }, seed, pos... );
+    }
+
+    // Common constant exponents: closed forms instead of Pow, see PowClosedForm
+    static FS_FORCEINLINE bool HasClosedForm( float pow )
+    {
+        return pow == 2.0f || pow == 1.0f || pow == 3.0f || pow == 4.0f || pow == 0.5f || pow == 1.5f || pow == -1.0f;
+    }
+
+    // value^pow for value >= 0 and a pow with a closed form (see HasClosedForm). Masked like FS::Pow: 0 for a zero (or NaN) value
+    static FS_FORCEINLINE float32v PowClosedForm( float32v value, float pow )
+    {
+        mask32v positive = value > float32v( 0 );
+
+        if( pow == 2.0f )
+        {
+            return FS::Masked( positive, value * value );
+        }
+        if( pow == 1.0f )
+        {
+            return FS::Masked( positive, value );
+        }
+        if( pow == 3.0f )
+        {
+            return FS::Masked( positive, value * value * value );
+        }
+        if( pow == 4.0f )
+        {
+            float32v sqr = value * value;
+            return FS::Masked( positive, sqr * sqr );
+        }
+        if( pow == 0.5f )
+        {
+            return FS::Masked( positive, FS::Sqrt( value ) );
+        }
+        if( pow == 1.5f )
+        {
+            return FS::Masked( positive, value * FS::Sqrt( value ) );
+        }
+        // pow == -1
+        return FS::Masked( positive, float32v( 1 ) / value );
     }
 
 public:
@@ -228,6 +275,14 @@ public:
     template<size_t DIMS>
     FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
+        float powConstant = mPow.constant;
+        if( !mPow.simdGeneratorPtr && HasClosedForm( powConstant ) ) // GenT's closed forms
+        {
+            this->template CombineSourceBlocks<DIMS>( [powConstant]( float32v value ) { return PowClosedForm( FS::Abs( value ), powConstant ); }, seed, pos, out, count, mValue );
+
+            return true;
+        }
+
         this->template CombineSourceBlocks<DIMS>( []( float32v value, float32v pow ) { return Pow( FS::Abs( value ), pow ); }, seed, pos, out, count, mValue, mPow );
 
         return true;

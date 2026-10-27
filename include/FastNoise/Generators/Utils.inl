@@ -874,6 +874,57 @@ namespace FastNoise
         }
     }
 
+    // sqrt( a ) for a >= 0, one Newton step on the approximate InvSqrt (within a few ulp), 0 for a == 0 like FS::Pow( a, 0.5f )
+    FS_FORCEINLINE static float32v SqrtRefined( float32v a )
+    {
+        if constexpr( FastSIMD::IsRelaxed() )
+        {
+            float32v invSqrt = FS::InvSqrt( a );
+            float32v s = a * invSqrt;
+            s = FS::FMulAdd( invSqrt * float32v( 0.5f ), FS::FNMulAdd( s, s, a ), s );
+
+            return FS::Masked( a > float32v( 0 ), s );
+        }
+        else
+        {
+            return FS::Sqrt( a );
+        }
+    }
+
+    // Minkowski with a common constant P: closed forms of |d|^P instead of Pow, see Cellular SelectGenT.
+    // Internal distance function values for the cellular variants, never stored in a node
+    namespace MinkowskiConstP
+    {
+        static constexpr DistanceFunction P1_5 = (DistanceFunction)0x100;
+        static constexpr DistanceFunction P0_5 = (DistanceFunction)0x101;
+        static constexpr DistanceFunction P3 = (DistanceFunction)0x102;
+        static constexpr DistanceFunction P4 = (DistanceFunction)0x103;
+    }
+
+    FS_FORCEINLINE static constexpr bool IsMinkowskiConstP( DistanceFunction distFunc )
+    {
+        return (int)distFunc >= (int)MinkowskiConstP::P1_5;
+    }
+
+    // |d|^P for d >= 0 and a MinkowskiConstP value
+    FS_FORCEINLINE static float32v MinkowskiConstPow( DistanceFunction distFunc, float32v d )
+    {
+        if( distFunc == MinkowskiConstP::P1_5 )
+        {
+            return d * SqrtRefined( d );
+        }
+        if( distFunc == MinkowskiConstP::P0_5 )
+        {
+            return SqrtRefined( d );
+        }
+        if( distFunc == MinkowskiConstP::P3 )
+        {
+            return d * d * d;
+        }
+        float32v dSqr = d * d;
+        return dSqr * dSqr;
+    }
+
     // Sample Minkowski P once at the generator's input position, not per distance calculation
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault(), typename... P>
     FS_FORCEINLINE static float32v GetMinkowskiP( DistanceFunction distFunc, const HybridSource& minkowskiP, int32v seed, P... pos )
@@ -896,6 +947,17 @@ namespace FastNoise
         switch( distFunc )
         {
             default:
+            // Constant P Minkowski, cell loops only (DO_SQRT false): the sum without the 1 / P root, clamped like Minkowski's below
+            if constexpr( !DO_SQRT )
+            {
+                if( IsMinkowskiConstP( distFunc ) )
+                {
+                    float32v sum = MinkowskiConstPow( distFunc, FS::Abs( pX ) );
+                    ((sum += MinkowskiConstPow( distFunc, FS::Abs( pos ) )), ...);
+
+                    return FS::Min( sum, float32v( kMinkowskiSumMax ) );
+                }
+            }
             case DistanceFunction::Euclidean:
             if constexpr( DO_SQRT )
             {
