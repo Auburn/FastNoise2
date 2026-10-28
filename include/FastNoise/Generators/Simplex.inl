@@ -194,7 +194,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         falloff2 *= falloff2; falloff2 *= falloff2;
         falloff3 *= falloff3; falloff3 *= falloff3;
 
-        float32v gradientRampValue0 = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
+        float32v gradientRampValue0 = GetGradientDot3( HashPrimesHB( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dx0, dy0, dz0 );
 
         // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis.
         // Vertex 1 moves only the largest axis, vertex 2 all but the smallest. On AVX512 this also measured faster than
@@ -207,13 +207,13 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         int32v largestPrimedDelta = FS::Select( maskX1, xPrimedDelta, FS::Select( maskY1, yPrimedDelta, zPrimedDelta ) );
         int32v smallestPrimedDelta = FS::Select( nMaskY2, yPrimedDelta, FS::Select( nMaskZ2, zPrimedDelta, xPrimedDelta ) );
 
-        float32v gradientRampValue1 = GetGradientDotCommon( HashPrimes( hashBase, largestPrimedDelta ), dx1, dy1, dz1 );
-        float32v gradientRampValue2 = GetGradientDotCommon( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, smallestPrimedDelta ), dx2, dy2, dz2 );
-        float32v gradientRampValue3 = GetGradientDotCommon( HashPrimes( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta ), dx3, dy3, dz3 );
+        float32v gradientRampValue1 = GetGradientDot3( HashPrimesHB( hashBase, largestPrimedDelta ), dx1, dy1, dz1 );
+        float32v gradientRampValue2 = GetGradientDot3( HashPrimesHB( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta, smallestPrimedDelta ), dx2, dy2, dz2 );
+        float32v gradientRampValue3 = GetGradientDot3( HashPrimesHB( hashBase, xPrimedDelta, yPrimedDelta, zPrimedDelta ), dx3, dy3, dz3 );
 
         float32v value = FN_FMulAdd( gradientRampValue3, falloff3, FN_FMulAdd( gradientRampValue2, falloff2, FN_FMulAdd( gradientRampValue1, falloff1, gradientRampValue0 * falloff0 ) ) );
 
-        constexpr float kBounding = 0.030586399137973785400390625f;
+        constexpr float kBounding = 0.04342977f;
 
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
@@ -582,7 +582,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         // Vertex <0, 0, 0>
         float32v value, falloffBaseStemA, falloffBaseStemB;
         {
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase );
+            float32v gradientRampValue = GetGradientDot3( HashPrimesHB( seed, xPrimedBase, yPrimedBase, zPrimedBase ), dxBase, dyBase, dzBase );
             float32v falloffBase = FN_FNMulAdd( dzBase, dzBase, FN_FNMulAdd( dyBase, dyBase, FN_FNMulAdd( dxBase, dxBase, float32v( kFalloffRadiusSquared ) ) ) ) * float32v( 0.5f );
             falloffBaseStemA = falloffBase - float32v( kDistanceSquaredA * 0.5 );
             falloffBaseStemB = falloffBase - float32v( kDistanceSquaredB * 0.5 );
@@ -600,7 +600,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset = float32v( 3 * kReflectUnskew3 + 1 ) ^ sign;
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset );
+            float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -620,7 +620,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0 );
+                float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0 );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -640,7 +640,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase );
+                float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -660,7 +660,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
                 int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
                 int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
 
-                float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase );
+                float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase );
                 value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
             }
         }
@@ -674,7 +674,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0 );
+            float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0 );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -688,7 +688,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0 );
+            float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0 );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
@@ -702,12 +702,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
             float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
-            float32v gradientRampValue = GetGradientDotCommon( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0 );
+            float32v gradientRampValue = GetGradientDot3( HashPrimesHB( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0 );
             float32v falloffBase = FS::Max( FN_FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
             value = FN_FMulAdd( ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), gradientRampValue, value );
         }
 
-        constexpr float kBounding = 0.0069091119803488254547119140625f;
+        constexpr float kBounding = 0.009392746f;
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 

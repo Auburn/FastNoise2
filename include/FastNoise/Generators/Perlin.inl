@@ -106,11 +106,11 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         ys = InterpQuintic( ys );
         zs = InterpQuintic( zs );
 
-        constexpr double kBounding = 1.0363423824310302734375;
+        constexpr double kBounding = 1.5;
 
         // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512/AArch64): all lanes share y and z, hash the lattice block and decode
-        // its gradients once, fold the y/z terms of the dot products into the block and permute them per lane. Gradients have two +-1
-        // components so the dot product rounds the same as GetGradientDotCommon
+        // its gradients once, fold the y/z terms of the dot products into the block and permute them per lane (GetGradient3X and
+        // GetGradientDot3YZ round the same as GetGradientDot3)
         if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
         {
             int32v xOffset;
@@ -119,10 +119,9 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 auto seedB = LatticeBlockSplat( seed );
                 auto xp = LatticeBlockPrimed<0>( xi, Primes::X );
                 auto yp = LatticeBlockPrimed<1>( yi, Primes::Y );
-                auto hashZ0 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
+                auto hashZ0 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 0>( zi, Primes::Z ) );
 
                 using NF = decltype( FS::Cast<float>( hashZ0 ) );
-                NF one( 1 ), zero( 0 );
 
                 // y/z offsets per block lane: f0 or f1 = f0 - 1, same ops as the per lane path
                 auto blockY = LatticeBlockPrimed<1>( yi, 1 ) - LatticeBlockSplat( yi );
@@ -137,16 +136,16 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 int32v xOffsetZ1 = xOffset + int32v( 8 );
                 if constexpr( NF::ElementCount < 16 )
                 {
-                    hashZ1 = HashPrimes( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
+                    hashZ1 = HashPrimesHB( seedB, xp, yp, LatticeBlockPrimed<2, 1>( zi, Primes::Z ) );
                     fZ1 = fZ - FS::Convert<float>( LatticeBlockPrimed<2, 1>( zi, 1 ) - LatticeBlockSplat( zi ) );
                     xOffsetZ1 = xOffset;
                 }
 
-                // x gradient and y/z part of the dot product: FMulAdd( gX, fX, FMulAdd( fY, gY, fZ * gZ ) )
-                NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
-                NF gXZ1 = GetGradientDotCommon( hashZ1, one, zero, zero );
-                NF dotYZZ0 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
-                NF dotYZZ1 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
+                // x gradient and y/z part of the dot product: FMulAdd( gX, fX, dotYZ )
+                NF gXZ0 = GetGradient3X<NF>( hashZ0 );
+                NF gXZ1 = GetGradient3X<NF>( hashZ1 );
+                NF dotYZZ0 = GetGradientDot3YZ( hashZ0, fY, fZ0 );
+                NF dotYZZ1 = GetGradientDot3YZ( hashZ1, fY, fZ1 );
 
                 float32v value = Lerp( Lerp(
                     Lerp( LatticeBlockDot( gXZ0, dotYZZ0, xOffset, xf0 ), LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
@@ -158,8 +157,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 return this->ScaleOutput( this, value, -kBounding, kBounding );
             }
         }
-        // SSE4.1: same with one register per x row of 4 block corners, looked up with pshufb. The SSE gradient dot product is a
-        // single rounded sum of two signed components, so it equals gX * fX + ( y/z part )
+        // SSE4.1: same with one register per x row of 4 block corners, looked up with pshufb
         else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) && !( SIMD & FastSIMD::FeatureFlag::AVX ) )
         {
             int32v xOffset;
@@ -173,7 +171,6 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 auto zp1 = LatticeBlockPrimed<2, 2>( zi, Primes::Z );
 
                 using NF = decltype( FS::Cast<float>( xp ) );
-                NF one( 1 ), zero( 0 );
 
                 // y/z offsets per row: f0 or f1 = f0 - 1, same ops as the per lane path
                 NF fY0 = FS::Cast<float>( LatticeBlockSplat( FS::Cast<std::int32_t>( yf0 ) ) );
@@ -181,19 +178,19 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 NF fY1 = fY0 - NF( 1 );
                 NF fZ1 = fZ0 - NF( 1 );
 
-                auto hash00 = HashPrimes( seedB, xp, yp0, zp0 );
-                auto hash10 = HashPrimes( seedB, xp, yp1, zp0 );
-                auto hash01 = HashPrimes( seedB, xp, yp0, zp1 );
-                auto hash11 = HashPrimes( seedB, xp, yp1, zp1 );
+                auto hash00 = HashPrimesHB( seedB, xp, yp0, zp0 );
+                auto hash10 = HashPrimesHB( seedB, xp, yp1, zp0 );
+                auto hash01 = HashPrimesHB( seedB, xp, yp0, zp1 );
+                auto hash11 = HashPrimesHB( seedB, xp, yp1, zp1 );
 
-                NF gX00 = GetGradientDotCommon( hash00, one, zero, zero );
-                NF gX10 = GetGradientDotCommon( hash10, one, zero, zero );
-                NF gX01 = GetGradientDotCommon( hash01, one, zero, zero );
-                NF gX11 = GetGradientDotCommon( hash11, one, zero, zero );
-                NF dotYZ00 = GetGradientDotCommon( hash00, zero, fY0, fZ0 );
-                NF dotYZ10 = GetGradientDotCommon( hash10, zero, fY1, fZ0 );
-                NF dotYZ01 = GetGradientDotCommon( hash01, zero, fY0, fZ1 );
-                NF dotYZ11 = GetGradientDotCommon( hash11, zero, fY1, fZ1 );
+                NF gX00 = GetGradient3X<NF>( hash00 );
+                NF gX10 = GetGradient3X<NF>( hash10 );
+                NF gX01 = GetGradient3X<NF>( hash01 );
+                NF gX11 = GetGradient3X<NF>( hash11 );
+                NF dotYZ00 = GetGradientDot3YZ( hash00, fY0, fZ0 );
+                NF dotYZ10 = GetGradientDot3YZ( hash10, fY1, fZ0 );
+                NF dotYZ01 = GetGradientDot3YZ( hash01, fY0, fZ1 );
+                NF dotYZ11 = GetGradientDot3YZ( hash11, fY1, fZ1 );
 
                 int32v idx0 = LatticeRowByteIndex( xOffset );
                 int32v idx1 = idx0 + int32v( 0x04040404 );
@@ -217,11 +214,11 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         int32v z1 = z0 + int32v( Primes::Z );
 
         float32v value = Lerp( Lerp(
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
+            Lerp( GetGradientDot3( HashPrimesHB( seed, x0, y0, z0 ), xf0, yf0, zf0 ), GetGradientDot3( HashPrimesHB( seed, x1, y0, z0 ), xf1, yf0, zf0 ), xs ),
+            Lerp( GetGradientDot3( HashPrimesHB( seed, x0, y1, z0 ), xf0, yf1, zf0 ), GetGradientDot3( HashPrimesHB( seed, x1, y1, z0 ), xf1, yf1, zf0 ), xs ), ys ),
             Lerp(
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),
-            Lerp( GetGradientDotCommon( HashPrimes( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDotCommon( HashPrimes( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
+            Lerp( GetGradientDot3( HashPrimesHB( seed, x0, y0, z1 ), xf0, yf0, zf1 ), GetGradientDot3( HashPrimesHB( seed, x1, y0, z1 ), xf1, yf0, zf1 ), xs ),
+            Lerp( GetGradientDot3( HashPrimesHB( seed, x0, y1, z1 ), xf0, yf1, zf1 ), GetGradientDot3( HashPrimesHB( seed, x1, y1, z1 ), xf1, yf1, zf1 ), xs ), ys ), zs );
 
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
