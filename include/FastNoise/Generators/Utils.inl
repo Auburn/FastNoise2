@@ -30,6 +30,13 @@ namespace FastNoise
         static constexpr int A = (int)0xB7E0A5F5;
     };
 
+    // Seed offsets (node Seed Offset, fractal octaves) move the seed in steps of a large odd constant instead of 1: the lattice
+    // hashes combine the seed with xor and multiplies, so seeds that only differ in their low bits give correlated noise
+    static constexpr int SeedSteps( int steps )
+    {
+        return (int)( (unsigned)steps * 0x9E3779B9u );
+    }
+
     static constexpr double kRoot2 = 1.4142135623730950488016887242097;
     static constexpr double kRoot3 = 1.7320508075688772935274463415059;
     static constexpr double kRoot5 = 2.2360679774997896964091736687313;
@@ -815,6 +822,13 @@ namespace FastNoise
         return hash;
     }
 
+    // Gradient index for GetGradientDot*: the top bits of the multiplied hash, these are the best mixed and depend on every seed bit
+    template<int Bits, typename I, typename... P>
+    FS_FORCEINLINE static I HashPrimesGradient( I seed, P... primedPos )
+    {
+        return HashPrimesHB( seed, primedPos... ) >> ( 32 - Bits );
+    }
+
     template<typename I, typename... P>
     FS_FORCEINLINE static auto GetValueCoord( I seed, P... primedPos )
     {
@@ -823,21 +837,21 @@ namespace FastNoise
 
         if constexpr( ( I::FeatureFlags & FastSIMD::FeatureFlag::x86 ) && !( I::FeatureFlags & FastSIMD::FeatureFlag::SSE41 ) )
         {
-            // SSE2 has no 32 bit multiply, each one is emulated with pmuludq on the even and odd lanes plus a repack.
-            // pmuludq only reads the low half of each 64 bit lane, so both multiplies can run before a single repack
-            hash = FS::NativeExec<I>( []( auto h, auto a )
+            // SSE2 has no 32 bit multiply: square the even and odd lanes with pmuludq (it only reads the low half of each
+            // 64 bit lane) and repack once
+            hash = FS::NativeExec<I>( []( auto h )
             {
                 auto hOdd = _mm_srli_epi64( h, 32 );
-                auto even = _mm_mul_epu32( _mm_mul_epu32( h, h ), a );
-                auto odd = _mm_mul_epu32( _mm_mul_epu32( hOdd, hOdd ), a );
+                auto even = _mm_mul_epu32( h, h );
+                auto odd = _mm_mul_epu32( hOdd, hOdd );
 
                 // [ e0, e2, o1, o3 ] -> [ e0, o1, e2, o3 ]
                 return _mm_shuffle_epi32( _mm_castps_si128( _mm_shuffle_ps( _mm_castsi128_ps( even ), _mm_castsi128_ps( odd ), 0x88 ) ), 0xD8 );
-            }, hash, I( HashMultiplier::A ) );
+            }, hash );
         }
         else
         {
-            hash *= hash * I( HashMultiplier::A );
+            hash *= hash;
         }
         return FS::Convert<float>( hash );
     }

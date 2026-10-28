@@ -1,4 +1,5 @@
 #include "Fractal.h"
+#include "Utils.inl"
 
 template<FastSIMD::FeatureSet SIMD, typename T>
 class FastSIMD::DispatchClass<Fractal<T>, SIMD> : public virtual Fractal<T>, public DispatchClass<Generator, SIMD>
@@ -45,7 +46,7 @@ protected:
             const float* prevNoise = noiseBuffers[( octave - 1 ) & 1];
             float* noise = noiseBuffers[octave & 1];
 
-            seed -= int32v( -1 );
+            seed += int32v( SeedSteps( 1 ) );
             constantAmp *= gain;
 
             for( intptr_t i = 0; i < count * (intptr_t)DIMS; i += N )
@@ -97,7 +98,7 @@ class FastSIMD::DispatchClass<FractalFBm, SIMD> final : public virtual FractalFB
 
         for( int i = 1; i < mOctaves; i++ )
         {
-            seed -= int32v( -1 );
+            seed += int32v( SeedSteps( 1 ) );
             if( isWeighted )
             {
                 amp *= Lerp( float32v( 1 ), (noise + float32v( 1 )) * float32v( 0.5f ), weightedStrength );
@@ -156,7 +157,7 @@ class FastSIMD::DispatchClass<FractalRidged, SIMD> final : public virtual Fracta
 
         for( int i = 1; i < mOctaves; i++ )
         {
-            seed -= int32v( -1 );
+            seed += int32v( SeedSteps( 1 ) );
             if( isWeighted )
             {
                 amp *= Lerp( float32v( 1 ), float32v( 1 ) - noise, weightedStrength );
