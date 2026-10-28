@@ -660,8 +660,10 @@ protected:
         }
         else
         {
-            offset[0] = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            offset[1] = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            offset[0] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            offset[1] = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             offset[2] = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             offset[3] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
         }
@@ -711,7 +713,7 @@ protected:
     FS_FORCEINLINE static void VisitFloorCell( DistanceFunction distFunc, int32v hash, float32v jitter, const float32v* base, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
                                                const float32v* sizeJitter = nullptr )
     {
-        hash *= int32v( HashMultiplier::A );
+        hash = FoldHash( hash * int32v( HashMultiplier::A ) );
 
         float32v point[D];
         FeaturePointOffset<D>( hash, jitter, base, point );
@@ -776,7 +778,7 @@ protected:
                 hash ^= primed[d][( c >> ( D - 1 - d ) ) & 1];
                 base[d] = cellOffset[d][( c >> ( D - 1 - d ) ) & 1];
             }
-            hash *= int32v( HashMultiplier::A );
+            hash = FoldHash( hash * int32v( HashMultiplier::A ) );
 
             float32v point[D];
             FeaturePointOffset<D>( hash, jitter, base, point );
@@ -1312,7 +1314,7 @@ protected:
         {
             hash ^= cell[2].v0 * IN( Primes::Z ) + CellBlockPrimedOffsets<IN, D, 2, TABLE>( lanes );
         }
-        hash *= IN( HashMultiplier::A );
+        hash = FoldHash( hash * IN( HashMultiplier::A ) );
 
         if constexpr( D == 2 )
         {
@@ -1435,12 +1437,18 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     template<typename... P>
     using GenTPtr = float32v( FS_VECTORCALL DispatchClass::* )( int32v, P... ) const;
 
+    // The top bits of the cell hash are only as well mixed as hash * A, squaring makes them depend on every bit
+    FS_FORCEINLINE float32v CellValue( int32v hash ) const
+    {
+        return this->ScaleOutput( this, FS::Convert<float>( hash * hash ), -kValueBounds, kValueBounds );
+    }
+
     template<bool SPECIALISED, DistanceFunction DIST_FUNC>
     float32v FS_VECTORCALL GenFloorT( int32v seed, float32v x, float32v y ) const
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter2D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y );
@@ -1449,7 +1457,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         int32v hash;
         this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, pos, &hash, nullptr );
 
-        return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+        return CellValue( hash );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
@@ -1491,7 +1499,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         constexpr DistanceFunction distFunc = DistanceFunction::Minkowski;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -1519,7 +1527,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( distance[valueIndex] ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
             float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -1556,7 +1564,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( valueHash[valueIndex] ), -kValueBounds, kValueBounds );
+        return CellValue( valueHash[valueIndex] );
     }
 
     template<bool SPECIALISED, DistanceFunction DIST_FUNC, int COUNT, bool SIZE_JITTER>
@@ -1566,7 +1574,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -1589,7 +1597,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             {
                 int32v hash;
                 this->template Closest2D<true, false>( distFunc, seed, jitter, x, y, &hash, nullptr );
-                return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                return CellValue( hash );
             }
         }
 
@@ -1606,12 +1614,12 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
                 if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 if constexpr( ( DIST_FUNC == DistanceFunction::Hybrid && float32v::ElementCount != 16 ) || float32v::ElementCount >= 32 )
                 {
                     this->template FarCells2D<true, false>( distFunc, seed, jitter, floorPos, closest, &hash, nullptr );
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
             }
         }
@@ -1627,12 +1635,12 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<2, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr, &sizeJitter );
                 if( this->template FloorCellsComplete<2>( distFunc, closest, jitter, floorPos, &minFactor ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 if constexpr( float32v::ElementCount != 16 )
                 {
                     this->template FarCells2D<true, false>( distFunc, seed, jitter, floorPos, closest, &hash, nullptr, &sizeJitter );
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
             }
         }
@@ -1654,7 +1662,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
+                int32v hash = HashPrimesFolded( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
                 float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -1697,7 +1705,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             xc += int32v( Primes::X );
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
+        return CellValue( this->DistanceAt( valueHash, valueIndex ) );
     }
 
     // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
@@ -1718,7 +1726,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -1763,7 +1771,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter3D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y, z );
@@ -1772,7 +1780,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         int32v hash;
         this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, pos, &hash, nullptr );
 
-        return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+        return CellValue( hash );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
@@ -1802,7 +1810,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
@@ -1829,7 +1837,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr );
                 if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 // The 3^D search starts from the closest point so far and skips the 2^D cells, its pruning then skips most other cells
                 distance[0] = closest;
@@ -1849,7 +1857,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 float32v closest = this->template FloorCellsClosest<3, true, false>( distFunc, seed, jitter, floorPos, &hash, nullptr, &sizeJitter );
                 if( this->template FloorCellsComplete<3>( distFunc, closest, jitter, floorPos, &minFactor ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( hash ), -kValueBounds, kValueBounds );
+                    return CellValue( hash );
                 }
                 distance[0] = closest;
                 valueHash[0] = hash;
@@ -1898,7 +1906,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 this->template FloorCellsVisit<3>( distFunc, seed, jitter, floorPos, insert );
                 if( this->template FloorCellsComplete<3>( distFunc, distance[COUNT - 1], jitter, floorPos ) )
                 {
-                    return this->ScaleOutput( this, FS::Convert<float>( valueHash[COUNT - 1] ), -kValueBounds, kValueBounds );
+                    return CellValue( valueHash[COUNT - 1] );
                 }
                 nearBlockDone = true;
             }
@@ -1915,7 +1923,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             Search3D( valueHash, distance, valueIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
+        return CellValue( this->DistanceAt( valueHash, valueIndex ) );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
@@ -1935,7 +1943,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
@@ -1965,9 +1973,11 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            float32v xd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
@@ -2006,7 +2016,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             }
         }
 
-        return this->ScaleOutput( this, FS::Convert<float>( this->DistanceAt( valueHash, valueIndex ) ), -kValueBounds, kValueBounds );
+        return CellValue( this->DistanceAt( valueHash, valueIndex ) );
     }
 };
 
@@ -2032,7 +2042,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     FS_FORCEINLINE void VisitCell2D( std::array<float32v, COUNT>& distance, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
                                      const float32v& sizeJitter, int32v seed, int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset ) const
     {
-        int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+        int32v hash = HashPrimesFolded( seed, xPrimed, yPrimed );
         float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
         float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -2060,7 +2070,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter2D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y );
@@ -2099,7 +2109,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -2247,7 +2257,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -2278,7 +2288,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     {
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter3D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y, z );
@@ -2317,7 +2327,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
@@ -2430,7 +2440,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
@@ -2466,9 +2476,11 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            float32v xd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
@@ -2562,7 +2574,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
     FS_FORCEINLINE void VisitCell2D( float32v& distance, float32v& cellX, float32v& cellY, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
                                      const float32v& sizeJitter, int32v seed, float32v x, float32v y, int32v xPrimed, int32v yPrimed, float32v xCell, float32v yCell ) const
     {
-        int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+        int32v hash = HashPrimesFolded( seed, xPrimed, yPrimed );
         float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
         float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -2592,7 +2604,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter2D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y );
@@ -2631,7 +2643,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter2D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y );
         float32v sizeJitter;
@@ -2766,7 +2778,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         while( const int8_t* o = cells.Next( distance ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -2801,7 +2813,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter( this->kJitter3D * mGridJitter.constant );
 
         this->ScalePositions( this, x, y, z );
@@ -2840,7 +2852,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter3D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z );
         float32v sizeJitter;
@@ -2929,7 +2941,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         DistanceFunction distFunc = SPECIALISED ? DIST_FUNC : mDistanceFunction;
 
         int32v sourceSeed = seed;
-        seed += int32v( this->mSeedOffset );
+        seed += int32v( SeedSteps( this->mSeedOffset ) );
         float32v jitter = float32v( this->kJitter4D ) * this->GetSourceValue( mGridJitter, sourceSeed, x, y, z, w );
         float32v minkowskiP = GetMinkowskiP( distFunc, mMinkowskiP, sourceSeed, x, y, z, w );
         float32v sizeJitter;
@@ -2958,9 +2970,11 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         while( const int8_t* o = cells.Next( distance ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            float32v xd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 

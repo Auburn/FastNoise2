@@ -77,7 +77,7 @@ protected:
 
         for( int i = 1; i < self.mOctaves; i++ )
         {
-            seedInc -= int32v( -1 );
+            seedInc += int32v( SeedSteps( 1 ) );
             freq *= lacunarity;
             if( isWeighted )
             {
