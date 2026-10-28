@@ -17,7 +17,9 @@ protected:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual CellularValue, public DispatchClass<Cellular<>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -35,7 +37,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         
         distance.fill( float32v( kInfinity ) );
 
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -94,10 +96,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             xc += int32v( Primes::X );
         }
 
-        return this->ScaleOutput( FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -115,7 +117,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         
         distance.fill( float32v( kInfinity ) );
 
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
         
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -186,10 +188,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             xc += int32v( Primes::X );
         }
 
-        return this->ScaleOutput( FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z , float32v w ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -207,7 +209,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         
         distance.fill( float32v( kInfinity ) );
 
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
         
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -290,14 +292,16 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             xc += int32v( Primes::X );
         }
 
-        return this->ScaleOutput( FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
+        return this->ScaleOutput( this, FS::Convert<float>( valueHash[mValueIndex] ), -kValueBounds, kValueBounds );
     }
 };
 
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual CellularDistance, public DispatchClass<Cellular<>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -313,7 +317,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( kInfinity ) );
 
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -363,7 +367,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         return GetReturn( distance, 1 + this->kJitter2D );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -379,7 +383,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( kInfinity ) );
 
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -442,7 +446,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         return GetReturn( distance, 1 + this->kJitter3D );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -458,7 +462,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         std::array<float32v, kMaxDistanceCount> distance;
         distance.fill( float32v( kInfinity ) );
 
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -554,23 +558,23 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         default:
         case ReturnType::Index0:
         {
-            return this->ScaleOutput( distance[mDistanceIndex0], 0, maxDist );
+            return this->ScaleOutput( this, distance[mDistanceIndex0], 0, maxDist );
         }
         case ReturnType::Index0Add1:
         {
-            return this->ScaleOutput( distance[mDistanceIndex0] + distance[mDistanceIndex1], 0, maxDist * 2 );
+            return this->ScaleOutput( this, distance[mDistanceIndex0] + distance[mDistanceIndex1], 0, maxDist * 2 );
         }
         case ReturnType::Index0Sub1:
         {
-            return this->ScaleOutput( FS::Abs( distance[mDistanceIndex0] - distance[mDistanceIndex1] ), 0, maxDist );
+            return this->ScaleOutput( this, FS::Abs( distance[mDistanceIndex0] - distance[mDistanceIndex1] ), 0, maxDist );
         }
         case ReturnType::Index0Mul1:
         {
-            return this->ScaleOutput( distance[mDistanceIndex0] * distance[mDistanceIndex1], 0, maxDist * maxDist );
+            return this->ScaleOutput( this, distance[mDistanceIndex0] * distance[mDistanceIndex1], 0, maxDist * maxDist );
         }
         case ReturnType::Index0Div1:
         {
-            return this->ScaleOutput( distance[mDistanceIndex0] * FS::Reciprocal( distance[mDistanceIndex1] ), 0, maxDist );
+            return this->ScaleOutput( this, distance[mDistanceIndex0] * FS::Reciprocal( distance[mDistanceIndex1] ), 0, maxDist );
         }
         }
     }
@@ -579,7 +583,9 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual CellularLookup, public DispatchClass<Cellular<Seeded<ScalableGenerator>>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -595,7 +601,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v distance( FLT_MAX );
         float32v cellX, cellY;
 
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -645,7 +651,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -661,7 +667,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v distance( FLT_MAX );
         float32v cellX, cellY, cellZ;
 
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
@@ -725,7 +731,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         return this->GetSourceValue( mLookup, sourceSeed - int32v( -1 ), cellX * float32v( mScale ), cellY * float32v( mScale ), cellZ * float32v( mScale ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         int32v sourceSeed = seed;
         seed += int32v( this->mSeedOffset );
@@ -741,7 +747,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         float32v distance( FLT_MAX );
         float32v cellX, cellY, cellZ, cellW;
 
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
 
         int32v xc = FS::Convert<int32_t>( x ) + int32v( -1 );
         int32v ycBase = FS::Convert<int32_t>( y ) + int32v( -1 );
