@@ -54,7 +54,7 @@ class FastSIMD::DispatchClass<White, SIMD> final : public virtual White, public 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        seed += int32v( mSeedOffset );
+        seed += int32v( SeedSteps( mSeedOffset ) );
         size_t idx = 0;
         ((pos = FS::Cast<float>( (FS::Cast<int32_t>( pos ) ^ (FS::Cast<int32_t>( pos ) >> 16)) * int32v( Primes::Lookup[idx++] ) )), ...);
 
