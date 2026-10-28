@@ -8,12 +8,56 @@ protected:
     // Progressive samples each octave's warp at the already warped position, Independent always samples at the input position
     // Static taking the final class so member reads use fixed offsets instead of going through the virtual base
     template<bool Progressive, typename Self, size_t... I, typename... P>
-    static FS_FORCEINLINE float32v GenWarpFractal( const Self& self, std::index_sequence<I...>, int32v seed, P... pos )
+    static FS_FORCEINLINE float32v GenWarpFractal( const Self& self, std::index_sequence<I...> seq, int32v seed, P... pos )
     {
         float32v warpPos[] = { pos... };
         auto* warp = self.GetSourceSIMD( self.mSource );
 
+        WarpFractal<Progressive>( self, warp, seq, seed, warpPos, pos... );
+
+        return self.GetSourceValue( warp->GetWarpSource(), seed, warpPos[I]... );
+    }
+
+    // Block version: the warped positions are computed per vector, then the warp source is evaluated for the whole block
+    template<bool Progressive, size_t DIMS, typename Self>
+    static FS_FORCEINLINE bool GenWarpFractalBlock( const Self& self, int32v seed, const float* pos, float* out, intptr_t count )
+    {
+        auto* warp = self.GetSourceSIMD( self.mSource );
+
+        if( !self.SourceHasGenBlock( warp->GetWarpSource() ) )
+        {
+            return false;
+        }
+
+        self.template GetSourceBlockAt<DIMS, DIMS>( warp->GetWarpSource(), seed, pos, out, count, [&]( float* dst, intptr_t, auto... p ) {
+            StoreWarpFractal<Progressive>( self, warp, std::make_index_sequence<DIMS>(), seed, dst, p... );
+        } );
+
+        return true;
+    }
+
+    template<bool Progressive, typename Self, typename Warp, size_t... I, typename... P>
+    static FS_FORCEINLINE void StoreWarpFractal( const Self& self, const Warp* warp, std::index_sequence<I...> seq, int32v seed, float* dst, P... pos )
+    {
+        float32v warpPos[] = { pos... };
+
+        WarpFractal<Progressive>( self, warp, seq, seed, warpPos, pos... );
+
+        self.StoreBlockVector( dst, warpPos[I]... );
+    }
+
+    // Warps warpPos (initially pos) through the octaves
+    template<bool Progressive, typename Self, typename Warp, size_t... I, typename... P>
+    static FS_FORCEINLINE void WarpFractal( const Self& self, const Warp* warp, std::index_sequence<I...>, int32v seed, float32v* warpPos, P... pos )
+    {
         float32v amp = self.GetSourceValue( warp->GetWarpAmplitude(), seed, pos... );
+
+        // amp stays 0 through the octaves, skip warping if a generator sourced amplitude is 0 in every lane
+        if( warp->GetWarpAmplitude().simdGeneratorPtr && !FS::AnyMask( amp != float32v( 0 ) ) )
+        {
+            return;
+        }
+
         float32v weightedStrength = self.GetSourceValue( self.mWeightedStrength, seed, pos... );
         float32v freq = float32v( warp->GetWarpFrequency() );
         int32v seedInc = seed;
@@ -21,19 +65,35 @@ protected:
         float32v gain = self.GetSourceValue( self.mGain, seed, pos... );
         float32v lacunarity( self.mLacunarity );
 
+#if defined( _MSC_VER ) && !defined( __clang__ )
+        // MSVC: the virtual Warp() is faster here than the static WarpFn (DW fractal 2D rows 3-12%; clang: WarpFn up to 12% faster)
         float32v strength = warp->Warp( seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos[I]... );
+#else
+        float32v strength = warp->CallWarp( warp, seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos );
+#endif
+
+        // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
+        bool isWeighted = self.mWeightedStrength.simdGeneratorPtr || self.mWeightedStrength.constant != 0.0f;
 
         for( int i = 1; i < self.mOctaves; i++ )
         {
-            strength = FastLengthSqrt( strength );
             seedInc -= int32v( -1 );
             freq *= lacunarity;
-            amp *= Lerp( float32v( 1 ), float32v( 1 ) - strength, weightedStrength );
-            amp *= gain;
+            if( isWeighted )
+            {
+                amp *= Lerp( float32v( 1 ), float32v( 1 ) - FastLengthSqrt( strength ), weightedStrength );
+                amp *= gain;
+            }
+            else
+            {
+                amp *= gain;
+            }
+#if defined( _MSC_VER ) && !defined( __clang__ )
             strength = warp->Warp( seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos[I]... );
+#else
+            strength = warp->CallWarp( warp, seedInc, amp, ( ( Progressive ? warpPos[I] : pos ) * freq )..., warpPos );
+#endif
         }
-
-        return self.GetSourceValue( warp->GetWarpSource(), seed, warpPos[I]... );
     }
 };
 
@@ -47,6 +107,15 @@ class FastSIMD::DispatchClass<DomainWarpFractalProgressive, SIMD> final : public
     {
         return this->template GenWarpFractal<true>( *this, std::index_sequence_for<P...>(), seed, pos... );
     }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template GenWarpFractalBlock<true, DIMS>( *this, seed, pos, out, count );
+    }
 };
 
 template<FastSIMD::FeatureSet SIMD>
@@ -58,5 +127,14 @@ class FastSIMD::DispatchClass<DomainWarpFractalIndependent, SIMD> final : public
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
         return this->template GenWarpFractal<false>( *this, std::index_sequence_for<P...>(), seed, pos... );
+    }
+
+public:
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template GenWarpFractalBlock<false, DIMS>( *this, seed, pos, out, count );
     }
 };
