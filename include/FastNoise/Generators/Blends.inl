@@ -140,7 +140,13 @@ class FastSIMD::DispatchClass<Divide, SIMD> final : public virtual Divide, publi
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        // Not CombineSourceValues: its constant RHS path compiles to lhs * ( 1 / constant ), which changes the output
+        if( !mRHS.simdGeneratorPtr ) // Constant RHS: multiply by its reciprocal, within an ulp of the division
+        {
+            float rhsReciprocal = 1.0f / mRHS.constant;
+
+            return this->GetSourceValue( mLHS, seed, pos... ) * float32v( rhsReciprocal );
+        }
+
         float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
 
         return lhs / this->GetSourceValue( mRHS, seed, pos... );
@@ -157,10 +163,19 @@ public:
     template<size_t DIMS>
     FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
-        // A constant RHS is divided per vector as in GenT, in a block loop it would become a multiply by its reciprocal
         if( !mRHS.simdGeneratorPtr )
         {
-            return false;
+            // Cheap op, for an LHS without GenBlock the per vector path is faster
+            if( !this->AnySourceHasGenBlock( mLHS ) )
+            {
+                return false;
+            }
+
+            // Same reciprocal multiply as GenT
+            float rhsReciprocal = 1.0f / mRHS.constant;
+
+            this->template CombineSourceBlocks<DIMS>( [=]( float32v lhs ) { return lhs * float32v( rhsReciprocal ); }, seed, pos, out, count, mLHS );
+            return true;
         }
 
         this->template CombineSourceBlocks<DIMS>( []( float32v a, float32v b ) { return a / b; }, seed, pos, out, count, mLHS, mRHS );
@@ -194,7 +209,8 @@ public:
     template<size_t DIMS>
     FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
     {
-        // A constant RHS is handled per vector as in GenT, see Divide
+        // A constant RHS is handled per vector as in GenT: in a block loop the division inside Modulus would become a multiply
+        // by the reciprocal of the constant, which changes the output
         if( !mRHS.simdGeneratorPtr )
         {
             return false;
@@ -431,7 +447,7 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
         float32v fadeMax = this->GetSourceValue( mFadeMax, seed, pos... );
         float32v a = this->GetSourceValue( mA, seed, pos... );
 
-        fade = FadeAmount( fade, fadeMin, fadeMax );
+        fade = FadeAmount( fade, fadeMin, fadeMax, FadeRangeReciprocal() );
 
         // Lerp( a, b, 0 ) == a, skip evaluating B if no lane needs it
         if( !FS::AnyMask( fade != float32v( 0 ) ) )
@@ -442,11 +458,29 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
         return Lerp( a, this->GetSourceValue( mB, seed, pos... ), fade );
     }
 
-    FS_FORCEINLINE float32v FadeAmount( float32v fade, float32v fadeMin, float32v fadeMax ) const
+    // 1 / ( fade max - fade min ) if both are constants, computed once per call instead of a division per point (a range of 0
+    // gives +-inf, FadeAmount's zero range select still applies). 0 otherwise or for an infinite range: FadeAmount then divides
+    FS_FORCEINLINE float FadeRangeReciprocal() const
+    {
+        if( !mFadeMin.simdGeneratorPtr && !mFadeMax.simdGeneratorPtr )
+        {
+            return 1.0f / ( mFadeMax.constant - mFadeMin.constant );
+        }
+        return 0.0f;
+    }
+
+    FS_FORCEINLINE float32v FadeAmount( float32v fade, float32v fadeMin, float32v fadeMax, float fadeRangeReciprocal ) const
     {
         float32v fadeRange = fadeMax - fadeMin;
 
-        fade = ( fade - fadeMin ) / fadeRange;
+        if( fadeRangeReciprocal != 0.0f ) // Constant range: multiply by its reciprocal, within an ulp of the division
+        {
+            fade = ( fade - fadeMin ) * float32v( fadeRangeReciprocal );
+        }
+        else
+        {
+            fade = ( fade - fadeMin ) / fadeRange;
+        }
 
         fade = FS::Max( float32v( 0 ), FS::Min( float32v( 1 ), fade ) );
 
@@ -482,7 +516,9 @@ public:
         alignas( 64 ) float a[kBlockSize];
 
         // Same as GenT: vectors with a fade amount of 0 in every lane are A. B is evaluated for the block if every vector needs it, else per vector
-        this->template CombineSourceBlocks<DIMS>( [this]( float32v fadeV, float32v fadeMin, float32v fadeMax ) { return FadeAmount( fadeV, fadeMin, fadeMax ); },
+        float fadeRangeReciprocal = FadeRangeReciprocal();
+
+        this->template CombineSourceBlocks<DIMS>( [this, fadeRangeReciprocal]( float32v fadeV, float32v fadeMin, float32v fadeMax ) { return FadeAmount( fadeV, fadeMin, fadeMax, fadeRangeReciprocal ); },
             seed, pos, fade, count, mFade, mFadeMin, mFadeMax );
 
         this->template GetSourceBlock<DIMS>( mA, seed, pos, a, count );
