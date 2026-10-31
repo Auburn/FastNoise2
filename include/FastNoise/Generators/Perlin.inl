@@ -4,10 +4,12 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -31,13 +33,13 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr float kBounding = 1.726796627044677734375f;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -70,13 +72,13 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr double kBounding = 1.0363423824310302734375;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -121,6 +123,6 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr float kBounding = 1.33858621120452880859375;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 };
