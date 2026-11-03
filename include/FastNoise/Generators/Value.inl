@@ -4,10 +4,12 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -20,16 +22,16 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         xs = InterpHermite( x - xs );
         ys = InterpHermite( y - ys );
 
-        return this->ScaleOutput( Lerp(
+        return this->ScaleOutput( this, Lerp(
             Lerp( GetValueCoord( seed, x0, y0 ), GetValueCoord( seed, x1, y0 ), xs ),
             Lerp( GetValueCoord( seed, x0, y1 ), GetValueCoord( seed, x1, y1 ), xs ), ys ),
             -kValueBounds, kValueBounds );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -46,7 +48,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         ys = InterpHermite( y - ys );
         zs = InterpHermite( z - zs );
 
-        return this->ScaleOutput( Lerp( Lerp(
+        return this->ScaleOutput( this, Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0 ), GetValueCoord( seed, x1, y0, z0 ), xs ),
             Lerp( GetValueCoord( seed, x0, y1, z0 ), GetValueCoord( seed, x1, y1, z0 ), xs ), ys ),
             Lerp(                                                                                
@@ -55,10 +57,10 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
             -kValueBounds, kValueBounds );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
 
         float32v xs = FS::Floor( x );
         float32v ys = FS::Floor( y );
@@ -79,7 +81,7 @@ class FastSIMD::DispatchClass<Value, SIMD> final : public virtual Value, public 
         zs = InterpHermite( z - zs );
         ws = InterpHermite( w - ws );
 
-        return this->ScaleOutput( Lerp( Lerp( Lerp(
+        return this->ScaleOutput( this, Lerp( Lerp( Lerp(
             Lerp( GetValueCoord( seed, x0, y0, z0, w0 ), GetValueCoord( seed, x1, y0, z0, w0 ), xs ),
             Lerp( GetValueCoord( seed, x0, y1, z0, w0 ), GetValueCoord( seed, x1, y1, z0, w0 ), xs ), ys ),
             Lerp( 
