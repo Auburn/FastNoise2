@@ -236,6 +236,18 @@ protected:
         return kPruneNone;
     }
 
+    // N infinite distances. Not std::array::fill(): MSVC calls an out of line std::fill_n for it
+    template<size_t N>
+    FS_FORCEINLINE static std::array<float32v, N> InfiniteDistances()
+    {
+        std::array<float32v, N> distance;
+        for( size_t i = 0; i < N; i++ )
+        {
+            distance[i] = float32v( kInfinity );
+        }
+        return distance;
+    }
+
     // Constant indices only, so distance/hash arrays can stay in registers
     template<typename T, size_t N>
     FS_FORCEINLINE static T DistanceAt( const std::array<T, N>& distance, int index )
@@ -430,7 +442,7 @@ protected:
             // Negative size factor allows negative distances, never skip those lanes. 4D applies it before the bounds are stored:
             // a select of a just stored value becomes a masked store (clang 23 AVX2/AVX512) that later loads can't forward from.
             // 2D/3D afterwards: InitPruning() is inlined into every GenT variant there, and the in-loop form grew the generic
-            // 3D variants by 250-350 instructions
+            // 3D variants by 250-350 instructions. MSVC AVX512 afterwards for 4D too (kSelectInLoopDim)
             mask32v sizeJitterValid;
             if( sizeJitterActive )
             {
@@ -782,8 +794,43 @@ protected:
         return float32v( kInfinity );
     }
 
-    // InitPruning(): dimension count whose size jitter bound select happens in the bounds loop (others after it)
-    static constexpr int kSelectInLoopDim = 4;
+    // MSVC doesn't unroll the cell loops and keeps everything they index on the stack: one inlined call per cell instead
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    static constexpr bool kUnrollCells = true;
+#else
+    static constexpr bool kUnrollCells = false;
+#endif
+
+    // InitPruning(): dimension count whose size jitter bound select happens in the bounds loop (others after it). Not on MSVC AVX512:
+    // the in-loop form measured 1.3-1.4x slower for 4D size jitter there (Demo_CellularCaves 4D 1.12x)
+    static constexpr int kSelectInLoopDim = ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && kUnrollCells ? 0 : 4;
+
+    // FloorCellsClosest()'s cell C (bit D - 1 - d = offset on axis d) with compile time indices
+    template<int D, bool HASH, bool CELL, int C>
+    FS_FORCEINLINE static void FloorCellVisit( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[D][2], const float32v ( &cellOffset )[D][2],
+                                               const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell, const float32v* sizeJitter )
+    {
+        constexpr int xi = ( C >> ( D - 1 ) ) & 1, yi = ( C >> ( D - 2 ) ) & 1, zi = C & 1;
+
+        int32v hash = seed ^ primed[0][xi] ^ primed[1][yi];
+        float32v base[D];
+        base[0] = cellOffset[0][xi];
+        base[1] = cellOffset[1][yi];
+        if constexpr( D == 3 )
+        {
+            hash ^= primed[D - 1][zi];
+            base[D - 1] = cellOffset[D - 1][zi];
+        }
+        VisitFloorCell<D, HASH, CELL>( distFunc, hash, jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+    }
+
+    template<int D, bool HASH, bool CELL, int... C>
+    FS_FORCEINLINE static void FloorCellsVisitEach( std::integer_sequence<int, C...>, DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[D][2],
+                                                    const float32v ( &cellOffset )[D][2], const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
+                                                    const float32v* sizeJitter )
+    {
+        ( FloorCellVisit<D, HASH, CELL, C>( distFunc, seed, jitter, primed, cellOffset, pos, distance, closestHash, closestCell, sizeJitter ), ... );
+    }
 
     // Closest feature point among the 2^D cells around the position, see FloorCellsJitterBound(). Returns its distance (no sqrt),
     // optionally its cell hash and its absolute position (see VisitFloorCell()). Cells in the 3^D loops' order (axis 0 slowest)
@@ -820,25 +867,34 @@ protected:
 
 #if defined( _MSC_VER ) && !defined( __clang__ )
         // MSVC miscompiled the computed cell indexing below for AVX512, explicit loops instead (~5% slower with clang)
-        for( int xi = 0; xi < 2; xi++ )
+        // Per-cell calls on AVX2, and for 2D on AVX512. Not SSE4.1 (CellularValue 3D 3-8% slower) and not for 3D on AVX512
+        // (its GenTs 5-12% slower, even on the cell block path)
+        if constexpr( kUnrollCells && ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && ( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) || D == 2 ) )
         {
-            int32v seedX = seed ^ primed[0][xi];
-            for( int yi = 0; yi < 2; yi++ )
+            FloorCellsVisitEach<D, HASH, CELL>( std::make_integer_sequence<int, 1 << D>{}, distFunc, seed, jitter, primed, cellOffset, pos, distance, closestHash, closestCell, sizeJitter );
+        }
+        else
+        {
+            for( int xi = 0; xi < 2; xi++ )
             {
-                int32v seedXY = seedX ^ primed[1][yi];
-                for( int zi = 0; zi < ( D == 3 ? 2 : 1 ); zi++ )
+                int32v seedX = seed ^ primed[0][xi];
+                for( int yi = 0; yi < 2; yi++ )
                 {
-                    float32v base[D];
-                    base[0] = cellOffset[0][xi];
-                    base[1] = cellOffset[1][yi];
-                    if constexpr( D == 3 )
+                    int32v seedXY = seedX ^ primed[1][yi];
+                    for( int zi = 0; zi < ( D == 3 ? 2 : 1 ); zi++ )
                     {
-                        base[2] = cellOffset[2][zi];
-                        VisitFloorCell<D, HASH, CELL>( distFunc, seedXY ^ primed[2][zi], jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
-                    }
-                    else
-                    {
-                        VisitFloorCell<D, HASH, CELL>( distFunc, seedXY, jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+                        float32v base[D];
+                        base[0] = cellOffset[0][xi];
+                        base[1] = cellOffset[1][yi];
+                        if constexpr( D == 3 )
+                        {
+                            base[2] = cellOffset[2][zi];
+                            VisitFloorCell<D, HASH, CELL>( distFunc, seedXY ^ primed[2][zi], jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+                        }
+                        else
+                        {
+                            VisitFloorCell<D, HASH, CELL>( distFunc, seedXY, jitter, base, pos, distance, closestHash, closestCell, sizeJitter );
+                        }
                     }
                 }
             }
@@ -1013,6 +1069,40 @@ protected:
         return !FS::AnyMask( closer );
     }
 
+    // Closest2D()'s 2x2 cell ( XI, YI )
+    template<bool HASH, bool CELL, int XI, int YI>
+    FS_FORCEINLINE static void Closest2DCell( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v ( &primed )[2][2],
+                                              const float32v* floored, const float32v* t, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        float32v base[2];
+        base[0] = CELL ? floored[0] + float32v( (float)XI ) : float32v( (float)XI ) - t[0];
+        base[1] = CELL ? floored[1] + float32v( (float)YI ) : float32v( (float)YI ) - t[1];
+        VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ primed[0][XI] ^ primed[1][YI], jitter, base, pos, distance, closestHash, closestCell );
+    }
+
+    // Closest2D()'s pair of cells beyond the 2x2 on axis D
+    template<bool HASH, bool CELL, int D>
+    FS_FORCEINLINE static void Closest2DFarCells( DistanceFunction distFunc, int32v seed, float32v jitter, const int32v* cell, const int32v ( &primed )[2][2],
+                                                  const float32v* floored, const float32v* t, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        // Far side cell on axis D, matches the 3x3 search's round half to even at t == 0.5
+        mask32v lowerHalf = FS::Convert<int32_t>( pos[D] ) == cell[D];
+        int32v farPrimed = primed[D][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[D] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[D] * 2u ) ) );
+        float32v farOffset = CELL ? floored[D] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) ) : FS::Select( lowerHalf, float32v( -1 ) - t[D], float32v( 2 ) - t[D] );
+
+        Closest2DFarCell<HASH, CELL, D, 0>( distFunc, seed ^ farPrimed, jitter, farOffset, primed, floored, t, pos, distance, closestHash, closestCell );
+        Closest2DFarCell<HASH, CELL, D, 1>( distFunc, seed ^ farPrimed, jitter, farOffset, primed, floored, t, pos, distance, closestHash, closestCell );
+    }
+
+    template<bool HASH, bool CELL, int D, int I>
+    FS_FORCEINLINE static void Closest2DFarCell( DistanceFunction distFunc, int32v seedFar, float32v jitter, float32v farOffset, const int32v ( &primed )[2][2],
+                                                 const float32v* floored, const float32v* t, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell )
+    {
+        float32v otherOffset = CELL ? floored[D ^ 1] + float32v( (float)I ) : float32v( (float)I ) - t[D ^ 1];
+        float32v base[] = { D ? otherOffset : farOffset, D ? farOffset : otherOffset };
+        VisitFloorCell<2, HASH, CELL>( distFunc, seedFar ^ primed[D ^ 1][I], jitter, base, pos, distance, closestHash, closestCell );
+    }
+
     // Primed coordinates of the cells at floor and floor + 1 on axis d
     FS_FORCEINLINE static void PrimeFloorCells( int32v cell, int d, int32v* primed )
     {
@@ -1070,15 +1160,25 @@ protected:
                 PrimeFloorCells( cell[0], 0, primed[0] );
                 PrimeFloorCells( cell[1], 1, primed[1] );
             }
-            for( int xi = 0; xi < 2; xi++ )
+            if constexpr( kUnrollCells )
             {
-                int32v seedX = seed ^ primed[0][xi];
-                for( int yi = 0; yi < 2; yi++ )
+                Closest2DCell<HASH, CELL, 0, 0>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DCell<HASH, CELL, 0, 1>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DCell<HASH, CELL, 1, 0>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DCell<HASH, CELL, 1, 1>( distFunc, seed, jitter, primed, floored, t, pos, distance, closestHash, closestCell );
+            }
+            else
+            {
+                for( int xi = 0; xi < 2; xi++ )
                 {
-                    float32v base[2];
-                    base[0] = CELL ? floored[0] + float32v( (float)xi ) : float32v( (float)xi ) - t[0];
-                    base[1] = CELL ? floored[1] + float32v( (float)yi ) : float32v( (float)yi ) - t[1];
-                    VisitFloorCell<2, HASH, CELL>( distFunc, seedX ^ primed[1][yi], jitter, base, pos, distance, closestHash, closestCell );
+                    int32v seedX = seed ^ primed[0][xi];
+                    for( int yi = 0; yi < 2; yi++ )
+                    {
+                        float32v base[2];
+                        base[0] = CELL ? floored[0] + float32v( (float)xi ) : float32v( (float)xi ) - t[0];
+                        base[1] = CELL ? floored[1] + float32v( (float)yi ) : float32v( (float)yi ) - t[1];
+                        VisitFloorCell<2, HASH, CELL>( distFunc, seedX ^ primed[1][yi], jitter, base, pos, distance, closestHash, closestCell );
+                    }
                 }
             }
         }
@@ -1119,18 +1219,26 @@ protected:
                     PrimeFloorCells( cell[1], 1, primed[1] );
                 }
             }
-            for( int d = 0; d < 2; d++ )
+            if constexpr( kUnrollCells )
             {
-                // Far side cell on axis d, matches the 3x3 search's round half to even at t == 0.5
-                mask32v lowerHalf = FS::Convert<int32_t>( pos[d] ) == cell[d];
-                int32v farPrimed = primed[d][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[d] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[d] * 2u ) ) );
-                float32v farOffset = CELL ? floored[d] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) ) : FS::Select( lowerHalf, float32v( -1 ) - t[d], float32v( 2 ) - t[d] );
-
-                for( int i = 0; i < 2; i++ )
+                Closest2DFarCells<HASH, CELL, 0>( distFunc, seed, jitter, cell, primed, floored, t, pos, distance, closestHash, closestCell );
+                Closest2DFarCells<HASH, CELL, 1>( distFunc, seed, jitter, cell, primed, floored, t, pos, distance, closestHash, closestCell );
+            }
+            else
+            {
+                for( int d = 0; d < 2; d++ )
                 {
-                    float32v otherOffset = CELL ? floored[d ^ 1] + float32v( (float)i ) : float32v( (float)i ) - t[d ^ 1];
-                    float32v base[] = { d ? otherOffset : farOffset, d ? farOffset : otherOffset };
-                    VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ farPrimed ^ primed[d ^ 1][i], jitter, base, pos, distance, closestHash, closestCell );
+                    // Far side cell on axis d, matches the 3x3 search's round half to even at t == 0.5
+                    mask32v lowerHalf = FS::Convert<int32_t>( pos[d] ) == cell[d];
+                    int32v farPrimed = primed[d][0] + FS::Select( lowerHalf, int32v( (int32_t)( 0u - (uint32_t)Primes::Lookup[d] ) ), int32v( (int32_t)( (uint32_t)Primes::Lookup[d] * 2u ) ) );
+                    float32v farOffset = CELL ? floored[d] + FS::Select( lowerHalf, float32v( -1 ), float32v( 2 ) ) : FS::Select( lowerHalf, float32v( -1 ) - t[d], float32v( 2 ) - t[d] );
+
+                    for( int i = 0; i < 2; i++ )
+                    {
+                        float32v otherOffset = CELL ? floored[d ^ 1] + float32v( (float)i ) : float32v( (float)i ) - t[d ^ 1];
+                        float32v base[] = { d ? otherOffset : farOffset, d ? farOffset : otherOffset };
+                        VisitFloorCell<2, HASH, CELL>( distFunc, seed ^ farPrimed ^ primed[d ^ 1][i], jitter, base, pos, distance, closestHash, closestCell );
+                    }
                 }
             }
         }
@@ -1142,9 +1250,11 @@ protected:
     // tables (block cell dx + W * dy + 2 * W * dz, split over native registers of N lanes): the same instructions per lane as VisitFloorCell()
     static constexpr bool kCellBlock = ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && float32v::ElementCount == FS::NativeRegisterCount<float>() * 2;
 
-    // Cell block path per call site: dimensions, Closest2D() (else FloorCellsClosest()) and what it tracks (HASH, CELL)
+    // MSVC 2D (kUnrollCells): msvc4's per-cell lane path measured faster than the cell block path on AVX2, except in Closest2D() for
+    // CellularDistance, and on AVX512 for CellularValue
     template<int D, bool CLOSEST_2D, bool HASH, bool CELL>
-    static constexpr bool kCellBlockD = kCellBlock;
+    static constexpr bool kCellBlockD = kCellBlock && !( kUnrollCells && D == 2 &&
+        ( !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) ? ( !CLOSEST_2D || HASH || CELL ) : ( HASH && !CELL ) ) );
 
     // Block width: 2D half a native register (4 or 8), 3D 4 (AVX2 then needs two table registers)
     template<int D>
@@ -1384,8 +1494,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y );
 
@@ -1460,6 +1569,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
+        // std::array::fill here: with InfiniteDistances() MSVC 14.51 ran CellularValue_idx2 2D 1.05 (SSE2) to 1.13 (AVX2) times slower
         std::array<float32v, COUNT> distance;
         distance.fill( float32v( kInfinity ) );
 
@@ -1695,8 +1805,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z );
 
@@ -1829,8 +1938,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
         }
 
         std::array<int32v, COUNT> valueHash;
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z, w );
 
@@ -1950,8 +2058,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y );
 
         float32v pos[] = { x, y };
-        std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, kMaxDistanceCount> distance = this->template InfiniteDistances<kMaxDistanceCount>();
         distance[0] = this->template FloorCellsClosest<2, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
 
         return GetReturn( distance, 1 + this->kJitter2D );
@@ -1994,8 +2101,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y ) * float32v( -1.f / 0x3ff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y );
 
@@ -2170,8 +2276,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         this->ScalePositions( this, x, y, z );
 
         float32v pos[] = { x, y, z };
-        std::array<float32v, kMaxDistanceCount> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, kMaxDistanceCount> distance = this->template InfiniteDistances<kMaxDistanceCount>();
         distance[0] = this->template FloorCellsClosest<3, false, false>( distFunc, seed, jitter, pos, nullptr, nullptr );
 
         return GetReturn( distance, 1 + this->kJitter3D );
@@ -2214,8 +2319,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z ) * float32v( -1.f / 0xffff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z );
 
@@ -2328,8 +2432,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             sizeJitter = this->GetSourceValue( mSizeJitter, sourceSeed, x, y, z, w ) * float32v( -1.f / 0xfffff );
         }
 
-        std::array<float32v, COUNT> distance;
-        distance.fill( float32v( kInfinity ) );
+        std::array<float32v, COUNT> distance = this->template InfiniteDistances<COUNT>();
 
         this->ScalePositions( this, x, y, z, w );
 
