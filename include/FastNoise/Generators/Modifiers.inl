@@ -26,6 +26,14 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
     template<size_t... I, typename... P>
     FS_FORCEINLINE float32v GenT( std::index_sequence<I...>, int32v seed, P... pos ) const
     {
+        // With constant offsets the positions are only used by the source call, see CombineSourceValues
+        if( ( !mOffset[I].simdGeneratorPtr && ... ) )
+        {
+            ((pos += float32v( mOffset[I].constant )), ...);
+
+            return this->GetSourceValue( mSource, seed, pos... );
+        }
+
         // Braced init evaluates left to right; expanding into the call is right to left on the MS ABI, which changes fast-math output
         float32v offsetPos[] = { ( pos + this->GetSourceValue( mOffset[I], seed, pos... ) )... };
 
@@ -36,7 +44,9 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainRotate, public DispatchClass<Generator, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         if( mPitchSin == 0.0f && mRollSin == 0.0f )
         {
@@ -48,7 +58,7 @@ class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainR
         return Gen( seed, x, y, float32v( 0 ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         return this->GetSourceValue( mSource, seed,
             FS::FMulAdd( x, float32v( mXa ), FS::FMulAdd( y, float32v( mXb ), z * float32v( mXc ) ) ),
@@ -56,7 +66,7 @@ class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainR
             FS::FMulAdd( x, float32v( mZa ), FS::FMulAdd( y, float32v( mZb ), z * float32v( mZc ) ) ) );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         // No rotation for 4D yet
         return this->GetSourceValue( mSource, seed, x, y, z, w );
@@ -83,6 +93,17 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        // With constant ranges the positions are only used by the source call, see CombineSourceValues
+        if( !mFromMin.simdGeneratorPtr && !mFromMax.simdGeneratorPtr && !mToMin.simdGeneratorPtr && !mToMax.simdGeneratorPtr )
+        {
+            float fromMin = mFromMin.constant;
+            float fromMax = mFromMax.constant;
+            float toMin = mToMin.constant;
+            float toMax = mToMax.constant;
+
+            return Remap( this->GetSourceValue( mSource, seed, pos... ), float32v( fromMin ), float32v( fromMax ), float32v( toMin ), float32v( toMax ) );
+        }
+
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
         float32v fromMin = this->GetSourceValue( mFromMin, seed, pos... );
@@ -90,6 +111,11 @@ class FastSIMD::DispatchClass<Remap, SIMD> final : public virtual Remap, public 
         float32v toMin = this->GetSourceValue( mToMin, seed, pos... );
         float32v toMax = this->GetSourceValue( mToMax, seed, pos... );
 
+        return Remap( source, fromMin, fromMax, toMin, toMax );
+    }
+
+    FS_FORCEINLINE float32v Remap( float32v source, float32v fromMin, float32v fromMax, float32v toMin, float32v toMax ) const
+    {
         float32v result = toMin + ( ( source - fromMin ) / ( fromMax - fromMin ) * ( toMax - toMin ) );
 
         if( mClampOutput == Boolean::True )
@@ -137,15 +163,40 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
+        // With constant smoothness the positions are only used by the source call, see CombineSourceValues
+        if( mSmoothness.simdGeneratorPtr )
+        {
+            return GenTerrace<true>( seed, pos... );
+        }
+        return GenTerrace<false>( seed, pos... );
+    }
+
+    template<bool DYNAMIC_SMOOTHNESS, typename... P>
+    FS_FORCEINLINE float32v GenTerrace( int32v seed, P... pos ) const
+    {
+        bool constantSmoothness = !DYNAMIC_SMOOTHNESS && mSmoothness.constant != 0.0f; // Read before the source call, see CombineSourceValues
+
         float32v source = this->GetSourceValue( mSource, seed, pos... );
 
+        if constexpr( DYNAMIC_SMOOTHNESS )
+        {
+            return TerraceValue<true>( source, false, this->GetSourceValue( mSmoothness, seed, pos... ) );
+        }
+        else
+        {
+            return TerraceValue<false>( source, constantSmoothness, float32v( 0 ) );
+        }
+    }
+
+    template<bool DYNAMIC_SMOOTHNESS>
+    FS_FORCEINLINE float32v TerraceValue( float32v source, bool constantSmoothness, float32v smoothness ) const
+    {
         source *= float32v( mStepCount );
         float32v rounded = FS::Round( source );
 
-        if( mSmoothness.simdGeneratorPtr )
+        if constexpr( DYNAMIC_SMOOTHNESS )
         {
             // Dynamic smoothness from generator
-            float32v smoothness = this->GetSourceValue( mSmoothness, seed, pos... );
             mask32v smoothnessMask = smoothness != float32v( 0.0f );
 
             if( FS::AnyMask( smoothnessMask ) )
@@ -164,7 +215,7 @@ class FastSIMD::DispatchClass<Terrace, SIMD> final : public virtual Terrace, pub
                 rounded = FS::Select( smoothnessMask, rounded + diff, rounded );
             }
         }
-        else if( mSmoothness.constant != 0.0f )
+        else if( constantSmoothness )
         {
             // Constant smoothness, use precomputed reciprocal
             float32v diff = rounded - source;
@@ -240,12 +291,14 @@ class FastSIMD::DispatchClass<AddDimension, SIMD> final : public virtual AddDime
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<RemoveDimension, SIMD> final : public virtual RemoveDimension, public DispatchClass<Generator, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         return this->GetSourceValue( mSource, seed, x, y );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         switch( mRemoveDimension )
         {
@@ -260,7 +313,7 @@ class FastSIMD::DispatchClass<RemoveDimension, SIMD> final : public virtual Remo
         }
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         switch( mRemoveDimension )
         {
@@ -286,40 +339,82 @@ class FastSIMD::DispatchClass<GeneratorCache, SIMD> final : public virtual Gener
     template<typename... P>
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        thread_local static const void* CachedGenerator = nullptr;
-        thread_local static std::int32_t CachedSeed[int32v::ElementCount];
-        thread_local static float CachedPos[sizeof...(P)][int32v::ElementCount];
-        thread_local static float CachedValue[int32v::ElementCount];
+        static constexpr size_t kCacheAlign = 64;
+        static constexpr std::uint32_t kSlotCount = 4;
+        static constexpr size_t kCacheFloats = ( sizeof...(P) + 1 + kSlotCount ) * int32v::ElementCount;
+
+        // One key (seed + pos) with several value slots, each tagged with the source generator it holds,
+        // so different cache nodes evaluated at the same positions (e.g. two cached nodes both used twice) don't evict each other.
+        // A slot is tagged before its source is evaluated. A nested cache can't have the same source so never reads it early,
+        // if a nested cache takes the slot or replaces the key the value isn't stored (or lands beyond slotsUsed, where it is ignored)
+        struct ThreadCache
+        {
+            const void* generators[kSlotCount];
+            std::uint32_t slotsUsed;
+            float storage[kCacheFloats + kCacheAlign / sizeof( float )];
+        };
+        thread_local static ThreadCache Cache;
+
         // TLS is not always aligned (compiler bug), need to avoid using SIMD types
-        
+        // Manually align so cached vectors don't split cache lines (breaks store forwarding on the hit path)
+        float* cache = reinterpret_cast<float*>( ( reinterpret_cast<uintptr_t>( Cache.storage ) + ( kCacheAlign - 1 ) ) & ~uintptr_t( kCacheAlign - 1 ) );
+        std::int32_t* cachedSeed = reinterpret_cast<std::int32_t*>( cache );
+        float* cachedPos = cache + int32v::ElementCount;
+        float* cachedValues = cache + ( sizeof...(P) + 1 ) * int32v::ElementCount;
+
+        const void* source = mSource.simdGeneratorPtr;
         const float32v arrayPos[] = { pos... };
 
-        bool isSame = (CachedGenerator == mSource.simdGeneratorPtr);
-        isSame &= !FS::AnyMask( seed != FS::Load<int32v>( CachedSeed ) );
+        bool isSameKey = !FS::AnyMask( seed != FS::Load<int32v>( cachedSeed ) );
 
         for( size_t i = 0; i < sizeof...( P ); i++ )
         {
-            isSame &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( CachedPos[i] ) );
+            isSameKey &= !FS::AnyMask( arrayPos[i] != FS::Load<float32v>( cachedPos + i * int32v::ElementCount ) );
         }
 
-        if( !isSame )
+        std::uint32_t slot = 0;
+
+        if( isSameKey )
         {
-            CachedGenerator = mSource.simdGeneratorPtr;
+            // Slot 0 belongs to the cache that stored the key, the only one used unless several cache nodes share positions
+            if( Cache.generators[0] == source )
+            {
+                return FS::Load<float32v>( cachedValues );
+            }
 
-            float32v value = this->GetSourceValue( mSource, seed, pos... );
+            for( std::uint32_t i = 1; i < Cache.slotsUsed; i++ )
+            {
+                if( Cache.generators[i] == source )
+                {
+                    return FS::Load<float32v>( cachedValues + i * int32v::ElementCount );
+                }
+            }
 
-            FS::Store( CachedValue, value );
-            FS::Store( CachedSeed, seed );
+            // Use the next slot, replace the last one if all are in use
+            slot = std::min( Cache.slotsUsed, kSlotCount - 1 );
+        }
+        else
+        {
+            // Store the key before evaluating the source so seed/pos don't need preserving across the call
+            FS::Store( cachedSeed, seed );
 
             for( size_t i = 0; i < sizeof...(P); i++ )
             {
-                FS::Store( CachedPos[i], arrayPos[i] );
+                FS::Store( cachedPos + i * int32v::ElementCount, arrayPos[i] );
             }
-
-            return value;
         }
 
-        return FS::Load<float32v>( CachedValue );
+        Cache.slotsUsed = slot + 1;
+        Cache.generators[slot] = source;
+
+        float32v value = this->GetSourceValue( mSource, seed, pos... );
+
+        if( Cache.generators[slot] == source )
+        {
+            FS::Store( cachedValues + slot * int32v::ElementCount, value );
+        }
+
+        return value;
     }
 };
 
@@ -354,6 +449,8 @@ class FastSIMD::DispatchClass<Abs, SIMD> final : public virtual Abs, public Disp
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual DomainRotatePlane, public DispatchClass<Generator, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
     FS_FORCEINLINE void FS_VECTORCALL RotateCoords( PlaneRotationType rotationType, float32v& x, float32v& y, float32v& z ) const
     {
         float32v newX = x;
@@ -390,7 +487,7 @@ class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual Do
         z = newZ;
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         float32v z = 0;
         RotateCoords( PlaneRotationType::ImproveXYPlanes, x, y, z );
@@ -398,13 +495,13 @@ class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual Do
         return this->GetSourceValue( mSource, seed, x, y, z );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         RotateCoords( mRotationType, x, y, z );
         return this->GetSourceValue( mSource, seed, x, y, z );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         RotateCoords( mRotationType, x, y, z );
         return this->GetSourceValue( mSource, seed, x, y, z, w );
