@@ -213,6 +213,26 @@ protected:
         return AllLanes( coherent );
     }
 
+    FS_FORCEINLINE static bool MinkowskiPInRange( float32v minkowskiP )
+    {
+        return AllLanes( FS::Abs( minkowskiP - float32v( 4.125f ) ) <= float32v( 3.875f ) );
+    }
+
+    // Minkowski cell loops compare sum( |d|^P ) (CalcDistance<false>), the same order as the distance for P > 0, and
+    // CellularDistance takes the 1 / P root once in GetReturn. The root stays per cell with size jitter, which scales the
+    // rooted distance, and for P outside [0.25, 8] in any lane (see GetPruneMode).
+    // Near ties go by the sum: Pow( sum, 1 / P ) often maps sums a few ulps apart to the same root (or swaps them), which
+    // rooted comparisons left to the cell order, e.g. lattice ties without grid jitter in 3D/4D whose sums differ by summation order
+    FS_FORCEINLINE static bool MinkowskiRootPerCell( DistanceFunction distFunc, float32v minkowskiP, bool sizeJitterActive )
+    {
+        return distFunc == DistanceFunction::Minkowski && ( sizeJitterActive || !MinkowskiPInRange( minkowskiP ) );
+    }
+
+    FS_FORCEINLINE static float32v MinkowskiRoot( float32v sum, float32v minkowskiP )
+    {
+        return FS::Pow( sum, FS::Reciprocal( minkowskiP ) );
+    }
+
     // 2D/3D always order cells near side first, see CellOrder::kNearFacesFirst
     // Minkowski is only pruned with P in [0.25, 8] in every lane: other P values make Pow's error/range unreliable
     // and exact distance ties common, which the pruned cell order would resolve differently.
@@ -221,7 +241,7 @@ protected:
     template<int D>
     FS_FORCEINLINE static PruneMode GetPruneMode( DistanceFunction distFunc, float32v minkowskiP, const float32v* pos, float32v jitter, float maxJitter, int distanceIndex )
     {
-        if( distFunc == DistanceFunction::Minkowski && !AllLanes( FS::Abs( minkowskiP - float32v( 4.125f ) ) <= float32v( 3.875f ) ) )
+        if( distFunc == DistanceFunction::Minkowski && !MinkowskiPInRange( minkowskiP ) )
         {
             return kPruneNone;
         }
@@ -346,7 +366,13 @@ protected:
             {
                 mVisit &= ~kOrder.nearBlockMask[0];
             }
-            mCombineMax = distFunc == DistanceFunction::MaxAxis || distFunc == DistanceFunction::Minkowski;
+            // Minkowski: the largest axis bound for rooted distances, else bounds on the sum of |d|^P (see MinkowskiRootPerCell).
+            // 2D sums keep the rooted bounds and root distToBeat instead: two shell tests cost less than Pow on 6 axis bounds.
+            // mRootDistToBeat is also set for P out of range (rooted distances): unused, that P never prunes (kPruneNone, and
+            // Minkowski is never nearBlockDone)
+            mCombineMax = distFunc == DistanceFunction::MaxAxis || ( distFunc == DistanceFunction::Minkowski && ( sizeJitterActive || D == 2 ) );
+            mRootDistToBeat = D == 2 && distFunc == DistanceFunction::Minkowski && !sizeJitterActive;
+            mMinkowskiP = minkowskiP;
 
             // Euclidean: the feature point is within a ball around the cell centre, much tighter than per axis bounds for edge/corner cells
             mBall = distFunc == DistanceFunction::Euclidean || distFunc == DistanceFunction::EuclideanSquared;
@@ -363,6 +389,11 @@ protected:
                 else
                 {
                     mBallRadius = InitPruning( bounds, cellPrimed, cellPos, relative, pos, nearFirst, distFunc, mBall, mCombineMax, jitter, sizeJitterActive, sizeJitter );
+                }
+
+                if( distFunc == DistanceFunction::Minkowski && !mCombineMax )
+                {
+                    MinkowskiSumBounds( bounds, minkowskiP );
                 }
             }
         }
@@ -408,6 +439,30 @@ protected:
             return InitPruning( bounds, cellPrimed, cellPos, relative, pos, nearFirst, distFunc, ball, combineMax, jitter, sizeJitterActive, sizeJitter );
         }
 
+        // Axis bounds b -> b^P, summed: sum( |d|^P ) >= sum( b^P ). Not in InitPruning: clang-cl 23 miscompiled the 4D
+        // CellularValue/Lookup callers (wrong closest cell) when the out of line InitPruningNoInline also took P.
+        // At most kMinkowskiSumMax / 4 per axis, so a cell's bound never exceeds the clamped sum (see CalcDistance): a bound
+        // overflowed to +inf would skip cells while distToBeat is still +inf, leaving CellularValue's further slots unfilled
+        FS_FORCEINLINE static void MinkowskiSumBounds( CellBounds<D>& bounds, float32v minkowskiP )
+        {
+            for( int d = 0; d < D; d++ )
+            {
+                for( int i = 0; i < 3; i++ )
+                {
+                    bounds.axis[d][i] = FS::Min( FS::Pow( bounds.axis[d][i], minkowskiP ), float32v( kMinkowskiSumMax / 4 ) );
+                }
+            }
+
+            if constexpr( D == 4 )
+            {
+                for( int i = 0; i < 9; i++ )
+                {
+                    bounds.pairA[i] = bounds.axis[0][i / 3] + bounds.axis[1][i % 3];
+                    bounds.pairB[i] = bounds.axis[2][i / 3] + bounds.axis[3][i % 3];
+                }
+            }
+        }
+
         // Reorders cell slots near side first if requested and fills the bounds, returns the ball bound radius
         // A feature point is within |jitter| of its cell centre, so per axis |delta| >= max( 0, |centre - pos| - |jitter| )
         FS_FORCEINLINE static float32v FS_VECTORCALL InitPruning( CellBounds<D>& bounds, std::array<int32v, 3>* cellPrimed, std::array<float32v, 3>* cellPos, bool relative, const float32v* pos,
@@ -419,9 +474,10 @@ protected:
             }
 
             // Slack for approximate InvSqrt in the jitter offset and float rounding of positions/distances
-            // Minkowski takes the 1 / P root with an approximate reciprocal of P, up to ~1e-3 relative error for P in [0.25, 8]
+            // Minkowski takes the 1 / P root with an approximate reciprocal of P, up to ~1e-3 relative error for P in [0.25, 8].
+            // Sums of |d|^P (not combineMax) have no root: bounds and distances use the same Pow, only its ulp level error matters
             float32v radius = FS::FMulAdd( FS::Abs( jitter ), float32v( 1 + 1.f / 512 ), float32v( 1.f / ( 1 << 20 ) ) );
-            float32v scale( distFunc == DistanceFunction::Minkowski ? 1 - 1.f / 64 : 1 - 1.f / 4096 );
+            float32v scale( distFunc == DistanceFunction::Minkowski ? ( combineMax ? 1 - 1.f / 64 : 1 - 1.f / 1024 ) : 1 - 1.f / 4096 );
             float32v minFactor;
 
             if( sizeJitterActive )
@@ -482,7 +538,7 @@ protected:
                             break;
                         case DistanceFunction::Manhattan:
                         case DistanceFunction::MaxAxis:
-                        case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0
+                        case DistanceFunction::Minkowski: // At least the largest axis distance for any P > 0, see MinkowskiSumBounds for sums
                             break;
                         case DistanceFunction::Hybrid:
                             b = FS::FMulAdd( b, b, b );
@@ -554,6 +610,12 @@ protected:
                 float32v t = FS::Sqrt( distToBeat ) + mBallRadius;
                 distToBeat = t * t * float32v( 1 + 1.f / 1024 );
             }
+            else if( mRootDistToBeat )
+            {
+                // Not while distToBeat is a start distance (+inf / FLT_MAX, above every clamped sum): Pow saturates, so the rooted
+                // bounds of far cells can exceed the root of any sum and would leave CellularValue's further slots unfilled
+                distToBeat = FS::Select( distToBeat <= float32v( kMinkowskiSumMax ), MinkowskiRoot( distToBeat, mMinkowskiP ), distToBeat );
+            }
 
             uint32_t visit = 0;
             for( int c = mCell; c < kOrder.shellStart[mShell + 1]; c++ )
@@ -574,10 +636,12 @@ protected:
 
         CellBounds<D>& mBounds;
         float32v mBallRadius;
+        float32v mMinkowskiP;
         bool mPrune;
         bool mSkipNearBlock;
         bool mBall = false;
         bool mCombineMax = false;
+        bool mRootDistToBeat = false;
         int mCell = 0;
         int mShell = 0; // Shell 0 is always visited
         uint32_t mVisit = kOrder.kFirstShellMask;
@@ -1529,6 +1593,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
             int32v newCellValueHash = hash;
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -1663,6 +1731,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
                 yd = FS::FMulAdd( yd, invMag, ycf );
 
                 int32v newCellValueHash = hash;
+                // No Minkowski root guard: Gen() sends Minkowski to GenMinkowskiT, here CalcDistance<false> would give the unrooted sum
                 float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
                 if( sizeJitterActive )
                 {
@@ -1730,6 +1799,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
             int32v newCellValueHash = hash;
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -1979,6 +2052,10 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
             int32v newCellValueHash = hash;
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -2041,6 +2118,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         yd = FS::FMulAdd( yd, invMag, yOffset );
 
         float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+        if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+        {
+            newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+        }
         if( sizeJitterActive )
         {
             float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -2219,7 +2300,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             }
         }
 
-        return GetReturn( distance, 1 + this->kJitter2D );
+        return GetReturn( distance, 1 + this->kJitter2D, minkowskiP, distFunc == DistanceFunction::Minkowski && !this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) );
     }
 
     // The pruned 3^D cell search (see CellIterator), skipping the 2^D block of cells around the position if nearBlockDone
@@ -2258,6 +2339,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             zd = FS::FMulAdd( zd, invMag, cellOffset[2][o[2]] );
 
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -2410,7 +2495,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             Search3D( distance, pruneIndex, distFunc, minkowskiP, jitter, sizeJitterActive, sizeJitter, seed, x, y, z, false );
         }
 
-        return GetReturn( distance, 1 + this->kJitter3D );
+        return GetReturn( distance, 1 + this->kJitter3D, minkowskiP, distFunc == DistanceFunction::Minkowski && !this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) );
     }
 
     FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
@@ -2479,6 +2564,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             wd = FS::FMulAdd( wd, invMag, cellOffset[3][o[3]] );
 
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );
@@ -2493,11 +2582,12 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
             distance[0] = FS::Min( distance[0], newDistance );
         }
 
-        return GetReturn( distance, 1 + this->kJitter4D );
+        return GetReturn( distance, 1 + this->kJitter4D, minkowskiP, distFunc == DistanceFunction::Minkowski && !this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) );
     }
 
+    // minkowskiSum: the distances are Minkowski sums of |d|^P without the 1 / P root, see MinkowskiRootPerCell
     template<size_t N>
-    FS_FORCEINLINE float32v GetReturn( const std::array<float32v, N>& distance, float maxDist ) const
+    FS_FORCEINLINE float32v GetReturn( const std::array<float32v, N>& distance, float maxDist, float32v minkowskiP = float32v( 0 ), bool minkowskiSum = false ) const
     {
         float32v distance0 = this->DistanceAt( distance, mDistanceIndex0 );
         bool euclidean = mDistanceFunction == FastNoise::DistanceFunction::Euclidean;
@@ -2505,6 +2595,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         if( euclidean )
         {
             distance0 = FastLengthSqrt( distance0 );
+        }
+        else if( minkowskiSum )
+        {
+            distance0 = this->MinkowskiRoot( distance0, minkowskiP );
         }
 
         maxDist *= maxDist;
@@ -2519,6 +2613,10 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
         if( euclidean )
         {
             distance1 = FastLengthSqrt( distance1 );
+        }
+        else if( minkowskiSum )
+        {
+            distance1 = this->MinkowskiRoot( distance1, minkowskiP );
         }
 
         switch( mReturnType )
@@ -2573,6 +2671,10 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
         yd = localCellY - y;
 
         float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd );
+        if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+        {
+            newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+        }
         if( sizeJitterActive )
         {
             float32v distanceJitter = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) );
@@ -2780,6 +2882,10 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             zd = localCellZ - z;
 
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xffff ) );
@@ -2975,6 +3081,10 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
             wd = localCellW - w;
 
             float32v newDistance = CalcDistance<false>( distFunc, minkowskiP, xd, yd, zd, wd );
+            if( this->MinkowskiRootPerCell( distFunc, minkowskiP, sizeJitterActive ) )
+            {
+                newDistance = this->MinkowskiRoot( newDistance, minkowskiP );
+            }
             if( sizeJitterActive )
             {
                 float32v distanceJitter = FS::Convert<float>( hash & int32v( 0xfffff ) );

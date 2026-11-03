@@ -887,6 +887,9 @@ namespace FastNoise
         return FastSIMD::DispatchClass<Generator, SIMD>::GetSourceValue( minkowskiP, seed, pos... );
     }
 
+    // Largest Minkowski sum CalcDistance<false> returns: the largest float below FLT_MAX
+    static constexpr float kMinkowskiSumMax = 0x1.fffffcp127f;
+
     template<bool DO_SQRT = true, typename... P>
     FS_FORCEINLINE static float32v CalcDistance( DistanceFunction distFunc, float32v minkowskiP, float32v pX, P... pos )
     {
@@ -949,7 +952,17 @@ namespace FastNoise
                 float32v sum = FS::Pow( FS::Abs( pX ), minkowskiP );
                 ((sum += FS::Pow( FS::Abs( pos ), minkowskiP )), ...);
 
-                return FS::Pow( sum, FS::Reciprocal( minkowskiP ) );
+                if constexpr( DO_SQRT )
+                {
+                    return FS::Pow( sum, FS::Reciprocal( minkowskiP ) );
+                }
+                else // Without the 1 / P root: same order for P > 0, the caller takes the root if needed
+                {
+                    // Pow saturates at ~2.4e38, so two large axis terms overflow the sum to +inf, which never beats the cell searches'
+                    // +inf / FLT_MAX start distances (no cell selected). Clamped below FLT_MAX: the root is unchanged (Log( +inf )
+                    // and Log( kMinkowskiSumMax ) are the same float), and the first visited cell wins the tie as with rooted distances
+                    return FS::Min( sum, float32v( kMinkowskiSumMax ) );
+                }
             }
         }
     }    
