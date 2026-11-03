@@ -4,10 +4,12 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -59,19 +61,19 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 
         constexpr float kBounding = 0.0261208079755306243896484375f;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
         constexpr double kFalloffRadiusSquared = 0.6;
 
-        float32v skewDelta = float32v( kSkew3 ) * ( x + y + z );
+        float32v skewDelta = float32v( kSkew3 ) * SkewSum( x, y, z );
         float32v xSkewed = x + skewDelta;
         float32v ySkewed = y + skewDelta;
         float32v zSkewed = z + skewDelta;
@@ -138,13 +140,13 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 
         constexpr float kBounding = 0.030586399137973785400390625f;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -282,7 +284,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 
         constexpr float kBounding = 0.036730043590068817138671875f;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
 };
@@ -290,10 +292,12 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSimplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FASTNOISE_IMPL_GEN_FN( Gen );
+
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y );
+        this->ScalePositions( this, x, y );
 
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -373,13 +377,13 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         constexpr float kBounding = 0.14084912836551666259765625f;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z );
+        this->ScalePositions( this, x, y, z );
 
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -389,7 +393,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         constexpr double kDistanceSquaredB = 1.0;
         constexpr double kFalloffRadiusSquared = kDistanceSquaredA;
 
-        float32v skewDelta = float32v( kSkew3 ) * ( x + y + z );
+        float32v skewDelta = float32v( kSkew3 ) * SkewSum( x, y, z );
 
         float32v xSkewed = x + skewDelta;
         float32v ySkewed = y + skewDelta;
@@ -572,13 +576,13 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         }
 
         constexpr float kBounding = 0.0069091119803488254547119140625f;
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
-        this->ScalePositions( x, y, z, w );
+        this->ScalePositions( this, x, y, z, w );
 
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -589,7 +593,12 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         constexpr double kDistanceSquaredB = 6.0 / 5.0;
         constexpr double kFalloffRadiusSquared = kDistanceSquaredA;
 
+        // MSVC 19.5x miscompiles this sum of scaled positions like the 3D one (see SkewSum), summing the last terms first avoids it
+#if defined( _MSC_VER ) && !defined( __clang__ ) && _MSC_VER >= 1950
+        float32v skewDelta = float32v( kSkew4 ) * ( x + ( y + ( z + w ) ) );
+#else
         float32v skewDelta = float32v( kSkew4 ) * ( x + y + z + w );
+#endif
 
         float32v xSkewed = x + skewDelta;
         float32v ySkewed = y + skewDelta;
@@ -932,6 +941,6 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
 
         constexpr float kBounding = 0.011310013942420482635498046875;
 
-        return this->ScaleOutput( value, -kBounding, kBounding );
+        return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 };

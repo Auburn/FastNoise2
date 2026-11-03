@@ -8,7 +8,7 @@ class FastSIMD::DispatchClass<Add, SIMD> final : public virtual Add, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) + this->GetSourceValue( mRHS, seed, pos... );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return a + b; }, seed, pos... );
     }
 };
 
@@ -20,7 +20,7 @@ class FastSIMD::DispatchClass<Subtract, SIMD> final : public virtual Subtract, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) - this->GetSourceValue( mRHS, seed, pos... );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return a - b; }, seed, pos... );
     }
 };
 
@@ -32,7 +32,22 @@ class FastSIMD::DispatchClass<Multiply, SIMD> final : public virtual Multiply, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) * this->GetSourceValue( mRHS, seed, pos... );
+        if( !mRHS.simdGeneratorPtr ) // Constant RHS path, see CombineSourceValues
+        {
+            float rhsConstant = mRHS.constant;
+
+            return this->GetSourceValue( mLHS, seed, pos... ) * float32v( rhsConstant );
+        }
+
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
+
+        // 0 * rhs == 0, skip evaluating RHS if LHS is 0 in every lane (e.g. masked regions)
+        if( !FS::AnyMask( lhs != float32v( 0 ) ) )
+        {
+            return lhs;
+        }
+
+        return lhs * this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
@@ -44,7 +59,10 @@ class FastSIMD::DispatchClass<Divide, SIMD> final : public virtual Divide, publi
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return this->GetSourceValue( mLHS, seed, pos... ) / this->GetSourceValue( mRHS, seed, pos... );
+        // Not CombineSourceValues: its constant RHS path compiles to lhs * ( 1 / constant ), which changes the output
+        float32v lhs = this->GetSourceValue( mLHS, seed, pos... );
+
+        return lhs / this->GetSourceValue( mRHS, seed, pos... );
     }
 };
 
@@ -71,9 +89,7 @@ class FastSIMD::DispatchClass<PowFloat, SIMD> final : public virtual PowFloat, p
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        float32v value = FS::Abs( this->GetSourceValue( mValue, seed, pos... ) );
-
-        return Pow( value, this->GetSourceValue( mPow, seed, pos... ) );
+        return this->CombineSourceValues( mValue, mPow, []( float32v value, float32v pow ) { return Pow( FS::Abs( value ), pow ); }, seed, pos... );
     }
 };
 
@@ -105,7 +121,7 @@ class FastSIMD::DispatchClass<Min, SIMD> final : public virtual Min, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return FS::Min( this->GetSourceValue( mLHS, seed, pos... ), this->GetSourceValue( mRHS, seed, pos... ) );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return FS::Min( a, b ); }, seed, pos... );
     }
 };
 
@@ -117,7 +133,7 @@ class FastSIMD::DispatchClass<Max, SIMD> final : public virtual Max, public Disp
     template<typename... P> 
     FS_FORCEINLINE float32v GenT( int32v seed, P... pos ) const
     {
-        return FS::Max( this->GetSourceValue( mLHS, seed, pos... ), this->GetSourceValue( mRHS, seed, pos... ) );
+        return this->CombineSourceValues( mLHS, mRHS, []( float32v a, float32v b ) { return FS::Max( a, b ); }, seed, pos... );
     }
 };
 
@@ -172,7 +188,21 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
         float32v fade = this->GetSourceValue( mFade, seed, pos... );
         float32v fadeMin = this->GetSourceValue( mFadeMin, seed, pos... );
         float32v fadeMax = this->GetSourceValue( mFadeMax, seed, pos... );
+        float32v a = this->GetSourceValue( mA, seed, pos... );
 
+        fade = FadeAmount( fade, fadeMin, fadeMax );
+
+        // Lerp( a, b, 0 ) == a, skip evaluating B if no lane needs it
+        if( !FS::AnyMask( fade != float32v( 0 ) ) )
+        {
+            return a;
+        }
+
+        return Lerp( a, this->GetSourceValue( mB, seed, pos... ), fade );
+    }
+
+    FS_FORCEINLINE float32v FadeAmount( float32v fade, float32v fadeMin, float32v fadeMax ) const
+    {
         float32v fadeRange = fadeMax - fadeMin;
 
         fade = ( fade - fadeMin ) / fadeRange;
@@ -192,9 +222,7 @@ class FastSIMD::DispatchClass<Fade, SIMD> final : public virtual Fade, public Di
         }
 
         // Protect against nan from 0 range div
-        fade = FS::Select( fadeRange == float32v( 0 ), float32v( 0.5f ), fade );
-        
-        return Lerp( this->GetSourceValue( mA, seed, pos... ), this->GetSourceValue( mB, seed, pos... ), fade );
+        return FS::Select( fadeRange == float32v( 0 ), float32v( 0.5f ), fade );
     }
 };
 

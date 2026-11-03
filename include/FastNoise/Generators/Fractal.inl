@@ -22,11 +22,21 @@ class FastSIMD::DispatchClass<FractalFBm, SIMD> final : public virtual FractalFB
 
         float32v sum = noise * amp;
 
+        // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
+        bool isWeighted = mWeightedStrength.simdGeneratorPtr || mWeightedStrength.constant != 0.0f;
+
         for( int i = 1; i < mOctaves; i++ )
         {
             seed -= int32v( -1 );
-            amp *= Lerp( float32v( 1 ), (noise + float32v( 1 )) * float32v( 0.5f ), weightedStrength );
-            amp *= gain;
+            if( isWeighted )
+            {
+                amp *= Lerp( float32v( 1 ), (noise + float32v( 1 )) * float32v( 0.5f ), weightedStrength );
+                amp *= gain;
+            }
+            else
+            {
+                amp *= gain;
+            }
 
             noise = this->GetSourceValue( mSource, seed, (pos *= lacunarity)... );
             sum += noise * amp;
@@ -52,11 +62,21 @@ class FastSIMD::DispatchClass<FractalRidged, SIMD> final : public virtual Fracta
 
         float32v sum = (noise * float32v( -2 ) + float32v( 1 )) * amp;
 
+        // Lerp( 1, x, 0 ) == 1, skip it for the common constant 0 weighted strength
+        bool isWeighted = mWeightedStrength.simdGeneratorPtr || mWeightedStrength.constant != 0.0f;
+
         for( int i = 1; i < mOctaves; i++ )
         {
             seed -= int32v( -1 );
-            amp *= Lerp( float32v( 1 ), float32v( 1 ) - noise, weightedStrength );
-            amp *= gain;
+            if( isWeighted )
+            {
+                amp *= Lerp( float32v( 1 ), float32v( 1 ) - noise, weightedStrength );
+                amp *= gain;
+            }
+            else
+            {
+                amp *= gain;
+            }
 
             noise = FS::Abs( this->GetSourceValue( mSource, seed, (pos *= lacunarity)... ) );
             sum += (noise * float32v( -2 ) + float32v( 1 )) * amp;
