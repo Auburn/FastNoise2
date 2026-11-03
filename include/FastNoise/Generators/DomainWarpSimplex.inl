@@ -1,10 +1,25 @@
 #include "DomainWarpSimplex.h"
 #include "Utils.inl"
 
+// The vector contribution helpers are force inlined where the compiler would call them out of line and pass their float32v
+// arguments through memory. GCC doesn't inline them by itself (not declared inline, above its auto-inline limit). MSVC AVX512
+// passes float32v by reference to a copy (FastSIMD's 512 bit registers have a copy constructor on MSVC), there only the 2D/3D
+// ones are inlined: inlining the 4D ones makes SuperSimplex 4D too large for MSVC's inliner. Clang inlines them already
+#if defined( __GNUC__ ) && !defined( __clang__ )
+#define FN_WARP_HELPER FS_FORCEINLINE static void FS_VECTORCALL
+#define FN_WARP_HELPER_4D FS_FORCEINLINE static void FS_VECTORCALL
+#elif defined( _MSC_VER ) && !defined( __clang__ ) && defined( __AVX512F__ )
+#define FN_WARP_HELPER FS_FORCEINLINE static void
+#define FN_WARP_HELPER_4D static void FS_VECTORCALL
+#else
+#define FN_WARP_HELPER static void FS_VECTORCALL
+#define FN_WARP_HELPER_4D static void FS_VECTORCALL
+#endif
+
 namespace FastNoise
 {
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FN_WARP_HELPER ApplyGradientOuterProductVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
         int32v indexGradient = hashShifted * int32v( 12 >> 2 ); // [0,12) in the upper four bits
@@ -60,7 +75,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyGradientOuterProductVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    FN_WARP_HELPER ApplyGradientOuterProductVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
         int32v indexGradient = FS::BitShiftRightZeroExtend( hashShifted * int32v( 12 >> 2 ), 28 ); // [0,12)
@@ -116,7 +131,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyGradientOuterProductVectorProductSimplex( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    FN_WARP_HELPER_4D ApplyGradientOuterProductVectorProductSimplex( int32v hash, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
     {
         int32v hashShifted = FS::BitShiftRightZeroExtend( hash, 2 );
         int32v indexGradient = hashShifted * int32v( 20 >> 2 ); // [0,20) in the upper five bits
@@ -144,6 +159,43 @@ namespace FastNoise
             valueY = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableY, indexOuterVector, -tableY ), valueY );
             valueZ = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableZ, indexOuterVector, -tableZ ), valueZ );
             valueW = FS::FMulAdd( multiplier, FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableW, indexOuterVector, -tableW ), valueW );
+        }
+        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        {
+            // Same table as AVX512 split into two 8 entry halves, entries [16,20) are entries [0,4) negated.
+            // The hash has a clear sign bit so the index is [0,20) << 27, which makes the high half ( [8,16) << 27 ) a signed
+            // compare. Testing bit 30 with index << 1 instead gets folded into an extra vpmulld by clang
+            auto lookup = []( int32v index, const auto& tableLow, const auto& tableHigh )
+            {
+                int32v permuteIndex = FS::BitShiftRightZeroExtend( index, 27 );
+                float32v low = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableLow, permuteIndex );
+                float32v high = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableHigh, permuteIndex );
+
+                return FS::Select( index > int32v( 0x3FFFFFFF ), high, low );
+            };
+
+            const auto tableLowX = FS::Constant<float>( kSkew4f + 1, kSkew4f, kSkew4f, kSkew4f, -1, 1, 0, 0 );
+            const auto tableLowY = FS::Constant<float>( kSkew4f, kSkew4f + 1, kSkew4f, kSkew4f, 1, -1, 0, 0 );
+            const auto tableLowZ = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f + 1, kSkew4f, 0, 0, -1, 1 );
+            const auto tableLowW = FS::Constant<float>( kSkew4f, kSkew4f, kSkew4f, kSkew4f + 1, 0, 0, 1, -1 );
+            const auto tableHighX = FS::Constant<float>( -1, 0, 1, 0, -1, 0, 0, 1 );
+            const auto tableHighY = FS::Constant<float>( 0, -1, 0, 1, 0, -1, 1, 0 );
+            const auto tableHighZ = FS::Constant<float>( 1, 0, -1, 0, 0, 1, -1, 0 );
+            const auto tableHighW = FS::Constant<float>( 0, 1, 0, -1, 1, 0, 0, -1 );
+
+            float32v gX = lookup( indexGradient, tableLowX, tableHighX );
+            float32v gY = lookup( indexGradient, tableLowY, tableHighY );
+            float32v gZ = lookup( indexGradient, tableLowZ, tableHighZ );
+            float32v gW = lookup( indexGradient, tableLowW, tableHighW );
+
+            // The negated entries flip every component, so apply their sign to the dot product and the multiplier instead
+            multiplier *= FS::FMulAdd( gW, fW, FS::FMulAdd( gZ, fZ, FS::FMulAdd( gY, fY, gX * fX ) ) ) ^ FS::Cast<float>( indexGradient & int32v( 1 << 31 ) );
+            multiplier ^= FS::Cast<float>( indexOuterVector & int32v( 1 << 31 ) );
+
+            valueX = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowX, tableHighX ), valueX );
+            valueY = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowY, tableHighY ), valueY );
+            valueZ = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowZ, tableHighZ ), valueZ );
+            valueW = FS::FMulAdd( multiplier, lookup( indexOuterVector, tableLowW, tableHighW ), valueW );
         }
         else
         {
@@ -191,7 +243,7 @@ namespace FastNoise
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
+    FN_ALIGN_STACK FN_WARP_HELPER ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v multiplier, float32v& valueX, float32v& valueY )
     {
         int32v index = FS::BitShiftRightZeroExtend( hash31, 1 ) * int32v( 12 >> 2 ); // [0,12) in the upper four bits
 
@@ -234,8 +286,8 @@ namespace FastNoise
         }
     }
 
-    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    template<FastSIMD::FeatureSet SIMD, typename I, typename F>
+    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductCommonImpl( I hash31, F fX, F fY, F fZ, F multiplier, F& valueX, F& valueY, F& valueZ )
     {
         constexpr float kComponentA = 2.224744871391589f;
         constexpr float kComponentB = -0.224744871391589f;
@@ -243,17 +295,17 @@ namespace FastNoise
         constexpr float kComponentsDE = 1.0f;
         constexpr float kComponentF = 2.0f;
 
-        int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
-        int32v indexFacetBasisWithPermute2 = hashShifted * int32v( 0xAAAAAAAB ); // [0,3) in the highest two bits, [0,8) in the lowest three bits // ( -4LL << 30 ) / 3
-        int32v indexPermutation2HighBit = ( indexFacetBasisWithPermute2 << 29 ); // & int32v( 1 << 31 ); // [0,1) in the most significant bit
-        int32v indexPermutation3 = FS::BitShiftRightZeroExtend( hashShifted * int32v( 3 ), 30 ); // [0,3)
-        float32v finalSign = FS::Cast<float>( hash31 << 31 );
+        I hashShifted = FS::BitShiftRightZeroExtend( hash31, 1 );
+        I indexFacetBasisWithPermute2 = hashShifted * I( 0xAAAAAAAB ); // [0,3) in the highest two bits, [0,8) in the lowest three bits // ( -4LL << 30 ) / 3
+        I indexPermutation2HighBit = ( indexFacetBasisWithPermute2 << 29 ); // & I( 1 << 31 ); // [0,1) in the most significant bit
+        I indexPermutation3 = FS::BitShiftRightZeroExtend( hashShifted * I( 3 ), 30 ); // [0,3)
+        F finalSign = FS::Cast<float>( hash31 << 31 );
 
-        float32v valueAB, valueBA, valueC;
+        F valueAB, valueBA, valueC;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
-            indexFacetBasisWithPermute2 = FS::NativeExec<int32v>( []( auto a ){ return _mm512_rol_epi32( a, 2 ); }, indexFacetBasisWithPermute2 );
+            indexFacetBasisWithPermute2 = FS::NativeExec<I>( []( auto a ){ return _mm512_rol_epi32( a, 2 ); }, indexFacetBasisWithPermute2 );
 
             const auto tableA_gX = FS::Constant<float>( kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC, kComponentA, kComponentA, kComponentC, kComponentC, -kComponentA, -kComponentA, kComponentC, kComponentC );
             const auto tableA_gY = FS::Constant<float>( kComponentC, kComponentB, kComponentA, kComponentA, kComponentC, kComponentB, -kComponentA, -kComponentA, kComponentC, -kComponentB, kComponentA, kComponentA, kComponentC, -kComponentB, -kComponentA, -kComponentA );
@@ -267,56 +319,59 @@ namespace FastNoise
             const auto tableC_gY = FS::Constant<float>( kComponentF, kComponentsDE, kComponentsDE, kComponentsDE, kComponentF, kComponentsDE, kComponentC, kComponentC, kComponentF, kComponentC, kComponentsDE, kComponentsDE, kComponentF, kComponentC, kComponentC, kComponentC );
             const auto tableC_gZ = FS::Constant<float>( kComponentsDE, kComponentF, kComponentsDE, kComponentsDE, kComponentsDE, kComponentF, kComponentsDE, kComponentsDE, kComponentC, kComponentF, kComponentC, kComponentC, kComponentC, kComponentF, kComponentC, kComponentC );
 
-            float32v valueAB_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gX, indexFacetBasisWithPermute2, tableB_gX );
-            float32v valueAB_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gY, indexFacetBasisWithPermute2, tableB_gY );
-            float32v valueAB_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gZ, indexFacetBasisWithPermute2, tableB_gZ );
+            F valueAB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gX, indexFacetBasisWithPermute2, tableB_gX );
+            F valueAB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gY, indexFacetBasisWithPermute2, tableB_gY );
+            F valueAB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableA_gZ, indexFacetBasisWithPermute2, tableB_gZ );
             valueAB = FS::FMulAdd( valueAB_gZ, fZ, FS::FMulAdd( fY, valueAB_gY, fX * valueAB_gX ) );
 
-            float32v valueBA_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gX, indexFacetBasisWithPermute2, tableA_gX );
-            float32v valueBA_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gY, indexFacetBasisWithPermute2, tableA_gY );
-            float32v valueBA_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gZ, indexFacetBasisWithPermute2, tableA_gZ );
+            F valueBA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gX, indexFacetBasisWithPermute2, tableA_gX );
+            F valueBA_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gY, indexFacetBasisWithPermute2, tableA_gY );
+            F valueBA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ), tableB_gZ, indexFacetBasisWithPermute2, tableA_gZ );
             valueBA = FS::FMulAdd( valueBA_gZ, fZ, FS::FMulAdd( fY, valueBA_gY, fX * valueBA_gX ) );
 
-            float32v valueC_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gX );
-            float32v valueC_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gY );
-            float32v valueC_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gZ );
+            F valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gX );
+            F valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gY );
+            F valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutexvar_ps ), indexFacetBasisWithPermute2, tableC_gZ );
             valueC = FS::FMulAdd( valueC_gZ, fZ, FS::FMulAdd( fY, valueC_gY, fX * valueC_gX ) );
         }
         else
         {
-            float32v sign0 = FS::Cast<float>( indexFacetBasisWithPermute2 << 31 );
-            float32v sign1 = FS::Cast<float>( ( indexFacetBasisWithPermute2 << 30 ) & int32v( 1 << 31 ) );
+            F sign0 = FS::Cast<float>( indexFacetBasisWithPermute2 << 31 );
+            F sign1 = FS::Cast<float>( ( indexFacetBasisWithPermute2 << 30 ) & I( 1 << 31 ) );
 
             auto notYZ = indexFacetBasisWithPermute2;
             auto notXY = indexFacetBasisWithPermute2 << 1;
 
-            float32v valueA_gX = FS::SelectHighBit( notYZ, float32v( kComponentC ), float32v( kComponentA ) ^ sign0 );
-            float32v valueA_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, float32v( kComponentB ) ^ sign1, float32v( kComponentA ) ^ sign0 ), float32v( kComponentC ) );
-            float32v valueA_gZ = FS::SelectHighBit( notXY, float32v( kComponentC ), float32v( kComponentB ) ^ sign1 );
-            float32v valueA = FS::FMulAdd( valueA_gZ, fZ, FS::FMulAdd( fY, valueA_gY, fX * valueA_gX ) );
+            // The facet permutes which axis gets which gradient component: ( A, C, B ), ( A, B, C ) with notXY, ( C, A, B ) with notYZ
+            // ( never both, hash31 has a clear sign bit so the top two bits are [0,3) ). Apply that permutation to f once instead of
+            // selecting every component of the three gradients
+            F fA = FS::SelectHighBit( notYZ, fY, fX );
+            F fB = FS::SelectHighBit( notXY, fY, fZ );
+            F fC = FS::SelectHighBit( notYZ, fX, FS::SelectHighBit( notXY, fZ, fY ) );
+            F productC = fC * F( kComponentC );
 
-            float32v valueB_gX = FS::SelectHighBit( notYZ, float32v( kComponentC ), float32v( kComponentB ) ^ sign0 );
-            float32v valueB_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, float32v( kComponentA ) ^ sign1, float32v( kComponentB ) ^ sign0 ), float32v( kComponentC ) );
-            float32v valueB_gZ = FS::SelectHighBit( notXY, float32v( kComponentC ), float32v( kComponentA ) ^ sign1 );
-            float32v valueB = FS::FMulAdd( valueB_gZ, fZ, FS::FMulAdd( fY, valueB_gY, fX * valueB_gX ) );
-
-            float32v valueC_gX = FS::SelectHighBit( notYZ, float32v( kComponentF ), float32v( kComponentsDE ) ^ sign0 );
-            float32v valueC_gY = FS::SelectHighBit( notYZ | notXY, FS::SelectHighBit( notXY, float32v( kComponentsDE ) ^ sign1, float32v( kComponentsDE ) ^ sign0 ), float32v( kComponentF ) );
-            float32v valueC_gZ = FS::SelectHighBit( notXY, float32v( kComponentF ), float32v( kComponentsDE ) ^ sign1 );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, FS::FMulAdd( fY, valueC_gY, fX * valueC_gX ) );
+            F valueA = FS::FMulAdd( F( kComponentA ) ^ sign0, fA, FS::FMulAdd( F( kComponentB ) ^ sign1, fB, productC ) );
+            F valueB = FS::FMulAdd( F( kComponentB ) ^ sign0, fA, FS::FMulAdd( F( kComponentA ) ^ sign1, fB, productC ) );
+            valueC = FS::FMulAdd( F( kComponentsDE ) ^ sign0, fA, FS::FMulAdd( F( kComponentsDE ) ^ sign1, fB, fC * F( kComponentF ) ) );
 
             valueAB = FS::SelectHighBit( indexPermutation2HighBit, valueB, valueA );
             valueBA = FS::SelectHighBit( indexPermutation2HighBit, valueA, valueB );
         }
 
         multiplier ^= finalSign;
-        valueX = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == int32v( 0 ), valueC, valueAB ), valueX );
-        valueY = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == int32v( 1 ), valueC, FS::Select( indexPermutation3 == int32v( 2 ), valueBA, valueAB ) ), valueY );
-        valueZ = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == int32v( 2 ), valueC, valueBA ), valueZ );
+        valueX = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 0 ), valueC, valueAB ), valueX );
+        valueY = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 1 ), valueC, FS::Select( indexPermutation3 == I( 2 ), valueBA, valueAB ) ), valueY );
+        valueZ = FS::FMulAdd( multiplier, FS::Select( indexPermutation3 == I( 2 ), valueC, valueBA ), valueZ );
     }
 
     template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
-    static void FS_VECTORCALL ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    FN_WARP_HELPER ApplyOrthogonalGradientMatrixVectorProductCommon( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ )
+    {
+        ApplyOrthogonalGradientMatrixVectorProductCommonImpl<SIMD>( hash31, fX, fY, fZ, multiplier, valueX, valueY, valueZ );
+    }
+
+    template<FastSIMD::FeatureSet SIMD, typename I, typename F>
+    FS_FORCEINLINE static void ApplyOrthogonalGradientMatrixVectorProductSimplexImpl( I hash31, F fX, F fY, F fZ, F fW, F multiplier, F& valueX, F& valueY, F& valueZ, F& valueW )
     {
         constexpr float kComponentPairwiseIndexedNegativeAB = -0.375999676691291f;
         constexpr float kComponentPairwiseUnindexedFillerAB = 0.222726847849776f;
@@ -355,35 +410,35 @@ namespace FastNoise
         constexpr float eIdxD = kComponentPairwiseIndexedPositiveD + kDeltaPairwiseToSingleExtraD;
         constexpr float eFillD = kComponentPairwiseUnindexedD + kDeltaPairwiseToSingleExtraD;
 
-        int32v hashShifted = FS::BitShiftRightZeroExtend( hash31, 2 );
-        int32v indexBasis = hashShifted * int32v( 20 >> 2 ); // [0,20) << 27
-        int32v indexPermutation3 = ( hashShifted * int32v( 0xD5555556 ) ) >> 29; // [0,3] // ( -4LL << 29 ) / 3
-        int32v indexPermutation8 = indexBasis >> 24; // & int32v( 0x07 );
-        float32v finalSign = FS::Cast<float>( hash31 << 31 );
+        I hashShifted = FS::BitShiftRightZeroExtend( hash31, 2 );
+        I indexBasis = hashShifted * I( 20 >> 2 ); // [0,20) << 27
+        I indexPermutation3 = ( hashShifted * I( 0xD5555556 ) ) >> 29; // [0,3] // ( -4LL << 29 ) / 3
+        I indexPermutation8 = indexBasis >> 24; // & I( 0x07 );
+        F finalSign = FS::Cast<float>( hash31 << 31 );
 
-        float32v valueA, valueB, valueC, valueD;
-        float32v valueA_gX, valueB_gX, valueC_gX, valueD_gX;
-        float32v valueA_gY, valueB_gY, valueC_gY, valueD_gY;
-        float32v valueA_gZ, valueB_gZ, valueC_gZ, valueD_gZ;
-        float32v valueA_gW, valueB_gW, valueC_gW, valueD_gW;
+        F valueA, valueB, valueC, valueD;
+        F valueA_gX, valueB_gX, valueC_gX, valueD_gX;
+        F valueA_gY, valueB_gY, valueC_gY, valueD_gY;
+        F valueA_gZ, valueB_gZ, valueC_gZ, valueD_gZ;
+        F valueA_gW, valueB_gW, valueC_gW, valueD_gW;
 
         if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
         {
             indexBasis >>= 27;
 
-            valueA_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxABC, sDiagABC, sDiagABC, sDiagABC, pIdxPosAB, pIdxNegAB, pDiagAB, pDiagAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pDiagAB, pDiagAB, pIdxNegAB ), indexBasis,
                 FS::Constant<float>( eIdxABC, eDiagABC, eDiagABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxABC, sFillABC, sFillABC, sFillABC, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB ), indexBasis,
                 FS::Constant<float>( eIdxABC, eFillABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxABC, sFillABC, sFillABC, sFillABC, pIdxPosC, pIdxNegC, pFillC, pFillC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pFillC, pFillC, pIdxNegC ), indexBasis,
                 FS::Constant<float>( eIdxABC, eFillABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gX = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sIdxD, sFillD, sFillD, sFillD, pIdxPosD, pIdxNegD, pFillD, pFillD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pFillD, pFillD, pIdxNegD ), indexBasis,
                 FS::Constant<float>( eIdxD, eFillD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -393,19 +448,19 @@ namespace FastNoise
             valueC = valueC_gX * fX;
             valueD = valueD_gX * fX;
 
-            valueA_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sDiagABC, sIdxABC, sFillABC, sFillABC, pIdxNegAB, pIdxPosAB, pFillAB, pFillAB, pDiagAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pIdxNegAB, pDiagAB ), indexBasis,
                 FS::Constant<float>( eDiagABC, eIdxABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sIdxABC, sDiagABC, sDiagABC, pIdxNegAB, pIdxPosAB, pDiagAB, pDiagAB, pFillAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eIdxABC, eDiagABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sIdxABC, sFillABC, sFillABC, pIdxNegC, pIdxPosC, pFillC, pFillC, pFillC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pIdxNegC, pFillC ), indexBasis,
                 FS::Constant<float>( eFillABC, eIdxABC, eFillABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gY = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillD, sIdxD, sFillD, sFillD, pIdxNegD, pIdxPosD, pFillD, pFillD, pFillD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pIdxNegD, pFillD ), indexBasis,
                 FS::Constant<float>( eFillD, eIdxD, eFillD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -415,19 +470,19 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gY, fY, valueC );
             valueD = FS::FMulAdd( valueD_gY, fY, valueD );
 
-            valueA_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sFillABC, pDiagAB, pDiagAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pFillAB, pIdxPosAB, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eIdxABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sDiagABC, sDiagABC, sIdxABC, sFillABC, pFillAB, pFillAB, pIdxPosAB, pIdxNegAB, pIdxNegAB, pDiagAB, pIdxPosAB, pDiagAB, pDiagAB, pIdxNegAB, pIdxPosAB, pDiagAB ), indexBasis,
                 FS::Constant<float>( eDiagABC, eDiagABC, eIdxABC, eFillABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sIdxABC, sDiagABC, pFillC, pFillC, pIdxPosC, pIdxNegC, pIdxNegC, pFillC, pIdxPosC, pFillC, pFillC, pIdxNegC, pIdxPosC, pFillC ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eIdxABC, eDiagABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gZ = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillD, sFillD, sIdxD, sFillD, pFillD, pFillD, pIdxPosD, pIdxNegD, pIdxNegD, pFillD, pIdxPosD, pFillD, pFillD, pIdxNegD, pIdxPosD, pFillD ), indexBasis,
                 FS::Constant<float>( eFillD, eFillD, eIdxD, eFillD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -437,19 +492,19 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gZ, fZ, valueC );
             valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
 
-            valueA_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueA_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pFillAB, pFillAB, pIdxNegAB, pIdxPosAB, pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, pIdxNegAB, pFillAB, pFillAB, pIdxPosAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eFillABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueB_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueB_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillABC, sFillABC, sFillABC, sIdxABC, pDiagAB, pDiagAB, pIdxNegAB, pIdxPosAB, pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, pIdxNegAB, pDiagAB, pDiagAB, pIdxPosAB ), indexBasis,
                 FS::Constant<float>( eFillABC, eFillABC, eFillABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueC_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueC_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sDiagABC, sDiagABC, sDiagABC, sIdxABC, pFillC, pFillC, pIdxNegC, pIdxPosC, pFillC, pIdxNegC, pFillC, pIdxPosC, pIdxNegC, pFillC, pFillC, pIdxPosC ), indexBasis,
                 FS::Constant<float>( eDiagABC, eDiagABC, eDiagABC, eIdxABC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
-            valueD_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
+            valueD_gW = FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm512_permutex2var_ps ),
                 FS::Constant<float>( sFillD, sFillD, sFillD, sIdxD, pFillD, pFillD, pIdxNegD, pIdxPosD, pFillD, pIdxNegD, pFillD, pIdxPosD, pIdxNegD, pFillD, pFillD, pIdxPosD ), indexBasis,
                 FS::Constant<float>( eFillD, eFillD, eFillD, eIdxD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 )
             );
@@ -459,139 +514,96 @@ namespace FastNoise
             valueC = FS::FMulAdd( valueC_gW, fW, valueC );
             valueD = FS::FMulAdd( valueD_gW, fW, valueD );
         }
-        else if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        else if constexpr( SIMD & FastSIMD::FeatureFlag::SSE41 )
         {
-            const auto tableAB = FS::Constant<float>( pFillAB, pIdxNegAB, pFillAB, pIdxPosAB, sFillABC, sIdxABC, eFillABC, eIdxABC );
-            const auto tableC  = FS::Constant<float>( pFillC,  pIdxNegC,  pFillC,  pIdxPosC,  sFillABC, sIdxABC, eFillABC, eIdxABC );
-            const auto tableD  = FS::Constant<float>( pFillD,  pIdxNegD,  pFillD,  pIdxPosD,  sFillD,   sIdxD,   eFillD,   eIdxD   );
-
-            int32v indexPositive = indexBasis & int32v( 0x03 << 27 );
-            int32v indexNegative = ( indexBasis >> 2 ) & int32v( 0x03 << 27 );
-            indexNegative ^= indexPositive;
-
-            auto extraCase = ( indexBasis < int32v( 0 ) ); // [16,20) << 27 sets the sign bit
-            auto singleCase = ( indexPositive == indexNegative );
-            indexPositive |= FS::Cast<int32_t>( singleCase ); // Force indexPositive checks to fail
-
-            int32v indexSelectBase = FS::Masked( singleCase, int32v( 4 ) ) | FS::Masked( extraCase, int32v( 2 ) );
-
-            int32v indexedCounter( -1 );
-
+            // Every basis gives the axes four roles: the ( positive ) indexed axis, the first and second unindexed axes and
+            // either the negative indexed axis ( pairwise ) or the third unindexed axis ( single/extra ). With f gathered in
+            // role order the gradients only depend on that case, A and B add the diagonal delta on the first/second unindexed axis.
+            // The role axes are a 16 entry table ( [16,20) use the same axes as [0,4) ) packed in the top byte, two bits per role
+            I roleAxes;
+            if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
             {
-                auto indexedPositive = ( indexPositive == int32v( 0 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 0 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
-
-                valueA_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pDiagAB, pIdxNegAB, pDiagAB, pIdxPosAB, sDiagABC, sIdxABC, eDiagABC, eIdxABC ), indexSelect );
-                valueB_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC,  indexSelect );
-                valueD_gX = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD,  indexSelect );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
+                I permuteIndex = FS::BitShiftRightZeroExtend( indexBasis, 27 );
+                roleAxes = FS::Select( indexBasis > I( 0x3FFFFFFF ), // [8,16) << 27
+                    FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1E000000, 0x4B000000, 0x9C000000, 0xC9000000, 0x1B000000, 0x4E000000, 0x8D000000, 0xD8000000 ), permuteIndex ),
+                    FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_epi32 ), FS::Constant<std::int32_t>( 0x1B000000, 0x4B000000, 0x87000000, 0xC6000000, 0x2D000000, 0x6C000000, 0x87000000, 0xC6000000 ), permuteIndex ) );
+            }
+            else // Byte shuffle the table into the top byte, the other bytes of the shuffle index have the high bit set and become 0
+            {
+                I shuffleIndex = ( FS::BitShiftRightZeroExtend( indexBasis, 3 ) & I( 0x0F000000 ) ) | I( 0x00808080 );
+                roleAxes = FS::NativeExec<I>( FS_BIND_INTRINSIC( _mm_shuffle_epi8 ), FS::Constant<std::int32_t>( 0xC6874B1B, 0xC6876C2D, 0xC99C4B1E, 0xD88D4E1B ), shuffleIndex );
             }
 
-            valueA = valueA_gX * fX;
-            valueB = valueB_gX * fX;
-            valueC = valueC_gX * fX;
-            valueD = valueD_gX * fX;
-
+            auto gatherRole = [&]( I axisBits )
             {
-                auto indexedPositive = ( indexPositive == int32v( 1 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 1 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
+                I lowBit = axisBits << 1;
+                return FS::SelectHighBit( axisBits, FS::SelectHighBit( lowBit, fW, fZ ), FS::SelectHighBit( lowBit, fY, fX ) );
+            };
 
-                valueA_gY = valueB_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gY = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
+            F f0 = gatherRole( roleAxes );
+            F f1 = gatherRole( roleAxes << 2 );
+            F f2 = gatherRole( roleAxes << 4 );
+            F f3 = gatherRole( roleAxes << 6 );
+            F f12 = f1 + f2;
 
-                int32v maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueA_gY = FS::MaskedAdd( maskedIndexedCounter == int32v( -2 ), valueA_gY, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueB_gY = FS::MaskedAdd( maskedIndexedCounter == int32v( -1 ), valueB_gY, float32v( kDeltaUnindexedFillerToDiagonal ) );
+            // Single or extra ( [0,4) << 27, or [16,20) << 27 which is negative )
+            auto singleLayout = indexBasis < I( 4 << 27 );
 
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = FS::FMulAdd( valueA_gY, fY, valueA );
-            valueB = FS::FMulAdd( valueB_gY, fY, valueB );
-            valueC = FS::FMulAdd( valueC_gY, fY, valueC );
-            valueD = FS::FMulAdd( valueD_gY, fY, valueD );
-
+            auto caseConstant = [&]( float pairwise, float single, float extra )
             {
-                auto indexedPositive = ( indexPositive == int32v( 2 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 2 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
+                if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+                {
+                    // Low 3 bits: 0 pairwise, 7 single, 6 extra
+                    I caseIndex = FS::Cast<std::int32_t>( singleLayout ) + FS::Cast<std::int32_t>( indexBasis < I( 0 ) );
+                    return FS::NativeExec<F>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), FS::Constant<float>( pairwise, 0, 0, 0, 0, 0, extra, single ), caseIndex );
+                }
+                else
+                {
+                    return FS::Select( singleLayout, FS::SelectHighBit( indexBasis, F( extra ), F( single ) ), F( pairwise ) );
+                }
+            };
 
-                valueA_gZ = valueB_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gZ = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
-
-                int32v maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueA_gZ = FS::MaskedAdd( maskedIndexedCounter == int32v( -3 ), valueA_gZ, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueB_gZ = FS::MaskedAdd( maskedIndexedCounter == int32v( -2 ), valueB_gZ, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueC_gZ = FS::MaskedAdd( maskedIndexedCounter == int32v( -1 ), valueC_gZ, float32v( kDeltaUnindexedFillerToDiagonal ) );
-
-                indexedCounter = FS::MaskedDecrement( indexed, indexedCounter );
-            }
-
-            valueA = FS::FMulAdd( valueA_gZ, fZ, valueA );
-            valueB = FS::FMulAdd( valueB_gZ, fZ, valueB );
-            valueC = FS::FMulAdd( valueC_gZ, fZ, valueC );
-            valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
-
-            {
-                auto indexedPositive = ( indexPositive == int32v( 3 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 3 << 27 ) );
-                int32v indexSelect = FS::MaskedIncrement( indexed, indexSelectBase | FS::Masked( indexedPositive, int32v( 2 ) ) );
-
-                valueA_gW = valueB_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableAB, indexSelect );
-                valueC_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableC, indexSelect );
-                valueD_gW = FS::NativeExec<float32v>( FS_BIND_INTRINSIC( _mm256_permutevar8x32_ps ), tableD, indexSelect );
-
-                int32v maskedIndexedCounter = FS::InvMasked( indexed, indexedCounter );
-                valueB_gW = FS::MaskedAdd( maskedIndexedCounter == int32v( -3 ), valueB_gW, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                valueC_gW = FS::MaskedAdd( maskedIndexedCounter == int32v( -2 ), valueC_gW, float32v( kDeltaUnindexedFillerToDiagonal ) );
-            }
-
-            valueA = FS::FMulAdd( valueA_gW, fW, valueA );
-            valueB = FS::FMulAdd( valueB_gW, fW, valueB );
-            valueC = FS::FMulAdd( valueC_gW, fW, valueC );
-            valueD = FS::FMulAdd( valueD_gW, fW, valueD );
+            F valueAB = FS::FMulAdd( caseConstant( pIdxNegAB, sFillABC, eFillABC ), f3, FS::FMulAdd( caseConstant( pFillAB, sFillABC, eFillABC ), f12, caseConstant( pIdxPosAB, sIdxABC, eIdxABC ) * f0 ) );
+            valueA = FS::FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f1, valueAB );
+            valueB = FS::FMulAdd( F( kDeltaUnindexedFillerToDiagonal ), f2, valueAB );
+            valueC = FS::FMulAdd( caseConstant( pIdxNegC, sDiagABC, eDiagABC ), f3, FS::FMulAdd( caseConstant( pFillC, sFillABC, eFillABC ), f12, caseConstant( pIdxPosC, sIdxABC, eIdxABC ) * f0 ) );
+            valueD = FS::FMulAdd( caseConstant( pIdxNegD, sFillD, eFillD ), f3, FS::FMulAdd( caseConstant( pFillD, sFillD, eFillD ), f12, caseConstant( pIdxPosD, sIdxD, eIdxD ) * f0 ) );
         }
         else
         {
-            int32v indexPositive = indexBasis & int32v( 0x03 << 27 );
-            int32v indexNegative = ( indexBasis >> 2 ) & int32v( 0x03 << 27 );
+            I indexPositive = indexBasis & I( 0x03 << 27 );
+            I indexNegative = ( indexBasis >> 2 ) & I( 0x03 << 27 );
             indexNegative ^= indexPositive;
 
-            auto extraCase = ( indexBasis < int32v( 0 ) ); // [16,20) << 27 sets the sign bit
+            auto extraCase = ( indexBasis < I( 0 ) ); // [16,20) << 27 sets the sign bit
             auto singleCase = ( indexPositive == indexNegative );
             auto singleNonExtraCase = FS::BitwiseAndNot( singleCase, extraCase );
             indexPositive |= FS::Cast<int32_t>( singleNonExtraCase ); // Force indexPositive checks to fail
 
-            float32v singleOffsetAB = FS::MaskedAdd( extraCase, float32v( kDeltaPairwiseToSingleAB ), float32v( kDeltaSingleToExtra ) );
-            float32v componentIndexedNegativeAB = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseIndexedNegativeAB ), singleOffsetAB );
-            float32v componentUnindexedFillerAB = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseUnindexedFillerAB ), singleOffsetAB );
+            F singleOffsetAB = FS::MaskedAdd( extraCase, F( kDeltaPairwiseToSingleAB ), F( kDeltaSingleToExtra ) );
+            F componentIndexedNegativeAB = FS::MaskedAdd( singleCase, F( kComponentPairwiseIndexedNegativeAB ), singleOffsetAB );
+            F componentUnindexedFillerAB = FS::MaskedAdd( singleCase, F( kComponentPairwiseUnindexedFillerAB ), singleOffsetAB );
 
-            float32v componentIndexedNegativeC = FS::InvMaskedAdd( singleCase, componentIndexedNegativeAB, float32v( kDeltaPairwiseABToC ) );
-            float32v componentUnindexedFillerC = FS::InvMaskedAdd( singleCase, componentUnindexedFillerAB, float32v( kDeltaPairwiseABToC ) );
+            F componentIndexedNegativeC = FS::InvMaskedAdd( singleCase, componentIndexedNegativeAB, F( kDeltaPairwiseABToC ) );
+            F componentUnindexedFillerC = FS::InvMaskedAdd( singleCase, componentUnindexedFillerAB, F( kDeltaPairwiseABToC ) );
 
-            float32v singleOffsetD = FS::MaskedAdd( extraCase, float32v( kDeltaPairwiseToSingleD ), float32v( kDeltaSingleToExtra ) );
-            float32v componentIndexedPositiveD = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseIndexedPositiveD ), singleOffsetD );
-            float32v componentUnindexedD = FS::MaskedAdd( singleCase, float32v( kComponentPairwiseUnindexedD ), singleOffsetD );
+            F singleOffsetD = FS::MaskedAdd( extraCase, F( kDeltaPairwiseToSingleD ), F( kDeltaSingleToExtra ) );
+            F componentIndexedPositiveD = FS::MaskedAdd( singleCase, F( kComponentPairwiseIndexedPositiveD ), singleOffsetD );
+            F componentUnindexedD = FS::MaskedAdd( singleCase, F( kComponentPairwiseUnindexedD ), singleOffsetD );
 
-            int32v indexedCounter( -1 );
+            I indexedCounter( -1 );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 0 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 0 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 0 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 0 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = componentUnindexedFillerAB + float32v( kDeltaUnindexedFillerToDiagonal );
-                float32v unindexedComponentB = componentUnindexedFillerAB;
-                float32v unindexedComponentC = componentUnindexedFillerC;
+                F unindexedComponentA = componentUnindexedFillerAB + F( kDeltaUnindexedFillerToDiagonal );
+                F unindexedComponentB = componentUnindexedFillerAB;
+                F unindexedComponentC = componentUnindexedFillerC;
 
                 valueA_gX = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gX = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -607,16 +619,16 @@ namespace FastNoise
             valueD = valueD_gX * fX;
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 1 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 1 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 1 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 1 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = FS::MaskedAdd( indexedCounter == int32v( -2 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentB = FS::MaskedAdd( indexedCounter == int32v( -1 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentC = componentUnindexedFillerC;
+                F unindexedComponentA = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -1 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentC = componentUnindexedFillerC;
 
                 valueA_gY = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gY = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -632,16 +644,16 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gY, fY, valueD );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 2 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 2 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 2 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 2 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = FS::MaskedAdd( indexedCounter == int32v( -3 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentB = FS::MaskedAdd( indexedCounter == int32v( -2 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentC = FS::MaskedAdd( indexedCounter == int32v( -1 ), componentUnindexedFillerC,  float32v( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentA = FS::MaskedAdd( indexedCounter == I( -3 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentC = FS::MaskedAdd( indexedCounter == I( -1 ), componentUnindexedFillerC,  F( kDeltaUnindexedFillerToDiagonal ) );
 
                 valueA_gZ = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gZ = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -657,16 +669,16 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gZ, fZ, valueD );
 
             {
-                auto indexedPositive = ( indexPositive == int32v( 3 << 27 ) );
-                auto indexed = indexedPositive | ( indexNegative == int32v( 3 << 27 ) );
+                auto indexedPositive = ( indexPositive == I( 3 << 27 ) );
+                auto indexed = indexedPositive | ( indexNegative == I( 3 << 27 ) );
 
-                float32v indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
-                float32v indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
-                float32v indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
+                F indexedComponentAB = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeAB );
+                F indexedComponentC = FS::MaskedIncrement( indexedPositive, componentIndexedNegativeC );
+                F indexedComponentD = FS::MaskedDecrement( ~indexedPositive, componentIndexedPositiveD );
 
-                float32v unindexedComponentA = componentUnindexedFillerAB;
-                float32v unindexedComponentB = FS::MaskedAdd( indexedCounter == int32v( -3 ), componentUnindexedFillerAB, float32v( kDeltaUnindexedFillerToDiagonal ) );
-                float32v unindexedComponentC = FS::MaskedAdd( indexedCounter == int32v( -2 ), componentUnindexedFillerC,  float32v( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentA = componentUnindexedFillerAB;
+                F unindexedComponentB = FS::MaskedAdd( indexedCounter == I( -3 ), componentUnindexedFillerAB, F( kDeltaUnindexedFillerToDiagonal ) );
+                F unindexedComponentC = FS::MaskedAdd( indexedCounter == I( -2 ), componentUnindexedFillerC,  F( kDeltaUnindexedFillerToDiagonal ) );
 
                 valueA_gW = FS::Select( indexed, indexedComponentAB, unindexedComponentA );
                 valueB_gW = FS::Select( indexed, indexedComponentAB, unindexedComponentB );
@@ -680,17 +692,37 @@ namespace FastNoise
             valueD = FS::FMulAdd( valueD_gW, fW, valueD );
         }
 
-        int32v valueIndexX = ( indexPermutation8 >> 1 ); // & int32v( 0x3 );
-        int32v valueIndexY = ( FS::Increment( valueIndexX ) + indexPermutation3 ); // & int32v( 0x3 );
-        int32v valueIndexZ = indexPermutation8 & int32v( 0x1 );
-        valueIndexZ = ( FS::Increment( valueIndexX ) + FS::MaskedIncrement( valueIndexZ >= indexPermutation3, valueIndexZ ) ); // & int32v( 0x3 );
-        int32v valueIndexSumXYZ = valueIndexX + valueIndexY + valueIndexZ;
+        I valueIndexX = ( indexPermutation8 >> 1 ); // & I( 0x3 );
+        I valueIndexY = ( FS::Increment( valueIndexX ) + indexPermutation3 ); // & I( 0x3 );
+        I valueIndexZ = indexPermutation8 & I( 0x1 );
+        valueIndexZ = ( FS::Increment( valueIndexX ) + FS::MaskedIncrement( valueIndexZ >= indexPermutation3, valueIndexZ ) ); // & I( 0x3 );
+        I valueIndexSumXYZ = valueIndexX + valueIndexY + valueIndexZ;
 
         multiplier ^= finalSign;
         valueX = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexX << 31, FS::SelectHighBit( valueIndexX << 30, valueD, valueB ), FS::SelectHighBit( valueIndexX << 30, valueC, valueA ) ), valueX );
         valueY = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexY << 31, FS::SelectHighBit( valueIndexY << 30, valueD, valueB ), FS::SelectHighBit( valueIndexY << 30, valueC, valueA ) ), valueY );
         valueZ = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexZ << 31, FS::SelectHighBit( valueIndexZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexZ << 30, valueC, valueA ) ), valueZ );
         valueW = FS::FMulAdd( multiplier, FS::SelectHighBit( valueIndexSumXYZ << 31, FS::SelectHighBit( valueIndexSumXYZ << 30, valueD, valueB ), FS::SelectHighBit( valueIndexSumXYZ << 30, valueA, valueC ) ), valueW );
+    }
+
+    template<FastSIMD::FeatureSet SIMD = FastSIMD::FeatureSetDefault()>
+    FN_ALIGN_STACK FN_WARP_HELPER_4D ApplyOrthogonalGradientMatrixVectorProductSimplex( int32v hash31, float32v fX, float32v fY, float32v fZ, float32v fW, float32v multiplier, float32v& valueX, float32v& valueY, float32v& valueZ, float32v& valueW )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31, fX, fY, fZ, fW, multiplier, valueX, valueY, valueZ, valueW );
+        }
+        else // Process each native register half separately, skipping halves with no contribution
+        {
+            if( FS::AnyMask( multiplier.v0 != float32v::DoubledType( 0 ) ) )
+            {
+                ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v0, fX.v0, fY.v0, fZ.v0, fW.v0, multiplier.v0, valueX.v0, valueY.v0, valueZ.v0, valueW.v0 );
+            }
+            if( FS::AnyMask( multiplier.v1 != float32v::DoubledType( 0 ) ) )
+            {
+                ApplyOrthogonalGradientMatrixVectorProductSimplexImpl<SIMD>( hash31.v1, fX.v1, fY.v1, fZ.v1, fW.v1, multiplier.v1, valueX.v1, valueY.v1, valueZ.v1, valueW.v1 );
+            }
+        }
     }
 
     template<VectorizationScheme Scheme>
@@ -727,8 +759,19 @@ namespace FastNoise
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpSimplex, SIMD> final : public virtual DomainWarpSimplex, public DispatchClass<DomainWarp, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
 public:
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template WarpGenBlock<DispatchClass, DIMS>( seed, pos, out, count );
+    }
+
+public:
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         seed += int32v( mSeedOffset );
         switch( mVectorizationScheme )
@@ -769,7 +812,7 @@ public:
 
 protected:
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    FS_FORCEINLINE float32v Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -833,7 +876,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -871,6 +914,17 @@ protected:
         mask32v nMaskX2 = xGreaterEqualY | xGreaterEqualZ; // Inv masked
         mask32v nMaskY2 = FS::BitwiseAndNot( xGreaterEqualY, yGreaterEqualZ );
         mask32v nMaskZ2 = xGreaterEqualZ & yGreaterEqualZ;
+
+        // AVX512 orthogonal matrix scheme: masked compares build each vertex mask in one instruction, a and( not ) of two compares
+        // is a compare under the other mask (the k logic above is then dead code). Fewer live k masks, it spilled them. The other
+        // scheme does not spill and the extra compares compete with its FMAs
+        if constexpr( kUseMaskedGreater && ( SIMD & FastSIMD::FeatureFlag::AVX512_F ) && Scheme == VectorizationScheme::OrthogonalGradientMatrix )
+        {
+            maskX1 = MaskedGreater<true>( xGreaterEqualY, dxSkewed, dzSkewed );
+            maskY1 = MaskedGreater<false>( yGreaterEqualZ, dySkewed, dxSkewed );
+            nMaskY2 = MaskedGreater<false>( xGreaterEqualY, dzSkewed, dySkewed );
+            nMaskZ2 = MaskedGreater<true>( xGreaterEqualZ, dySkewed, dzSkewed );
+        }
 
         float32v dx3 = dx0 - float32v( kReflectUnskew3 * 3 + 1 );
         float32v dy3 = dy0 - float32v( kReflectUnskew3 * 3 + 1 );
@@ -931,7 +985,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -993,82 +1047,60 @@ protected:
         rankZ = FS::MaskedIncrement( zGreaterEqualW, rankZ );
         rankW = FS::MaskedIncrement( ~zGreaterEqualW, rankW );
 
-        mask32v maskX1 = rankX > int32v( 2 );
-        mask32v maskY1 = rankY > int32v( 2 );
-        mask32v maskZ1 = rankZ > int32v( 2 );
-        mask32v maskW1 = rankW > int32v( 2 );
-
-        mask32v maskX2 = rankX > int32v( 1 );
-        mask32v maskY2 = rankY > int32v( 1 );
-        mask32v maskZ2 = rankZ > int32v( 1 );
-        mask32v maskW2 = rankW > int32v( 1 );
-
-        mask32v maskX3 = rankX > int32v( 0 );
-        mask32v maskY3 = rankY > int32v( 0 );
-        mask32v maskZ3 = rankZ > int32v( 0 );
-        mask32v maskW3 = rankW > int32v( 0 );
-
-        float32v dx1 = FS::MaskedSub( maskX1, dx0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dy1 = FS::MaskedSub( maskY1, dy0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dz1 = FS::MaskedSub( maskZ1, dz0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dw1 = FS::MaskedSub( maskW1, dw0, float32v( 1 ) ) - float32v( kUnskew4 );
-        float32v dx2 = FS::MaskedSub( maskX2, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dy2 = FS::MaskedSub( maskY2, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dz2 = FS::MaskedSub( maskZ2, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dw2 = FS::MaskedSub( maskW2, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 2 );
-        float32v dx3 = FS::MaskedSub( maskX3, dx0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dy3 = FS::MaskedSub( maskY3, dy0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dz3 = FS::MaskedSub( maskZ3, dz0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dw3 = FS::MaskedSub( maskW3, dw0, float32v( 1 ) ) - float32v( kUnskew4 * 3 );
-        float32v dx4 = dx0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dy4 = dy0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dz4 = dz0 - float32v( kUnskew4 * 4 + 1 );
-        float32v dw4 = dw0 - float32v( kUnskew4 * 4 + 1 );
-
-        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff1 = FS::FNMulAdd( dw1, dw1, FS::FNMulAdd( dz1, dz1, FS::FNMulAdd( dy1, dy1, FS::FNMulAdd( dx1, dx1, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff2 = FS::FNMulAdd( dw2, dw2, FS::FNMulAdd( dz2, dz2, FS::FNMulAdd( dy2, dy2, FS::FNMulAdd( dx2, dx2, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff3 = FS::FNMulAdd( dw3, dw3, FS::FNMulAdd( dz3, dz3, FS::FNMulAdd( dy3, dy3, FS::FNMulAdd( dx3, dx3, float32v( kFalloffRadiusSquared ) ) ) ) );
-        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
-            float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
-            float32v( -4.0 / 5.0 ) );
-
-        falloff0 = FS::Max( falloff0, float32v( 0 ) );
-        falloff1 = FS::Max( falloff1, float32v( 0 ) );
-        falloff2 = FS::Max( falloff2, float32v( 0 ) );
-        falloff3 = FS::Max( falloff3, float32v( 0 ) );
-        falloff4 = FS::Max( falloff4, float32v( 0 ) );
-
-        falloff0 *= falloff0; falloff0 *= falloff0;
-        falloff1 *= falloff1; falloff1 *= falloff1;
-        falloff2 *= falloff2; falloff2 *= falloff2;
-        falloff3 *= falloff3; falloff3 *= falloff3;
-        falloff4 *= falloff4; falloff4 *= falloff4;
-
         float32v valueX( 0 );
         float32v valueY( 0 );
         float32v valueZ( 0 );
         float32v valueW( 0 );
 
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff0, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX1, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY1, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ1, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW1, wPrimedBase, int32v( Primes::W ) ) ), dx1, dy1, dz1, dw1, falloff1, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX2, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY2, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ2, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW2, wPrimedBase, int32v( Primes::W ) ) ), dx2, dy2, dz2, dw2, falloff2, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            FS::MaskedAdd( maskX3, xPrimedBase, int32v( Primes::X ) ),
-            FS::MaskedAdd( maskY3, yPrimedBase, int32v( Primes::Y ) ),
-            FS::MaskedAdd( maskZ3, zPrimedBase, int32v( Primes::Z ) ),
-            FS::MaskedAdd( maskW3, wPrimedBase, int32v( Primes::W ) ) ), dx3, dy3, dz3, dw3, falloff3, valueX, valueY, valueZ, valueW );
-        ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
-            xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
-            dx4, dy4, dz4, dw4, falloff4, valueX, valueY, valueZ, valueW );
+        // Each vertex is computed right before its contribution so fewer values stay live across the contribution calls
+        float32v falloff0 = FS::FNMulAdd( dw0, dw0, FS::FNMulAdd( dz0, dz0, FS::FNMulAdd( dy0, dy0, FS::FNMulAdd( dx0, dx0, float32v( kFalloffRadiusSquared ) ) ) ) );
+        float32v falloff4 = falloff0 + FS::FMulAdd( unskewDelta,
+            float32v( -4.0 * ( kRoot5 + 3.0 ) / ( kRoot5 + 5.0 ) ),
+            float32v( -4.0 / 5.0 ) );
+        {
+            float32v falloff = FS::Max( falloff0, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimedBase ), dx0, dy0, dz0, dw0, falloff, valueX, valueY, valueZ, valueW );
+        }
+
+        // Vertex i (1 to 3) steps along the axes ranked above 3 - i
+        auto applyRankedVertex = [&]( int rankThreshold, float unskewOffset )
+        {
+            mask32v maskX = rankX > int32v( rankThreshold );
+            mask32v maskY = rankY > int32v( rankThreshold );
+            mask32v maskZ = rankZ > int32v( rankThreshold );
+            mask32v maskW = rankW > int32v( rankThreshold );
+
+            float32v dx = FS::MaskedSub( maskX, dx0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dy = FS::MaskedSub( maskY, dy0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dz = FS::MaskedSub( maskZ, dz0, float32v( 1 ) ) - float32v( unskewOffset );
+            float32v dw = FS::MaskedSub( maskW, dw0, float32v( 1 ) ) - float32v( unskewOffset );
+
+            float32v falloff = FS::FNMulAdd( dw, dw, FS::FNMulAdd( dz, dz, FS::FNMulAdd( dy, dy, FS::FNMulAdd( dx, dx, float32v( kFalloffRadiusSquared ) ) ) ) );
+            falloff = FS::Max( falloff, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+                FS::MaskedAdd( maskX, xPrimedBase, int32v( Primes::X ) ),
+                FS::MaskedAdd( maskY, yPrimedBase, int32v( Primes::Y ) ),
+                FS::MaskedAdd( maskZ, zPrimedBase, int32v( Primes::Z ) ),
+                FS::MaskedAdd( maskW, wPrimedBase, int32v( Primes::W ) ) ), dx, dy, dz, dw, falloff, valueX, valueY, valueZ, valueW );
+        };
+
+        applyRankedVertex( 2, float( kUnskew4 ) );
+        applyRankedVertex( 1, float( kUnskew4 * 2 ) );
+        applyRankedVertex( 0, float( kUnskew4 * 3 ) );
+
+        {
+            float32v falloff = FS::Max( falloff4, float32v( 0 ) );
+            falloff *= falloff; falloff *= falloff;
+
+            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed,
+                xPrimedBase + int32v( Primes::X ), yPrimedBase + int32v( Primes::Y ), zPrimedBase + int32v( Primes::Z ), wPrimedBase + int32v( Primes::W ) ),
+                dx0 - float32v( kUnskew4 * 4 + 1 ), dy0 - float32v( kUnskew4 * 4 + 1 ), dz0 - float32v( kUnskew4 * 4 + 1 ), dw0 - float32v( kUnskew4 * 4 + 1 ),
+                falloff, valueX, valueY, valueZ, valueW );
+        }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
             (float)(33.653125584827855 / 1.4142135623730951) :
@@ -1090,8 +1122,19 @@ protected:
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainWarpSuperSimplex, SIMD> final : public virtual DomainWarpSuperSimplex, public DispatchClass<DomainWarp, SIMD>
 {
+    FASTNOISE_IMPL_GEN_FN( template WarpGenT<DispatchClass> );
+
 public:
-    float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
+    static constexpr bool kHasGenBlock = true;
+
+    template<size_t DIMS>
+    FS_FORCEINLINE bool GenBlock( int32v seed, const float* pos, float* out, intptr_t count ) const
+    {
+        return this->template WarpGenBlock<DispatchClass, DIMS>( seed, pos, out, count );
+    }
+
+public:
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const final
     {
         seed += int32v( mSeedOffset );
         switch( mVectorizationScheme )
@@ -1131,8 +1174,55 @@ public:
     }
 
 protected:
+    // Vertex direction is chosen by the sign bit of signValue, blendv only reads the high bit so no compare is needed
+    template<typename T>
+    FS_FORCEINLINE static T SelectSign( float32v signValue, T ifNegative, T ifPositive )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::Select( signValue < float32v( 0 ), ifNegative, ifPositive );
+        }
+        else
+        {
+            return FS::SelectHighBit( signValue, ifNegative, ifPositive );
+        }
+    }
+
+    FS_FORCEINLINE static float32v SignBit( float32v signValue )
+    {
+        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX512_F )
+        {
+            return FS::Masked( signValue < float32v( 0 ), float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+        }
+        else
+        {
+            return signValue & FS::Cast<float>( int32v( 1 << 31 ) );
+        }
+    }
+
+    // True if any lane of the clamped falloff is in range. Out of range lanes are exactly +0, so on SSE4.1/AVX2 OR the
+    // halves and test for any set bit instead of compare + movemask per half
+    template<typename F>
+    FS_FORCEINLINE static bool AnyInRange( F falloffBase )
+    {
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) && !( SIMD & FastSIMD::FeatureFlag::AVX512_F ) )
+        {
+            auto bits = _mm256_castps_si256( _mm256_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            return !_mm256_testz_si256( bits, bits );
+        }
+        else if constexpr( ( SIMD & FastSIMD::FeatureFlag::SSE41 ) && !( SIMD & FastSIMD::FeatureFlag::AVX ) )
+        {
+            auto bits = _mm_castps_si128( _mm_or_ps( falloffBase.v0.GetNative(), falloffBase.v1.GetNative() ) );
+            return !_mm_testz_si128( bits, bits );
+        }
+        else
+        {
+            return FS::AnyMask( falloffBase != F( 0 ) );
+        }
+    }
+
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
+    FS_FORCEINLINE float32v Warp_2D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v& xOut, float32v& yOut ) const
     {
         constexpr double kRoot3 = 1.7320508075688772935274463415059;
         constexpr double kSkew2 = 1.0 / ( kRoot3 + 1.0 );
@@ -1221,7 +1311,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_3D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v& xOut, float32v& yOut, float32v& zOut ) const
     {
         constexpr double kSkew3 = 1.0 / 3.0;
         constexpr double kReflectUnskew3 = -1.0 / 2.0;
@@ -1286,6 +1376,15 @@ protected:
         int32v yPrimedBase = FS::Convert<int32_t>( ySkewedBase ) * int32v( Primes::Y );
         int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
 
+        // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
+        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase;
+        int32v xPrimedDeltaPos = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+        int32v xPrimedDeltaNeg = xPrimedBase ^ ( xPrimedBase - int32v( Primes::X ) );
+        int32v yPrimedDeltaPos = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+        int32v yPrimedDeltaNeg = yPrimedBase ^ ( yPrimedBase - int32v( Primes::Y ) );
+        int32v zPrimedDeltaPos = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
+        int32v zPrimedDeltaNeg = zPrimedBase ^ ( zPrimedBase - int32v( Primes::Z ) );
+
         float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed;
         float32v twiceUnskewDelta = float32v( kTwiceUnskew3 ) * skewedCoordinateSum;
         float32v xNormal = dxSkewed + twiceUnskewDelta;
@@ -1316,112 +1415,133 @@ protected:
 
         // Vertex <1, 1, 1> or <-1, -1, -1>
         {
-            mask32v signMask = xyzNormal < float32v( 0 );
+            float32v signValue = xyzNormal;
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset = float32v( 3 * kReflectUnskew3 + 1 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed ), dxBase - offset, dyBase - offset, dzBase - offset,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset, dyBase - offset, dzBase - offset,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 1, 0> or <-1, -1, 0>
         {
-            mask32v signMask = xyzNormal < zNormal;
+            float32v signValue = xyzNormal - zNormal; // Sign bit set when xyzNormal < zNormal
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v falloffBase = FS::Min( ( sign ^ dzBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase ), dxBase, dyBase, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, yDelta ), dxBase, dyBase, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 0, 1> or <-1, 0, -1>
         {
-            mask32v signMask = xyzNormal < yNormal;
+            float32v signValue = xyzNormal - yNormal; // Sign bit set when xyzNormal < yNormal
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v falloffBase = FS::Min( ( sign ^ dyBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed ), dxBase, dyBase - offset0, dzBase,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta, zDelta ), dxBase, dyBase - offset0, dzBase,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 1, 1> or <0, -1, -1>
         {
-            mask32v signMask = xyzNormal < xNormal;
+            float32v signValue = xyzNormal - xNormal; // Sign bit set when xyzNormal < xNormal
 
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( 2 * kReflectUnskew3 ) ^ sign;
 
             float32v falloffBase = FS::Min( ( sign ^ dxBase ) - falloffBaseStemB, float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed ), dxBase - offset0, dyBase, dzBase,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase, dzBase,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <1, 0, 0> or <-1, 0, 0>
         {
-            mask32v signMask = xNormal < float32v( 0 );
+            float32v signValue = xNormal;
 
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, xDelta ), dxBase + offset0, dyBase - offset0, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 1, 0> or <0, -1, 0>
         {
-            mask32v signMask = yNormal < float32v( 0 );
+            float32v signValue = yNormal;
 
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase + offset0, dzBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         // Vertex <0, 0, 1> or <0, 0, -1>
         {
-            mask32v signMask = zNormal < float32v( 0 );
+            float32v signValue = zNormal;
 
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
+            float32v sign = SignBit( signValue );
             float32v offset0 = float32v( kReflectUnskew3 ) ^ sign; // offset1 = -offset0 because kReflectUnskew3 + 1 = -kReflectUnskew3
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionCommon<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionCommon<Scheme>( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase + offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ );
+            }
         }
 
         if constexpr( Scheme != VectorizationScheme::OrthogonalGradientMatrix )
@@ -1449,7 +1569,7 @@ protected:
     }
 
     template<VectorizationScheme Scheme>
-    float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
+    FN_ALIGN_STACK float32v FS_VECTORCALL Warp_4D( int32v seed, float32v warpAmp, float32v x, float32v y, float32v z, float32v w, float32v& xOut, float32v& yOut, float32v& zOut, float32v& wOut ) const
     {
         constexpr double kRoot5 = 2.2360679774997896964091736687313;
         constexpr double kSkew4 = 1.0 / ( kRoot5 + 1.0 );
@@ -1534,6 +1654,17 @@ protected:
         int32v zPrimedBase = FS::Convert<int32_t>( zSkewedBase ) * int32v( Primes::Z );
         int32v wPrimedBase = FS::Convert<int32_t>( wSkewedBase ) * int32v( Primes::W );
 
+        // Vertex hashes only differ from the base hash on the moved axes, precompute ( base ^ moved ) for each axis direction
+        int32v hashBase = seed ^ xPrimedBase ^ yPrimedBase ^ zPrimedBase ^ wPrimedBase;
+        int32v xPrimedDeltaPos = xPrimedBase ^ ( xPrimedBase + int32v( Primes::X ) );
+        int32v xPrimedDeltaNeg = xPrimedBase ^ ( xPrimedBase - int32v( Primes::X ) );
+        int32v yPrimedDeltaPos = yPrimedBase ^ ( yPrimedBase + int32v( Primes::Y ) );
+        int32v yPrimedDeltaNeg = yPrimedBase ^ ( yPrimedBase - int32v( Primes::Y ) );
+        int32v zPrimedDeltaPos = zPrimedBase ^ ( zPrimedBase + int32v( Primes::Z ) );
+        int32v zPrimedDeltaNeg = zPrimedBase ^ ( zPrimedBase - int32v( Primes::Z ) );
+        int32v wPrimedDeltaPos = wPrimedBase ^ ( wPrimedBase + int32v( Primes::W ) );
+        int32v wPrimedDeltaNeg = wPrimedBase ^ ( wPrimedBase - int32v( Primes::W ) );
+
         float32v skewedCoordinateSum = dxSkewed + dySkewed + dzSkewed + dwSkewed;
         float32v twiceUnskewDelta = float32v( kTwiceUnskew4 ) * skewedCoordinateSum;
         float32v xNormal = dxSkewed + twiceUnskewDelta;
@@ -1567,258 +1698,303 @@ protected:
 
         // Vertex <1, 1, 1, 1> or <-1, -1, -1, -1>
         {
-            mask32v signMask = xyzwNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset = float32v( 4 * kUnskew4 + 1 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset, coordinateSum, falloffBaseStemA ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimed ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta, wDelta ), dxBase - offset, dyBase - offset, dzBase - offset, dwBase - offset,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 1, 0> or <-1, -1, -1, 0>
         {
-            mask32v signMask = xyzwNormal < wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = xyzwNormal - wNormal; // Sign bit set when xyzwNormal < wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dwBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, zDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 0, 1> or <-1, -1, 0, -1>
         {
-            mask32v signMask = xyzwNormal < zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal - zNormal; // Sign bit set when xyzwNormal < zNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta, wDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 1, 1> or <-1, 0, -1, -1>
         {
-            mask32v signMask = xyzwNormal < yNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal - yNormal; // Sign bit set when xyzwNormal < yNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, zDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 1, 1> or <0, -1, -1, -1>
         {
-            mask32v signMask = xyzwNormal < xNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xyzwNormal - xNormal; // Sign bit set when xyzwNormal < xNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 3 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 3 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset1, coordinateSum, falloffBaseStemB ) - ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, zDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 0, 0> or <-1, 0, 0, 0>
         {
-            mask32v signMask = xNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
+            float32v signValue = xNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dxBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 1, 0, 0> or <-1, -1, 0, 0>
         {
-            mask32v signMask = xNormal < -yNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
+            float32v signValue = xNormal - -yNormal; // Sign bit set when xNormal < -yNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dyBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, yDelta ), dxBase - offset1, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 1, 0> or <-1, 0, -1, 0>
         {
-            mask32v signMask = xNormal < -zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = xNormal - -zNormal; // Sign bit set when xNormal < -zNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dzBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, zDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <1, 0, 0, 1> or <-1, 0, 0, -1>
         {
-            mask32v signMask = xNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v xPrimed = xPrimedBase + FS::Select( signMask, int32v( -Primes::X ), int32v( Primes::X ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = xNormal - -wNormal; // Sign bit set when xNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dxBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimed, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v xDelta = SelectSign( signValue, xPrimedDeltaNeg, xPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, xDelta, wDelta ), dxBase - offset1, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 0, 0> or <0, -1, 0, 0>
         {
-            mask32v signMask = yNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
+            float32v signValue = yNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dyBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 1, 0> or <0, -1, -1, 0>
         {
-            mask32v signMask = yNormal < -zNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = yNormal - -zNormal; // Sign bit set when yNormal < -zNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dzBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, zDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 1, 0, 1> or <0, -1, 0, -1>
         {
-            mask32v signMask = yNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v yPrimed = yPrimedBase + FS::Select( signMask, int32v( -Primes::Y ), int32v( Primes::Y ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = yNormal - -wNormal; // Sign bit set when yNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dyBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimed, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v yDelta = SelectSign( signValue, yPrimedDeltaNeg, yPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, yDelta, wDelta ), dxBase - offset0, dyBase - offset1, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 1, 0> or <0, 0, -1, 0>
         {
-            mask32v signMask = zNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
+            float32v signValue = zNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dzBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimedBase ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, zDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset0,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 1, 1> or <0, 0, -1, -1>
         {
-            mask32v signMask = zNormal < -wNormal;
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v zPrimed = zPrimedBase + FS::Select( signMask, int32v( -Primes::Z ), int32v( Primes::Z ) );
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = zNormal - -wNormal; // Sign bit set when zNormal < -wNormal
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( 2 * kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( 2 * kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemB ) + ( sign ^ ( dzBase + dwBase ) ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimed, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v zDelta = SelectSign( signValue, zPrimedDeltaNeg, zPrimedDeltaPos );
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, zDelta, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset1, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         // Vertex <0, 0, 0, 1> or <0, 0, 0, -1>
         {
-            mask32v signMask = wNormal < float32v( 0 );
-            float32v sign = FS::Masked( signMask, float32v( FS::Cast<float>( int32v( 1 << 31 ) ) ) );
-
-            int32v wPrimed = wPrimedBase + FS::Select( signMask, int32v( -Primes::W ), int32v( Primes::W ) );
+            float32v signValue = wNormal;
+            float32v sign = SignBit( signValue );
 
             float32v offset1 = float32v( kUnskew4 + 1 ) ^ sign;
             float32v offset0 = float32v( kUnskew4 ) ^ sign;
 
             float32v falloffBase = FS::Max( FS::FMulAdd( offset0, coordinateSum, falloffBaseStemA ) + ( sign ^ dwBase ), float32v( 0.0f ) );
 
-            ApplyVectorContributionSimplex<Scheme>( HashPrimes( seed, xPrimedBase, yPrimedBase, zPrimedBase, wPrimed ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
-                ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            if( AnyInRange( falloffBase ) )
+            {
+                int32v wDelta = SelectSign( signValue, wPrimedDeltaNeg, wPrimedDeltaPos );
+
+                ApplyVectorContributionSimplex<Scheme>( HashPrimes( hashBase, wDelta ), dxBase - offset0, dyBase - offset0, dzBase - offset0, dwBase - offset1,
+                    ( falloffBase * falloffBase ) * ( falloffBase * falloffBase ), valueX, valueY, valueZ, valueW );
+            }
         }
 
         constexpr float kBounding = ( Scheme == VectorizationScheme::GradientOuterProduct ?
