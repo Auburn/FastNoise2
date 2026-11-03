@@ -6,12 +6,12 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 {
     FASTNOISE_IMPL_GEN_FN( Gen );
 
-    // AVX2/AVX512 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
+    // AVX2/AVX512/AArch64 lattice blocks: gX * fX + the rest of the dot product, both permuted out of the block (static function, MSVC
     // doesn't always inline lambdas)
     template<typename T>
     FS_FORCEINLINE static float32v LatticeBlockDot( const T& gX, const T& dotRest, const int32v& index, const float32v& fX )
     {
-        return FS::FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
+        return FN_FMulAdd( LatticeBlockPermute<float32v>( gX, index ), fX, LatticeBlockPermute<float32v>( dotRest, index ) );
     }
 
     // SSE4.1 lattice blocks: gX * fX + the rest of the dot product, both looked up from one x row of 4 corners
@@ -108,10 +108,10 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
 
         constexpr double kBounding = 1.0363423824310302734375;
 
-        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512): all lanes share y and z, hash the lattice block and decode
+        // Corner-major path for lane-coherent vectors (uniform grids, AVX2/AVX512/AArch64): all lanes share y and z, hash the lattice block and decode
         // its gradients once, fold the y/z terms of the dot products into the block and permute them per lane. Gradients have two +-1
         // components so the dot product rounds the same as GetGradientDotCommon
-        if constexpr( SIMD & FastSIMD::FeatureFlag::AVX2 )
+        if constexpr( ( SIMD & FastSIMD::FeatureFlag::AVX2 ) || kLatticeBlockTbl<SIMD> )
         {
             int32v xOffset;
             if( IsLatticeBlock( xOffset, seed, xi, FS::Cast<std::int32_t>( y ), FS::Cast<std::int32_t>( z ) ) )
@@ -145,8 +145,8 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
                 // x gradient and y/z part of the dot product: FMulAdd( gX, fX, FMulAdd( fY, gY, fZ * gZ ) )
                 NF gXZ0 = GetGradientDotCommon( hashZ0, one, zero, zero );
                 NF gXZ1 = GetGradientDotCommon( hashZ1, one, zero, zero );
-                NF dotYZZ0 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
-                NF dotYZZ1 = FS::FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
+                NF dotYZZ0 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ0, zero, one, zero ), fZ0 * GetGradientDotCommon( hashZ0, zero, zero, one ) );
+                NF dotYZZ1 = FN_FMulAdd( fY, GetGradientDotCommon( hashZ1, zero, one, zero ), fZ1 * GetGradientDotCommon( hashZ1, zero, zero, one ) );
 
                 float32v value = Lerp( Lerp(
                     Lerp( LatticeBlockDot( gXZ0, dotYZZ0, xOffset, xf0 ), LatticeBlockDot( gXZ0, dotYZZ0, xOffset + int32v( 1 ), xf1 ), xs ),
