@@ -660,8 +660,10 @@ protected:
         }
         else
         {
-            offset[0] = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            offset[1] = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            offset[0] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            offset[1] = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             offset[2] = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             offset[3] = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
         }
@@ -711,7 +713,7 @@ protected:
     FS_FORCEINLINE static void VisitFloorCell( DistanceFunction distFunc, int32v hash, float32v jitter, const float32v* base, const float32v* pos, float32v& distance, int32v* closestHash, float32v* closestCell,
                                                const float32v* sizeJitter = nullptr )
     {
-        hash *= int32v( HashMultiplier::A );
+        hash = FoldHash( hash * int32v( HashMultiplier::A ) );
 
         float32v point[D];
         FeaturePointOffset<D>( hash, jitter, base, point );
@@ -776,7 +778,7 @@ protected:
                 hash ^= primed[d][( c >> ( D - 1 - d ) ) & 1];
                 base[d] = cellOffset[d][( c >> ( D - 1 - d ) ) & 1];
             }
-            hash *= int32v( HashMultiplier::A );
+            hash = FoldHash( hash * int32v( HashMultiplier::A ) );
 
             float32v point[D];
             FeaturePointOffset<D>( hash, jitter, base, point );
@@ -1312,7 +1314,7 @@ protected:
         {
             hash ^= cell[2].v0 * IN( Primes::Z ) + CellBlockPrimedOffsets<IN, D, 2, TABLE>( lanes );
         }
-        hash *= IN( HashMultiplier::A );
+        hash = FoldHash( hash * IN( HashMultiplier::A ) );
 
         if constexpr( D == 2 )
         {
@@ -1525,7 +1527,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( distance[valueIndex] ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
             float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -1660,7 +1662,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
             int32v yc = ycBase;
             for( int yi = 0; yi < 3; yi++ )
             {
-                int32v hash = HashPrimesHB( seed, xc, yc );
+                int32v hash = HashPrimesFolded( seed, xc, yc );
                 float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
                 float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -1724,7 +1726,7 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -1971,9 +1973,11 @@ class FastSIMD::DispatchClass<CellularValue, SIMD> final : public virtual Cellul
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, valueIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            float32v xd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
@@ -2038,7 +2042,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
     FS_FORCEINLINE void VisitCell2D( std::array<float32v, COUNT>& distance, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
                                      const float32v& sizeJitter, int32v seed, int32v xPrimed, int32v yPrimed, float32v xOffset, float32v yOffset ) const
     {
-        int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+        int32v hash = HashPrimesFolded( seed, xPrimed, yPrimed );
         float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
         float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -2253,7 +2257,7 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -2472,9 +2476,11 @@ class FastSIMD::DispatchClass<CellularDistance, SIMD> final : public virtual Cel
 
         while( const int8_t* o = cells.Next( this->DistanceAt( distance, pruneIndex ) ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            float32v xd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 
@@ -2568,7 +2574,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
     FS_FORCEINLINE void VisitCell2D( float32v& distance, float32v& cellX, float32v& cellY, DistanceFunction distFunc, float32v minkowskiP, float32v jitter, bool sizeJitterActive,
                                      const float32v& sizeJitter, int32v seed, float32v x, float32v y, int32v xPrimed, int32v yPrimed, float32v xCell, float32v yCell ) const
     {
-        int32v hash = HashPrimesHB( seed, xPrimed, yPrimed );
+        int32v hash = HashPrimesFolded( seed, xPrimed, yPrimed );
         float32v xd = FS::Convert<float>( hash & int32v( 0x7ff ) ) - float32v( 0x7ff / 2.0f );
         float32v yd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 21 ) ) - float32v( 0x7ff / 2.0f );
 
@@ -2772,7 +2778,7 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         while( const int8_t* o = cells.Next( distance ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]] );
             float32v xd = FS::Convert<float>( hash & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v yd = FS::Convert<float>( ( hash >> 11 ) & int32v( 0x3ff ) ) - float32v( 0x3ff / 2.0f );
             float32v zd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 22 ) ) - float32v( 0x3ff / 2.0f );
@@ -2964,9 +2970,11 @@ class FastSIMD::DispatchClass<CellularLookup, SIMD> final : public virtual Cellu
 
         while( const int8_t* o = cells.Next( distance ) )
         {
-            int32v hash = HashPrimesHB( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
-            float32v xd = FS::Convert<float>( hash & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
-            float32v yd = FS::Convert<float>( ( hash >> 8 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
+            int32v hash = HashPrimesFolded( cellPrimed[0][o[0]], cellPrimed[1][o[1]], cellPrimed[2][o[2]], cellPrimed[3][o[3]] );
+            // x and y from the squared hash, in the folded hash x ^ z and y ^ w are still just the poorly mixed low bits
+            int32v hashSq = hash * hash;
+            float32v xd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hashSq, 24 ) ) - float32v( 0xff / 2.0f );
+            float32v yd = FS::Convert<float>( ( hashSq >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v zd = FS::Convert<float>( ( hash >> 16 ) & int32v( 0xff ) ) - float32v( 0xff / 2.0f );
             float32v wd = FS::Convert<float>( FS::BitShiftRightZeroExtend( hash, 24 ) ) - float32v( 0xff / 2.0f );
 

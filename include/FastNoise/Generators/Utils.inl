@@ -822,6 +822,21 @@ namespace FastNoise
         return hash;
     }
 
+    // Folds the high half of hash * A into the low half, for generators that split the hash into several fields.
+    // The low bits of hash * A only depend on the low bits of the inputs, so on their own they repeat every 2^n cells
+    template<typename I>
+    FS_FORCEINLINE static I FoldHash( I hash )
+    {
+        return hash ^ FS::BitShiftRightZeroExtend( hash, 16 );
+    }
+
+    // HashPrimesHB with the high half folded into the low half, see FoldHash()
+    template<typename I, typename... P>
+    FS_FORCEINLINE static I HashPrimesFolded( I seed, P... primedPos )
+    {
+        return FoldHash( HashPrimesHB( seed, primedPos... ) );
+    }
+
     // Gradient index for GetGradientDot*: the top bits of the multiplied hash, these are the best mixed and depend on every seed bit
     template<int Bits, typename I, typename... P>
     FS_FORCEINLINE static I HashPrimesGradient( I seed, P... primedPos )
