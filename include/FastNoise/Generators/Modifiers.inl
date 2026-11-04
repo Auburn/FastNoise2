@@ -36,9 +36,9 @@ class FastSIMD::DispatchClass<DomainOffset, SIMD> final : public virtual DomainO
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainRotate, public DispatchClass<Generator, SIMD>
 {
-    FASTNOISE_IMPL_GEN_FN( Gen );
+    FASTNOISE_IMPL_GEN_T;
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         if( mPitchSin == 0.0f && mRollSin == 0.0f )
         {
@@ -47,10 +47,10 @@ class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainR
                 FS::FMulAdd( x, float32v( mYawSin ), y * float32v( mYawCos ) ) );
         }
 
-        return Gen( seed, x, y, float32v( 0 ) );
+        return GenT( seed, x, y, float32v( 0 ) );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         return this->GetSourceValue( mSource, seed,
             FS::FMulAdd( x, float32v( mXa ), FS::FMulAdd( y, float32v( mXb ), z * float32v( mXc ) ) ),
@@ -58,7 +58,7 @@ class FastSIMD::DispatchClass<DomainRotate, SIMD> final : public virtual DomainR
             FS::FMulAdd( x, float32v( mZa ), FS::FMulAdd( y, float32v( mZb ), z * float32v( mZc ) ) ) );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         // No rotation for 4D yet
         return this->GetSourceValue( mSource, seed, x, y, z, w );
@@ -242,14 +242,14 @@ class FastSIMD::DispatchClass<AddDimension, SIMD> final : public virtual AddDime
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<RemoveDimension, SIMD> final : public virtual RemoveDimension, public DispatchClass<Generator, SIMD>
 {
-    FASTNOISE_IMPL_GEN_FN( Gen );
+    FASTNOISE_IMPL_GEN_T;
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         return this->GetSourceValue( mSource, seed, x, y );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         switch( mRemoveDimension )
         {
@@ -264,7 +264,7 @@ class FastSIMD::DispatchClass<RemoveDimension, SIMD> final : public virtual Remo
         }
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         switch( mRemoveDimension )
         {
@@ -358,7 +358,7 @@ class FastSIMD::DispatchClass<Abs, SIMD> final : public virtual Abs, public Disp
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual DomainRotatePlane, public DispatchClass<Generator, SIMD>
 {
-    FASTNOISE_IMPL_GEN_FN( Gen );
+    FASTNOISE_IMPL_GEN_T;
 
     FS_FORCEINLINE void FS_VECTORCALL RotateCoords( PlaneRotationType rotationType, float32v& x, float32v& y, float32v& z ) const
     {
@@ -396,7 +396,7 @@ class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual Do
         z = newZ;
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         float32v z = 0;
         RotateCoords( PlaneRotationType::ImproveXYPlanes, x, y, z );
@@ -404,13 +404,13 @@ class FastSIMD::DispatchClass<DomainRotatePlane, SIMD> final : public virtual Do
         return this->GetSourceValue( mSource, seed, x, y, z );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         RotateCoords( mRotationType, x, y, z );
         return this->GetSourceValue( mSource, seed, x, y, z );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         RotateCoords( mRotationType, x, y, z );
         return this->GetSourceValue( mSource, seed, x, y, z, w );

@@ -4,9 +4,9 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    FASTNOISE_IMPL_GEN_FN( Gen );
+    FASTNOISE_IMPL_GEN_T;
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y );
@@ -36,7 +36,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z );
@@ -75,7 +75,7 @@ class FastSIMD::DispatchClass<Perlin, SIMD> final : public virtual Perlin, publi
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z, w );
