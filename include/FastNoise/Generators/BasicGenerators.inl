@@ -16,6 +16,7 @@ protected:
     template<typename SELF, typename... P>
     static FS_FORCEINLINE void ScalePositions( const SELF* self, P&... pos )
     {
+        static_assert( std::is_final_v<SELF> );
         float32v vFrequency( self->mFrequency );
         ( (pos *= vFrequency), ... );
     }
@@ -29,6 +30,7 @@ protected:
     template<typename SELF>
     static FS_FORCEINLINE float32v ScaleOutput( const SELF* self, float32v value, float nativeMin, float nativeMax )
     {
+        static_assert( std::is_final_v<SELF> );
         // Scalar multiply: as a vector multiply clang folds the field into a wide load of the object, which measured much slower
         return FS::FMulAdd( float32v( self->mRangeScale * ( 1.0f / ( nativeMax - nativeMin ) ) ), value - float32v( nativeMin ), float32v( self->mRangeMin ) );
     }
