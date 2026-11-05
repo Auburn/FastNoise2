@@ -17,15 +17,80 @@ template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Generator, SIMD> : public virtual Generator
 {
 public:
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const = 0;
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const = 0;
-    virtual float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const { return Gen( seed, x, y, z ); }
+    // Gen() is dispatched through function pointers to static functions instead of virtual member functions:
+    // clang-cl returns float32v through a hidden pointer (always from member functions, and from any function since float32v
+    // has user-provided constructors), a plain aggregate returned from a static function stays in registers
+#if defined( _MSC_VER ) && !defined( __clang__ )
+    // MSVC copies FastSIMD registers returned in zmm registers through the stack in 256 bit halves, use the native types
+    struct GenResult
+    {
+        typename float32v::DoubledType::NativeType v0, v1;
+    };
 
+    static FS_FORCEINLINE GenResult ToGenResult( const float32v& v )
+    {
+        return { v.v0.GetNative(), v.v1.GetNative() };
+    }
+#else
+    struct GenResult
+    {
+        typename float32v::DoubledType v0, v1;
+    };
+
+    static FS_FORCEINLINE GenResult ToGenResult( const float32v& v )
+    {
+        return { v.v0, v.v1 };
+    }
+#endif
+
+    FS_FORCEINLINE float32v Gen( int32v seed, float32v x, float32v y ) const
+    {
+        GenResult result = mGenFn2D( this, seed, x, y );
+        return float32v( result.v0, result.v1 );
+    }
+
+    FS_FORCEINLINE float32v Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    {
+        GenResult result = mGenFn3D( this, seed, x, y, z );
+        return float32v( result.v0, result.v1 );
+    }
+
+    FS_FORCEINLINE float32v Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    {
+        GenResult result = mGenFn4D( this, seed, x, y, z, w );
+        return float32v( result.v0, result.v1 );
+    }
+
+// Each generator implements a force inlined GenT( seed, x, y[, z[, w]] ). FASTNOISE_REGISTER_NODE rejects a generator without this macro
+// Keep FS_VECTORCALL on GenT despite the force inline, removing it changes the code MSVC generates for GenFn (19.51: 17-19 of 135 on AVX2)
 #define FASTNOISE_IMPL_GEN_T\
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const override { return GenT( seed, x, y ); }\
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const override { return GenT( seed, x, y, z ); }\
-    float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const override { return GenT( seed, x, y, z, w ); }
+    friend class FastSIMD::DispatchClass<FastNoise::Generator, SIMD>;\
+public:\
+    static constexpr bool kImplementsGenT = true;\
+    DispatchClass() { this->template SetGenFns<DispatchClass>(); }\
+private:
 
+protected:
+    template<typename GEN>
+    void SetGenFns()
+    {
+        mGenFn2D = &GenFn<GEN, float32v, float32v>;
+        mGenFn3D = &GenFn<GEN, float32v, float32v, float32v>;
+        mGenFn4D = &GenFn<GEN, float32v, float32v, float32v, float32v>;
+    }
+
+private:
+    template<typename GEN, typename... P>
+    static GenResult FS_VECTORCALL GenFn( const DispatchClass* gen, int32v seed, P... pos )
+    {
+        return ToGenResult( static_cast<const GEN*>( gen )->GenT( seed, pos... ) );
+    }
+
+    GenResult( FS_VECTORCALL* mGenFn2D )( const DispatchClass*, int32v, float32v, float32v );
+    GenResult( FS_VECTORCALL* mGenFn3D )( const DispatchClass*, int32v, float32v, float32v, float32v );
+    GenResult( FS_VECTORCALL* mGenFn4D )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v );
+
+public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
     {
         return FastSIMD::FeatureSetDefault();

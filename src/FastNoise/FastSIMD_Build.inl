@@ -3,7 +3,8 @@
 #ifndef FASTNOISE_REGISTER_NODE
 #define FASTNOISE_REGISTER_NODE( CLASS ) \
 template class FastSIMD::RegisterDispatchClass<FastNoise::CLASS>;\
-static_assert( std::is_final_v<FastSIMD::DispatchClass<CLASS, FastSIMD::FeatureSetDefault()>> )
+static_assert( std::is_final_v<FastSIMD::DispatchClass<CLASS, FastSIMD::FeatureSetDefault()>> );\
+static_assert( FastSIMD::DispatchClass<CLASS, FastSIMD::FeatureSetDefault()>::kImplementsGenT )
 #endif
 
 #ifdef FASTSIMD_INCLUDE_HEADER_ONLY
