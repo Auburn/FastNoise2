@@ -14,15 +14,6 @@ using float32v = FS::Register<float, kRegisterSize>;
 using int32v = FS::Register<std::int32_t, kRegisterSize>;
 using mask32v = typename float32v::MaskType;
 
-// Attributes for the static Gen functions: disable tail calls, clang restores the callee saved xmm8-15 before a FS_VECTORCALL
-// tail call even when they hold 4D arguments. The AVX sources keep frame pointers (src/CMakeLists.txt), so clang aligns
-// AVX spills by realigning the stack only in functions that spill
-#if defined( __clang__ )
-#define FASTNOISE_GEN_FN_ATTRIBUTES __attribute__(( disable_tail_calls ))
-#else
-#define FASTNOISE_GEN_FN_ATTRIBUTES
-#endif
-
 // GenTileable2D's sin positions: FS::Sin( a ) is poly * x, and GCC's -ffast-math reassociation (tree-reassoc) may evaluate
 // FS::Sin( a ) * freq as poly * ( x * freq ). With x86 FMA the polynomial ends in an FMA builtin, which reassoc ranks by its
 // basic block, so whether it does depends on the surrounding loop: master's GenTileable2D keeps ( poly * x ) * freq, the column
@@ -35,10 +26,10 @@ using mask32v = typename float32v::MaskType;
 #define FASTNOISE_ASSOC_BARRIER( v ) v
 #endif
 
-// Stores the generator's value at the positions to DST in the block functions of FASTNOISE_IMPL_GEN_FN by calling its GenFn
-#define FASTNOISE_GEN_BLOCK_STORE( GENFUNC, DST, ... )\
+// Stores the generator's value at the positions to DST in a block function, by calling GenFn for its GEN
+#define FASTNOISE_GEN_BLOCK_STORE( DST, ... )\
     {\
-        GenResultT result = GenFn( gen, seed, __VA_ARGS__ );\
+        GenResult result = GenFn<GEN>( gen, seed, __VA_ARGS__ );\
         FS::Store( DST, float32v( result.v0, result.v1 ) );\
     }
 
@@ -77,168 +68,150 @@ public:
     }
 #endif
 
-    using GenFn2D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v seed, float32v x, float32v y );
-    using GenFn3D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v seed, float32v x, float32v y, float32v z );
-    using GenFn4D = GenResult( FS_VECTORCALL* )( const DispatchClass*, int32v seed, float32v x, float32v y, float32v z, float32v w );
-
-    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y )
+    FS_FORCEINLINE float32v Gen( int32v seed, float32v x, float32v y ) const
     {
-        assert( gen->mGenFn2D );
-        GenResult result = gen->mGenFn2D( gen, seed, x, y );
+        GenResult result = mGenFn2D( this, seed, x, y );
         return float32v( result.v0, result.v1 );
     }
 
-    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z )
+    FS_FORCEINLINE float32v Gen( int32v seed, float32v x, float32v y, float32v z ) const
     {
-        assert( gen->mGenFn3D );
-        GenResult result = gen->mGenFn3D( gen, seed, x, y, z );
+        GenResult result = mGenFn3D( this, seed, x, y, z );
         return float32v( result.v0, result.v1 );
     }
 
-    static FS_FORCEINLINE float32v CallGen( const DispatchClass* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )
+    FS_FORCEINLINE float32v Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
-        assert( gen->mGenFn4D );
-        GenResult result = gen->mGenFn4D( gen, seed, x, y, z, w );
+        GenResult result = mGenFn4D( this, seed, x, y, z, w );
         return float32v( result.v0, result.v1 );
     }
 
     // Evaluates count values from positions stored per vector as { x[N], y[N], ... } (N = float32v::ElementCount)
-    using GenBlockFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* __restrict, float* __restrict, intptr_t );
-
     template<size_t DIMS>
     static FS_FORCEINLINE void CallGenBlock( const DispatchClass* gen, int32v seed, const float* pos, float* out, intptr_t count )
     {
-        assert( gen->mGenBlockFn[DIMS - 2] );
         gen->mGenBlockFn[DIMS - 2]( gen, seed, pos, out, count );
     }
 
     // Evaluates rows of xCount values (a multiple of N) on a uniform grid: x from the column table xTable, the other
     // positions are constant per row and stored as DIMS - 1 vectors per row in rowPos. rowPos and out aren't restrict:
     // loading the row positions per vector keeps the inlined generator's fast-math expressions as in GenBlockFn
-    using GenGridBlockFn = void( FS_VECTORCALL* )( const DispatchClass* __restrict, int32v, const float* __restrict, const float*, intptr_t, intptr_t, float* );
-
     template<size_t DIMS>
     static FS_FORCEINLINE void CallGenGridBlock( const DispatchClass* gen, int32v seed, const float* xTable, const float* rowPos, intptr_t rows, intptr_t xCount, float* out )
     {
-        assert( gen->mGenGridBlockFn[DIMS - 2] );
         gen->mGenGridBlockFn[DIMS - 2]( gen, seed, xTable, rowPos, rows, xCount, out );
     }
 
     // GenTileable2D's version of GenGridBlockFn: the 4D positions x and z are the column tables, y and w are per row
-    using GenTileableBlockFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* __restrict, const float* __restrict, const float*, intptr_t, intptr_t, float* );
-
     static FS_FORCEINLINE void CallGenTileableBlock( const DispatchClass* gen, int32v seed, const float* xTable, const float* zTable, const float* rowPos, intptr_t rows, intptr_t xSize, float* out )
     {
-        assert( gen->mGenTileableBlockFn );
         gen->mGenTileableBlockFn( gen, seed, xTable, zTable, rowPos, rows, xSize, out );
     }
 
     // Evaluates out[begin, end) from positions stored per axis, { offsets[0] + axes[0][i], offsets[1] + axes[1][i], ... }.
     // The positions are loaded in axis order (braced init): fast-math reassociation in an inlined generator depends on that
     // order, loaded right to left (MS ABI argument order) DomainRotatePlane's output changed
-    using GenBlockPlanarFn = void( FS_VECTORCALL* )( const DispatchClass*, int32v, const float* const*, const float*, float*, intptr_t, intptr_t );
-
     template<size_t DIMS>
     static FS_FORCEINLINE void CallGenBlockPlanar( const DispatchClass* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )
     {
-        assert( gen->mGenBlockPlanarFn[DIMS - 2] );
         gen->mGenBlockPlanarFn[DIMS - 2]( gen, seed, axes, offsets, out, begin, end );
     }
 
-// Defines the static Gen and GenBlock functions of a generator and points the function pointers at them,
-// GENFUNC( seed, x, y[, z[, w]] ) is the (force inlined) member function implementing the generator
-#define FASTNOISE_IMPL_GEN_FN( GENFUNC )\
-    using GenResultT = typename DispatchClass<Generator, SIMD>::GenResult;\
-    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y )\
-    {\
-        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y ) );\
-    }\
-    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y, float32v z )\
-    {\
-        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z ) );\
-    }\
-    FASTNOISE_GEN_FN_ATTRIBUTES static GenResultT FS_VECTORCALL GenFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, float32v x, float32v y, float32v z, float32v w )\
-    {\
-        return DispatchClass<Generator, SIMD>::ToGenResult( static_cast<const DispatchClass*>( gen )->GENFUNC( seed, x, y, z, w ) );\
-    }\
-    template<size_t... DIM>\
-    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict pos, float* __restrict out, intptr_t count )\
-    {\
-        for( intptr_t i = 0; i < count; i += int32v::ElementCount )\
-        {\
-            FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... )\
-        }\
-    }\
-    template<size_t... DIM>\
-    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenGridBlockFn( const DispatchClass<Generator, SIMD>* __restrict gen, int32v seed, const float* __restrict xTable, const float* rowPos, intptr_t rows, intptr_t xCount, float* out )\
-    {\
-        for( ; rows > 0; rows--, rowPos += sizeof...( DIM ) * int32v::ElementCount, out += xCount )\
-        {\
-            for( intptr_t i = 0; i < xCount; i += int32v::ElementCount )\
-            {\
-                FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos + DIM * int32v::ElementCount )... )\
-            }\
-        }\
-    }\
-    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenTileableBlockFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* __restrict xTable, const float* __restrict zTable, const float* rowPos, intptr_t rows, intptr_t xSize, float* out )\
-    {\
-        for( ; rows > 0; rows--, rowPos += 2 * int32v::ElementCount, out += xSize )\
-        {\
-            for( intptr_t i = 0; i < xSize; i += int32v::ElementCount )\
-            {\
-                FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) )\
-            }\
-        }\
-    }\
-    template<size_t... DIM>\
-    FASTNOISE_GEN_FN_ATTRIBUTES static void FS_VECTORCALL GenBlockPlanarFn( const DispatchClass<Generator, SIMD>* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )\
-    {\
-        for( intptr_t i = begin; i < end; i += int32v::ElementCount )\
-        {\
-            float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };\
-            if constexpr( DispatchClass<Generator, SIMD>::kInlinePlanarBlock )\
-            {\
-                FASTNOISE_GEN_BLOCK_STORE( GENFUNC, out + i, pos[DIM]... )\
-            }\
-            else\
-            {\
-                FS::Store( out + i, DispatchClass<Generator, SIMD>::CallGen( gen, seed, pos[DIM]... ) );\
-            }\
-        }\
-    }\
+// Each generator implements a force inlined GenT( seed, x, y[, z[, w]] ). FASTNOISE_REGISTER_NODE rejects a generator without this macro
+// Keep FS_VECTORCALL on GenT despite the force inline, removing it changes the code MSVC generates for GenFn (19.51: 17-19 of 135 on AVX2)
+#define FASTNOISE_IMPL_GEN_T\
+    friend class FastSIMD::DispatchClass<FastNoise::Generator, SIMD>;\
 public:\
-    DispatchClass()\
-    {\
-        this->mGenFn2D = &GenFn;\
-        this->mGenFn3D = &GenFn;\
-        this->mGenFn4D = &GenFn;\
-        this->mGenBlockFn[0] = &GenBlockFn<0, 1>;\
-        this->mGenBlockFn[1] = &GenBlockFn<0, 1, 2>;\
-        this->mGenBlockFn[2] = &GenBlockFn<0, 1, 2, 3>;\
-        this->mGenGridBlockFn[0] = &GenGridBlockFn<0>;\
-        this->mGenGridBlockFn[1] = &GenGridBlockFn<0, 1>;\
-        this->mGenGridBlockFn[2] = &GenGridBlockFn<0, 1, 2>;\
-        this->mGenTileableBlockFn = &GenTileableBlockFn;\
-        this->mGenBlockPlanarFn[0] = &GenBlockPlanarFn<0, 1>;\
-        this->mGenBlockPlanarFn[1] = &GenBlockPlanarFn<0, 1, 2>;\
-        this->mGenBlockPlanarFn[2] = &GenBlockPlanarFn<0, 1, 2, 3>;\
-    }\
+    static constexpr bool kImplementsGenT = true;\
+    DispatchClass() { this->template SetGenFns<DispatchClass>(); }\
 private:
-
-#define FASTNOISE_IMPL_GEN_T FASTNOISE_IMPL_GEN_FN( GenT )
 
     // Number of values in a position block, blocks hold up to this many values (a multiple of the vector size)
     static constexpr intptr_t kGenBlockSize = int32v::ElementCount * 16;
 
 protected:
-    // Set by the constructor FASTNOISE_IMPL_GEN_T/FASTNOISE_IMPL_GEN_FN adds to each generator
-    GenFn2D mGenFn2D = nullptr;
-    GenFn3D mGenFn3D = nullptr;
-    GenFn4D mGenFn4D = nullptr;
-    GenBlockFn mGenBlockFn[3] = {};
-    GenGridBlockFn mGenGridBlockFn[3] = {};
-    GenTileableBlockFn mGenTileableBlockFn = nullptr;
-    GenBlockPlanarFn mGenBlockPlanarFn[3] = {};
+    template<typename GEN>
+    void SetGenFns()
+    {
+        mGenFn2D = &GenFn<GEN, float32v, float32v>;
+        mGenFn3D = &GenFn<GEN, float32v, float32v, float32v>;
+        mGenFn4D = &GenFn<GEN, float32v, float32v, float32v, float32v>;
+        mGenBlockFn[0] = &GenBlockFn<GEN, 0, 1>;
+        mGenBlockFn[1] = &GenBlockFn<GEN, 0, 1, 2>;
+        mGenBlockFn[2] = &GenBlockFn<GEN, 0, 1, 2, 3>;
+        mGenGridBlockFn[0] = &GenGridBlockFn<GEN, 0>;
+        mGenGridBlockFn[1] = &GenGridBlockFn<GEN, 0, 1>;
+        mGenGridBlockFn[2] = &GenGridBlockFn<GEN, 0, 1, 2>;
+        mGenTileableBlockFn = &GenTileableBlockFn<GEN>;
+        mGenBlockPlanarFn[0] = &GenBlockPlanarFn<GEN, 0, 1>;
+        mGenBlockPlanarFn[1] = &GenBlockPlanarFn<GEN, 0, 1, 2>;
+        mGenBlockPlanarFn[2] = &GenBlockPlanarFn<GEN, 0, 1, 2, 3>;
+    }
+
+private:
+    template<typename GEN, typename... P>
+    static GenResult FS_VECTORCALL GenFn( const DispatchClass* gen, int32v seed, P... pos )
+    {
+        return ToGenResult( static_cast<const GEN*>( gen )->GenT( seed, pos... ) );
+    }
+
+    template<typename GEN, size_t... DIM>
+    static void FS_VECTORCALL GenBlockFn( const DispatchClass* gen, int32v seed, const float* __restrict pos, float* __restrict out, intptr_t count )
+    {
+        for( intptr_t i = 0; i < count; i += int32v::ElementCount )
+        {
+            FASTNOISE_GEN_BLOCK_STORE( out + i, FS::Load<float32v>( pos + i * sizeof...( DIM ) + DIM * int32v::ElementCount )... )
+        }
+    }
+
+    template<typename GEN, size_t... DIM>
+    static void FS_VECTORCALL GenGridBlockFn( const DispatchClass* __restrict gen, int32v seed, const float* __restrict xTable, const float* rowPos, intptr_t rows, intptr_t xCount, float* out )
+    {
+        for( ; rows > 0; rows--, rowPos += sizeof...( DIM ) * int32v::ElementCount, out += xCount )
+        {
+            for( intptr_t i = 0; i < xCount; i += int32v::ElementCount )
+            {
+                FASTNOISE_GEN_BLOCK_STORE( out + i, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos + DIM * int32v::ElementCount )... )
+            }
+        }
+    }
+
+    template<typename GEN>
+    static void FS_VECTORCALL GenTileableBlockFn( const DispatchClass* gen, int32v seed, const float* __restrict xTable, const float* __restrict zTable, const float* rowPos, intptr_t rows, intptr_t xSize, float* out )
+    {
+        for( ; rows > 0; rows--, rowPos += 2 * int32v::ElementCount, out += xSize )
+        {
+            for( intptr_t i = 0; i < xSize; i += int32v::ElementCount )
+            {
+                FASTNOISE_GEN_BLOCK_STORE( out + i, FS::Load<float32v>( xTable + i ), FS::Load<float32v>( rowPos ), FS::Load<float32v>( zTable + i ), FS::Load<float32v>( rowPos + int32v::ElementCount ) )
+            }
+        }
+    }
+
+    template<typename GEN, size_t... DIM>
+    static void FS_VECTORCALL GenBlockPlanarFn( const DispatchClass* gen, int32v seed, const float* const* axes, const float* offsets, float* out, intptr_t begin, intptr_t end )
+    {
+        for( intptr_t i = begin; i < end; i += int32v::ElementCount )
+        {
+            float32v pos[] = { ( float32v( offsets[DIM] ) + FS::Load<float32v>( axes[DIM] + i ) )... };
+            if constexpr( kInlinePlanarBlock )
+            {
+                FASTNOISE_GEN_BLOCK_STORE( out + i, pos[DIM]... )
+            }
+            else
+            {
+                FS::Store( out + i, gen->Gen( seed, pos[DIM]... ) );
+            }
+        }
+    }
+
+    GenResult( FS_VECTORCALL* mGenFn2D )( const DispatchClass*, int32v, float32v, float32v );
+    GenResult( FS_VECTORCALL* mGenFn3D )( const DispatchClass*, int32v, float32v, float32v, float32v );
+    GenResult( FS_VECTORCALL* mGenFn4D )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v );
+    void( FS_VECTORCALL* mGenBlockFn[3] )( const DispatchClass*, int32v, const float* __restrict, float* __restrict, intptr_t );
+    void( FS_VECTORCALL* mGenGridBlockFn[3] )( const DispatchClass* __restrict, int32v, const float* __restrict, const float*, intptr_t, intptr_t, float* );
+    void( FS_VECTORCALL* mGenTileableBlockFn )( const DispatchClass*, int32v, const float* __restrict, const float* __restrict, const float*, intptr_t, intptr_t, float* );
+    void( FS_VECTORCALL* mGenBlockPlanarFn[3] )( const DispatchClass*, int32v, const float* const*, const float*, float*, intptr_t, intptr_t );
 
 public:
     FastSIMD::FeatureSet GetActiveFeatureSet() const final
@@ -268,7 +241,7 @@ public:
         {
             auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-            return CallGen( simdGen, seed, pos... );
+            return simdGen->Gen( seed, pos... );
         }
         return float32v( memberVariable.constant );
     }
@@ -279,7 +252,7 @@ public:
         assert( memberVariable.simdGeneratorPtr );
         auto simdGen = reinterpret_cast<VoidPtrStorageType>( memberVariable.simdGeneratorPtr );
 
-        return CallGen( simdGen, seed, pos... );
+        return simdGen->Gen( seed, pos... );
     }
 
     template<typename T>
@@ -358,7 +331,7 @@ public:
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -442,7 +415,7 @@ public:
 
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -537,7 +510,7 @@ public:
         float32v xPos = FS::FMulAdd( FS::Convert<float>( xIdx ), xScale, xOffsetV );
         float32v yPos = FS::FMulAdd( FS::Convert<float>( yIdx ), yScale, yOffsetV );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -555,7 +528,7 @@ public:
         float32v xPos = float32v( xOffset ) + LoadRemaining( xPosArray, count, index );
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos );
 
         return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
@@ -574,7 +547,7 @@ public:
         float32v yPos = float32v( yOffset ) + LoadRemaining( yPosArray, count, index );
         float32v zPos = float32v( zOffset ) + LoadRemaining( zPosArray, count, index );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos );
 
         return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
@@ -594,24 +567,24 @@ public:
         float32v zPos = float32v( zOffset ) + LoadRemaining( zPosArray, count, index );
         float32v wPos = float32v( wOffset ) + LoadRemaining( wPosArray, count, index );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
         return StoreRemaining<true>( noiseOut, count, index, min, max, gen );
     }
 
     float GenSingle2D( float x, float y, int seed ) const final
     {
-        return FS::Extract0( CallGen( this, int32v( seed ), float32v( x ), float32v( y ) ) );
+        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ) ) );
     }
 
     float GenSingle3D( float x, float y, float z, int seed ) const final
     {
-        return FS::Extract0( CallGen( this, int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
+        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ) ) );
     }
 
     float GenSingle4D( float x, float y, float z, float w, int seed ) const final
     {
-        return FS::Extract0( CallGen( this, int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
+        return FS::Extract0( Gen( int32v( seed ), float32v( x ), float32v( y ), float32v( z ), float32v( w ) ) );
     }
 
     FastNoise::OutputMinMax GenTileable2D( float* noiseOut, int xSize, int ySize, float xStepSize, float yStepSize, int seed ) const final
@@ -723,7 +696,7 @@ public:
         float32v xPos = FS::Load<float32v>( &xPosTable[xColumn] );
         float32v zPos = FS::Load<float32v>( &zPosTable[xColumn] );
 
-        float32v gen = CallGen( this, int32v( seed ), xPos, yPos, zPos, wPos );
+        float32v gen = Gen( int32v( seed ), xPos, yPos, zPos, wPos );
 
         return StoreRemaining( noiseOut, totalValues, index, min, max, gen );
     }
@@ -929,7 +902,7 @@ private:
         CallGenTileableBlock( this, int32v( seed ), xPosTable, zPosTable, lastRowPos, 1, lastColumn, &noiseOut[lastIndex - lastColumn] );
         AccumulateMinMax( noiseOut, blockIndex, lastIndex, min, max );
 
-        float32v gen = CallGen( this, int32v( seed ), FS::Load<float32v>( &xPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos ),
+        float32v gen = Gen( int32v( seed ), FS::Load<float32v>( &xPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos ),
             FS::Load<float32v>( &zPosTable[lastColumn] ), FS::Load<float32v>( lastRowPos + int32v::ElementCount ) );
 
         return StoreRemaining( noiseOut, lastIndex + (intptr_t)int32v::ElementCount, lastIndex, min, max, gen );
@@ -955,7 +928,7 @@ private:
     template<size_t... I>
     FS_FORCEINLINE float32v CallGenGridRow( std::index_sequence<I...>, int seed, const float* xPos, const float* rowPos ) const
     {
-        return CallGen( this, int32v( seed ), FS::Load<float32v>( xPos ), FS::Load<float32v>( &rowPos[I * int32v::ElementCount] )... );
+        return Gen( int32v( seed ), FS::Load<float32v>( xPos ), FS::Load<float32v>( &rowPos[I * int32v::ElementCount] )... );
     }
 
     template<bool INITIAL>

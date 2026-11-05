@@ -4,9 +4,9 @@
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    FASTNOISE_IMPL_GEN_FN( Gen );
+    FASTNOISE_IMPL_GEN_T;
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y );
@@ -64,7 +64,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z );
@@ -143,7 +143,7 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z, w );
@@ -292,9 +292,9 @@ class FastSIMD::DispatchClass<Simplex, SIMD> final : public virtual Simplex, pub
 template<FastSIMD::FeatureSet SIMD>
 class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSimplex, public DispatchClass<VariableRange<Seeded<ScalableGenerator>>, SIMD>
 {
-    FASTNOISE_IMPL_GEN_FN( Gen );
+    FASTNOISE_IMPL_GEN_T;
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y );
@@ -380,7 +380,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z );
@@ -579,7 +579,7 @@ class FastSIMD::DispatchClass<SuperSimplex, SIMD> final : public virtual SuperSi
         return this->ScaleOutput( this, value, -kBounding, kBounding );
     }
 
-    FS_FORCEINLINE float32v FS_VECTORCALL Gen( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
+    FS_FORCEINLINE float32v FS_VECTORCALL GenT( int32v seed, float32v x, float32v y, float32v z, float32v w ) const
     {
         seed += int32v( mSeedOffset );
         this->ScalePositions( this, x, y, z, w );
