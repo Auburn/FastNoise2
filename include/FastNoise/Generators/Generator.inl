@@ -94,8 +94,8 @@ public:
     }
 
     // Evaluates rows of xCount values (a multiple of N) on a uniform grid: x from the column table xTable, the other
-    // positions are constant per row and stored as DIMS - 1 vectors per row in rowPos. rowPos and out aren't restrict:
-    // loading the row positions per vector keeps the inlined generator's fast-math expressions as in GenBlockFn
+    // positions are constant per row and stored as DIMS - 1 vectors per row in rowPos. rowPos and out are restrict, so
+    // an inlined generator's work on the row positions alone moves out of the row loop (the y hash for White, sin( y ) for SineWave)
     template<size_t DIMS>
     static FS_FORCEINLINE void CallGenGridBlock( const DispatchClass* gen, int32v seed, const float* xTable, const float* rowPos, intptr_t rows, intptr_t xCount, float* out )
     {
@@ -165,7 +165,7 @@ private:
     }
 
     template<typename GEN, size_t... DIM>
-    static void FS_VECTORCALL GenGridBlockFn( const DispatchClass* __restrict gen, int32v seed, const float* __restrict xTable, const float* rowPos, intptr_t rows, intptr_t xCount, float* out )
+    static void FS_VECTORCALL GenGridBlockFn( const DispatchClass* __restrict gen, int32v seed, const float* __restrict xTable, const float* __restrict rowPos, intptr_t rows, intptr_t xCount, float* __restrict out )
     {
         for( ; rows > 0; rows--, rowPos += sizeof...( DIM ) * int32v::ElementCount, out += xCount )
         {
@@ -177,7 +177,7 @@ private:
     }
 
     template<typename GEN>
-    static void FS_VECTORCALL GenTileableBlockFn( const DispatchClass* gen, int32v seed, const float* __restrict xTable, const float* __restrict zTable, const float* rowPos, intptr_t rows, intptr_t xSize, float* out )
+    static void FS_VECTORCALL GenTileableBlockFn( const DispatchClass* gen, int32v seed, const float* __restrict xTable, const float* __restrict zTable, const float* __restrict rowPos, intptr_t rows, intptr_t xSize, float* __restrict out )
     {
         for( ; rows > 0; rows--, rowPos += 2 * int32v::ElementCount, out += xSize )
         {
@@ -209,8 +209,8 @@ private:
     GenResult( FS_VECTORCALL* mGenFn3D )( const DispatchClass*, int32v, float32v, float32v, float32v );
     GenResult( FS_VECTORCALL* mGenFn4D )( const DispatchClass*, int32v, float32v, float32v, float32v, float32v );
     void( FS_VECTORCALL* mGenBlockFn[3] )( const DispatchClass*, int32v, const float* __restrict, float* __restrict, intptr_t );
-    void( FS_VECTORCALL* mGenGridBlockFn[3] )( const DispatchClass* __restrict, int32v, const float* __restrict, const float*, intptr_t, intptr_t, float* );
-    void( FS_VECTORCALL* mGenTileableBlockFn )( const DispatchClass*, int32v, const float* __restrict, const float* __restrict, const float*, intptr_t, intptr_t, float* );
+    void( FS_VECTORCALL* mGenGridBlockFn[3] )( const DispatchClass* __restrict, int32v, const float* __restrict, const float* __restrict, intptr_t, intptr_t, float* __restrict );
+    void( FS_VECTORCALL* mGenTileableBlockFn )( const DispatchClass*, int32v, const float* __restrict, const float* __restrict, const float* __restrict, intptr_t, intptr_t, float* __restrict );
     void( FS_VECTORCALL* mGenBlockPlanarFn[3] )( const DispatchClass*, int32v, const float* const*, const float*, float*, intptr_t, intptr_t );
 
 public:
